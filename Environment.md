@@ -71,32 +71,91 @@ services:
     image: myrepository/RDM-osf.io:mybranch
   worker:
     image: myrepository/RDM-osf.io:mybranch
+  ember_osf_web:
+    image: myrepository/RDM-ember-osf-web:mybranch
 ```
 
-# コマンドの実行例
+# 開発環境でRDMを起動する
 
 ## サービスを起動する
 
 [Quickstart: Running all OSF services in the background](https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#quickstart-running-all-osf-services-in-the-background) に示されているように、以下のコマンドでサービスを実行することができます。
 
 ```
-# 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements mfr_requirements wb_requirements
+# ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
+$ docker-compose up requirements mfr_requirements wb_requirements && docker-compose run --rm assets invoke assets -d
+# DBのマイグレーション - 初回/DB定義変更時だけ必要
+$ docker-compose run --rm web python3 manage.py migrate
 
 $ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin preprints registries ember_osf_web
 ```
 
 動作確認したい内容に応じて、 mfr, admin_assets, admin, sharejs, preprints, registries, ember_osf_web を除外することもできます。
-例えば、fakecasで認証し、プロジェクトダッシュボードを確認したいだけであれば、
+例えば、fakecasで認証し、プロジェクト作成、ファイル管理を確認したいだけであれば、
 
 ```
-# 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements wb_requirements
+# ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
+$ docker-compose up requirements wb_requirements && docker-compose run --rm assets invoke assets -d
+# DBのマイグレーション - 初回/DB定義変更時だけ必要
+$ docker-compose run --rm web python3 manage.py migrate
 
-$ docker-compose up -d assets wb wb_worker fakecas worker web api
+$ docker-compose up -d assets wb wb_worker fakecas worker web api ember_osf_web
 ```
 
-でも十分でしょう。
+でも十分でしょう。`docker-compose ps`で異常終了しているサービスがいないことを確認します。
+`docker-compose ps`の出力例は以下の通りです。`docker-compose up -d`で指定したサービスが`Up`であることを確認します。
+
+```
+$ docker-compose ps
+            Name                          Command               State                                              Ports                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+rdm2-osfio_api_1               docker-entrypoint.sh invok ...   Up       0.0.0.0:8000->8000/tcp                                                                    
+rdm2-osfio_assets_1            docker-entrypoint.sh invok ...   Up                                                                                                 
+rdm2-osfio_elasticsearch_1     /docker-entrypoint.sh elas ...   Up       0.0.0.0:9200->9200/tcp, 9300/tcp                                                          
+rdm2-osfio_ember_osf_web_1     docker-entrypoint.sh /bin/ ...   Up       0.0.0.0:41953->41953/tcp, 0.0.0.0:4200->4200/tcp                                          
+rdm2-osfio_fakecas_1           fakecas -host=0.0.0.0:8080 ...   Up       0.0.0.0:8080->8080/tcp                                                                    
+rdm2-osfio_postgres_1          docker-entrypoint.sh /bin/ ...   Up       0.0.0.0:5432->5432/tcp                                                                    
+rdm2-osfio_rabbitmq_1          docker-entrypoint.sh rabbi ...   Up       15671/tcp, 0.0.0.0:15672->15672/tcp, 25672/tcp, 4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp
+rdm2-osfio_requirements_1      docker-entrypoint.sh /bin/ ...   Exit 0                                                                                             
+rdm2-osfio_wb_1                invoke server                    Up       0.0.0.0:7777->7777/tcp                                                                    
+rdm2-osfio_wb_requirements_1   /bin/bash -c invoke instal ...   Exit 0                                                                                             
+rdm2-osfio_wb_worker_1         invoke celery                    Up       7777/tcp                                                                                  
+rdm2-osfio_web_1               docker-entrypoint.sh invok ...   Up       0.0.0.0:5000->5000/tcp                                                                    
+rdm2-osfio_worker_1            docker-entrypoint.sh invok ...   Up
+
+```
+
+## Web UIを開く
+
+サービスが起動したことを確認したら、 `http://localhost:5000` にアクセスし動作を確認してみましょう。
+
+ログは `docker-compose logs` コマンドで確認できます。ember_osf_webコンテナは起動にある程度時間がかかりますが、この状態を確認するには、以下のコマンドを入力します。
+
+```
+$ docker-compose logs -f ember_osf_web
+...
+Build successful (xxxxxms) – Serving on http://0.0.0.0:4200/
+```
+
+## テスト用ユーザを作成する
+
+`http://localhost:5000` が正常に参照できたら、`Sign Up`を行いましょう。以下の手順で行います。
+
+1. `Sign Up`ボタンを押し、ユーザ登録画面を開く
+1. ユーザ登録画面に適当なユーザ名、Eメールアドレスとパスワードを入力する
+1. デバッグログにEメール到達確認用のURL(`http://localhost:5000/confirm/xxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/`)が出力されるので、 `docker-compose logs web` で確認する
+
+  > 本番環境の場合はここでEメールアドレス宛に到達確認用のURLを含むメールが届きますが、SMTPサーバを指定していないのでメールは送信されません。
+
+1. 到達確認用のURLをブラウザでアクセスする
+
+> ブラウザはFirefoxを使用してください。Chromeの場合は、FakeCASとWeb UIの間でCookieが共有されず正常動作しない場合があります。
+
+## 動作確認を実施する
+
+これでユーザの作成は完了です。以降は、ログイン画面から、登録したEメールアドレスのみでログインできます。(開発用途に限定して利用してください。)
+
+# コマンドの実行例
 
 ## ユニットテストを実行する
 
