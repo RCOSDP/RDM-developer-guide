@@ -83,7 +83,7 @@ services:
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements mfr_requirements wb_requirements && docker-compose run --rm assets invoke assets -d
+$ docker-compose up requirements mfr_requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker-compose run --rm web python3 manage.py migrate
 
@@ -95,7 +95,7 @@ $ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs work
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements wb_requirements && docker-compose run --rm assets invoke assets -d
+$ docker-compose up requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker-compose run --rm web python3 manage.py migrate
 
