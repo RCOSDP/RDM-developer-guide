@@ -153,6 +153,20 @@ COPY ./addons/nextcloud/static/ ./addons/nextcloud/static/
 COPY ./addons/nextcloudinstitutions/static/ ./addons/nextcloudinstitutions/static/
 COPY ./addons/iqbrims/static/ ./addons/iqbrims/static/
 COPY ./addons/myskelton/static/ ./addons/myskelton/static/
+RUN \
+    # OSF
+    yarn install --frozen-lockfile \
+    && mkdir -p ./website/static/built/ \
+    && invoke build_js_config_files \
+    && yarn run webpack-prod \
+    # Admin
+    && cd ./admin \
+    && yarn install --frozen-lockfile \
+    && yarn run webpack-prod \
+    && cd ../ \
+    # Cleanup
+    && yarn cache clean \
+    && npm cache clean --force
 
 # Copy the rest of the code over
 COPY ./ ./

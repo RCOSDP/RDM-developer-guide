@@ -142,19 +142,28 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 
 [スケルトンコードの例](addon/)を `addons/myskelton` ディレクトリにコピーします。[ファイルの構成](#ファイルの構成)で示したツリー構造となるようにコピーしてください。
 
-アドオン名を`myskelton`から変更したい場合は、以下のコードを変更する必要があります。
+このスケルトンでは、アドオン名(識別名)を`myskelton`としています。
+識別名はモジュール名と一致させる必要がありますので、`myskelton`以外の名前にしたい場合は、`addons/(識別名)` ディレクトリに[スケルトンコード](addon/)を配置するようにしてください。
+
+また、この名前を変更したい場合は、以下のコードを変更する必要があります。
 
 - [SHORT_NAME(Python)](addon/__init__.py)
 - [SHORT_NAME(JavaScript)](addon/static/node-cfg.js)
-- [view関数のプレフィックス](addon/views.py)
+- [view関数のプレフィックス(myskelton_*)](addon/views.py) - [参照元](addon/routes.py)
+
+また、アドオンの完全名を `My Skelton` としています。これは、Web UIでの表示等に使われます。この名前を変更したい場合は、以下のコードを変更する必要があります。
+
+- [AddonAppConfig.full_name](addon/apps.py)
 
 ## RDMコードの変更
 
+追加したアドオンをRDMに認識させるために、RDMのコードをいくつか変更します。
+
 ### addons.json の変更
 
-`addons.json` に、アドオンに関する情報を追加します。このファイルはJSONファイル形式であり、キーごとに以下の値を登録します。
+[addons.json](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons.json) に、アドオンに関する情報を追加します。このファイルはJSONファイル形式であり、キーごとに以下の値を登録します。
 
-変更例は [addons.json](config/addons.json) を参照してください。
+変更例はサンプル [addons.json](config/addons.json) を参照してください。
 
 - `addons` ... 利用可能なアドオン一覧。必ず登録する
 - `addons_default` ... プロジェクト作成時にデフォルトで有効になるアドオン一覧
@@ -174,10 +183,10 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 
 ### framework/addons/data/addons.json の変更
 
-`framework/addons/data/addons.json` に、アドオン登録時のメッセージリソースを登録します。
+[framework/addons/data/addons.json](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/addons/data/addons.json) に、アドオン登録時のメッセージリソースを登録します。
 `addons` オブジェクトに、アドオンの完全名(`AddonAppConfig.full_name` に相当)をキーとして情報を登録します。
 
-変更例は [addons.json](config/framework/addons/data/addons.json) を参照してください。
+変更例はサンプル [addons.json](config/framework/addons/data/addons.json) を参照してください。
 
 ```
 "My Skelton": {
@@ -214,9 +223,9 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 
 ### Dockerfile の変更
 
-`Dockerfile` に、アドオン関連のファイルコピー定義を追加します。
+[Dockerfile](https://github.com/RCOSDP/RDM-osf.io/blob/develop/Dockerfile) に、アドオン関連のファイルコピー定義を追加します。
 
-変更例は [Dockerfile](config/Dockerfile) を参照してください。
+変更例はサンプル [Dockerfile](config/Dockerfile) を参照してください。
 
 
 - requirements.txtのコピー
@@ -231,9 +240,9 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 
 ### api/base/settings/defaults.py への追加
 
-`api/base/settings/defaults.py` の `INSTALLED_APPS` にアドオン名を追加します。
+[api/base/settings/defaults.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/base/settings/defaults.py) の `INSTALLED_APPS` にアドオン名を追加します。
 
-変更例は [defaults.py](config/api/base/settings/defaults.py) を参照してください。
+変更例はサンプル [defaults.py](config/api/base/settings/defaults.py) を参照してください。
 
 ```
 'addons.myskelton',
@@ -245,6 +254,14 @@ Modelで定義したプロパティがRDBに保存されるよう、`makemigrati
 
 ```
 $ docker-compose run --rm web python3 manage.py makemigrations
+```
+
+上記の出力中に以下の出力が現れれば成功です。現れない場合、RDMがアドオンを認識していない可能性があります。特に`addons.json`, `api/base/settings/defaults.py`の設定が漏れていないかどうかを確認してください。
+
+```
+Migrations for 'addons_myskelton':
+  addons/myskelton/migrations/0001_initial.py
+    - Create model NodeSettings
 ```
 
 ## スケルトンのテスト
@@ -272,11 +289,16 @@ $ docker-compose restart assets web api
 
 これでサービスへの反映は完了です。スケルトン アドオンを試すには、以下のような操作を実施します。
 
-*TBD スクリーンショット*
-
 1. RDM Web UIにアクセスする `http://localhost:5000`
 1. 適当なプロジェクトを作成する
-1. Addonsページを開く
+  ![Create Project](images/create-project.png)
+
+1. Add-onsページを開く
 1. My Skeltonアドオンを有効化する
+  ![Enable Addon](images/enable-addon.png)
 
 これで、`node_settings.mako`で定義したNode設定画面が現れます。テキストボックスに入力した値が `param_1` プロパティに反映される様子が確認できるはずです。
+
+![Addon](images/enabled-addon.png)
+
+以上でスケルトンアドオンの動作確認は完了です！
