@@ -1,0 +1,79 @@
+from addons.myminio import SHORT_NAME
+from addons.myminio import views
+from framework.routing import Rule, json_renderer
+
+api_routes = {
+    'rules': [
+        Rule(
+            [
+                '/settings/{}/accounts/'.format(SHORT_NAME),
+            ],
+            'post',
+            views.myminio_add_user_account,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/settings/{}/accounts/'.format(SHORT_NAME),
+            ],
+            'get',
+            views.myminio_account_list,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/settings/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/settings/'.format(SHORT_NAME),
+            ],
+            'put',
+            views.myminio_set_config,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/settings/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/settings/'.format(SHORT_NAME),
+            ],
+            'get',
+            views.myminio_get_config,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/user-auth/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/user-auth/'.format(SHORT_NAME),
+            ],
+            'put',
+            views.myminio_import_auth,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/user-auth/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/user-auth/'.format(SHORT_NAME),
+            ],
+            'delete',
+            views.myminio_deauthorize_node,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/buckets/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/buckets/'.format(SHORT_NAME),
+            ],
+            'get',
+            views.myminio_folder_list,
+            json_renderer,
+        ),
+        Rule(
+            [
+                '/project/<pid>/{}/newbucket/'.format(SHORT_NAME),
+                '/project/<pid>/node/<nid>/{}/newbucket/'.format(SHORT_NAME),
+            ],
+            'post',
+            views.myminio_create_bucket,
+            json_renderer
+        ),
+    ],
+    'prefix': '/api/v1',
+}
