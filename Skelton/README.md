@@ -15,7 +15,6 @@
 * [RDM-osf.ioリポジトリ](https://github.com/RCOSDP/RDM-osf.io)をフォークし、ローカル環境にcloneしていること
   * 特に指定がない限りはdevelopブランチからアドオン開発用ブランチ(例えば、 `feature/myskelton-addon`)を作成し作業する
   * アドオン開発用ブランチには定期的にdevelopブランチをpullして変更を取り込む
-
 * cloneしたアドオン開発用ブランチで、 [開発環境の準備](../Environment.md#開発環境でRDMを起動する) のガイドに従い、開発用RDMを起動していること
 
 # RDMアドオンの設計
