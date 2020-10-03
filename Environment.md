@@ -24,6 +24,8 @@ Dockerを用いることで、OS等の環境の差異をコンテナにより吸
 * テスト用認証サービス: fakecas
 * ユーティリティサービス: requirements ([RDM-osf.io](https://github.com/RCOSDP/RDM-osf.io/)), mfr_requirements ([RDM-modular-file-renderer](https://github.com/RCOSDP/RDM-modular-file-renderer)), wb_requirements ([RDM-waterbutler](https://github.com/RCOSDP/RDM-waterbutler/)), assets, admin_assets ([RDM-osf.io](https://github.com/RCOSDP/RDM-osf.io/))
 
+> GRDMでは preprints, registries は使用しません。
+
 # 基本的な流れ
 
 1. DockerとOSのセットアップ - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#docker-and-os-setup
@@ -87,10 +89,12 @@ $ docker-compose up requirements mfr_requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker-compose run --rm web python3 manage.py migrate
 
-$ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin preprints registries ember_osf_web
+$ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin ember_osf_web
 ```
 
-動作確認したい内容に応じて、 mfr, admin_assets, admin, sharejs, preprints, registries, ember_osf_web を除外することもできます。
+> https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md では preprints, registries の起動について紹介していますが、GRDMでは preprints, registries は提供しないため無視してください。
+
+動作確認したい内容に応じて、 mfr, admin_assets, admin, sharejs を除外することもできます。
 例えば、fakecasで認証し、プロジェクト作成、ファイル管理を確認したいだけであれば、
 
 ```
