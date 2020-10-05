@@ -325,7 +325,7 @@ ADDONS_OAUTH.append('myminio')
     },
 ```
 
-> `externalView` を `true` に設定すると、FilViewerでファイルの外部ページリンクボタンが表示されるようになります。リンクを正しく動作させるには、WaterButlerのProviderを修正する必要があります。詳細は[GoogleDriveの実装](https://github.com/RCOSDP/RDM-waterbutler/blob/develop/waterbutler/providers/googledrive/metadata.py#L116)などを参照してください。
+> `externalView` を `true` に設定すると、FileViewerでファイルの外部ページリンクボタンが表示されるようになります。リンクを正しく動作させるには、WaterButlerのProviderを修正する必要があります。詳細は[GoogleDriveの実装](https://github.com/RCOSDP/RDM-waterbutler/blob/develop/waterbutler/providers/googledrive/metadata.py#L116)などを参照してください。
 
 > FileViewerで、フォルダの操作はできるけどファイルの操作ができない場合は、 `storageAddons.json` の設定が漏れている可能性があります。
   
@@ -385,7 +385,7 @@ $ docker-compose run --rm web invoke test_module -m addons/myminio/tests/
 以下のコマンドで、WaterButlerに追加したMy MinIOアドオン Providerのユニットテストを実行できます。
 
 ```
-$ ocker-compose run --rm wb invoke test --provider myminio
+$ docker-compose run --rm wb invoke test --provider myminio
 ```
 
 
