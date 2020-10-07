@@ -388,10 +388,9 @@ $ docker-compose run --rm web invoke test_module -m addons/myminio/tests/
 
 ```
 .
-
 ├── RDM-osf.io
 │   ├── docker-compose.override.yml
-│   ├── docker-compose.yml
+│   └── docker-compose.yml
 └── RDM-waterbutler
 ```
 
@@ -462,7 +461,7 @@ $ docker-compose run --rm web python3 manage.py migrate
 
 ## サービスの再起動
 
-WaterButlerに追加したProviderを有効にするために、 `wb_requirements` 起動します。
+WaterButlerに追加したProviderを有効にするために、 `wb_requirements` を起動します。
 
 ```
 $ docker-compose up wb_requirements
