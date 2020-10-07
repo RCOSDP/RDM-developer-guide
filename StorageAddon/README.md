@@ -380,6 +380,39 @@ $ docker-compose run --rm web invoke test_module -m addons/myminio/tests/
 
 変更例はサンプル [setup.py](waterbutler/config/setup.py) を参照してください。
 
+### docker-compose.override.yml の追加
+
+変更したコードを使うよう、RDMの `docker-compose.override.yml` で WaterButler のサービスの `volumes` を指定します。
+
+例えば、以下のようなディレクトリ階層の場合は、
+
+```
+.
+
+├── RDM-osf.io
+│   ├── docker-compose.override.yml
+│   ├── docker-compose.yml
+└── RDM-waterbutler
+```
+
+`RDM-osf.io/docker-compose.override.yml` の内容を以下のようにします。
+
+```
+version: "3.4"
+
+services:
+  wb:
+    volumes:
+      - ../RDM-waterbutler:/code
+  wb_worker:
+    volumes:
+      - ../RDM-waterbutler:/code
+  wb_requirements:
+    volumes:
+      - ../RDM-waterbutler:/code
+```
+
+
 ### アドオンのテスト
 
 以下のコマンドで、WaterButlerに追加したMy MinIOアドオン Providerのユニットテストを実行できます。
