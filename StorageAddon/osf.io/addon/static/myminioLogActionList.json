@@ -1,0 +1,11 @@
+{
+  "myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
+  "myminio_bucket_unlinked" : "${user} unselected the My MinIO bucket ${bucket} in ${node}",
+  "myminio_file_added" : "${user} added file ${path} to My MinIO bucket ${bucket} in ${node}",
+  "myminio_file_removed" : "${user} removed ${path} in My MinIO bucket ${bucket} in ${node}",
+  "myminio_file_updated" : "${user} updated file ${path} in My MinIO bucket ${bucket} in ${node}",
+  "myminio_folder_created" : "${user} created folder ${path} in My MinIO bucket ${bucket} in ${node}",
+  "myminio_node_authorized" : "${user} authorized the My MinIO addon for ${node}",
+  "myminio_node_deauthorized" : "${user} deauthorized the My MinIO addon for ${node}",
+  "myminio_node_deauthorized_no_user" : "My MinIO addon for ${node} deauthorized"
+}

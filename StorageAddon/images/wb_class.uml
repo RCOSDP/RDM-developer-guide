@@ -1,0 +1,45 @@
+# Build:
+# $ cat wb_class.uml | docker run --rm -i think/plantuml -tpng > wb_class.png
+@startuml
+
+package waterbutler.core.metadata <<Rectangle>> {
+  class BaseMetadata
+  class BaseFileMetadata
+  class BaseFolderMetadata
+  class BaseFileRevisionMetadata
+}
+
+package waterbutler.core.provider <<Rectangle>> {
+  class BaseProvider
+}
+
+
+package waterbutler.providers.$(addon_short_name).metadata <<Rectangle>> {
+  class "$(AddonShortName)Metadata"
+  class "$(AddonShortName)FileMetadataHeaders"
+  class "$(AddonShortName)FileMetadata"
+  class "$(AddonShortName)FolderKeyMetadata"
+  class "$(AddonShortName)FolderMetadata"
+  class "$(AddonShortName)Revision"
+}
+
+package waterbutler.providers.$(addon_short_name).provider <<Rectangle>> {
+  class "$(AddonShortName)Provider"
+}
+
+
+BaseMetadata <|-- "$(AddonShortName)Metadata"
+"$(AddonShortName)Metadata" <|-- "$(AddonShortName)FileMetadataHeaders"
+BaseFileMetadata <|-- "$(AddonShortName)FileMetadataHeaders"
+"$(AddonShortName)Metadata" <|-- "$(AddonShortName)FileMetadata"
+BaseFileMetadata <|-- "$(AddonShortName)FileMetadata"
+"$(AddonShortName)Metadata" <|-- "$(AddonShortName)FolderKeyMetadata"
+BaseFolderMetadata <|-- "$(AddonShortName)FolderKeyMetadata"
+"$(AddonShortName)Metadata" <|-- "$(AddonShortName)FolderMetadata"
+BaseFolderMetadata <|-- "$(AddonShortName)FolderMetadata"
+BaseFileRevisionMetadata <|-- "$(AddonShortName)Revision"
+
+BaseProvider <|-- "$(AddonShortName)Provider"
+"$(AddonShortName)Provider" ..> "waterbutler.providers.$(addon_short_name).metadata"
+
+@enduml

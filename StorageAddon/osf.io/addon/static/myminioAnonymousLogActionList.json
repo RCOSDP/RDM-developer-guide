@@ -1,0 +1,11 @@
+{
+    "myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
+    "myminio_bucket_unlinked" : "A user unselected an My MinIO bucket in a project",
+    "myminio_file_added" : "A user added a file to an My MinIO bucket in a project",
+    "myminio_file_removed" : "A user removed a file in an My MinIO bucket in a project",
+    "myminio_file_updated" : "A user updated a file in an My MinIO bucket in a project",
+    "myminio_folder_created" : "A user created a folder in an My MinIO in a project",
+    "myminio_node_authorized" : "A user authorized the My MinIO addon for a project",
+    "myminio_node_deauthorized" : "A user deauthorized the My MinIO addon for a project",
+    "myminio_node_deauthorized_no_user" : "My MinIO addon for a project deauthorized"
+}
