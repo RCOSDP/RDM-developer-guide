@@ -293,6 +293,9 @@ def add_iqbrims_addon(sender, instance, created, **kwargs):
 
 この例の場合は、`post_save`を指定していますので、Node型(プロジェクトはこの型のオブジェクトで表現されます)を持つオブジェクトの更新後に、`add_iqbrims_addon`関数が呼び出されます。
 
+> `post_save`のほか、検知可能な変更操作は、 https://docs.djangoproject.com/en/3.1/ref/signals/ に列挙されています。
+> RDM内では、 `pre_save`, `post_save`, `post_delete`, `m2m_changed` がすでに使用されています。
+
 ### osf.modelsによるモデル操作
 
 `django.dispatch.receiver(post_save, sender=Node)` デコレータの場合は、第2引数の `instance` オブジェクトにNodeへの参照が格納されます。
