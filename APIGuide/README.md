@@ -151,10 +151,57 @@ RDMはアドオンに関してサンドボックスのような隔離モデル�
 
 このような攻撃への対策として、秘密のトークンそのものをリクエストに含めるのではなく、秘密のトークンと、その他の情報を合わせたハッシュ値を計算し、そのハッシュをリクエストに含めることが考えられます。これにより、受信側は同様のハッシュ計算を行なって送信側のハッシュ値との比較を行うことで、送信側が秘密のトークンを所持しているかを検証することができます。この方式の代表的なものがAmazon S3のSigning and authenticating REST requests https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html です。
 
-Amazon S3では、送信時刻を含むリクエストヘッダをハッシュ計算の対象に含めることで、ハッシュ値を含むリクエストが漏洩しても、同じオブジェクトに対するリクエストは以後不可能なように配慮がなされています。ハッシュ値の計算にどのような要素を使うかはアドオンの実装に依存する部分ではありますが、たとえリクエストが漏洩したとしても、その影響範囲が限定的になるよう配慮してハッシュ計算を実装する必要があるでしょう。
+例として、IQB-RIMSアドオンの場合は、アドオンの設定情報に基づいたハッシュを生成し、独自のHTTPヘッダ `X-RDM-Token` に格納するようにしています。
+これにより、あるプロジェクトにアタッチされたアドオンにおいてハッシュが漏洩したとしても、別のアドオンに対して悪用はできないように配慮しています。
+ハッシュ生成処理は、[RDMが提供するデコレータ一覧](Decorators.md)のようにデコレータとして定義することで、再利用性を高めています。
 
-> *TBD* [addons.iqbrims.utils.must_have_valid_hash()](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/utils.py#L142)
-> IQB-RIMS専用のデコレータです。複数のView処理に対するアドオン固有の前提条件は、このようにデコレータとして定義して使う回すことができます。
+```
+def must_have_valid_hash():
+    """Decorator factory that ensures that a request have valid X-RDM-Token header.
+    :returns: Decorator function
+    """
+    def wrapper(func):
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            owner = kwargs['node']
+            addon = owner.get_addon(IQBRIMSAddonConfig.short_name)
+            if addon is None:
+                raise HTTPError(http.BAD_REQUEST)
+            secret = addon.get_secret()
+            process_def_id = addon.get_process_definition_id()
+            valid_hash = hashlib.sha256((secret + process_def_id + owner._id).encode('utf8')).hexdigest()
+            request_hash = request.headers.get('X-RDM-Token', None)
+            logger.debug('must_have_valid_hash: request_hash={}'.format(request_hash))
+            logger.debug('must_have_valid_hash: valid_hash={}'.format(valid_hash))
+            if request_hash != valid_hash:
+                raise HTTPError(
+                    http.FORBIDDEN,
+                    data={'message_long': ('User has restricted access to this page.')}
+                )
+            return func(*args, **kwargs)
+
+        return wrapped
+
+    return wrapper
+```
+(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/utils.py#L142)
+
+このように定義した独自の `addons.iqbrims.utils.must_have_valid_hash` デコレータを用いて、
+個々のViewsへのアクセスの際にハッシュ値の計算・設定が必要なことを明示しています。
+
+```
+@must_be_valid_project
+@must_have_addon(SHORT_NAME, 'node')
+@must_have_valid_hash()    # Hashの設定が必要なことを示す
+def iqbrims_post_workflow_state(**kwargs):
+    node = kwargs['node'] or kwargs['project']
+    ...    # Viewsの処理
+```
+(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/views.py#L229)
+
+これらのハッシュ計算にどの程度のリスクを想定するかは利用形態によって異なります。例えば、Amazon S3では、送信時刻を含むリクエストヘッダをハッシュ計算の対象に含めることで、ハッシュ値を含むリクエストが漏洩しても、同じオブジェクトに対するリクエストは以後不可能なように配慮がなされています。ハッシュ値の計算にどのような要素を使うかはアドオンの実装に依存する部分ではありますが、たとえリクエストが漏洩したとしても、その影響範囲がある程度限定的になるよう配慮してハッシュ計算を実装する必要があるでしょう。
+
 
 
 # 既存APIによる操作
@@ -230,6 +277,7 @@ def add_iqbrims_addon(sender, instance, created, **kwargs):
 
     instance.add_addon(IQBRIMSAddonConfig.short_name, auth=None, log=False)
 ```
+(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/models.py#L309-L327)
 
 以下で、注目すべきコードについてそれぞれ説明します。
 
@@ -242,7 +290,6 @@ def add_iqbrims_addon(sender, instance, created, **kwargs):
 def add_iqbrims_addon(sender, instance, created, **kwargs):
     ...
 ```
-(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/models.py#L309-L327)
 
 この例の場合は、`post_save`を指定していますので、Node型(プロジェクトはこの型のオブジェクトで表現されます)を持つオブジェクトの更新後に、`add_iqbrims_addon`関数が呼び出されます。
 
