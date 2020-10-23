@@ -3,7 +3,7 @@
 RDMが研究データを効果的に管理するためには、外部システムとの連携や既存のRDMアドオンとの連携を行う必要が出てくるでしょう。
 このような時、外部システムやRDMおよびアドオンの間の境界面、特にAPI(Application Programming Interface)を意識しながら機能を実装することで、メンテナンス性を維持したり、今後の拡張を容易にしたりすることができます。
 
-本ドキュメントではアドオンにおける実装に着目し、アドオンを外部システムから操作可能にする方法([アドオンAPIの公開](#アドオンAPIの公開))と、アドオンからRDMを操作する方法([#既存APIによる操作](既存APIによる操作))の2つの観点で説明します。
+本ドキュメントではアドオンにおける実装に着目し、アドオンを外部システムから操作可能にする方法([アドオンAPIの公開](#アドオンAPIの公開))と、アドオンからRDMを操作する方法([既存APIによる操作](#既存APIによる操作))の2つの観点で説明します。
 
 # アドオンAPIの公開
 
@@ -41,7 +41,7 @@ api_routes = {
 }
 ```
 
-ルール(1)は、`/project/<pid>/アドオン名/config` というエンドポイントへの`GET`リクエストに対する処理を、viewsモジュールで定義した`myscreen_get_config_ember`という関数に行わせることを宣言しています。`json_renderer`は、関数の戻り値として返されたオブジェクトを
+ルール(1)は、`/project/<pid>/アドオン名/config` というエンドポイントへの`GET`リクエストに対する処理を、viewsモジュールで定義した`myscreen_get_config_ember`という関数に行わせることを定義しています。`json_renderer`は、関数の戻り値として返されたオブジェクトを
 JSONに変換、レスポンスとして返すことを定義しています。
 同様に、ルール(2)は`PATCH`リクエストに対しては`myscreen_set_config_ember`で処理することを示しています。
 
@@ -133,14 +133,14 @@ Personal Access Tokenはユーザに手動でトークンを作成させ、ト�
 APIに対してアクセスするアプリケーションは、OAuth 2.0に対応したクライアントライブラリを用いてOAuth認可フローを実装する必要があります。
 アプリケーションはOAuth認可フローを通して、ユーザにRDMへのログインと認可を求め、認可されるとAccess Token(または、要求した`access_type`が`offline`の場合、Refresh TokenとAccess Token)を取得することができます。あとはPersonal Access Tokenと同様に、`Authorization: Bearer`ヘッダにAccess Tokenを与えることで、APIアクセスを行うことができます。
 
-頻繁に利用される可能性があるAccess Tokenは悪用を防ぐため、短時間(1時間)で期限切れとなるよう設計されています。そのため、認可を受けてから、長期間にわたってその認可された操作を実施したい場合は、Refresh Tokenを用いてAccess Tokenを定期的に新規取得する必要があります。
+頻繁に利用される可能性があるAccess Tokenは、悪用を防ぐために短時間(1時間)で期限切れとなるよう設計されています。そのため、認可を受けてから、長期間にわたってその認可された操作を実施したい場合は、Refresh Tokenを用いてAccess Tokenを定期的に新規取得する必要があります。
 これらの処理は、多くの場合OAuth対応クライアントライブラリにロジックが用意されており、RDMが提供するエンドポイントのURLを与えれば実現できます。
 (参考: エンドポイントの情報や可能な操作は https://github.com/RCOSDP/RDM-cas-overlay#web-server-authorization に記載されている。)
 
 ### 独自方式によるアクセス制御: Signing API requestsの例
 
-RDMはアドオンに関してサンドボックスのような隔離モデルは採用しておらず、RDM本体と同様の操作が、アドオンからも実施することができます。
-したがって、様々な処理をアドオンとして実現できる一方、その強力な自由度を悪用されないよう、アドオンでは適切な権限制御を行う必要があります。
+RDMはアドオンに関してサンドボックスのような隔離モデルは採用しておらず、アドオンからRDM本体と同様の操作が実施することができます。
+これは、様々な処理をアドオンとして実現できる一方、その強力な自由度を悪用されないよう、アドオンでは適切な権限制御を行う必要があります。
 
 先に示したのはユーザの認可を経て処理を実施する方式ですが、アドオンによっては、必ずしも操作主体となるユーザを限定しない形で振舞う必要があるかもしれません。
 このような場合に関してRDMは特別なセキュリティ機構を提供していないため、独自に外部システム(アドオン呼び出し元)とアドオンの間で取り決めをし、不正なユーザがアクセスすることができないようにセキュリティ機構を実装する必要があります。
@@ -158,7 +158,7 @@ RDMは多くの機能をAPIとして提供しているため、すでにある�
 
 ## OSF APIv2 による外部からの操作
 
-OSF APIv2はRDMが備えるRESTful APIです。OSF APIv2ドキュメント https://developer.osf.io/# で説明されている通り、プロジェクトに対して様々な操作を実施することができます。
+OSF APIv2はRDMが備えるRESTful APIです。OSF APIv2ドキュメント https://developer.osf.io/ で説明されている通り、プロジェクトに対して様々な操作を実施することができます。
 
 これらのAPIは外部システムからの呼び出しに利用される他、Emberベースのアプリケーションからの操作にも利用されます。また、JSON-API https://jsonapi.org/format/1.0/ に準拠した形式で提供されます。
 
@@ -172,7 +172,6 @@ RDMにて指定可能なスコープは `oauth_scopes.public_scopes` として�
 これらのスコープは`CoreScopes` https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/oauth_scopes.py#L23 の組み合わせとして表現されます。
 それぞれの操作がどのようなスコープを要求するかは、Viewクラスに定義されます。例えば、NodeListに関する操作 ( https://developer.osf.io/#operation/nodes_list や https://developer.osf.io/#operation/nodes_create ) であれば、
 
-https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/nodes/views.py#L228-L229
 ```
 class NodeList(JSONAPIBaseView, bulk_views.BulkUpdateJSONAPIView, bulk_views.BulkDestroyJSONAPIView, bulk_views.ListBulkCreateJSONAPIView, NodesFilterMixin, WaterButlerMixin, NodeOptimizationMixin):
     """The documentation for this endpoint can be found [here](https://developer.osf.io/#operation/nodes_list).
@@ -189,16 +188,16 @@ class NodeList(JSONAPIBaseView, bulk_views.BulkUpdateJSONAPIView, bulk_views.Bul
     serializer_class = NodeSerializer
     ...
 ```
+(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/nodes/views.py#L228-L229)
 
 のように、 `required_read_scopes` と `required_write_scopes` として、必要なスコープが定義されます。
 
 
 ## Django Modelによる内部からの操作
 
-RDMはDjangoアプリケーションとして構成されているため、データベースへのアクセスはModelを介して行います。
+RDMはDjangoアプリケーションとして構成されているため、データベースへのアクセスはDjango Modelを介して行います。
 この操作の例として、`django.dispatch.receiver` によるモデル変更検知と、 `osf.models` 内のオブジェクトを介した操作例を示します。
 
-https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/models.py#L309-L327
 ```
 from django.dispatch import receiver
 ...
@@ -227,6 +226,8 @@ def add_iqbrims_addon(sender, instance, created, **kwargs):
     instance.add_addon(IQBRIMSAddonConfig.short_name, auth=None, log=False)
 ```
 
+以下で、注目すべきコードについてそれぞれ説明します。
+
 ### receiverによるモデル変更検知
 
 `django.dispatch.receiver` デコレータを用いることで、特定のModelに変更が生じた場合の処理を記述することができます。
@@ -236,8 +237,9 @@ def add_iqbrims_addon(sender, instance, created, **kwargs):
 def add_iqbrims_addon(sender, instance, created, **kwargs):
     ...
 ```
+(引用: https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/models.py#L309-L327)
 
-この例の場合は、Node型(プロジェクトはこの型のオブジェクトで表現されます)を持つオブジェクトの更新後に、`add_iqbrims_addon`関数が呼び出されます。
+この例の場合は、`post_save`を指定していますので、Node型(プロジェクトはこの型のオブジェクトで表現されます)を持つオブジェクトの更新後に、`add_iqbrims_addon`関数が呼び出されます。
 
 ### osf.modelsによるモデル操作
 
