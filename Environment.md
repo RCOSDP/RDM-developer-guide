@@ -192,16 +192,16 @@ $ docker-compose run --rm web python3 manage.py migrate
 
 ## ユーザを機関に所属させる
 
-機関に関する機能を試すために、ユーザを機関に所属させたくなる場合があります。
+機関に関する機能を試すためには、ユーザを機関に所属させる必要があります。
 このような場合は、以下の手順を実施してください。
 
-まず、データベースに機関リストを登録します。これは初回だけ必要です。
+まず、実行中のRDMのデータベースに機関の情報を登録します。これは初回だけ必要です。
 
 ```
 $ docker-compose run --rm web python3 -m scripts.populate_institutions -e test -a
 ```
 
-上記のコマンドを実行すると、`Virginia Tech [Test]` といった機関名を持つ機関が登録されます。
+上記のコマンドを実行すると、`Virginia Tech [Test]` などの機関名を持つ機関が登録されます。
 
 次に、shell機能を使って、ユーザに機関を紐付けます。以下のコマンドを実行します。
 
@@ -235,7 +235,7 @@ Transaction committed.
 New transaction opened.
 ```
 
-これで機関に所属させることができました。試しに、New Projectから新規プロジェクトの作成を実施してみましょう。所属のところに、Institutionで指定した機関が表示されます。
+これでユーザを機関に所属させることができました。試しに、New Projectから新規プロジェクトの作成を実施してみましょう。所属のところに、Institutionで指定した機関が表示されます。
 
 ![Institution](images/institution.png)
 
