@@ -189,3 +189,80 @@ $ docker-compose run --rm web python3 manage.py makemigrations
 ```
 $ docker-compose run --rm web python3 manage.py migrate
 ```
+
+## ユーザを機関に所属させる
+
+機関に関する機能を試すために、ユーザを機関に所属させたくなる場合があります。
+このような場合は、以下の手順を実施してください。
+
+まず、データベースに機関リストを登録します。これは初回だけ必要です。
+
+```
+$ docker-compose run --rm web python3 -m scripts.populate_institutions -e test -a
+```
+
+上記のコマンドを実行すると、`Virginia Tech [Test]` といった機関名を持つ機関が登録されます。
+
+次に、shell機能を使って、ユーザに機関を紐付けます。以下のコマンドを実行します。
+
+```
+$ docker-compose run --rm web invoke shell
+```
+
+上記コマンドを実行すると、以下のようなプロンプトが現れますので、Pythonスクリプトで処理を指示します。下記のようにスクリプトを実行すると、指定したEmailアドレスを持つユーザのモデルを取得することができます。
+
+```
+In[1]: user = OSFUser.objects.get(username='登録したEmailアドレス')
+
+In [2]: user
+Out[2]: <OSFUser('登録したEmailアドレス') with guid '登録されたユーザID'>
+```
+
+ユーザが所属する機関のリストは、`user.affiliated_institutions`で管理されます。このリストに、先に登録した機関に対応する`Institution`オブジェクトを追加すると、ユーザを機関に所属させることができます。
+
+```
+# 機関名は例えば Virginia Tech [Test] 等: [i.name for i in Institution.objects.all()] で確認できる
+In [4]: user.affiliated_institutions.add(Institution.objects.get(name='機関名'))
+```
+
+変数を編集したら、モデルに対して`save`メソッドを呼び出し、`commit`も忘れないようにしておきましょう。
+
+```
+In [5]: user.save()
+
+In [6]: commit()
+Transaction committed.
+New transaction opened.
+```
+
+これで機関に所属させることができました。試しに、New Projectから新規プロジェクトの作成を実施してみましょう。所属のところに、Institutionで指定した機関が表示されます。
+
+![Institution](images/institution.png)
+
+## adminアクセス可能なユーザへと変更する
+
+管理者機能は `http://localhost:8001/` からアクセスすることができます。
+ユーザがadminアクセス可能かどうかは `is_staff` プロパティで定義することができます。
+
+`is_staff`の編集には、shell機能を使います。
+
+```
+$ docker-compose run --rm web invoke shell
+```
+
+shellから以下のようにコマンドを実行することで、指定したユーザの `is_staff` プロパティを変更することができます。
+
+```
+In[1]: user = OSFUser.objects.get(username='登録したEmailアドレス')
+
+In [2]: user
+Out[2]: <OSFUser('登録したEmailアドレス') with guid '登録されたユーザID'>
+
+In [3]: user.is_staff = True
+
+In [4]: user.save()
+
+In [5]: commit()
+Transaction committed.
+New transaction opened.
+```
