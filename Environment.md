@@ -131,7 +131,7 @@ rdm2-osfio_worker_1            docker-entrypoint.sh invok ...   Up
 
 ```
 
-### cas-overlayを含む構成で起動する。
+### cas-overlayを含む構成で起動する
 
 OAuth2の動作確認の際は、fakecasではなくcas-overlayを使ったテストが必要になります。このような場合には、以下のようにfakecasではなく cas サービスを起動します。
 
