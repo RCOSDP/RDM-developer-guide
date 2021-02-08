@@ -136,7 +136,7 @@ rdm2-osfio_worker_1            docker-entrypoint.sh invok ...   Up
 
 ### cas-overlayを含む構成で起動する
 
-fakecasは手軽にRDMの動作確認を行えますが、OAuth2の動作確認などはできません。OAuth2を用いたアプリケーションの開発時には、fakecasではなくcas-overlayを使ったテストが必要になります。このような場合、以下のようにfakecasの代わりに cas サービスを起動します。
+fakecasは手軽にRDMの動作確認を行えますが、OAuthの動作確認などはできません。OAuthを用いたアプリケーションの開発時には、fakecasではなくcas-overlayを使ったテストが必要になります。このような場合、以下のようにfakecasの代わりに cas サービスを起動します。
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
@@ -146,6 +146,9 @@ $ docker-compose run --rm web python3 manage.py migrate
 
 # fakecasではなくcasをサービスに指定する
 $ docker-compose up -d assets wb wb_worker cas worker web api ember_osf_web
+
+# OAuthのスコープを登録する
+docker-compose run --rm web python3 -m scripts.register_oauth_scopes
 ```
 
 casはfakecasとは異なり、ログイン時に ユーザ作成手順(後述) において入力したパスワードが必要になります。他の操作方法はfakecasと同様です。
@@ -209,15 +212,6 @@ $ docker-compose run --rm web python3 manage.py makemigrations
 
 ```
 $ docker-compose run --rm web python3 manage.py migrate
-```
-
-## OAuth2スコープを登録する
-
-OAuth2の動作確認をする際には、スコープ (`osf.full_read`等) をRDMのデータベースに登録する必要があります。
-このような場合は、以下のコマンドを実行してください。
-
-```
-docker-compose run --rm web python3 -m scripts.register_oauth_scopes
 ```
 
 ## ユーザを機関に所属させる
