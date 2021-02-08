@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 <%def name="render_addon_widget(addon_name, addon_data)">
 
     % if addon_data['complete'] or permissions.WRITE in user['permissions']:

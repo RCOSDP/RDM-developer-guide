@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 <%
     is_project = node['node_type'] == 'project'
 %>
