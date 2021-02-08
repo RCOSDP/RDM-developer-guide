@@ -138,6 +138,8 @@ APIに対してアクセスするアプリケーションは、OAuth 2.0に対�
 これらの処理は、多くの場合OAuth対応クライアントライブラリにロジックが用意されており、RDMが提供するエンドポイントのURLを与えれば実現できます。
 (参考: エンドポイントの情報や可能な操作は https://github.com/RCOSDP/RDM-cas-overlay#web-server-authorization に記載されている。)
 
+> OAuthを用いたAPIの認可をローカル環境で試すためには、開発環境構築時に [cas-overlayを含む構成で起動する](../Environment.md#cas-overlayを含む構成で起動する) 必要があります。
+
 ### 独自方式によるアクセス制御: Signing API requestsの例
 
 RDMはアドオンに関してサンドボックスのような隔離モデルは採用しておらず、アドオンからRDM本体と同様の操作が実施することができます。
