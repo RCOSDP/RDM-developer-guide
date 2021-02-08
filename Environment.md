@@ -148,7 +148,7 @@ $ docker-compose run --rm web python3 manage.py migrate
 $ docker-compose up -d assets wb wb_worker cas worker web api ember_osf_web
 
 # OAuthのスコープを登録する
-docker-compose run --rm web python3 -m scripts.register_oauth_scopes
+$ docker-compose run --rm web python3 -m scripts.register_oauth_scopes
 ```
 
 casはfakecasとは異なり、ログイン時に ユーザ作成手順(後述) において入力したパスワードが必要になります。他の操作方法はfakecasと同様です。
