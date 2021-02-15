@@ -170,10 +170,12 @@ $ docker-compose restart web api assets admin
 1. RDM Web UIにアクセスする `http://localhost:5000`
 1. 「アドオンアカウント構成」ページを開く。
 1. My Skeltonアドオンが表示されていることを確認する。
+   ![Configure Addon Account](images/configure_addon_account.png)
 1. 機関管理機能のWeb UIにアクセスする `http://localhost:8001`
 1. RDM Addonsページを開く。
 1. 自分の所属機関のページを開く。
 1. My Skeltonアドオンの左のチェックボックスを外し、アドオンを無効化する。
+   ![Disable Addon](images/admin_disable_addon1.png)
 1. 再度、RDM Web UIで「アドオンアカウント構成」ページを開く。
 1. My Skeltonアドオンが表示されていないことを確認する。
 
@@ -317,10 +319,12 @@ $ docker-compose restart web api assets admin admin_assets
 1. RDM Addonsページを開く。
 1. 自分の所属機関のページを開く。
 1. My Skeltonアドオンの中のAdmin Notesの下にあるテキストボックスに任意のテキストを入力し、保存する。
+   ![Edit Admin Notes](images/edit_admin_notes.png)
 1. RDM Web UIにアクセスする。 `http://localhost:5000`
 1. 適当なプロジェクトを作成する。
 1. 「アドオン」ページを開く。
 1. My Skeltonアドオンを有効化する。
 1. 「アドオンを構成」のMy Skeltonの欄に、設定したAdmin Notesが表示されていることを確認する。
+  ![View Admin Notes](images/view_admin_notes.png)
 
 以上でAdmin Notesの動作確認は完了です！
