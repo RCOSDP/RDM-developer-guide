@@ -75,6 +75,9 @@ services:
     image: myrepository/RDM-osf.io:mybranch
   ember_osf_web:
     image: myrepository/RDM-ember-osf-web:mybranch
+  # cas-overlayを使用する場合
+  cas:
+    image: myrepository/cas-overlay:mybranch
 ```
 
 # 開発環境でRDMを起動する
@@ -93,6 +96,8 @@ $ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs work
 ```
 
 > https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md では preprints, registries の起動について紹介していますが、GRDMでは preprints, registries は提供しないため無視してください。
+
+### シンプルな構成で起動する
 
 動作確認したい内容に応じて、 mfr, admin_assets, admin, sharejs を除外することもできます。
 例えば、fakecasで認証し、プロジェクト作成、ファイル管理を確認したいだけであれば、
@@ -128,6 +133,25 @@ rdm2-osfio_web_1               docker-entrypoint.sh invok ...   Up       0.0.0.0
 rdm2-osfio_worker_1            docker-entrypoint.sh invok ...   Up
 
 ```
+
+### cas-overlayを含む構成で起動する
+
+fakecasは手軽にRDMの動作確認を行えますが、OAuthの動作確認などはできません。OAuthを用いたアプリケーションの開発時には、fakecasではなくcas-overlayを使ったテストが必要になります。このような場合、以下のようにfakecasの代わりに cas サービスを起動します。
+
+```
+# ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
+$ docker-compose up requirements wb_requirements
+# DBのマイグレーション - 初回/DB定義変更時だけ必要
+$ docker-compose run --rm web python3 manage.py migrate
+
+# fakecasではなくcasをサービスに指定する
+$ docker-compose up -d assets wb wb_worker cas worker web api ember_osf_web
+
+# OAuthのスコープを登録する
+$ docker-compose run --rm web python3 -m scripts.register_oauth_scopes
+```
+
+casはfakecasとは異なり、ログイン時に ユーザ作成手順(後述) において入力したパスワードが必要になります。他の操作方法はfakecasと同様です。
 
 ## Web UIを開く
 
