@@ -90,13 +90,17 @@ APIに関するView定義は、 [admin/rdm_addons/api_v1/urls.py](https://github
 
 ### フレームワークによって提供されるView
 
+HTMLテンプレートとJavaScriptの定義方法や、利用できるライブラリは、アドオンと似ています。
+
 HTMLテンプレートファイルは [admin/templates/rdm_addons/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/admin/templates/rdm_addons) 以下に配置します。拡張子が`.html`ですが、アドオンと同様に、テンプレート言語 [mako](https://www.makotemplates.org/) で記述します。  
 各アドオンに関する設定画面のテンプレートファイルは、デフォルトで [admin/templates/rdm_addons/addons/institution_settings_default.html](https://github.com/RCOSDP/RDM-osf.io/blob/develop/admin/templates/rdm_addons/addons/institution_settings_default.html) が使用されます。個別にテンプレートファイルを指定する方法は [#UI の追加](#uiの追加) で説明します。
 
-各画面で読み込むJavaScriptファイルは [admin/static/js/rdm_addons/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/admin/static/js/rdm_addons) 以下に配置します。  
+各画面で読み込むJavaScriptファイルは [admin/static/js/rdm_addons/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/admin/static/js/rdm_addons) 以下に配置します。テンプレートを動的に操作するためのJavaScriptのライブラリには [Knockout.js](https://knockoutjs.com/) を利用することができます。  
 アドオンと違い、追加したエントリーファイルは [admin/webpack.admin.config.js](https://github.com/RCOSDP/RDM-osf.io/blob/develop/admin/webpack.admin.config.js) の `entry` プロパティに追加する必要があることに注意してください。設定方法は [#UI の追加](#uiの追加) で説明します。
 
 各画面に関するスタイル定義は [admin/static/css/rdm_addons.css](https://github.com/RCOSDP/RDM-osf.io/blob/develop/admin/static/css/rdm_addons.css) にまとめて記述します。
+
+> 機関管理者画面では、ember-osf-webで利用できるようなUI Componentは提供されていませんが、 [Bootstrap3](https://getbootstrap.com/docs/3.3/) のCSSやコンポーネントを利用することができます。
 
 ### テストコード
 
