@@ -7,11 +7,13 @@
 - アドオンに共通する機関管理機能を、新しく追加したアドオンで利用できるようにする方法 ([スケルトン アドオンの機関管理機能の対応](#スケルトン-アドオンの機関管理機能の対応))
 - 機関管理機能に新しい機能を追加する方法 ([Admin Notesの実装](#admin-notesの実装))
 
-アドオンの機関管理機能のひとつである認証アカウントの制御機能(Force to use)については詳しく扱いません。
+すべてのアドオンに共通する機関管理機能は、現状(2021年2月執筆時点)、アドオンの無効化機能のみです。機関ごとに、指定したアドオンを無効にすることができます。無効なアドオンは、ユーザーやプロジェクトのアドオン設定画面に表示されなくなり、利用もできなくなります。
 
 ## 前提条件
 
 [開発環境の準備](../Environment.md#開発環境でRDMを起動する) のガイドに従い、開発環境にてRDMを起動しているものとします。
+
+> 本ガイドでは機関管理機能を利用するため、`admin` と `admin_assets` サービスも起動してください。
 
 動作確認のためのユーザは、 [開発環境の準備#ユーザを機関に所属させる](../Environment.md#ユーザを機関に所属させる) および [開発環境の準備#adminアクセス可能なユーザへと変更する](../Environment.md#adminアクセス可能なユーザへと変更する) のガイドに従い、何かしらの機関に所属し、その機関の機関管理者であるとします。
 
@@ -44,12 +46,18 @@
 │       │   └── rdm-cfg.js ... アドオンごとの機関管理機能設定のエントリとなるJavaScriptファイル
 │       ├── rdm-addons-page.js ... アドオンの機関管理機能設定のエントリとなるJavaScriptファイル
 │       └── rdmAddonSettings.js ... アドオンの機関管理機能設定の定義
-└── templates ... テンプレートディレクトリ
-    └── rdm_addons ... アドオンの機関管理機能設定のテンプレートディレクトリ
-        ├── addons ... アドオンごとのテンプレートディレクトリ
-        │   └── アドオン名_institution_settings.html ... アドオンの機関管理機能設定のテンプレートファイル
-        ├── addon_list.html ... アドオン一覧画面のテンプレートファイル
-        └── institution_list.html ... 機関一覧画面のテンプレートファイル
+├── templates ... テンプレートディレクトリ
+│   └── rdm_addons ... アドオンの機関管理機能設定のテンプレートディレクトリ
+│       ├── addons ... アドオンごとのテンプレートディレクトリ
+│       │   └── アドオン名_institution_settings.html ... アドオンの機関管理機能設定のテンプレートファイル
+│       ├── addon_list.html ... アドオン一覧画面のテンプレートファイル
+│       └── institution_list.html ... 機関一覧画面のテンプレートファイル
+└── translations ... 国際化ディレクトリ
+    ├── en/LC_MESSAGES ... 英語の国際化ディレクトリ
+    │   └── django.po ... 機関管理画面のテンプレートの国際化設定ファイル
+    ├── ja/LC_MESSAGES ... 日本語の国際化ディレクトリ
+    │   └── django.po ... 機関管理画面のテンプレートの国際化設定ファイル
+    └── django.pot ... 機関管理画面のテンプレートの国際化設定ファイル
 ```
 
 機関管理機能のモデル定義は `/osf/models/` 以下に置きます。
@@ -57,6 +65,17 @@
 ```
 /osf/models/
 └── rdm_addons.py ... アドオンの機関管理機能設定のモデル定義
+```
+
+JavaScriptで使う国際化設定は `/website/website/translations/` 以下に記述します。
+
+```
+/website/translations/
+├── en/LC_MESSAGES ... 英語の国際化ディレクトリ
+│   └── js_messages.po.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
+├── ja/LC_MESSAGES ... 日本語の国際化ディレクトリ
+│   └── js_messages.po.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
+└── js_messages.po.pot ... 機関管理機能のJavaScriptで使う国際化設定ファイル
 ```
 
 テストファイルは `/admin_tests/` 以下に置きます。
@@ -112,7 +131,13 @@ Migrationsファイルは [osf/migrations](https://github.com/RCOSDP/RDM-osf.io/
 
 ### 国際化
 
-国際化の設定は[ScreenExpansion#国際化](../ScreenExpansion/README.md#国際化)と同様に、[website/translations/](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/translations/) 以下のファイルに定義します。HTMLファイル内で文字列を国際化する方法も、makoと同様です。
+HTMLテンプレートで使う国際化設定は [admin/translations/](https://github.com/RCOSDP/RDM-osf.io/blob/develop/admin/translations/) 以下の `django.pot` および `django.po` に定義します。
+
+JavaScriptで使う国際化設定は [website/translations/](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/translations/) 以下の `js_messages.pot` および `js_messages.po` に定義します。
+
+定義方法や使い方は、 [ScreenExpansion#国際化](../ScreenExpansion/README.md#国際化) で説明しています。HTMLファイル内で文字列を国際化する方法は、makoと同様です。
+
+> JavaScriptだけ、`website/translations/` 以下のファイルに定義することに気をつけてください。
 
 
 # スケルトン アドオンの機関管理機能の対応
@@ -255,8 +280,11 @@ Admin Notesを表示するためのUIを追加します。
 
 ## 国際化
 
-[website/translations/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/website/translations) 以下の各ファイルの末尾に、Admin Notesに関する国際化設定を追加します。  
+[website/translations/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/website/translations) 以下のファイル `js_messages.*` の末尾に、Admin Notesに関する国際化設定を追加します。  
 変更例はサンプル [translations/](website/translations/) を参照してください。
+
+[admin/translations/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/admin/translations) 以下の各ファイルの末尾に、Admin Notesに関する国際化設定を追加します。  
+変更例はサンプル [translations/](admin/translations/) を参照してください。
 
 ## テストファイルの変更
 
@@ -311,6 +339,12 @@ $ docker-compose run --rm web invoke test_module -m addons/myskelton/tests/test_
 
 Admin Notesの動作を確認してみましょう。
 
+テンプレートファイルの国際化設定を適用するために、国際化ファイルをコンパイルします。
+
+```
+$ docker-compose run --rm web pybabel compile -D django -d ./admin/translations
+```
+
 変更したファイルに関するサービスを再起動します。
 
 ```
@@ -320,9 +354,9 @@ $ docker-compose restart web api assets admin admin_assets
 これでサービスへの反映は完了です。Admin Notesの設定および表示の確認をするには、以下のような操作を実施します。
 
 1. 機関管理機能のWeb UIにアクセスする。 `http://localhost:8001`
-1. RDM Addonsページを開く。
+1. アドオン利用制御(RDM Addons)ページを開く。
 1. 自分の所属機関のページを開く。
-1. My Skeltonアドオンの中のAdmin Notesの下にあるテキストボックスに任意のテキストを入力し、保存する。
+1. My Skeltonアドオンの中の管理者ノート(Admin Notes)の下にあるテキストボックスに任意のテキストを入力し、保存する。
    ![Edit Admin Notes](images/edit_admin_notes.png)
 1. RDM Web UIにアクセスする。 `http://localhost:5000`
 1. 適当なプロジェクトを作成する。

@@ -6665,3 +6665,21 @@ msgstr ""
 #: addons/myskelton/static/node-cfg.js:90
 msgid "Admin Notes by %1$s"
 msgstr ""
+
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:34
+msgid "Saving admin notes was successful"
+msgstr ""
+
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:36
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:46
+msgid "Error while saving admin notes"
+msgstr ""
+
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:44
+msgid "Permission error while saving admin notes"
+msgstr ""
+
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:63
+#: admin/static/js/rdm_addons/myskelton/myskeltonRdmConfig.js:79
+msgid "Error while fetching admin notes"
+msgstr ""
