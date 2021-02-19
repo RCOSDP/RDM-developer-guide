@@ -7,7 +7,7 @@
 - アドオンに共通する機関管理機能を、新しく追加したアドオンで利用できるようにする方法 ([スケルトン アドオンの機関管理機能の対応](#スケルトン-アドオンの機関管理機能の対応))
 - 機関管理機能に新しい機能を追加する方法 ([Admin Notesの実装](#admin-notesの実装))
 
-すべてのアドオンに共通する機関管理機能は、現状(2021年2月執筆時点)、アドオンの無効化機能のみです。機関ごとに、指定したアドオンを無効にすることができます。無効なアドオンは、ユーザーやプロジェクトのアドオン設定画面に表示されなくなり、利用もできなくなります。
+すべてのアドオンに共通する機関管理機能は、現在(2021年2月執筆時点)、アドオンの無効化機能のみです。機関ごとに、指定したアドオンを無効にすることができます。無効なアドオンは、ユーザーやプロジェクトのアドオン設定画面に表示されなくなり、利用もできなくなります。
 
 ## 前提条件
 
@@ -67,15 +67,15 @@
 └── rdm_addons.py ... アドオンの機関管理機能設定のモデル定義
 ```
 
-JavaScriptで使う国際化設定は `/website/website/translations/` 以下に記述します。
+JavaScriptで使う国際化設定は `/website/translations/` 以下のファイルに記述します。
 
 ```
 /website/translations/
 ├── en/LC_MESSAGES ... 英語の国際化ディレクトリ
-│   └── js_messages.po.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
+│   └── js_messages.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
 ├── ja/LC_MESSAGES ... 日本語の国際化ディレクトリ
-│   └── js_messages.po.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
-└── js_messages.po.pot ... 機関管理機能のJavaScriptで使う国際化設定ファイル
+│   └── js_messages.po ... 機関管理機能のJavaScriptで使う国際化設定ファイル
+└── js_messages.pot ... 機関管理機能のJavaScriptで使う国際化設定ファイル
 ```
 
 テストファイルは `/admin_tests/` 以下に置きます。
@@ -144,7 +144,7 @@ JavaScriptで使う国際化設定は [website/translations/](https://github.com
 
 `myskelton` という識別名のアドオンを、機関管理機能で管理するための実装を例に説明します。
 
-[スケルトンの作成#スケルトン-アドオンの実装](../Skelton/README.md#スケルトン-アドオンの実装) に従い、スケルトン アドオンの実装が完了していることを前提とします。
+[スケルトンの作成#スケルトン アドオンの実装](../Skelton/README.md#スケルトン-アドオンの実装) に従い、スケルトン アドオンの実装が完了していることを前提とします。
 
 ## addons.myskelton モジュールの変更
 
@@ -281,10 +281,10 @@ Admin Notesを表示するためのUIを追加します。
 ## 国際化
 
 [website/translations/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/website/translations) 以下のファイル `js_messages.*` の末尾に、Admin Notesに関する国際化設定を追加します。  
-変更例はサンプル [translations/](website/translations/) を参照してください。
+変更例はサンプル [website/translations/](website/translations/) を参照してください。
 
 [admin/translations/](https://github.com/RCOSDP/RDM-osf.io/tree/develop/admin/translations) 以下の各ファイルの末尾に、Admin Notesに関する国際化設定を追加します。  
-変更例はサンプル [translations/](admin/translations/) を参照してください。
+変更例はサンプル [admin/translations/](admin/translations/) を参照してください。
 
 ## テストファイルの変更
 
@@ -339,11 +339,23 @@ $ docker-compose run --rm web invoke test_module -m addons/myskelton/tests/test_
 
 Admin Notesの動作を確認してみましょう。
 
+## DBマイグレーション
+
+マイグレーションを実行し、Migrations定義をPostgreSQLサービスに反映します。
+
+```
+$ docker-compose run --rm web python3 manage.py migrate
+```
+
+## 国際化のコンパイル
+
 テンプレートファイルの国際化設定を適用するために、国際化ファイルをコンパイルします。
 
 ```
 $ docker-compose run --rm web pybabel compile -D django -d ./admin/translations
 ```
+
+## サービスの再起動
 
 変更したファイルに関するサービスを再起動します。
 
@@ -351,7 +363,11 @@ $ docker-compose run --rm web pybabel compile -D django -d ./admin/translations
 $ docker-compose restart web api assets admin admin_assets
 ```
 
-これでサービスへの反映は完了です。Admin Notesの設定および表示の確認をするには、以下のような操作を実施します。
+これでサービスへの反映は完了です。
+
+## Admin Notesを試す
+
+Admin Notesの設定および表示の確認をするには、以下のような操作を実施します。
 
 1. 機関管理機能のWeb UIにアクセスする。 `http://localhost:8001`
 1. アドオン利用制御(RDM Addons)ページを開く。
