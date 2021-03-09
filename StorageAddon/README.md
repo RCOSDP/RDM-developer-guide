@@ -44,7 +44,7 @@ Addonによりユーザからの認証情報の受領や各種設定を行い、
 │   └── local-dist.py ... (*) local.pyのサンプルファイル
 ├── static ... Webブラウザから読み込むことを想定した静的ファイル
 │   ├── comicon.png ... アドオンのアイコン
-│   ├── myminioAnonymousLogActionList.json ... (*) 変更履歴メッセージ定義 
+│   ├── myminioAnonymousLogActionList.json ... (*) 変更履歴メッセージ定義
 │   ├── myminioLogActionList.json ... (*) 変更履歴メッセージ定義
 │   ├── myminioNodeConfig.js ... (*) Node設定の定義
 │   ├── myminioUserConfig.js ... (*) User設定の定義
@@ -173,6 +173,91 @@ My MinIOアドオンの場合は、以下のように定義します。
 
 ストレージ操作UIであるFileViewerは[Fangorn](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/js/fangorn.js)を使って実装されています。アイテム選択時に表示するボタンをカスタマイズしたい場合は、 `Fangorn.config.アドオン名` を定義し、 `files.js` ファイルで読み込みます。
 My MinIOアドオンではカスタマイズせずデフォルト動作を使用しています。カスタマイズ例は、[GitHubアドオン](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/github/static/githubFangornConfig.js)や[IQB-RIMSアドオン](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/static/iqbrimsFangornConfig.js)を参照してください。
+
+### Recent Activityの記録・表示
+
+何らかのユーザ操作を契機としてアドオンに対して行われた操作はRecent Activityという形で記録することができます。
+
+#### NodeLogモデルの追加
+
+Recent Activityは[NodeLogモデル](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/nodelog.py)により表現されます。
+ログの追加はNode(プロジェクトに対応するモデル)の [add_logメソッド](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/mixins.py#L84) により行うことができます。
+
+[models.py](osf.io/addon/models.py#L127-L143)
+```
+self.owner.add_log(
+    '{0}_{1}'.format(SHORT_NAME, action),
+    auth=auth,
+    params={
+        'project': self.owner.parent_id,
+        'node': self.owner._id,
+        'path': metadata['materialized'],
+        'bucket': self.folder_id,
+        'urls': {
+            'view': url,
+            'download': url + '?action=download'
+        }
+    },
+)
+```
+
+この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
+パラメータには以下の値を指定することができます。
+
+- action ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
+  -- node_authorized, node_deauthorized, node_deauthorized_no_user ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
+  -- bucket_linked, bucket_unlinked ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
+  -- file_added, file_removed, file_updated, folder_created ... WaterButlerによるファイル操作が行われた場合に記録されるログ
+- params ... ログのパラメータ。任意のdictオブジェクトを指定することができる
+- auth ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
+
+#### NodeLogモデルの表示
+
+記録されたログをどのように表示するかは、以下のJSONファイルにより定義します。
+
+[myminioLogActionList.json](osf.io/addon/static/myminioLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
+```
+
+[myminioLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
+```
+
+LogActionListはログインした状態でのプロジェクト表示の際に利用され、AnonymousLogActionListはパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
+`${パラメータ名}`はadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定します。
+
+メッセージの国際化はpybabelコマンドを用いて行うことができます。定義したアドオンのメッセージに関して日本語定義ファイルを生成するためには、
+以下のようにします。
+
+```
+$ docker-compose run --rm web invoke webpack
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+すると、`website/translations/ja/LC_MESSAGES/js_messages.po`ファイルに、以下のような空の項目が追加されます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr ""
+```
+
+ここに日本語の定義を追加することで、メッセージを国際化することができます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
+```
+
+js_messages.poを変更したら、assetsサービスを再起動してください。
+
+```
+$ docker-compose restart assets
+```
 
 ### 設定モジュール
 
@@ -314,7 +399,7 @@ ADDONS_FOLDER_CONFIGURABLE.append('myminio')
 ADDONS_OAUTH.append('myminio')
 ```
 
-他にもストレージアドオンでは、 [api/base/settings/defaults.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/base/settings/defaults.py) にも設定を追加する必要があります。
+他にもストレージアドオンでは、 [website/static/storageAddons.json](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/storageAddons.json) にも設定を追加する必要があります。
 
 変更例は [storageAddons.json](osf.io/config/website/static/storageAddons.json) を参照してください。
 
@@ -327,8 +412,8 @@ ADDONS_OAUTH.append('myminio')
 
 > `externalView` を `true` に設定すると、FileViewerでファイルの外部ページリンクボタンが表示されるようになります。リンクを正しく動作させるには、WaterButlerのProviderを修正する必要があります。詳細は[GoogleDriveの実装](https://github.com/RCOSDP/RDM-waterbutler/blob/develop/waterbutler/providers/googledrive/metadata.py#L116)などを参照してください。
 
-> FileViewerで、フォルダの操作はできるけどファイルの操作ができない場合は、 `storageAddons.json` の設定が漏れている可能性があります。
-  
+> FileViewerで、フォルダの操作はできるがファイルの操作ができない場合は、 `storageAddons.json` の設定が漏れている可能性があります。
+
 
 ### Migrationsファイルの作成
 
