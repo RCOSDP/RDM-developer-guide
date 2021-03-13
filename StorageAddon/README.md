@@ -176,7 +176,7 @@ My MinIOアドオンではカスタマイズせずデフォルト動作を使用
 
 ### Recent Activityの記録・表示
 
-何らかのユーザ操作を契機としてアドオンに対して行われた操作はRecent Activityという形で記録することができます。
+何らかのユーザ操作を契機としてアドオンに対して行われた操作は、Recent Activityという形で記録することができます。
 
 #### NodeLogモデルの追加
 
@@ -204,12 +204,12 @@ self.owner.add_log(
 この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
 パラメータには以下の値を指定することができます。
 
-- action ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
-  -- node_authorized, node_deauthorized, node_deauthorized_no_user ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
-  -- bucket_linked, bucket_unlinked ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
-  -- file_added, file_removed, file_updated, folder_created ... WaterButlerによるファイル操作が行われた場合に記録されるログ
-- params ... ログのパラメータ。任意のdictオブジェクトを指定することができる
-- auth ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
+- `action` ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
+  - `node_authorized`, `node_deauthorized`, `node_deauthorized_no_user` ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
+  - `bucket_linked`, `bucket_unlinked` ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
+  - `file_added`, `file_removed`, `file_updated`, `folder_created` ... WaterButlerによるファイル操作が行われた場合に記録されるログ
+- `params` ... ログのパラメータ。任意のdictオブジェクトを指定することができる
+- `auth` ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
 
 #### NodeLogモデルの表示
 
@@ -220,20 +220,25 @@ self.owner.add_log(
 "myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
 ```
 
-[myminioLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
+[myminioAnonymousLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
 ```
 "myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
 ```
 
-LogActionListはログインした状態でのプロジェクト表示の際に利用され、AnonymousLogActionListはパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
-`${パラメータ名}`はadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定します。
+`アドオン名LogActionList.json`はログインした状態でのプロジェクト表示の際に利用され、`アドオン名AnonymousLogActionList.json`はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
+どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられたキーが使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
 
-メッセージの国際化はpybabelコマンドを用いて行うことができます。定義したアドオンのメッセージに関して日本語定義ファイルを生成するためには、
-以下のようにします。
+メッセージの国際化は[pybabelコマンド](http://babel.pocoo.org/en/latest/cmdline.html)を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
+以下のコマンドを実行します。
 
 ```
+# メッセージ定義JSONなどをJavaScriptファイルへと変換する
 $ docker-compose run --rm web invoke webpack
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
 $ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
 $ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
@@ -245,7 +250,7 @@ msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
 msgstr ""
 ```
 
-ここに日本語の定義を追加することで、メッセージを国際化することができます。
+この `msgstr` に日本語によるメッセージ定義を追加することで、メッセージを国際化することができます。
 
 ```
 #: website/static/js/logActionsList_extract.js:246
@@ -253,7 +258,7 @@ msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
 msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
 ```
 
-js_messages.poを変更したら、assetsサービスを再起動してください。
+`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の
 
 ```
 $ docker-compose restart assets
@@ -439,6 +444,35 @@ Migrations for 'addons_myminio':
     - Create model NodeSettings
     - Create model UserSettings
     - Add field user_settings to nodesettings
+```
+
+### 国際化メッセージファイルの作成
+
+国際化メッセージファイルの定義ファイルは以下のコマンドで生成することができます。
+
+```
+# メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
+$ docker-compose run --rm web invoke webpack
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+変更例のサンプル [js_messages.po](osf.io/config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}がMy MinIOバケット(${bucket})を${node}にリンクしました"
+
+#: website/static/js/logActionsList_extract.js:247
+msgid "${user} unselected the My MinIO bucket ${bucket} in ${node}"
+msgstr "${user}が${node}のMy MinIOバケット(${bucket})の選択を解除しました"
+
+...
 ```
 
 ### アドオンのテスト
