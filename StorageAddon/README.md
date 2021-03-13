@@ -450,6 +450,8 @@ Migrations for 'addons_myminio':
 
 国際化メッセージファイルの定義ファイルは以下のコマンドで生成することができます。
 
+> このセクションの実施時は各サービスを停止状態にしてください。
+
 ```
 # メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
 $ docker-compose run --rm web invoke webpack
@@ -474,6 +476,8 @@ msgstr "${user}が${node}のMy MinIOバケット(${bucket})の選択を解除し
 
 ...
 ```
+
+このメッセージを追加後、`assets`サービスの再起動時にメッセージ定義が反映されます。
 
 ### アドオンのテスト
 
