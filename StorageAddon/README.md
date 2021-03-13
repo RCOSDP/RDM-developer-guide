@@ -174,96 +174,6 @@ My MinIOアドオンの場合は、以下のように定義します。
 ストレージ操作UIであるFileViewerは[Fangorn](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/js/fangorn.js)を使って実装されています。アイテム選択時に表示するボタンをカスタマイズしたい場合は、 `Fangorn.config.アドオン名` を定義し、 `files.js` ファイルで読み込みます。
 My MinIOアドオンではカスタマイズせずデフォルト動作を使用しています。カスタマイズ例は、[GitHubアドオン](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/github/static/githubFangornConfig.js)や[IQB-RIMSアドオン](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/static/iqbrimsFangornConfig.js)を参照してください。
 
-### Recent Activityの記録・表示
-
-何らかのユーザ操作を契機としてアドオンに対して行われた操作は、Recent Activityという形で記録することができます。
-
-#### NodeLogモデルの追加
-
-Recent Activityは[NodeLogモデル](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/nodelog.py)により表現されます。
-ログの追加はNode(プロジェクトに対応するモデル)の [add_logメソッド](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/mixins.py#L84) により行うことができます。
-
-[models.py](osf.io/addon/models.py#L127-L143)
-```
-self.owner.add_log(
-    '{0}_{1}'.format(SHORT_NAME, action),
-    auth=auth,
-    params={
-        'project': self.owner.parent_id,
-        'node': self.owner._id,
-        'path': metadata['materialized'],
-        'bucket': self.folder_id,
-        'urls': {
-            'view': url,
-            'download': url + '?action=download'
-        }
-    },
-)
-```
-
-この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
-パラメータには以下の値を指定することができます。
-
-- `action` ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
-  - `node_authorized`, `node_deauthorized`, `node_deauthorized_no_user` ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
-  - `bucket_linked`, `bucket_unlinked` ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
-  - `file_added`, `file_removed`, `file_updated`, `folder_created` ... WaterButlerによるファイル操作が行われた場合に記録されるログ
-- `params` ... ログのパラメータ。任意のdictオブジェクトを指定することができる
-- `auth` ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
-
-#### NodeLogモデルの表示
-
-記録されたログをどのように表示するかは、以下のJSONファイルにより定義します。
-
-[myminioLogActionList.json](osf.io/addon/static/myminioLogActionList.json#L2)
-```
-"myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
-```
-
-[myminioAnonymousLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
-```
-"myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
-```
-
-`アドオン名LogActionList.json`はログインした状態でのプロジェクト表示の際に利用され、`アドオン名AnonymousLogActionList.json`はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
-どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられたキーが使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
-
-メッセージの国際化は[pybabelコマンド](http://babel.pocoo.org/en/latest/cmdline.html)を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
-以下のコマンドを実行します。
-
-```
-# メッセージ定義JSONなどをJavaScriptファイルへと変換する
-$ docker-compose run --rm web invoke webpack
-
-# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
-$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
-
-# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
-```
-
-すると、`website/translations/ja/LC_MESSAGES/js_messages.po`ファイルに、以下のような空の項目が追加されます。
-
-```
-#: website/static/js/logActionsList_extract.js:246
-msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
-msgstr ""
-```
-
-この `msgstr` に日本語によるメッセージ定義を追加することで、メッセージを国際化することができます。
-
-```
-#: website/static/js/logActionsList_extract.js:246
-msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
-msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
-```
-
-`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の
-
-```
-$ docker-compose restart assets
-```
-
 ### 設定モジュール
 
 環境ごとの設定ファイル `local.py` の雛形として `local-dist.py` ファイルを定義します。サービス管理者は `local-dist.py` を `local.py` にコピーして、適宜設定値を書き換えます。
@@ -363,6 +273,96 @@ class MyMinIOProvider(provider.BaseProvider):
                                             port=port,
                                             is_secure=port == 443)
         self.bucket = self.connection.get_bucket(settings['bucket'], validate=False)
+```
+
+## Recent Activityの記録・表示
+
+何らかのユーザ操作を契機としてアドオンに対して行われた操作は、Recent Activityという形で記録することができます。
+
+### NodeLogモデルの追加
+
+Recent Activityは[NodeLogモデル](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/nodelog.py)により表現されます。
+ログの追加はNode(プロジェクトに対応するモデル)の [add_logメソッド](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/mixins.py#L84) により行うことができます。
+
+[models.py](osf.io/addon/models.py#L127-L143)
+```
+self.owner.add_log(
+    '{0}_{1}'.format(SHORT_NAME, action),
+    auth=auth,
+    params={
+        'project': self.owner.parent_id,
+        'node': self.owner._id,
+        'path': metadata['materialized'],
+        'bucket': self.folder_id,
+        'urls': {
+            'view': url,
+            'download': url + '?action=download'
+        }
+    },
+)
+```
+
+この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
+パラメータには以下の値を指定することができます。
+
+- `action` ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
+  - `node_authorized`, `node_deauthorized`, `node_deauthorized_no_user` ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
+  - `bucket_linked`, `bucket_unlinked` ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
+  - `file_added`, `file_removed`, `file_updated`, `folder_created` ... WaterButlerによるファイル操作が行われた場合に記録されるログ
+- `params` ... ログのパラメータ。任意のdictオブジェクトを指定することができる
+- `auth` ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
+
+### NodeLogモデルの表示
+
+記録されたログをどのように表示するかは、以下のJSONファイルにより定義します。
+
+[myminioLogActionList.json](osf.io/addon/static/myminioLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
+```
+
+[myminioAnonymousLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
+```
+
+`アドオン名LogActionList.json`はログインした状態でのプロジェクト表示の際に利用され、`アドオン名AnonymousLogActionList.json`はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
+どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられたキーが使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
+
+メッセージの国際化は[pybabelコマンド](http://babel.pocoo.org/en/latest/cmdline.html)を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
+以下のコマンドを実行します。
+
+```
+# メッセージ定義JSONなどをJavaScriptファイルへと変換する
+$ docker-compose run --rm web invoke webpack
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+すると、`website/translations/ja/LC_MESSAGES/js_messages.po`ファイルに、以下のような空の項目が追加されます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr ""
+```
+
+この `msgstr` に日本語によるメッセージ定義を追加することで、メッセージを国際化することができます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
+```
+
+`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の
+
+```
+$ docker-compose restart assets
 ```
 
 
