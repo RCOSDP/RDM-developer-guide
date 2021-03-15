@@ -44,7 +44,7 @@ Addonによりユーザからの認証情報の受領や各種設定を行い、
 │   └── local-dist.py ... (*) local.pyのサンプルファイル
 ├── static ... Webブラウザから読み込むことを想定した静的ファイル
 │   ├── comicon.png ... アドオンのアイコン
-│   ├── myminioAnonymousLogActionList.json ... (*) 変更履歴メッセージ定義 
+│   ├── myminioAnonymousLogActionList.json ... (*) 変更履歴メッセージ定義
 │   ├── myminioLogActionList.json ... (*) 変更履歴メッセージ定義
 │   ├── myminioNodeConfig.js ... (*) Node設定の定義
 │   ├── myminioUserConfig.js ... (*) User設定の定義
@@ -275,6 +275,176 @@ class MyMinIOProvider(provider.BaseProvider):
         self.bucket = self.connection.get_bucket(settings['bucket'], validate=False)
 ```
 
+## Recent Activityの記録・表示
+
+何らかのユーザ操作を契機としてアドオンに対して行われた操作は、Recent Activityという形で記録することができます。
+
+### NodeLogモデルの追加
+
+Recent Activityは[NodeLogモデル](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/nodelog.py)により表現されます。
+ログの追加はNode(プロジェクトに対応するモデル)の [add_logメソッド](https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/mixins.py#L84) により行うことができます。
+
+[models.py](osf.io/addon/models.py#L127-L143)
+```
+self.owner.add_log(
+    '{0}_{1}'.format(SHORT_NAME, action),
+    auth=auth,
+    params={
+        'project': self.owner.parent_id,
+        'node': self.owner._id,
+        'path': metadata['materialized'],
+        'bucket': self.folder_id,
+        'urls': {
+            'view': url,
+            'download': url + '?action=download'
+        }
+    },
+)
+```
+
+この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
+パラメータには以下の値を指定することができます。
+
+- `action` ... ログのアクション種別を示す名前。`アドオン名_アクション名`となる。本サンプルにより記録される`アクション名`には以下のものがある。
+  - `node_authorized`, `node_deauthorized`, `node_deauthorized_no_user` ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ
+  - `bucket_linked`, `bucket_unlinked` ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ
+  - `file_added`, `file_removed`, `file_updated`, `folder_created` ... WaterButlerによるファイル操作が行われた場合に記録されるログ
+- `params` ... ログのパラメータ。任意のdictオブジェクトを指定することができる
+- `auth` ... 操作を実施したユーザの情報。[framework.auth.Authクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170)のインスタンスを与えることができる
+
+### NodeLogモデルの表示
+
+記録されたログをどのように表示するかは、以下のJSONファイルにより定義します。
+
+[myminioLogActionList.json](osf.io/addon/static/myminioLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
+```
+
+[myminioAnonymousLogActionList.json](osf.io/addon/static/myminioAnonymousLogActionList.json#L2)
+```
+"myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
+```
+
+`アドオン名LogActionList.json`はログインした状態でのプロジェクト表示の際に利用され、`アドオン名AnonymousLogActionList.json`はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
+どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられた文字列がキーとして使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
+
+メッセージの国際化は[pybabelコマンド](http://babel.pocoo.org/en/latest/cmdline.html)を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
+以下のコマンドを実行します。
+
+```
+# メッセージ定義JSONなどをJavaScriptファイルへと変換する
+$ docker-compose run --rm web invoke webpack
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+すると、`website/translations/ja/LC_MESSAGES/js_messages.po`ファイルに、以下のような空の項目が追加されます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr ""
+```
+
+この `msgstr` に日本語によるメッセージ定義を追加することで、メッセージを国際化することができます。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
+```
+
+`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の`js_messages.po`ファイルがメッセージの表示に使用されるようになります。
+
+```
+$ docker-compose restart assets
+```
+
+## タイムスタンプの処理
+
+RDMではユーザが任意のタイミングで、プロジェクト中のファイルに対してタイムスタンプを打つことができます。タイムスタンプは、ファイルに関してその時点での内容を証明するもので、研究の証跡としてのデータを考える上で非常に重要です。
+
+なお、docker-composeで起動した状態では [FreeTSA Project](http://eswg.jnsa.org/sandbox/freetsa/) のサーバを用いてタイムスタンプを付与します。実環境への配備時は[UPKI電子証明書発行サービス](https://certs.nii.ac.jp/)によりタイムスタンプ付与することを想定しています。
+
+### ユーザによるタイムスタンプの追加
+
+タイムスタンプは、ファイルの内容から計算したハッシュ値を署名する形で作成されます。ハッシュの取得は以下のいずれかの方法でおこないます。
+
+- `osf.models.files.File` サブクラスの `get_hash_for_timestamp`により取得する
+- WaterButlerを経由してファイルをダウンロードし、ハッシュ計算を行う
+
+`osf.models.files.File` サブクラスはアドオンのモデルとしてハッシュ値の取得方法を定義するものです。本サンプルでは [models.py](osf.io/addon/models.py) にあります。
+ストレージにより容易にハッシュ相当の値を取得・管理する方法がある場合は、このモデルに`get_hash_for_timestamp(self)`メソッドを定義します。
+タイムスタンプ処理はこのメソッドを通じてハッシュ値を取得することができます。
+`get_hash_for_timestamp(self)`メソッドの実装は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
+
+`osf.models.files.File`モデルに`get_hash_for_timestamp(self)`が定義されていない場合は、タイムスタンプ処理はWaterButlerを経由してファイルをダウンロードする方法を試行します。
+
+### RDM以外でのファイル変更によるタイムスタンプの追加
+
+RDM以外でのファイル変更時に実施する場合も、ファイルが変更されたことを示すためにタイムスタンプを付加したい場合があります。
+このような処理を実行するためには `website.util.timestamp` モジュールを使用します。
+例えばDropbox Businessアドオンでは以下のように実装しています。
+
+[dropboxbusiness/utils.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py)
+```
+...
+from website.util import timestamp
+
+...
+
+file_info = {
+    'file_id': file_node._id,
+    'file_name': attrs.get('name'),
+    'file_path': attrs.get('materialized'),
+    'size': attrs.get('size'),
+    'created': attrs.get('created_utc'),
+    'modified': attrs.get('modified_utc'),
+    'file_version': '',
+    'provider': PROVIDER_NAME
+}
+# verified by admin
+verify_result = timestamp.check_file_timestamp(
+    admin.id, node, file_info, verify_external_only=True)
+```
+
+`check_file_timestamp(uid, node, data, verify_external_only=False)`関数は以下のパラメータを指定することができます。
+
+- `uid` ... タイムスタンプ操作を行うユーザを示すOSFUserのID
+- `node` ... ファイルが所属するプロジェクトを示すNode
+- `data` ... タイムスタンプにより署名検証するデータを示す辞書型データ
+- `verify_external_only` ... タイムスタンプ検証情報の格納に`osf.models.RdmFileTimestamptokenVerifyResult`を使う場合はFalse, 使わない場合(`osf.models.files.File` サブクラスの`def set_timestamp(self, timestamp_data, timestamp_status, context)`に格納する場合)はTrueとする (デフォルトはFalse)
+
+なお、`def set_timestamp(self, timestamp_data, timestamp_status, context)` の定義方法は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
+
+また、タイムスタンプの付加処理はストレージのAPI呼び出しやタイムスタンプの付加処理などI/Oを伴うため、viewsモジュール内の関数など、リクエストハンドラとして振る舞う関数中で処理を行ってしまうと、他のハンドラが待たされる要因になります。
+このような状況に対応するため、RDMでは[Celery](https://docs.celeryproject.org/en/stable/)によるワーカーが用意されています。
+関数をCeleryタスクとして定義することで、時間がかかる処理はワーカーに委譲することができます。
+例えばDropbox Businessアドオンでは以下のように定義しています。
+
+[dropboxbusiness/utils.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py)
+```
+...
+from framework.celery_tasks import app as celery_app
+
+...
+
+@celery_app.task(bind=True, base=AbortableTask)
+def celery_check_updated_files(self, team_ids):
+    ...
+```
+
+呼び出し側では以下のように関数を実行することで、ワーカーに処理を任せ、自身の処理を続行することができます。
+
+[dropboxbusiness/views.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/views.py)
+```
+utils.celery_check_updated_files.delay(team_ids)
+```
 
 # My MinIOアドオンの実装
 
@@ -314,7 +484,7 @@ ADDONS_FOLDER_CONFIGURABLE.append('myminio')
 ADDONS_OAUTH.append('myminio')
 ```
 
-他にもストレージアドオンでは、 [api/base/settings/defaults.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/base/settings/defaults.py) にも設定を追加する必要があります。
+他にもストレージアドオンでは、 [website/static/storageAddons.json](https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/storageAddons.json) にも設定を追加する必要があります。
 
 変更例は [storageAddons.json](osf.io/config/website/static/storageAddons.json) を参照してください。
 
@@ -327,8 +497,8 @@ ADDONS_OAUTH.append('myminio')
 
 > `externalView` を `true` に設定すると、FileViewerでファイルの外部ページリンクボタンが表示されるようになります。リンクを正しく動作させるには、WaterButlerのProviderを修正する必要があります。詳細は[GoogleDriveの実装](https://github.com/RCOSDP/RDM-waterbutler/blob/develop/waterbutler/providers/googledrive/metadata.py#L116)などを参照してください。
 
-> FileViewerで、フォルダの操作はできるけどファイルの操作ができない場合は、 `storageAddons.json` の設定が漏れている可能性があります。
-  
+> FileViewerで、フォルダの操作はできるがファイルの操作ができない場合は、 `storageAddons.json` の設定が漏れている可能性があります。
+
 
 ### Migrationsファイルの作成
 
@@ -355,6 +525,39 @@ Migrations for 'addons_myminio':
     - Create model UserSettings
     - Add field user_settings to nodesettings
 ```
+
+### 国際化メッセージファイルの作成
+
+国際化メッセージファイルの定義ファイルは以下のコマンドで生成することができます。
+
+> このセクションの実施時は各サービスを停止状態にしてください。
+
+```
+# メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
+$ docker-compose run --rm web invoke webpack
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+変更例のサンプル [js_messages.po](osf.io/config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
+
+```
+#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}がMy MinIOバケット(${bucket})を${node}にリンクしました"
+
+#: website/static/js/logActionsList_extract.js:247
+msgid "${user} unselected the My MinIO bucket ${bucket} in ${node}"
+msgstr "${user}が${node}のMy MinIOバケット(${bucket})の選択を解除しました"
+
+...
+```
+
+このメッセージを追加後、`assets`サービスの再起動時にメッセージ定義が反映されます。
 
 ### アドオンのテスト
 
