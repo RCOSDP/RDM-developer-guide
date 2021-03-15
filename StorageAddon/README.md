@@ -327,7 +327,7 @@ self.owner.add_log(
 ```
 
 `アドオン名LogActionList.json`はログインした状態でのプロジェクト表示の際に利用され、`アドオン名AnonymousLogActionList.json`はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
-どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられたキーが使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
+どのメッセージがログ表示に利用されるかは、add_logメソッドの `action` 引数に与えられた文字列がキーとして使用されます。また、メッセージ定義中の `${パラメータ名}` にはadd_logメソッドの `params` 引数に与えられたパラメータ中のキーを指定することができます。
 
 メッセージの国際化は[pybabelコマンド](http://babel.pocoo.org/en/latest/cmdline.html)を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
 以下のコマンドを実行します。
@@ -359,7 +359,7 @@ msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
 msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
 ```
 
-`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の
+`js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の`js_messages.po`ファイルがメッセージの表示に使用されるようになります。
 
 ```
 $ docker-compose restart assets
@@ -367,11 +367,11 @@ $ docker-compose restart assets
 
 ## タイムスタンプの処理
 
-RDMではユーザが任意のタイミングで、プロジェクト中のファイルに対してタイムスタンプを打つことができます。タイムスタンプは、ファイルに関してその時点での内容を保証するもので、研究の証跡としてのデータを考える上で非常に重要です。
+RDMではユーザが任意のタイミングで、プロジェクト中のファイルに対してタイムスタンプを打つことができます。タイムスタンプは、ファイルに関してその時点での内容を証明するもので、研究の証跡としてのデータを考える上で非常に重要です。
 
 ### ユーザによるタイムスタンプの追加
 
-タイムスタンプは、ファイルの内容を示すハッシュを署名する形で作成されます。ハッシュの取得は以下のいずれかの方法でおこないます。
+タイムスタンプは、ファイルの内容から計算したハッシュ値を署名する形で作成されます。ハッシュの取得は以下のいずれかの方法でおこないます。
 
 - `osf.models.files.File` サブクラスの `get_hash_for_timestamp`により取得する
 - WaterButlerを経由してファイルをダウンロードし、ハッシュ計算を行う
@@ -411,17 +411,18 @@ verify_result = timestamp.check_file_timestamp(
     admin.id, node, file_info, verify_external_only=True)
 ```
 
-`check_file_timestamp(uid, node, data, verify_external_only=False)`関数は以下のパラメータを取ります。
+`check_file_timestamp(uid, node, data, verify_external_only=False)`関数は以下のパラメータを指定することができます。
 
 - `uid` ... タイムスタンプ操作を行うユーザを示すOSFUserのID
 - `node` ... ファイルが所属するプロジェクトを示すNode
 - `data` ... タイムスタンプにより署名検証するデータを示す辞書型データ
-- `verify_external_only` ... タイムスタンプ検証情報の格納に`osf.models.RdmFileTimestamptokenVerifyResult`を使う場合はFalse, 使わない場合(`osf.models.files.File` サブクラスの`def set_timestamp(self, timestamp_data, timestamp_status, context)`に格納する場合)はTrueとする
+- `verify_external_only` ... タイムスタンプ検証情報の格納に`osf.models.RdmFileTimestamptokenVerifyResult`を使う場合はFalse, 使わない場合(`osf.models.files.File` サブクラスの`def set_timestamp(self, timestamp_data, timestamp_status, context)`に格納する場合)はTrueとする (デフォルトはFalse)
 
-`def set_timestamp(self, timestamp_data, timestamp_status, context)` の定義方法は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
+なお、`def set_timestamp(self, timestamp_data, timestamp_status, context)` の定義方法は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
 
-また、通常タイムスタンプの付加処理はストレージのAPI呼び出しやタイムスタンプの付加処理などI/Oを伴う処理を必要とするため、viewなどのリクエストハンドラ内で処理を行ってしまうと、他のハンドラが待たされる要因になります。
-そのため、RDMでは[Celery](https://docs.celeryproject.org/en/stable/)によるワーカーが用意されています。関数をCeleryタスクとして定義することで、時間がかかる処理はワーカーに委譲することができます。
+また、タイムスタンプの付加処理はストレージのAPI呼び出しやタイムスタンプの付加処理などI/Oを伴うため、viewsモジュール内の関数など、リクエストハンドラとして振る舞う関数中で処理を行ってしまうと、他のハンドラが待たされる要因になります。
+このような状況に対応するため、RDMでは[Celery](https://docs.celeryproject.org/en/stable/)によるワーカーが用意されています。
+関数をCeleryタスクとして定義することで、時間がかかる処理はワーカーに委譲することができます。
 例えばDropbox Businessアドオンでは以下のように定義しています。
 
 [dropboxbusiness/utils.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py)
@@ -436,7 +437,7 @@ def celery_check_updated_files(self, team_ids):
     ...
 ```
 
-呼び出し側では以下のように関数を実行することで、ワーカーに処理を任せ、自身は制御を戻すことができます。
+呼び出し側では以下のように関数を実行することで、ワーカーに処理を任せ、自身の処理を続行することができます。
 
 [dropboxbusiness/views.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/views.py)
 ```
