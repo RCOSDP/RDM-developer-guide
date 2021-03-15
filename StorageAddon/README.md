@@ -365,6 +365,83 @@ msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
 $ docker-compose restart assets
 ```
 
+## タイムスタンプの処理
+
+RDMではユーザが任意のタイミングで、プロジェクト中のファイルに対してタイムスタンプを打つことができます。タイムスタンプは、ファイルに関してその時点での内容を保証するもので、研究の証跡としてのデータを考える上で非常に重要です。
+
+### ユーザによるタイムスタンプの追加
+
+タイムスタンプは、ファイルの内容を示すハッシュを署名する形で作成されます。ハッシュの取得は以下のいずれかの方法でおこないます。
+
+- `osf.models.files.File` サブクラスの `get_hash_for_timestamp`により取得する
+- WaterButlerを経由してファイルをダウンロードし、ハッシュ計算を行う
+
+`osf.models.files.File` サブクラスはアドオンのモデルとしてハッシュ値の取得方法を定義するものです。本サンプルでは [models.py](osf.io/addon/models.py) にあります。
+ストレージにより容易にハッシュ相当の値を取得・管理する方法がある場合は、このモデルに`get_hash_for_timestamp(self)`メソッドを定義します。
+タイムスタンプ処理はこのメソッドを通じてハッシュ値を取得することができます。
+`get_hash_for_timestamp(self)`メソッドの実装は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
+
+`osf.models.files.File`モデルに`get_hash_for_timestamp(self)`が定義されていない場合は、タイムスタンプ処理はWaterButlerを経由してファイルをダウンロードする方法を試行します。
+
+### RDM以外でのファイル変更によるタイムスタンプの追加
+
+RDM以外でのファイル変更時に実施する場合も、ファイルが変更されたことを示すためにタイムスタンプを付加したい場合があります。
+このような処理を実行するためには `website.util.timestamp` モジュールを使用します。
+例えばDropbox Businessアドオンでは以下のように実装しています。
+
+[dropboxbusiness/utils.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py)
+```
+...
+from website.util import timestamp
+
+...
+
+file_info = {
+    'file_id': file_node._id,
+    'file_name': attrs.get('name'),
+    'file_path': attrs.get('materialized'),
+    'size': attrs.get('size'),
+    'created': attrs.get('created_utc'),
+    'modified': attrs.get('modified_utc'),
+    'file_version': '',
+    'provider': PROVIDER_NAME
+}
+# verified by admin
+verify_result = timestamp.check_file_timestamp(
+    admin.id, node, file_info, verify_external_only=True)
+```
+
+`check_file_timestamp(uid, node, data, verify_external_only=False)`関数は以下のパラメータを取ります。
+
+- `uid` ... タイムスタンプ操作を行うユーザを示すOSFUserのID
+- `node` ... ファイルが所属するプロジェクトを示すNode
+- `data` ... タイムスタンプにより署名検証するデータを示す辞書型データ
+- `verify_external_only` ... タイムスタンプ検証情報の格納に`osf.models.RdmFileTimestamptokenVerifyResult`を使う場合はFalse, 使わない場合(`osf.models.files.File` サブクラスの`def set_timestamp(self, timestamp_data, timestamp_status, context)`に格納する場合)はTrueとする
+
+`def set_timestamp(self, timestamp_data, timestamp_status, context)` の定義方法は dropboxbusinessアドオンの [DropboxBusinessFileクラス](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38) を参考にしてください。
+
+また、通常タイムスタンプの付加処理はストレージのAPI呼び出しやタイムスタンプの付加処理などI/Oを伴う処理を必要とするため、viewなどのリクエストハンドラ内で処理を行ってしまうと、他のハンドラが待たされる要因になります。
+そのため、RDMでは[Celery](https://docs.celeryproject.org/en/stable/)によるワーカーが用意されています。関数をCeleryタスクとして定義することで、時間がかかる処理はワーカーに委譲することができます。
+例えばDropbox Businessアドオンでは以下のように定義しています。
+
+[dropboxbusiness/utils.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py)
+```
+...
+from framework.celery_tasks import app as celery_app
+
+...
+
+@celery_app.task(bind=True, base=AbortableTask)
+def celery_check_updated_files(self, team_ids):
+    ...
+```
+
+呼び出し側では以下のように関数を実行することで、ワーカーに処理を任せ、自身は制御を戻すことができます。
+
+[dropboxbusiness/views.py](https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/views.py)
+```
+utils.celery_check_updated_files.delay(team_ids)
+```
 
 # My MinIOアドオンの実装
 
