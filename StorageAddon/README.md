@@ -334,12 +334,13 @@ self.owner.add_log(
 
 ```
 # メッセージ定義JSONなどをJavaScriptファイルへと変換する
-$ docker-compose run --rm web invoke webpack
+$ docker-compose run --rm web invoke assets
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
 $ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
 
 # メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
 $ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
@@ -534,12 +535,13 @@ Migrations for 'addons_myminio':
 
 ```
 # メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
-$ docker-compose run --rm web invoke webpack
+$ docker-compose run --rm web invoke assets
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
 $ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
 
 # メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
 $ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
