@@ -280,7 +280,7 @@ Migrations for 'addons_myskelton':
 > このセクションの実施時は各サービスを停止状態にしてください。
 
 ```
-# framework/addons/data/addons.jsonに定義されたメッセージをJavaScriptファイルへと変換する。
+# framework/addons/data/addons.jsonに定義されたメッセージをJavaScriptファイルへと変換する
 $ docker-compose run --rm web python3 -m scripts.generate_addons_translations
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
@@ -291,7 +291,8 @@ $ docker-compose run --rm web pybabel update -i ./website/translations/js_messag
 $ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
-変更例のサンプル [js_messages.po](osf.io/config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
+上記を実行すると、`website/translations/ja/LC_MESSAGES/js_messages.po`にある英語メッセージと日本語メッセージの対応づけが更新されます。
+変更例のサンプル [js_messages.po](config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
 
 ```
 #: scripts/translations/messages_addonsJson.js:45
