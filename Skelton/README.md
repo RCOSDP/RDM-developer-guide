@@ -193,6 +193,8 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 
 変更例はサンプル [addons.json](config/framework/addons/data/addons.json) を参照してください。
 
+> この定義ファイルの内容は画面表示のためだけに利用され、動作には影響しません。
+
 ```
 "My Skelton": {
     "Permissions": {
@@ -225,6 +227,8 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
     }
 }
 ```
+
+このメッセージの国際化については [国際化メッセージファイルの作成](#国際化メッセージファイルの作成)を参照してください。
 
 ### Dockerfile の変更
 
@@ -268,6 +272,46 @@ Migrations for 'addons_myskelton':
   addons/myskelton/migrations/0001_initial.py
     - Create model NodeSettings
 ```
+
+## 国際化メッセージファイルの作成
+
+国際化メッセージファイルの定義ファイルは以下のコマンドで生成することができます。
+
+> このセクションの実施時は各サービスを停止状態にしてください。
+
+```
+# framework/addons/data/addons.jsonに定義されたメッセージをJavaScriptファイルへと変換する
+$ docker-compose run --rm web python3 -m scripts.generate_addons_translations
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+```
+
+上記を実行すると、`website/translations/ja/LC_MESSAGES/js_messages.po`にある英語メッセージと日本語メッセージの対応づけが更新されます。
+変更例のサンプル [js_messages.po](config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
+
+```
+#: scripts/translations/messages_addonsJson.js:45
+msgid ""
+"\n"
+"\n"
+"<h3>My Skelton Add-on Terms</h3>\n"
+"\n"
+...
+msgstr ""
+"\n"
+"\n"
+"<h3>My Skelton アドオン規約</h3>\n"
+"\n"
+"<table class=\"table table-bordered table-addon-terms\">\n"
+...
+```
+
+このメッセージを追加後、`assets`サービスの再起動時にメッセージ定義が反映されます。
 
 ## スケルトンのテスト
 
