@@ -12,4 +12,4 @@ function UserSettings() {
 }
 
 var settings = new UserSettings();
-osfHelpers.applyBindings(settings, `#${SHORT_NAME}AddonScope`);
+osfHelpers.applyBindings(settings, '#' + SHORT_NAME + 'AddonScope');
