@@ -11,7 +11,7 @@ var _ = require('js/rdmGettext')._;
 var sprintf = require('agh.sprintf').sprintf;
 
 var SHORT_NAME = 'myskelton';
-var logPrefix = `[${SHORT_NAME}] `;
+var logPrefix = '[' + SHORT_NAME + '] ';
 
 
 function NodeSettings() {
@@ -108,7 +108,7 @@ function NodeSettings() {
 $.extend(NodeSettings.prototype, ChangeMessageMixin.prototype);
 
 var settings = new NodeSettings();
-osfHelpers.applyBindings(settings, `#${SHORT_NAME}Scope`);
+osfHelpers.applyBindings(settings, '#' + SHORT_NAME + 'Scope');
 settings.loadConfig();
 
 // admin notesを読み込む
