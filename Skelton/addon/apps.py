@@ -35,7 +35,7 @@ class AddonAppConfig(BaseAddonAppConfig):
 
     include_css = {}
 
-    node_settings_template = os.path.join(TEMPLATE_PATH, 'node_settings.mako')
+    node_settings_template = os.path.join(TEMPLATE_PATH, 'myskelton_node_settings.mako')
 
     @property
     def routes(self):

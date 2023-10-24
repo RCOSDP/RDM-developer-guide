@@ -41,7 +41,7 @@ RDMにおいてアドオンは[Django](https://www.djangoproject.com/)アプリ�
 │   ├── comicon.png ... アドオンのアイコン
 │   └── node-cfg.js ... Node設定を定義するJavaScriptファイル
 ├── templates ... テンプレートディレクトリ
-│   └── node_settings.mako ... Node設定パネル
+│   └── <アドオン名>_node_settings.mako ... Node設定パネル
 ├── tests ... テストコード
 │   ├── conftest.py
 │   ├── factories.py
@@ -100,10 +100,10 @@ Routesは以下のようにパスとMethod(GET, POST, PUT, DELETE, ...)と、そ
 
 Routes, Viewsを使うことでさまざまなAPIやインタフェースを定義することができますが、アドオンが持つ利用者用設定画面(認証情報の入力画面)とプロジェクト用設定画面(プロジェクトでアドオンを有効化した場合の設定画面)はフレームワークによってあらかじめテンプレート化されています。
 
-- [node_settings.mako](addon/templates/node_settings.mako)
+- [<アドオン名>_node_settings.mako](addon/templates/myskelton_node_settings.mako)
 
-
-このファイルは、テンプレート言語 [mako](https://www.makotemplates.org/) で記述されます。
+このファイルは、テンプレート言語 [mako](https://www.makotemplates.org/) で記述されます。  
+`mako` ファイルのファイル名の先頭にはアドオン名を書きます。
 
 テンプレートを動的に操作するためのJavaScriptのライブラリにはKnockout.jsを利用することができます。JavaScriptコードについては、アドオンのstaticディレクトリにて定義することができます。
 
@@ -302,7 +302,7 @@ $ docker-compose restart assets web api
 1. My Skeltonアドオンを有効化する
   ![Enable Addon](images/enable-addon.png)
 
-これで、`node_settings.mako`で定義したNode設定画面が現れます。テキストボックスに入力した値が `param_1` プロパティに反映される様子が確認できるはずです。
+これで、`myskelton_node_settings.mako`で定義したNode設定画面が現れます。テキストボックスに入力した値が `param_1` プロパティに反映される様子が確認できるはずです。
 
 ![Addon](images/enabled-addon.png)
 
