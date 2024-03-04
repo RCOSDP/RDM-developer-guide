@@ -22,7 +22,6 @@ link: https://docs.github.com/ja/authentication/keeping-your-account-and-data-se
 
 Navigate to the project root directory:
 ```bash
-cd aws-xray-evaluation
 git clone https://github.com/RCOSDP/RDM-osf.io.git
 git clone https://github.com/RCOSDP/RDM-ember-osf-web.git
 git clone https://github.com/RCOSDP/RDM-modular-file-renderer.git
@@ -59,7 +58,7 @@ sudo ifconfig lo:0 192.168.168.167 netmask 255.255.255.255 up
 
 Navigate to the module directory:
 ```bash
-cd aws-xray-evaluation/RDM-osf.io/
+cd RDM-osf.io/
 ```
 
 ### 5. Copy and Update Local Settings
@@ -309,7 +308,7 @@ Description=Let's Encrypt certificate renewal
 
 [Service]
 Type=oneshot
-ExecStart=certbot renew --dns-route53 --quiet --agree-tos --deploy-hook "cd /home/ubuntu/aws-xray-evaluation/RDM-osf.io && sudo docker-compose restart web admin wb fakecas ember_osf_web  preprints registries reviews"
+ExecStart=certbot renew --dns-route53 --quiet --agree-tos --deploy-hook "cd /home/ubuntu/RDM-osf.io && sudo docker-compose restart web admin wb fakecas ember_osf_web  preprints registries reviews"
 ```
 
 Then create /etc/systemd/system/certbot.timer:
