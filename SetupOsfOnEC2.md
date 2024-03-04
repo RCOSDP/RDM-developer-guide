@@ -1,4 +1,4 @@
-# aws-xray-evaluation
+# OSF evaluation on AWS EC2
 
 ## Quick Start Guide
 
