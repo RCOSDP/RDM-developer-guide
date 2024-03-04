@@ -226,7 +226,7 @@ sudo rm -Rf ./node_modules
 sudo rm -Rf ./website/static/vendor/bower_components
 sudo rm -Rf ./admin/node_modules
 sudo rm -Rf ./admin/static/vendor/bower_components
-sudo docker-compose up assets admin_assets
+sudo docker-compose up -d assets admin_assets
 ```
 
 ### 9. More Services
@@ -257,6 +257,20 @@ Finally start the OSF Web, API Server, and Preprints (Detached):
 sudo docker-compose up -d wb_worker worker web api admin preprints ember_osf_web registries reviews
 ```
 
+We can see containers and images list.
+```bash
+sudo docker iamges
+sudo docker ps
+```
+
+
+We can see the rdm page through browser. 
+
+link : https://EC2-url:5000/
+
+![top page](/images/rdmTop.png)
+
+
 Once you follow these steps, you should have a local environment up and running for development.
 
 ## Configuration Guide
@@ -270,6 +284,7 @@ Use the AWS CLI Docker image to configure your AWS credentials:
 sudo docker run --rm -it -v "/root/.aws:/root/.aws" amazon/aws-cli configure
 ```
 **Verify AWS Credentials**
+Nii has a Certificate Management Service link: https://certs.nii.ac.jp/ . You can contact to them if your service is created on NII infrastructure.
 
 Verify if your AWS credentials are working and have nominal access to Route 53:
 
@@ -279,7 +294,7 @@ sudo docker run --rm -it -v "/root/.aws:/root/.aws" amazon/aws-cli route53 list-
 **Request a Let's Encrypt Wildcard Certificate**
 
 Use the certbot/dns-route53 Docker image to request a wildcard certificate, forwarding your AWS credentials:
-Nii has a Certificate Management Service link: https://certs.nii.ac.jp/ . You can contact to them if your service is created on NII infrastructure.
+
 ```
 certbot certonly --dns-route53 --domain "your.com" --domain "*.your.com"
 ```
@@ -312,6 +327,36 @@ WantedBy=timers.target
 ```
 
 ### 2. User Management
+
+**Setup SMTP**rdm
+
+We need to setup smtp and mailutils. We can install postfix with local only and deefault hostname
+```bash
+apt install postfix mailutils
+```
+
+/etc/postfix/main.cf
+```bash
+
+mynetworks = 10.0.0.0/0 # your network 
+inet_interfaces = all # 
+```
+
+Test for sending mail
+```bash
+echo "test" | mail -s test root@ip-1-1-1-1.ap-northeast-1.compute.internal
+```
+
+```bash
+root@ip-1-1-1-1:/etc/postfix# mail
+"/var/mail/root": 1 message 1 new
+>N   1 root               Mon Mar  4 05:29  14/656   test
+? 1  ### input number
+From: root <root@ip-1-1-1-1.ap-northeast-1.compute.internal>
+test
+```
+
+
 **Create User**
 
 Method 1:
