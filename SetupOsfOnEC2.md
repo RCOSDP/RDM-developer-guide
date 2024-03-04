@@ -6,6 +6,20 @@ For setting up this project on your local environment, follow these steps:
 
 ### 1. Change to Project Directory
 
+Setup for git:
+```bash
+git config --global user.name 'Your github account name' 
+git config --global user.email 'Your email address'        
+git config --global core.editor 'code --wait'
+git config --global merge.tool 'code --wait "$MERGED"'
+git config --global push.default simple
+git config --list  # githuconfig confirmation 
+```
+
+You need generate and register your github token in your gitconfig.
+
+link: https://docs.github.com/ja/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
+
 Navigate to the project root directory:
 ```bash
 cd aws-xray-evaluation
@@ -17,8 +31,10 @@ git clone https://github.com/RCOSDP/RDM-waterbutler.git
 
 
 ### 2. Docker Build
-setup docker and docker compose
+setup docker and docker compose.
+
 link: https://docs.docker.jp/v1.12/compose/install.html
+
 link: https://docs.docker.com/engine/install/ubuntu/
 
 Build Docker images for each module:
