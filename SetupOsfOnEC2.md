@@ -62,7 +62,7 @@ Navigate to the module directory:
 cd aws-xray-evaluation/RDM-osf.io/
 ```
 
-### 5. Copy Local Settings
+### 5. Copy and Update Local Settings
 
 Copy the local settings of the project:
 ```bash
@@ -71,6 +71,138 @@ cp ./api/base/settings/local-dist.py ./api/base/settings/local.py
 cp ./admin/base/settings/local-dist.py ./admin/base/settings/local.py
 cp ./tasks/local-dist.py ./tasks/local.py
 ```
+
+Update the local settings of the project:
+RDM-osf.io/.docker-compose.env
+```bash
+
+DOMAIN=http://ec2.compute-1.amazonaws.com:5000/
+INTERNAL_DOMAIN=http://web:5000/
+API_DOMAIN=http://ec2.compute-1.amazonaws.com:8000/
+ELASTIC_URI=elasticsearch:9200
+ELASTIC6_URI=elasticsearch6:9201
+OSF_DB_HOST=postgres
+DB_HOST=mongo
+WATERBUTLER_URL=http://ec2.compute-1.amazonaws.com:7777
+WATERBUTLER_INTERNAL_URL=http://wb:7777
+CAS_SERVER_URL=http://ec2.compute-1.amazonaws.com:8080
+MFR_SERVER_URL=http://ec2.compute-1.amazonaws.com:7778
+BROKER_URL=amqp://guest:guest@rabbitmq:5672/
+REDIS_URL=redis://192.168.168.167:6379/1
+ADMIN_URL=http://ec2.compute-1.amazonaws.com:8001/
+ADMIN_INTERNAL_DOCKER_URL=http://admin:8001/
+ALLOWED_HOSTS=ec2.compute-1.amazonaws.com,localhost
+
+```
+RDM-osf.io/.docker-compose.osf-web.env
+```bash
+OSF_COOKIE_DOMAIN=ec2.compute-1.amazonaws.com
+OSF_URL=http://ec2.compute-1.amazonaws.com:5000/
+OSF_API_URL=http://ec2.compute-1.amazonaws.com:8000
+OSF_MFR_URL=http://ec2.compute-1.amazonaws.com:7778/
+OSF_RENDER_URL=http://ec2.compute-1.amazonaws.com:7778/render
+OSF_FILE_URL=http://ec2.compute-1.amazonaws.com:7777
+OSF_HELP_URL=http://ec2.compute-1.amazonaws.com:5000/help
+OSF_COOKIE_LOGIN_URL=http://ec2.compute-1.amazonaws.com:8080/login
+OSF_OAUTH_URL=http://ec2.compute-1.amazonaws.com:8080/oauth2/profile
+SHARE_BASE_URL=https://share.osf.io/
+SHARE_API_URL=https://share.osf.io/api/v2
+SHARE_SEARCH_URL=https://share.osf.io/api/v2/search/creativeworks/_search
+CAS_URL=http://ec2.compute-1.amazonaws.com:8080
+
+```
+
+RDM-osf.io/.docker-compose.wb.env
+
+```bash
+DEBUG=
+SERVER_CONFIG_DEBUG=
+SERVER_CONFIG_HMAC_SECRET=changeme
+SERVER_CONFIG_ADDRESS=0.0.0.0
+SERVER_CONFIG_DOMAIN=http://ec2.compute-1.amazonaws.com:7777
+OSF_AUTH_CONFIG_API_URL=http://ec2.compute-1.amazonaws.com:5000/api/v1/files/auth/
+OSF_URL=http://ec2.compute-1.amazonaws.com:5000
+
+TASKS_CONFIG_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+```
+
+RDM-osf.io/admin/base/settings/local.py
+```bash
+SESSION_COOKIE_DOMAIN = 'ec2.compute-1.amazonaws.com'
+from .defaults import *
+
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,osf.io').split(',')
+
+```
+
+RDM-osf.io/docker-compose.override.yml
+
+```bash
+version: "3.4"
+
+services:
+  mfr_requirements:
+    image: rdm-mfr:dev
+  mfr:
+    image: rdm-mfr:dev
+  wb_requirements:
+    image: rdm-wb:dev
+  wb:
+    image: rdm-wb:dev
+  wb_worker:
+    image: rdm-wb:dev
+  ember_osf_web:
+    image: rdm-osf-web:dev
+    environment:
+      - BACKEND=env
+    env_file:
+      - .docker-compose.osf-web.env
+    volumes:
+      - ../RDM-ember-osf-web:/code:cached
+      - ember_osf_web_dist_vol:/code/dist
+  requirements:
+    image: rdm-osf:dev
+  assets:
+    image: rdm-osf:dev
+  admin_assets:
+    image: rdm-osf:dev
+  worker:
+    image: rdm-osf:dev
+  admin:
+    image: rdm-osf:dev
+  api:
+    image: rdm-osf:dev
+  web:
+    image: rdm-osf:dev
+  preprints:
+    environment:
+      - BACKEND=env
+    env_file:
+      - .docker-compose.osf-web.env
+  fakecas:
+    image: quay.io/centerforopenscience/fakecas:master
+    command: fakecas -host=0.0.0.0:8080 -osfhost=ec2.compute-1.amazonaws.com:5000 -dbaddress=postgres://postgres@postgres:5432/osf?sslmode=disable
+  registries:
+    environment:
+      - BACKEND=env
+    env_file:
+      - .docker-compose.osf-web.env
+  reviews:
+    environment:
+      - BACKEND=env
+    env_file:
+      - .docker-compose.osf-web.env
+```
+
+RDM-osf.io/website/settings/local.py
+```bash
+DOMAIN = PROTOCOL + 'ec2.compute-1.amazonaws.com:5000/'
+INTERNAL_DOMAIN = DOMAIN
+API_DOMAIN = PROTOCOL + 'ec2.compute-1.amazonaws.com:8000/'
+OSF_COOKIE_DOMAIN = 'ec2.compute-1.amazonaws.com'
+
+```
+
 
 ### 6. Docker Compose Up Requirements
 
@@ -98,6 +230,12 @@ sudo docker-compose up assets admin_assets
 ```
 
 ### 9. More Services
+
+Upgrade dependency
+RDM-osf.io/requirements/dev.txt
+```bash
+pytest-xdist==1.34.0
+```
 
 Start additional services:
 ```bash

@@ -8,4 +8,4 @@ GakuNin RDM developer guide
 * [画面拡張アドオンの作成](ScreenExpansion/README.md)
 * [APIの利用](APIGuide/README.md)
 * [機関管理機能が有効なアドオンの作成](AdminRDMAddonGuide/README.md)
-* [開発環境の準備](SetupOsfOnEC2.md)
+* [EC2での開発環境の準備](SetupOsfOnEC2.md)
