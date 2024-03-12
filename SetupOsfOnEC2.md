@@ -41,7 +41,6 @@ Build Docker images for each module:
 sudo docker build RDM-ember-osf-web -t rdm-osf-web:dev
 sudo docker build RDM-modular-file-renderer -t rdm-mfr:dev
 sudo docker build RDM-waterbutler -t rdm-wb:dev
-sudo docker build fakecas -t rdm-fakecas:dev
 sudo docker build RDM-osf.io -t rdm-osf:dev
 ```
 
