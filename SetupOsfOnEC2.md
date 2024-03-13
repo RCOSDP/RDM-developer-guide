@@ -23,7 +23,7 @@ link: https://docs.github.com/ja/authentication/keeping-your-account-and-data-se
 Navigate to the project root directory:
 ```bash
 git clone https://github.com/RCOSDP/RDM-osf.io.git
-git clone https://github.com/RCOSDP/RDM-ember-osf-web.git
+git clone -b develop https://github.com/RCOSDP/RDM-ember-osf-web.git
 git clone https://github.com/RCOSDP/RDM-modular-file-renderer.git
 git clone https://github.com/RCOSDP/RDM-waterbutler.git
 ```
