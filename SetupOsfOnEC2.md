@@ -74,39 +74,41 @@ Update the local settings of the project:
 RDM-osf.io/.docker-compose.env
 ```bash
 
-DOMAIN=http://ec2.compute-1.amazonaws.com:5000/
-INTERNAL_DOMAIN=http://web:5000/
-API_DOMAIN=http://ec2.compute-1.amazonaws.com:8000/
+DOMAIN=http://ec2.compute-1.amazonaws.com:5000
+INTERNAL_DOMAIN=http://web:5000
+API_DOMAIN=http://api.ec2.compute-1.amazonaws.com:8000
 ELASTIC_URI=elasticsearch:9200
 ELASTIC6_URI=elasticsearch6:9201
 OSF_DB_HOST=postgres
 DB_HOST=mongo
-WATERBUTLER_URL=http://ec2.compute-1.amazonaws.com:7777
+WATERBUTLER_URL=http://files.ec2.compute-1.amazonaws.com:7777
 WATERBUTLER_INTERNAL_URL=http://wb:7777
-CAS_SERVER_URL=http://ec2.compute-1.amazonaws.com:8080
-MFR_SERVER_URL=http://ec2.compute-1.amazonaws.com:7778
-BROKER_URL=amqp://guest:guest@rabbitmq:5672/
+CAS_SERVER_URL=http://accounts.ec2.compute-1.amazonaws.com:8080
+MFR_SERVER_URL=http://mfr.ec2.compute-1.amazonaws.com:7778
+#SHARE_URL=http://192.168.168.167:8000
+BROKER_URL=amqp://guest:guest@rabbitmq:5672
 REDIS_URL=redis://192.168.168.167:6379/1
-ADMIN_URL=http://ec2.compute-1.amazonaws.com:8001/
-ADMIN_INTERNAL_DOCKER_URL=http://admin:8001/
-ALLOWED_HOSTS=ec2.compute-1.amazonaws.com,localhost
+
+ADMIN_URL=http://admin.ec2.compute-1.amazonaws.com:8001
+ADMIN_INTERNAL_DOCKER_URL=http://admin:8001
+
 
 ```
 RDM-osf.io/.docker-compose.osf-web.env
 ```bash
-OSF_COOKIE_DOMAIN=ec2.compute-1.amazonaws.com
-OSF_URL=http://ec2.compute-1.amazonaws.com:5000/
-OSF_API_URL=http://ec2.compute-1.amazonaws.com:8000
-OSF_MFR_URL=http://ec2.compute-1.amazonaws.com:7778/
-OSF_RENDER_URL=http://ec2.compute-1.amazonaws.com:7778/render
-OSF_FILE_URL=http://ec2.compute-1.amazonaws.com:7777
+OSF_COOKIE_DOMAIN=.ec2.compute-1.amazonaws.com
+OSF_URL=http://ec2.compute-1.amazonaws.com:5000
+OSF_API_URL=http://api.ec2.compute-1.amazonaws.com:8000
+OSF_MFR_URL=http://mfr.ec2.compute-1.amazonaws.com:7778
+OSF_RENDER_URL=http://mfr.ec2.compute-1.amazonaws.com:7778/render
+OSF_FILE_URL=http://files.ec2.compute-1.amazonaws.com:7777
 OSF_HELP_URL=http://ec2.compute-1.amazonaws.com:5000/help
-OSF_COOKIE_LOGIN_URL=http://ec2.compute-1.amazonaws.com:8080/login
-OSF_OAUTH_URL=http://ec2.compute-1.amazonaws.com:8080/oauth2/profile
+OSF_COOKIE_LOGIN_URL=http://accounts.ec2.compute-1.amazonaws.com:8080/login
+OSF_OAUTH_URL=http://accounts.ec2.compute-1.amazonaws.com:8080/oauth2/profile
 SHARE_BASE_URL=https://share.osf.io/
 SHARE_API_URL=https://share.osf.io/api/v2
 SHARE_SEARCH_URL=https://share.osf.io/api/v2/search/creativeworks/_search
-CAS_URL=http://ec2.compute-1.amazonaws.com:8080
+CAS_URL=http://accounts.ec2.compute-1.amazonaws.com:8080
 
 ```
 
@@ -124,6 +126,22 @@ OSF_URL=http://ec2.compute-1.amazonaws.com:5000
 TASKS_CONFIG_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
 ```
 
+RDM-osf.io/.docker-compose.mfr.env
+```bash
+
+DEBUG=
+SERVER_CONFIG_DEBUG=
+SERVER_CONFIG_HMAC_SECRET=changeme
+
+SERVER_CONFIG_ADDRESS=0.0.0.0
+SERVER_CONFIG_ALLOWED_PROVIDER_DOMAINS='http://192.168.168.167:5000/ http://192.168.168.167:7777/ http://mfr:7777/ http://ec2.compute-1.amazonaws.com:5000/ http://files.ec2.compute-1.amazonaws.com:7777/'
+
+UNOCONV_PORT_2002_TCP_ADDR=192.168.168.167
+EXTENSION_CONFIG_LOCAL_DEVELOPMENT=1
+
+
+```
+
 RDM-osf.io/admin/base/settings/local.py
 ```bash
 SESSION_COOKIE_DOMAIN = 'ec2.compute-1.amazonaws.com'
@@ -132,6 +150,7 @@ from .defaults import *
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,osf.io').split(',')
 
 ```
+
 
 RDM-osf.io/docker-compose.override.yml
 
