@@ -34,7 +34,7 @@ class AddonAppConfig(BaseAddonAppConfig):
 
     categories = ['other']
 
-    node_settings_template = os.path.join(TEMPLATE_PATH, 'node_settings.mako')
+    node_settings_template = os.path.join(TEMPLATE_PATH, 'myscreen_node_settings.mako')
 
     @property
     def routes(self):
