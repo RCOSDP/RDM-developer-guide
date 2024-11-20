@@ -44,40 +44,66 @@ Dockerを用いることで、OS等の環境の差異をコンテナにより吸
 # 開発環境のカスタマイズ
 
 初期状態では `docker-compose.yml` は `quay.io/centerforopenscience/` からイメージを取得するようになっています。
-この構成でも動作を確認できる可能性はありますが、開発中のブランチからイメージをビルドした方が、よりスムーズに動作確認できるかもしれません。
 
-Docker Composeにより起動される各サービスのDockerイメージを、自身で開発しているイメージに差し替えるには、以下のような内容を `docker-compose.override.yml` に記述します。
+GakuNin RDMの最新Docker Imageをベースに開発を行うには、これらのイメージを差し替える必要があります。以下の内容を `docker-compose.override.yml` に記述してください。
 (`docker-compose.yml` と同じディレクトリに作成してください。)
 
 ```
-version: "3.4"
-
 services:
+  fakecas:
+    image: niicloudoperation/rdm-fakecas:latest
+  # Apple Silicon搭載Macの場合、以下をコメントアウトしてARM版Elasticsearchイメージを使用してください。
+  # elasticsearch:
+  #   image: quay.io/centerforopenscience/elasticsearch:es6-arm-6.3.1
+  #   platform: linux/arm64
   admin:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    environment:
+      AWS_EC2_METADATA_DISABLED: "true"
   admin_assets:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
   api:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
   assets:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
   requirements:
-    image: myrepository/RDM-osf.io:mybranch
-  wb:
-    image: myrepository/RDM-waterbutler:mybranch
-  wb_requirements:
-    image: myrepository/RDM-waterbutler:mybranch
-  wb_worker:
-    image: myrepository/RDM-waterbutler:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    command:
+      - /bin/bash
+      - -c
+      - apk add --no-cache --virtual .build-deps build-base linux-headers python3-dev musl-dev libxml2-dev libxslt-dev postgresql-dev libffi-dev libpng-dev freetype-dev jpeg-dev &&
+        invoke requirements --all &&
+        (python3 -m compileall /usr/lib/python3.6 || true) &&
+        rm -Rf /python3.6/* &&
+        cp -Rf -p /usr/lib/python3.6 /
   web:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    environment:
+      OAUTHLIB_INSECURE_TRANSPORT: '1'
   worker:
-    image: myrepository/RDM-osf.io:mybranch
-  ember_osf_web:
-    image: myrepository/RDM-ember-osf-web:mybranch
-  # cas-overlayを使用する場合
+    image: niicloudoperation/rdm-osf.io:latest
   cas:
-    image: myrepository/cas-overlay:mybranch
+    image: niicloudoperation/rdm-cas-overlay:latest
+  mfr:
+    image: niicloudoperation/rdm-modular-file-renderer:latest
+    # volumes:
+    #   - ../RDM-modular-file-renderer:/code
+  mfr_requirements:
+    image: niicloudoperation/rdm-modular-file-renderer:latest
+    # volumes:
+    #   - ../RDM-modular-file-renderer:/code
+  wb:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # volumes:
+    #   - ../RDM-waterbutler:/code
+  wb_worker:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # volumes:
+    #   - ../RDM-waterbutler:/code
+  wb_requirements:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # volumes:
+    #   - ../RDM2-waterbutler:/code
 ```
 
 # 開発環境でRDMを起動する
