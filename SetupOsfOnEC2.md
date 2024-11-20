@@ -225,14 +225,14 @@ OSF_COOKIE_DOMAIN = 'ec2.compute-1.amazonaws.com'
 
 Ensure you have the required services running:
 ```bash
-sudo docker-compose up requirements wb_requirements mfr_requirements
+sudo docker compose up requirements wb_requirements mfr_requirements
 ```
 
 ### 7. Start Core Component Services (Detached)
 
 Spin up denpent services:
 ```bash
-sudo docker-compose up -d elasticsearch elasticsearch6 postgres mongo rabbitmq
+sudo docker compose up -d elasticsearch elasticsearch6 postgres mongo rabbitmq
 ```
 
 ### 8. Assets Setup
@@ -243,7 +243,7 @@ sudo rm -Rf ./node_modules
 sudo rm -Rf ./website/static/vendor/bower_components
 sudo rm -Rf ./admin/node_modules
 sudo rm -Rf ./admin/static/vendor/bower_components
-sudo docker-compose up -d assets admin_assets
+sudo docker compose up -d assets admin_assets
 ```
 
 ### 9. More Services
@@ -256,14 +256,14 @@ pytest-xdist==1.34.0
 
 Start additional services:
 ```bash
-sudo docker-compose up -d unoconv mfr wb fakecas sharejs
+sudo docker compose up -d unoconv mfr wb fakecas sharejs
 ```
 
 ### 10. Database Migration
 When starting with an empty database you will need to run migrations and populate preprint providers. 
 Perform database migrations:
 ```bash
-sudo docker-compose run --rm web python3 manage.py migrate
+sudo docker compose run --rm web python3 manage.py migrate
 ```
 See the [Running arbitrary commands](RDM-osf.io/README-docker-compose.md#running-arbitrary-commands) section below for instructions.
 
@@ -271,7 +271,7 @@ See the [Running arbitrary commands](RDM-osf.io/README-docker-compose.md#running
 
 Finally start the OSF Web, API Server, and Preprints (Detached):
 ```bash
-sudo docker-compose up -d wb_worker worker web api admin preprints ember_osf_web registries reviews
+sudo docker compose up -d wb_worker worker web api admin preprints ember_osf_web registries reviews
 ```
 
 We can see containers and images list.
@@ -326,7 +326,7 @@ Description=Let's Encrypt certificate renewal
 
 [Service]
 Type=oneshot
-ExecStart=certbot renew --dns-route53 --quiet --agree-tos --deploy-hook "cd /home/ubuntu/RDM-osf.io && sudo docker-compose restart web admin wb fakecas ember_osf_web  preprints registries reviews"
+ExecStart=certbot renew --dns-route53 --quiet --agree-tos --deploy-hook "cd /home/ubuntu/RDM-osf.io && sudo docker compose restart web admin wb fakecas ember_osf_web  preprints registries reviews"
 ```
 
 Then create /etc/systemd/system/certbot.timer:
@@ -382,7 +382,7 @@ Create a user via register link: https://EC2-url:5000/register/
 Method 2:
 Create a user directly through the RDM shell.
 ```bash
-docker-compose run --rm web invoke shell
+docker compose run --rm web invoke shell
 ```
 Create an OSF User with python code:
 ```python

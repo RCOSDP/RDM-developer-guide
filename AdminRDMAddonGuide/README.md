@@ -191,7 +191,7 @@ class AddonAppConfig(BaseAddonAppConfig):
 変更したファイルに関連するサービスを再起動します。
 
 ```
-$ docker-compose restart web api assets admin
+$ docker compose restart web api assets admin
 ```
 
 これでサービスへの反映は完了です。機関管理機能でスケルトン アドオンの設定を変更できることを確認するには、以下のような操作を実施します。
@@ -307,7 +307,7 @@ Admin Notesを表示するためのUIを追加します。
 makemigrations コマンドを実行して、Migrationsファイルを作成します。
 
 ```
-$ docker-compose run --rm web python3 manage.py makemigrations
+$ docker compose run --rm web python3 manage.py makemigrations
 ```
 
 上記の出力中に以下のような出力が現れれば成功です。
@@ -326,13 +326,13 @@ Migrations for 'osf':
 アドオンの機関管理機能におけるAdmin Notesに関するユニットテストは、以下のコマンドで実行できます。
 
 ```
-$ docker-compose run --rm web invoke test_module -m admin_tests/rdm_addons/api_v1/test_views.py::TestAdminNotesView
+$ docker compose run --rm web invoke test_module -m admin_tests/rdm_addons/api_v1/test_views.py::TestAdminNotesView
 ```
 
 スケルトン アドオンにおけるAdmin Notesに関するユニットテストは、以下のコマンドで実行できます。
 
 ```
-$ docker-compose run --rm web invoke test_module -m addons/myskelton/tests/test_view.py::TestAdminNotesViews
+$ docker compose run --rm web invoke test_module -m addons/myskelton/tests/test_view.py::TestAdminNotesViews
 ```
 
 # Admin Notesの動作確認
@@ -344,7 +344,7 @@ Admin Notesの動作を確認してみましょう。
 マイグレーションを実行し、Migrations定義をPostgreSQLサービスに反映します。
 
 ```
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 ```
 
 ## 国際化のコンパイル
@@ -352,7 +352,7 @@ $ docker-compose run --rm web python3 manage.py migrate
 テンプレートファイルの国際化設定を適用するために、国際化ファイルをコンパイルします。
 
 ```
-$ docker-compose run --rm web pybabel compile -D django -d ./admin/translations
+$ docker compose run --rm web pybabel compile -D django -d ./admin/translations
 ```
 
 ## サービスの再起動
@@ -360,7 +360,7 @@ $ docker-compose run --rm web pybabel compile -D django -d ./admin/translations
 変更したファイルに関するサービスを再起動します。
 
 ```
-$ docker-compose restart web api assets admin admin_assets
+$ docker compose restart web api assets admin admin_assets
 ```
 
 これでサービスへの反映は完了です。
