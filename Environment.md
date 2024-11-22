@@ -82,6 +82,8 @@ services:
       OAUTHLIB_INSECURE_TRANSPORT: '1'
   worker:
     image: niicloudoperation/rdm-osf.io:latest
+  ember_osf_web:
+    image: niicloudoperation/rdm-ember-osf-web:latest
   cas:
     image: niicloudoperation/rdm-cas-overlay:latest
   mfr:
