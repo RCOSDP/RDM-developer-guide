@@ -49,25 +49,32 @@ GakuNin RDMの最新Docker Imageをベースに開発を行うには、これら
 (`docker-compose.yml` と同じディレクトリに作成してください。)
 
 ```
+# Apple Silicon搭載Macの場合、platform指定のコメントアウト部分を外してARM版イメージを使用してください。
 services:
   fakecas:
     image: niicloudoperation/rdm-fakecas:latest
-  # Apple Silicon搭載Macの場合、以下をコメントアウトしてARM版Elasticsearchイメージを使用してください。
+    # platform: linux/arm64
+  # Apple Silicon搭載Macの場合、以下のコメントアウト部分を外してARM版Elasticsearchイメージを使用してください。
   # elasticsearch:
   #   image: quay.io/centerforopenscience/elasticsearch:es6-arm-6.3.1
   #   platform: linux/arm64
   admin:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
     environment:
       AWS_EC2_METADATA_DISABLED: "true"
   admin_assets:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   api:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   assets:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   requirements:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
     command:
       - /bin/bash
       - -c
@@ -78,34 +85,53 @@ services:
         cp -Rf -p /usr/lib/python3.6 /
   web:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
     environment:
       OAUTHLIB_INSECURE_TRANSPORT: '1'
+    # macOS 15.1.1以降の場合、5000ポートが使用されている場合があります。その場合は以下のコメントアウトをはずしてポートを変更してください。
+    # また、 `.docker-compose.env`, `.docker-compose.mfr.env`, `.docker-compose.wb.env` のポート指定 `:5000` にも同様の
+    # 変更を行ってください。
+    # ports: !override
+    #   - 5001:5000
   worker:
     image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   ember_osf_web:
     image: niicloudoperation/rdm-ember-osf-web:latest
+    # platform: linux/amd64
   cas:
     image: niicloudoperation/rdm-cas-overlay:latest
+    # platform: linux/amd64
   mfr:
     image: niicloudoperation/rdm-modular-file-renderer:latest
+    # platform: linux/amd64
+    # ローカルのRDM-modular-file-rendererを試したい場合
     # volumes:
     #   - ../RDM-modular-file-renderer:/code
   mfr_requirements:
     image: niicloudoperation/rdm-modular-file-renderer:latest
+    # platform: linux/amd64
+    # ローカルのRDM-modular-file-rendererを試したい場合
     # volumes:
     #   - ../RDM-modular-file-renderer:/code
   wb:
     image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
     # volumes:
     #   - ../RDM-waterbutler:/code
   wb_worker:
     image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
     # volumes:
     #   - ../RDM-waterbutler:/code
   wb_requirements:
     image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
     # volumes:
-    #   - ../RDM2-waterbutler:/code
+    #   - ../RDM-waterbutler:/code
 ```
 
 # 開発環境でRDMを起動する
