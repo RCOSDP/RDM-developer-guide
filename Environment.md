@@ -31,6 +31,7 @@ Dockerを用いることで、OS等の環境の差異をコンテナにより吸
 1. DockerとOSのセットアップ - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#docker-and-os-setup
   * Docker Composeを利用可能にするためにDocker Engineを自身の環境にインストールします。
   * RDMのサービス同士が互いに通信できるように、ループバックデバイスとして `192.168.168.167` を設定します。
+  * ※注意: OSX ならびに Ubuntu については動作実績がありますが、Windows については動作が確認されていません。
 2. アプリケーションの設定 - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#application-configuration
   * WebサーバとAPIサーバに関する、Djangoの設定ファイル `local.py` を準備します。特に変更の必要がなければ、それぞれの `local-dist.py` をコピーして使用します。
   * RDM-osf.io, RDM-waterbutlerリポジトリを使用するよう、Docker Composeサービス定義ファイルを変更します。`docker-compose.yml` を直接変更するのではなく、 `docker-compose.override.yml` を変更することで、誤って開発環境固有の情報をリポジトリにコミットすることを防止することができます。
