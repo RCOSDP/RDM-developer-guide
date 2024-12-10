@@ -262,7 +262,7 @@ Migrationsファイルは、Modelの内容をRDBのテーブルに対応づけ�
 Modelで定義したプロパティがRDBに保存されるよう、`makemigrations`コマンドを実行します。このコマンドを実行すると、 `addons/myskelton/migrations` にPythonファイルが作成されます。
 
 ```
-$ docker-compose run --rm web python3 manage.py makemigrations
+$ docker compose run --rm web python3 manage.py makemigrations
 ```
 
 上記の出力中に以下の出力が現れれば成功です。現れない場合、RDMがアドオンを認識していない可能性があります。特に`addons.json`, `api/base/settings/defaults.py`の設定が漏れていないかどうかを確認してください。
@@ -281,14 +281,14 @@ Migrations for 'addons_myskelton':
 
 ```
 # framework/addons/data/addons.jsonに定義されたメッセージをJavaScriptファイルへと変換する
-$ docker-compose run --rm web python3 -m scripts.generate_addons_translations
+$ docker compose run --rm web python3 -m scripts.generate_addons_translations
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
-$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+$ docker compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
 
 # メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
 上記を実行すると、`website/translations/ja/LC_MESSAGES/js_messages.po`にある英語メッセージと日本語メッセージの対応づけが更新されます。
@@ -318,7 +318,7 @@ msgstr ""
 これでアドオンのコードの作成は完了です。以下のコマンドで追加した `addons/myskelton` のユニットテストを実行してみましょう。
 
 ```
-$ docker-compose run --rm web invoke test_module -m addons/myskelton/tests/
+$ docker compose run --rm web invoke test_module -m addons/myskelton/tests/
 ```
 
 # スケルトン アドオンの動作確認
@@ -327,13 +327,13 @@ $ docker-compose run --rm web invoke test_module -m addons/myskelton/tests/
 アドオンには新規に定義されたModelが含まれていますので、Migrations定義をサービス中のPostgreSQLサービスに反映しましょう。
 
 ```
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 ```
 
 また、新規にJavaScriptファイルを追加したので、新たなファイルがロード対象となるように、`RDM-osf.io`をイメージとしたサービスの再起動を実施します。
 
 ```
-$ docker-compose restart assets web api
+$ docker compose restart assets web api
 ```
 
 これでサービスへの反映は完了です。スケルトン アドオンを試すには、以下のような操作を実施します。

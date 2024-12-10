@@ -334,14 +334,14 @@ self.owner.add_log(
 
 ```
 # メッセージ定義JSONなどをJavaScriptファイルへと変換する
-$ docker-compose run --rm web invoke assets
+$ docker compose run --rm web invoke assets
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
-$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+$ docker compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
 
 # メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
 すると、`website/translations/ja/LC_MESSAGES/js_messages.po`ファイルに、以下のような空の項目が追加されます。
@@ -363,7 +363,7 @@ msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
 `js_messages.po` を変更したら、`assets`サービスを再起動してください。最新の`js_messages.po`ファイルがメッセージの表示に使用されるようになります。
 
 ```
-$ docker-compose restart assets
+$ docker compose restart assets
 ```
 
 ## タイムスタンプの処理
@@ -506,7 +506,7 @@ ADDONS_OAUTH.append('myminio')
 `makemigrations` コマンドを実行して、Migrationsファイルを作成します。
 
 ```
-$ docker-compose run --rm web python3 manage.py makemigrations
+$ docker compose run --rm web python3 manage.py makemigrations
 ```
 
 上記の出力中に以下のような出力が現れれば成功です。ストレージアドオンの場合、 `osf/migrations` と `addons/myminio/migrations` の2つのディレクトリ内にPythonファイルが作成されます。
@@ -535,14 +535,14 @@ Migrations for 'addons_myminio':
 
 ```
 # メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
-$ docker-compose run --rm web invoke assets
+$ docker compose run --rm web invoke assets
 
 # メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
-$ docker-compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+$ docker compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
 
 # メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
-$ docker-compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
 ```
 
 変更例のサンプル [js_messages.po](osf.io/config/website/translations/ja/LC_MESSAGES/js_messages.po) を参考に日本語メッセージを追加してください。
@@ -566,7 +566,7 @@ msgstr "${user}が${node}のMy MinIOバケット(${bucket})の選択を解除し
 以下のコマンドで、OSF.ioに追加したMy MinIOアドオンのユニットテストを実行できます。
 
 ```
-$ docker-compose run --rm web invoke test_module -m addons/myminio/tests/
+$ docker compose run --rm web invoke test_module -m addons/myminio/tests/
 ```
 
 ## WaterButlerへの実装
@@ -622,7 +622,7 @@ services:
 以下のコマンドで、WaterButlerに追加したMy MinIOアドオン Providerのユニットテストを実行できます。
 
 ```
-$ docker-compose run --rm wb invoke test --provider myminio
+$ docker compose run --rm wb invoke test --provider myminio
 ```
 
 
@@ -661,7 +661,7 @@ RDMとMinIOサービスを同じ環境で実行している場合は、ループ
 マイグレーションを実行し、Migrations定義をPostgreSQLサービスに反映します。
 
 ```
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 ```
 
 ## サービスの再起動
@@ -669,13 +669,13 @@ $ docker-compose run --rm web python3 manage.py migrate
 WaterButlerに追加したProviderを有効にするために、 `wb_requirements` を起動します。
 
 ```
-$ docker-compose up wb_requirements
+$ docker compose up wb_requirements
 ```
 
 変更したファイルに関連するサービスを再起動します。
 
 ```
-$ docker-compose restart assets web api wb
+$ docker compose restart assets web api wb
 ```
 
 これでサービスへの反映は完了です。

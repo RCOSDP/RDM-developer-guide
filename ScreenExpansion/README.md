@@ -369,7 +369,7 @@ msgstr "パラメーター1"
 `makemigrations` コマンドを実行して、Migrationsファイルを作成します。
 
 ```
-$ docker-compose run --rm web python3 manage.py makemigrations
+$ docker compose run --rm web python3 manage.py makemigrations
 ```
 
 上記の出力中に以下のような出力が現れれば成功です。
@@ -495,7 +495,7 @@ Migrations for 'addons_myscreen':
 以下のコマンドで、OSF.ioに追加したMy Screenアドオンのユニットテストを実行できます。
 
 ```
-$ docker-compose run --rm web invoke test_module -m addons/myscreen/tests/
+$ docker compose run --rm web invoke test_module -m addons/myscreen/tests/
 ```
 
 ## ember-osf-webへの実装
@@ -636,28 +636,28 @@ services:
 コントローラの単体テスト:
 
 ```
-$ docker-compose run --rm ember_osf_web yarn test --module 'Unit | Controller | guid-node/myscreen'
+$ docker compose run --rm ember_osf_web yarn test --module 'Unit | Controller | guid-node/myscreen'
 ```
 
 ナビゲーションバーの結合テスト:
 
 ```
-$ docker-compose run --rm ember_osf_web yarn test --module 'Integration | Component | node-navbar'
+$ docker compose run --rm ember_osf_web yarn test --module 'Integration | Component | node-navbar'
 ```
 
 画面タブの受け入れテスト:
 
 ```
-$ docker-compose run --rm ember_osf_web yarn test --module 'Acceptance | guid-node/myscreen'
+$ docker compose run --rm ember_osf_web yarn test --module 'Acceptance | guid-node/myscreen'
 ```
 
 ファイルを指定してlintを実行するのは、以下のコマンドを実行します。
 
 ```
-$ docker-compose run --rm ember_osf_web node_modules/.bin/eslint --ext js,ts --max-warnings=0 'app/guid-node/myscreen' 'app/**/myscreen-config.ts' 'app/router.ts' 'lib/osf-components/addon/components/node-navbar/component.ts' 'tests/integration/components/node-navbar/component-test.ts' 'mirage/config.ts'
-$ docker-compose run --rm ember_osf_web node_modules/.bin/tslint -p . 'app/guid-node/myscreen/**/*.ts' 'app/**/myscreen-config.ts' 'app/router.ts' 'lib/osf-components/addon/components/node-navbar/component.ts' 'tests/integration/components/node-navbar/component-test.ts' 'mirage/config.ts'
-$ docker-compose run --rm ember_osf_web node_modules/.bin/stylelint 'app/guid-node/myscreen/**/*.scss'
-$ docker-compose run --rm ember_osf_web node_modules/.bin/ember-template-lint 'app/guid-node/myscreen/**/*.hbs' 'lib/osf-components/addon/components/node-navbar/template.hbs'
+$ docker compose run --rm ember_osf_web node_modules/.bin/eslint --ext js,ts --max-warnings=0 'app/guid-node/myscreen' 'app/**/myscreen-config.ts' 'app/router.ts' 'lib/osf-components/addon/components/node-navbar/component.ts' 'tests/integration/components/node-navbar/component-test.ts' 'mirage/config.ts'
+$ docker compose run --rm ember_osf_web node_modules/.bin/tslint -p . 'app/guid-node/myscreen/**/*.ts' 'app/**/myscreen-config.ts' 'app/router.ts' 'lib/osf-components/addon/components/node-navbar/component.ts' 'tests/integration/components/node-navbar/component-test.ts' 'mirage/config.ts'
+$ docker compose run --rm ember_osf_web node_modules/.bin/stylelint 'app/guid-node/myscreen/**/*.scss'
+$ docker compose run --rm ember_osf_web node_modules/.bin/ember-template-lint 'app/guid-node/myscreen/**/*.hbs' 'lib/osf-components/addon/components/node-navbar/template.hbs'
 ```
 
 
@@ -670,7 +670,7 @@ My Screenアドオンの動作確認をしてみましょう。
 マイグレーションを実行し、Migrations定義をPostgreSQLサービスに反映します。
 
 ```
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 ```
 
 ## 国際化のコンパイル
@@ -678,7 +678,7 @@ $ docker-compose run --rm web python3 manage.py migrate
 `.mako` ファイルの国際化設定を適用するために、国際化ファイルをコンパイルします。
 
 ```
-$ docker-compose run --rm web pybabel compile -d ./website/translations
+$ docker compose run --rm web pybabel compile -d ./website/translations
 ```
 
 > `.js` ファイルの国際化設定は、 `assets` サービスの再起動時に適用されます。
@@ -688,7 +688,7 @@ $ docker-compose run --rm web pybabel compile -d ./website/translations
 変更したファイルに関連するサービスを再起動します。
 
 ```
-$ docker-compose restart assets web api ember_osf_web
+$ docker compose restart assets web api ember_osf_web
 ```
 
 これでサービスへの反映は完了です。

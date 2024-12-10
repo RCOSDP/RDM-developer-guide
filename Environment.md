@@ -36,7 +36,7 @@ Dockerを用いることで、OS等の環境の差異をコンテナにより吸
   * WebサーバとAPIサーバに関する、Djangoの設定ファイル `local.py` を準備します。特に変更の必要がなければ、それぞれの `local-dist.py` をコピーして使用します。
   * RDM-osf.io, RDM-waterbutlerリポジトリを使用するよう、Docker Composeサービス定義ファイルを変更します。`docker-compose.yml` を直接変更するのではなく、 `docker-compose.override.yml` を変更することで、誤って開発環境固有の情報をリポジトリにコミットすることを防止することができます。
 3. アプリケーションの実行 - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#application-runtime
-  * このDocker Compose環境は、Dockerイメージをベースに各サービスを起動しますが、PythonモジュールやNodeモジュールはイメージとは異なるボリュームに保持します。(開発中に更新される可能性を想定しているものと思われます。) そのため、サービス実行前に `docker-compose up requirements mfr_requirements wb_requirements` を実施することで、必要なライブラリを各コンテナにインストールする必要があります。
+  * このDocker Compose環境は、Dockerイメージをベースに各サービスを起動しますが、PythonモジュールやNodeモジュールはイメージとは異なるボリュームに保持します。(開発中に更新される可能性を想定しているものと思われます。) そのため、サービス実行前に `docker compose up requirements mfr_requirements wb_requirements` を実施することで、必要なライブラリを各コンテナにインストールする必要があります。
 4. ツールの利用 - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#running-arbitrary-commands
   * DjangoのMigrationファイルの作成や、RDMが保持するModelの確認、テストの実行など、Docker Compose経由でコマンドを実行することで、容易にこれらのコマンドを実行できます。
 5. 環境のリセット - https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#cleanup--docker-reset
@@ -45,40 +45,94 @@ Dockerを用いることで、OS等の環境の差異をコンテナにより吸
 # 開発環境のカスタマイズ
 
 初期状態では `docker-compose.yml` は `quay.io/centerforopenscience/` からイメージを取得するようになっています。
-この構成でも動作を確認できる可能性はありますが、開発中のブランチからイメージをビルドした方が、よりスムーズに動作確認できるかもしれません。
 
-Docker Composeにより起動される各サービスのDockerイメージを、自身で開発しているイメージに差し替えるには、以下のような内容を `docker-compose.override.yml` に記述します。
+GakuNin RDMの最新Docker Imageをベースに開発を行うには、これらのイメージを差し替える必要があります。以下の内容を `docker-compose.override.yml` に記述してください。
 (`docker-compose.yml` と同じディレクトリに作成してください。)
 
 ```
-version: "3.4"
-
+# Apple Silicon搭載Macの場合、platform指定のコメントアウト部分を外してARM版イメージを使用してください。
 services:
+  fakecas:
+    image: niicloudoperation/rdm-fakecas:latest
+    # platform: linux/arm64
+  # Apple Silicon搭載Macの場合、以下のコメントアウト部分を外してARM版Elasticsearchイメージを使用してください。
+  # elasticsearch:
+  #   image: quay.io/centerforopenscience/elasticsearch:es6-arm-6.3.1
+  #   platform: linux/arm64
   admin:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
+    environment:
+      AWS_EC2_METADATA_DISABLED: "true"
   admin_assets:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   api:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   assets:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   requirements:
-    image: myrepository/RDM-osf.io:mybranch
-  wb:
-    image: myrepository/RDM-waterbutler:mybranch
-  wb_requirements:
-    image: myrepository/RDM-waterbutler:mybranch
-  wb_worker:
-    image: myrepository/RDM-waterbutler:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
+    command:
+      - /bin/bash
+      - -c
+      - apk add --no-cache --virtual .build-deps build-base linux-headers python3-dev musl-dev libxml2-dev libxslt-dev postgresql-dev libffi-dev libpng-dev freetype-dev jpeg-dev &&
+        invoke requirements --all &&
+        (python3 -m compileall /usr/lib/python3.6 || true) &&
+        rm -Rf /python3.6/* &&
+        cp -Rf -p /usr/lib/python3.6 /
   web:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
+    environment:
+      OAUTHLIB_INSECURE_TRANSPORT: '1'
+    # macOS 15.1.1以降の場合、5000ポートが使用されている場合があります。その場合は以下のコメントアウトをはずしてポートを変更してください。
+    # また、 `.docker-compose.env`, `.docker-compose.mfr.env`, `.docker-compose.wb.env` のポート指定 `:5000` にも同様の
+    # 変更を行ってください。
+    # ports: !override
+    #   - 5001:5000
   worker:
-    image: myrepository/RDM-osf.io:mybranch
+    image: niicloudoperation/rdm-osf.io:latest
+    # platform: linux/arm64
   ember_osf_web:
-    image: myrepository/RDM-ember-osf-web:mybranch
-  # cas-overlayを使用する場合
+    image: niicloudoperation/rdm-ember-osf-web:latest
+    # platform: linux/amd64
   cas:
-    image: myrepository/cas-overlay:mybranch
+    image: niicloudoperation/rdm-cas-overlay:latest
+    # platform: linux/amd64
+  mfr:
+    image: niicloudoperation/rdm-modular-file-renderer:latest
+    # platform: linux/amd64
+    # ローカルのRDM-modular-file-rendererを試したい場合
+    # volumes:
+    #   - ../RDM-modular-file-renderer:/code
+  mfr_requirements:
+    image: niicloudoperation/rdm-modular-file-renderer:latest
+    # platform: linux/amd64
+    # ローカルのRDM-modular-file-rendererを試したい場合
+    # volumes:
+    #   - ../RDM-modular-file-renderer:/code
+  wb:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
+    # volumes:
+    #   - ../RDM-waterbutler:/code
+  wb_worker:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
+    # volumes:
+    #   - ../RDM-waterbutler:/code
+  wb_requirements:
+    image: niicloudoperation/rdm-waterbutler:latest
+    # platform: linux/arm64
+    # ローカルのRDM-waterbutlerを試したい場合
+    # volumes:
+    #   - ../RDM-waterbutler:/code
 ```
 
 # 開発環境でRDMを起動する
@@ -89,11 +143,11 @@ services:
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements mfr_requirements wb_requirements
+$ docker compose up requirements mfr_requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 
-$ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin ember_osf_web
+$ docker compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin ember_osf_web
 ```
 
 > https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md では preprints, registries の起動について紹介していますが、GRDMでは preprints, registries は提供しないため無視してください。
@@ -105,18 +159,18 @@ $ docker-compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs work
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements wb_requirements
+$ docker compose up requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 
-$ docker-compose up -d assets wb wb_worker fakecas worker web api ember_osf_web
+$ docker compose up -d assets wb wb_worker fakecas worker web api ember_osf_web
 ```
 
-でも十分でしょう。`docker-compose ps`で異常終了しているサービスがいないことを確認します。
-`docker-compose ps`の出力例は以下の通りです。`docker-compose up -d`で指定したサービスが`Up`であることを確認します。
+でも十分でしょう。`docker compose ps`で異常終了しているサービスがいないことを確認します。
+`docker compose ps`の出力例は以下の通りです。`docker compose up -d`で指定したサービスが`Up`であることを確認します。
 
 ```
-$ docker-compose ps
+$ docker compose ps
             Name                          Command               State                                              Ports                                           
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------
 rdm2-osfio_api_1               docker-entrypoint.sh invok ...   Up       0.0.0.0:8000->8000/tcp                                                                    
@@ -141,15 +195,15 @@ fakecasは手軽にRDMの動作確認を行えますが、OAuthの動作確認�
 
 ```
 # ライブラリのインストール - 初回/ライブラリ定義変更時だけ必要
-$ docker-compose up requirements wb_requirements
+$ docker compose up requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 
 # fakecasではなくcasをサービスに指定する
-$ docker-compose up -d assets wb wb_worker cas worker web api ember_osf_web
+$ docker compose up -d assets wb wb_worker cas worker web api ember_osf_web
 
 # OAuthのスコープを登録する
-$ docker-compose run --rm web python3 -m scripts.register_oauth_scopes
+$ docker compose run --rm web python3 -m scripts.register_oauth_scopes
 ```
 
 casはfakecasとは異なり、ログイン時に ユーザ作成手順(後述) において入力したパスワードが必要になります。他の操作方法はfakecasと同様です。
@@ -158,10 +212,10 @@ casはfakecasとは異なり、ログイン時に ユーザ作成手順(後述) 
 
 サービスが起動したことを確認したら、 `http://localhost:5000` にアクセスし動作を確認してみましょう。
 
-ログは `docker-compose logs` コマンドで確認できます。ember_osf_webコンテナは起動にある程度時間がかかりますが、この状態を確認するには、以下のコマンドを入力します。
+ログは `docker compose logs` コマンドで確認できます。ember_osf_webコンテナは起動にある程度時間がかかりますが、この状態を確認するには、以下のコマンドを入力します。
 
 ```
-$ docker-compose logs -f ember_osf_web
+$ docker compose logs -f ember_osf_web
 ...
 Build successful (xxxxxms) – Serving on http://0.0.0.0:4200/
 ```
@@ -172,7 +226,7 @@ Build successful (xxxxxms) – Serving on http://0.0.0.0:4200/
 
 1. `Sign Up`ボタンを押し、ユーザ登録画面を開く
 1. ユーザ登録画面に適当なユーザ名、Eメールアドレスとパスワードを入力する
-1. デバッグログにEメール到達確認用のURL(`http://localhost:5000/confirm/xxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/`)が出力されるので、 `docker-compose logs web` で確認する
+1. デバッグログにEメール到達確認用のURL(`http://localhost:5000/confirm/xxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/`)が出力されるので、 `docker compose logs web` で確認する
 
   > 本番環境の場合はここでEメールアドレス宛に到達確認用のURLを含むメールが届きますが、SMTPサーバを指定していないのでメールは送信されません。
 
@@ -193,9 +247,9 @@ Build successful (xxxxxms) – Serving on http://0.0.0.0:4200/
 
 ```
 # 初回だけ必要
-$ docker-compose up requirements
+$ docker compose up requirements
 
-$ docker-compose run --rm web invoke test
+$ docker compose run --rm web invoke test
 ```
 
 テストコードを限定する方法は https://github.com/RCOSDP/RDM-osf.io/blob/develop/README-docker-compose.md#application-tests に記載されています。
@@ -206,13 +260,13 @@ RDM-osf.ioはDjangoアプリケーションとして実装されています。�
 以下のコマンドを入力することで、Djangoの管理コマンド `makemigrations` を実行できます。
 
 ```
-$ docker-compose run --rm web python3 manage.py makemigrations
+$ docker compose run --rm web python3 manage.py makemigrations
 ```
 
 作成したMigrationsファイルは、以下のコマンドで `postgres`サービスに反映できます。
 
 ```
-$ docker-compose run --rm web python3 manage.py migrate
+$ docker compose run --rm web python3 manage.py migrate
 ```
 
 ## ユーザを機関に所属させる
@@ -223,7 +277,7 @@ $ docker-compose run --rm web python3 manage.py migrate
 まず、実行中のRDMのデータベースに機関の情報を登録します。これは初回だけ必要です。
 
 ```
-$ docker-compose run --rm web python3 -m scripts.populate_institutions -e test -a
+$ docker compose run --rm web python3 -m scripts.populate_institutions -e test -a
 ```
 
 上記のコマンドを実行すると、`Virginia Tech [Test]` などの機関名を持つ機関が登録されます。
@@ -231,7 +285,7 @@ $ docker-compose run --rm web python3 -m scripts.populate_institutions -e test -
 次に、shell機能を使って、ユーザに機関を紐付けます。以下のコマンドを実行します。
 
 ```
-$ docker-compose run --rm web invoke shell
+$ docker compose run --rm web invoke shell
 ```
 
 上記コマンドを実行すると、以下のようなプロンプトが現れますので、Pythonスクリプトで処理を指示します。下記のようにスクリプトを実行すると、指定したEmailアドレスを持つユーザのモデルを取得することができます。
@@ -272,7 +326,7 @@ New transaction opened.
 `is_staff`の編集には、shell機能を使います。
 
 ```
-$ docker-compose run --rm web invoke shell
+$ docker compose run --rm web invoke shell
 ```
 
 shellから以下のようにコマンドを実行することで、指定したユーザの `is_staff` プロパティを変更することができます。
