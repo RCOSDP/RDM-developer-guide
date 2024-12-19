@@ -28,8 +28,8 @@ class MyMinIOAddonAppConfig(BaseAddonAppConfig):
 
     max_file_size = settings.MAX_FILE_SIZE
 
-    node_settings_template = os.path.join(TEMPLATE_PATH, 'node_settings.mako')
-    user_settings_template = os.path.join(TEMPLATE_PATH, 'user_settings.mako')
+    node_settings_template = os.path.join(TEMPLATE_PATH, 'myminio_node_settings.mako')
+    user_settings_template = os.path.join(TEMPLATE_PATH, 'myminio_user_settings.mako')
 
     BUCKET_LINKED = 'myminio_bucket_linked'
     BUCKET_UNLINKED = 'myminio_bucket_unlinked'
