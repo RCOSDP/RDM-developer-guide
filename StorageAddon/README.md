@@ -157,7 +157,7 @@ My MinIOアドオンの場合は、以下のように定義します。
 - [myminio_node_settings.mako](osf.io/addon/templates/myminio_node_settings.mako)
 - [myminio_credentials_modal.mako](osf.io/addon/templates/myminio_credentials_modal.mako)
 
-※ `mako` ファイルのファイル名の先頭にはアドオン名を書きます。
+> `mako` ファイルのファイル名の先頭にはアドオン名を書きます。RDMの動作モードによっては、makoのテンプレートがファイル名によってキャッシュされてしまうため、`user_settings.mako` のような同一名称のファイルが複数あると予期しない動作になりうるためです。
 
 利用者用設定画面のJavaScriptファイル(`user-cfg.js`, `myminioUserConfig.js`)と、プロジェクト用設定画面のJavaScriptファイル(`node-cfg.js`, `myminioNodeConfig.js`)をそれぞれ定義します。今回は、エントリとなるJavaScriptファイル(`*-cfg.js`)と定義ファイル(`myminio*Config.js`)を分けましたが、スケルトン アドオンのように `*-cfg.js` に定義を書いても構いません。  
 My MinIOアドオンの場合は、以下のように定義します。
