@@ -51,9 +51,9 @@ Addonによりユーザからの認証情報の受領や各種設定を行い、
 │   ├── node-cfg.js ... Node設定のエントリとなるJavaScriptファイル
 │   └── user-cfg.js ... (*) User設定のエントリとなるJavaScriptファイル
 ├── templates ... テンプレートディレクトリ
-│   ├── credentials_modal.mako ... (*) 認証情報の設定用ダイアログ
-│   ├── node_settings.mako ... Node設定パネル
-│   └── user_settings.mako ... (*) User設定パネル
+│   ├── <アドオン名>_credentials_modal.mako ... (*) 認証情報の設定用ダイアログ
+│   ├── <アドオン名>_node_settings.mako ... Node設定パネル
+│   └── <アドオン名>_user_settings.mako ... (*) User設定パネル
 ├── tests ... テストコード
 │   ├── __init__.py
 │   ├── conftest.py
@@ -150,12 +150,14 @@ My MinIOアドオンの場合は、以下のように定義します。
 
 ### フレームワークによって提供されるView
 
-アドオンが持つ利用者用設定画面(`user_settings.mako`)とプロジェクト用設定画面(`node_settings.mako`)のテンプレートをそれぞれ定義します。認証情報の設定用ダイアログ(`credentials_modal.mako`)はどちらの画面でも利用するので、別のファイルで定義し、それぞれから参照します。  
+アドオンが持つ利用者用設定画面(`<アドオン名>_user_settings.mako`)とプロジェクト用設定画面(`<アドオン名>_node_settings.mako`)のテンプレートをそれぞれ定義します。認証情報の設定用ダイアログ(`<アドオン名>_credentials_modal.mako`)はどちらの画面でも利用するので、別のファイルで定義し、それぞれから参照します。  
 My MinIOアドオンの場合は、以下のように定義します。
 
-- [user_settings.mako](osf.io/addon/templates/user_settings.mako)
-- [node_settings.mako](osf.io/addon/templates/node_settings.mako)
-- [credentials_modal.mako](osf.io/addon/templates/credentials_modal.mako)
+- [myminio_user_settings.mako](osf.io/addon/templates/myminio_user_settings.mako)
+- [myminio_node_settings.mako](osf.io/addon/templates/myminio_node_settings.mako)
+- [myminio_credentials_modal.mako](osf.io/addon/templates/myminio_credentials_modal.mako)
+
+> `mako` ファイルのファイル名の先頭にはアドオン名を書きます。RDMの動作モードによっては、makoのテンプレートがファイル名によってキャッシュされてしまうため、`user_settings.mako` のような同一名称のファイルが複数あると予期しない動作になりうるためです。
 
 利用者用設定画面のJavaScriptファイル(`user-cfg.js`, `myminioUserConfig.js`)と、プロジェクト用設定画面のJavaScriptファイル(`node-cfg.js`, `myminioNodeConfig.js`)をそれぞれ定義します。今回は、エントリとなるJavaScriptファイル(`*-cfg.js`)と定義ファイル(`myminio*Config.js`)を分けましたが、スケルトン アドオンのように `*-cfg.js` に定義を書いても構いません。  
 My MinIOアドオンの場合は、以下のように定義します。

@@ -1,7 +1,7 @@
 <div id="${addon_short_name}Scope" class="scripted">
 
     <!-- Add credentials modal -->
-    <%include file="credentials_modal.mako"/>
+    <%include file="myminio_credentials_modal.mako"/>
 
     <h4 class="addon-title">
         <img class="addon-icon" src=${addon_icon_url}>
