@@ -135,6 +135,44 @@ services:
     #   - ../RDM-waterbutler:/code
 ```
 
+
+Apple Silicon搭載Macの場合、`docker-compose.yml`のelasticsearchの制限に関するコメントアウト部分を外してください。
+Elasticsearch は並列分散処理ができるクラスタ設計されており、複数ノードでの連携を前提としています。開発環境のような単一ノードでの利用の場合はクラスタ機能を使う必要がないため、この設定を行うことで「シングルノードモード」で動作させるように指定します。またElasticsearch は起動時に「bootstrap チェック」という一連のシステム環境の検証を行います。その一部に system call filter の設定確認が含まれており、これはセキュリティ向上のために OS レベルの制限（システムコールのフィルタリング）を利用する機能です。しかし、Docker や他のコンテナ環境ではこのチェックが原因で起動エラーとなることがあります。
+ホスト側のデフォルトのulimit値がアプリケーションの要件を満たさない場合があるため、コンテナ内でのリソース制限を明示的に解除します。
+
+
+```
+  elasticsearch:
+    image: elasticsearch:2
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch_data_vol:/usr/share/elasticsearch/data
+#    environment:
+#      - "ES_JAVA_OPTS=-Des.bootstrap.system_call_filter=false"
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+    stdin_open: true
+
+  # Temporary: Remove when we've upgraded to ES6
+  elasticsearch6:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.3.1
+    ports:
+      - 9201:9200
+    volumes:
+      - elasticsearch6_data_vol:/usr/share/elasticsearch/data
+ #   environment:
+ #     - "discovery.type=single-node"
+ #     - "ES_JAVA_OPTS=-Des.bootstrap.system_call_filter=false"
+ #   ulimits:
+ #     memlock:
+ #       soft: -1
+ #       hard: -1
+    stdin_open: true
+```
+
 # 開発環境でRDMを起動する
 
 ## サービスを起動する
