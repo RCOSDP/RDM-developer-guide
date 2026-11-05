@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.2 — 2026-11-05. **Learned:** the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** eleven upstream repositories and three tracking branches per component cannot be held in anyone's head, so the map, the manifest, and the roles had to be written down before the first integration repository was created. ／ 上流 11 本と部品ごとの追跡ブランチ 3 本は頭の中では管理できないので、最初の統合リポジトリを作る前に、地図・マニフェスト・役割分担を文書にする必要があると分かった。
 - Normative for: the shape of the whole environment. Every other specification (`01`–`06`) refines one part of this page.
@@ -19,11 +20,11 @@
 
 ### 1. Purpose
 
-The *developer environment 2027* is a set of instructions and tools that lets one person start a complete GakuNin RDM (GRDM, the research data management service run by NII) on one computer with one command. It runs on macOS arm64, Ubuntu 24.04 (amd64 and arm64), and Windows 11 WSL2. It has three jobs:
+The *developer environment 2027* is a set of instructions and tools that lets one person start a complete GakuNin RDM (GRDM, the research data management service run by NII; GakuNin is Japan's academic network for logging in with a university account; see [REF-01](../reference/REF-01_Glossary.md)) on one computer with one command. It runs on macOS arm64, Ubuntu 24.04 (amd64 and arm64), and Windows 11 WSL2 (a way to run Linux inside Windows; see [REF-01](../reference/REF-01_Glossary.md)). It has three jobs:
 
 1. Combine the public core repositories, their `-private` security-verified versions, and the private subsystems into one consistent build.
 2. Move every base image (a *base image* is the ready-made operating-system layer a program is built on top of) from end-of-life versions to current ones, step by step.
-3. Keep removing security vulnerabilities (a *vulnerability* is a weak spot an attacker could use) with AI agents, so GRDM can continue even if the Center for Open Science (COS) stops developing OSF, the software GRDM is based on.
+3. Keep removing security vulnerabilities (a *vulnerability* is a weak spot an attacker could use) with AI agents, so GRDM can continue even if the Center for Open Science (COS) stops developing OSF (the software GRDM is based on; see [REF-01](../reference/REF-01_Glossary.md)).
 
 This repository, `RDM-developer-guide`, is **public**. It holds documents, the manifest (the list of exactly which upstream versions we build; see [SPEC-01](01_manifest.md)), and the installer. It never holds code copied from `-private` repositories, secrets, or links to private repositories.
 
@@ -103,7 +104,7 @@ components[20]{id,role,services,integration_repo,profile}:
 
 `mongo` and `elasticsearch2` are legacy and are removed at M5 ([§5](#5-milestone-ladder)).
 
-`fakecas` and the Shibboleth test IdP (an *IdP*, identity provider, is the server that checks who you are when you log in) are both login helpers for development. They are mutually exclusive: the installer starts one or the other, never both.
+`fakecas` and the Shibboleth (the software that lets you log in once with your university account; see [REF-01](../reference/REF-01_Glossary.md)) test IdP (an *IdP*, identity provider, is the server that checks who you are when you log in) are both login helpers for development. They are mutually exclusive: the installer starts one or the other, never both.
 
 ### 3. Integration model
 
@@ -181,11 +182,11 @@ Detection, fix PR, review, and automated tests run without a human. Merging and 
 
 ### 1. 目的
 
-「開発環境 2027 版」は、GakuNin RDM（GRDM。NII が運用する研究データ管理サービス）の一式を、一台のコンピュータ上で一つのコマンドで立ち上げるための手引きと道具の集まりです。macOS arm64、Ubuntu 24.04（amd64 と arm64）、Windows 11 WSL2 で動きます。役目は三つです。
+「開発環境 2027 版」は、GakuNin RDM（GRDM。NII が運用する研究データ管理サービス。GakuNin＝学認は大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）の一式を、一台のコンピュータ上で一つのコマンドで立ち上げるための手引きと道具の集まりです。macOS arm64、Ubuntu 24.04（amd64 と arm64）、Windows 11 WSL2（Windows の中で Linux を動かす仕組み。[REF-01](../reference/REF-01_Glossary.md)）で動きます。役目は三つです。
 
 1. 公開コアのリポジトリ、その `-private`（セキュリティ検証版）、非公開サブシステムを、矛盾なく一つのビルドに重ねる。
 2. すべてのベースイメージ（プログラムを載せる土台になる、できあいの OS の層）を、サポート切れの版から現行の版へ段階的に移す。
-3. AI エージェントで脆弱性（攻撃者につけ込まれる弱い所）を取り除き続け、GRDM の元になっている OSF の開発を Center for Open Science（COS）がやめても、GRDM を提供し続けられるようにする。
+3. AI エージェントで脆弱性（攻撃者につけ込まれる弱い所）を取り除き続け、GRDM の元になっている OSF（[REF-01](../reference/REF-01_Glossary.md)）の開発を Center for Open Science（COS）がやめても、GRDM を提供し続けられるようにする。
 
 このリポジトリ `RDM-developer-guide` は **公開** です。文書、マニフェスト（どの上流の版を組むかを決める一覧。[SPEC-01](01_manifest.md)）、インストーラーを置きます。`-private` 由来のコード、秘密、非公開リポジトリへのリンクは絶対に置きません。
 
@@ -265,7 +266,7 @@ components[20]{id,role,services,integration_repo,profile}:
 
 `mongo` と `elasticsearch2` は旧来の部品で、M5 で廃止します（[§5](#5-節目のはしご)）。
 
-`fakecas` と Shibboleth のテスト IdP（IdP＝アイデンティティプロバイダ。ログインのときに「あなたは誰か」を確かめるサーバ）は、どちらも開発用のログインの助け役です。二つは排他で、インストーラーはどちらか一方だけを起動します。
+`fakecas` と Shibboleth（大学のアカウントで一度ログインすれば済むようにするソフト。[REF-01](../reference/REF-01_Glossary.md)）のテスト IdP（IdP＝アイデンティティプロバイダ。ログインのときに「あなたは誰か」を確かめるサーバ）は、どちらも開発用のログインの助け役です。二つは排他で、インストーラーはどちらか一方だけを起動します。
 
 ### 3. 統合の仕組み
 

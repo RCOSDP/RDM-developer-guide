@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** without a single index page, it was unclear which folder to check for the latest milestone status or review records; putting everything in one place makes the documentation tree navigable. ／ 単一の索引ページが無ければ、最新の節目進捗やレビュー記録をどのフォルダで探すべきか分からず、文書ツリーのナビゲートが不可能になると分かった。
 - Normative for: every document under `docs/`, especially README.md files.
 - Related: [../README.md](../README.md) · [site/index.html](../site/index.html)
@@ -51,7 +52,7 @@ flowchart TD
 ### 3. Links
 
 - [../README.md](../README.md) — Root index of the whole repository.
-- [site/index.html](../site/index.html) — HTML site built by MkDocs.
+- [site/index.html](../site/index.html) — HTML site built by MkDocs (a tool that turns Markdown files into a website; see [REF-01](reference/REF-01_Glossary.md)).
 
 ---
 
@@ -95,7 +96,7 @@ flowchart TD
 ### 3. リンク
 
 - [../README.md](../README.md) — リポジトリ全体のルート索引。
-- [site/index.html](../site/index.html) — MkDocs が生成する HTML サイト。
+- [site/index.html](../site/index.html) — MkDocs（Markdown のファイルを Web サイトに変える道具。[REF-01](reference/REF-01_Glossary.md)）が生成する HTML サイト。
 
 ---
 

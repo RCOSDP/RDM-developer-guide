@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.5 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** per-PR delegation questions interrupt the owner several times a day during a review-heavy milestone; a standing delegation with explicit conditions and an expiry keeps the human rule while removing the waits. ／ レビューの多い節目では PR ごとの委任確認が一日に何度も所有者を止める。条件と期限を明示した常設委任なら、人の規則を保ちつつ待ちをなくせる。
   0.3 — 2026-11-06. **Learned:** each delegated merge batch is recorded before it is executed, with the review records that justify it, so that the human-merge rule stays auditable. ／ 委任されたマージは一括でも実行前に、根拠となるレビュー記録とともに記録し、「人がマージする」規則を監査できる状態に保つ。
   0.2 — 2026-11-05. **Learned:** a one-time delegation must be written down with scope, grantor and evidence before it is used, or the human-merge rule erodes silently. ／ 一回限りの委任でも、使う前に範囲・許可者・証跡を書き残さなければ「人がマージする」規則が静かに崩れると分かった。
@@ -21,12 +22,12 @@
 
 ### 1. Context
 
-The owner's goal ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)) is that GRDM keeps being provided even if COS discontinues OSF, through *continuous vulnerability remediation* (finding and fixing weak spots again and again, every day, not once) done by *AI agents* (programs that read, write, and test code on their own when given a task). The security gate of [SPEC-03](../spec/03_security_gate.md) produces a daily list of findings; someone must turn each finding into a fix.
+The owner's goal ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)) is that GRDM keeps being provided even if COS (the Center for Open Science, the US group that makes OSF; see [REF-01](../reference/REF-01_Glossary.md)) discontinues OSF (the research-sharing software GRDM is built on; see [REF-01](../reference/REF-01_Glossary.md)), through *continuous vulnerability remediation* (finding and fixing weak spots again and again, every day, not once) done by *AI agents* (programs that read, write, and test code on their own when given a task). The security gate of [SPEC-03](../spec/03_security_gate.md) produces a daily list of findings; someone must turn each finding into a fix.
 
 At the same time, the development policy POL-05 of the GRDM core repository, which this repository inherits, draws two lines that must not move:
 
 - **An author never accepts their own work.** The one who wrote a change does not judge whether it passes.
-- **Merge and publish are human actions.** No agent commits to the main branch or publishes an image or a release.
+- **Merge and publish are human actions.** (Merge: accepting a change into the shared branch; see [REF-01](../reference/REF-01_Glossary.md).) No agent commits to the main branch or publishes an image or a release.
 
 The question is how much of the path between "finding" and "merge" AI agents may walk alone.
 
@@ -77,7 +78,7 @@ Every PR carries, before the owner sees it:
 
 1. The finding it fixes (CVE id or scan report path from [SPEC-03 §7](../spec/03_security_gate.md)).
 2. REV's review record in `docs/reviews/YYYY-MM-DD_<Title>_rN.md` and the same text as a PR comment.
-3. QAE's test record: the `grdm-dev accept` and `grdm-dev scan` TOON excerpts, pass or fail, and the commit SHA tested.
+3. QAE's test record: the `grdm-dev accept` and `grdm-dev scan` TOON (a compact text form of JSON; see [REF-01](../reference/REF-01_Glossary.md)) excerpts, pass or fail, and the commit SHA (the fingerprint of one commit; see [REF-01](../reference/REF-01_Glossary.md)) tested.
 4. A Japanese commit subject with a scoped prefix (`fix(security):`).
 
 A PR without all four is not ready for the owner; QAE returns it to AID.
@@ -96,8 +97,8 @@ A PR without all four is not ready for the owner; QAE returns it to AID.
 
 - Remediation keeps pace with daily scans without waiting for human working hours; the owner's work shrinks to reading evidence and clicking merge.
 - Three different models in three roles raise the cost of a shared blind spot and satisfy "no self-acceptance" structurally.
-- Local LLM workers (AID) have variable quality. The spec-first rule (specifications in `docs/spec/` are written before work is handed to AID) and the QAE check are the compensation. A PR that fails QAE twice is closed and restarted from the spec.
-- Running three agent systems costs Mac Studio resources. Concurrency of Open Code 2 workers is an open item of [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md).
+- Local LLM (large language model: an AI that reads and writes text; see [REF-01](../reference/REF-01_Glossary.md)) workers (AID) have variable quality. The spec-first rule (specifications in `docs/spec/` are written before work is handed to AID) and the QAE check are the compensation. A PR that fails QAE twice is closed and restarted from the spec.
+- Running three agent systems costs Mac Studio resources. Concurrency of Open Code 2 (the AI program that writes our code; see [REF-01](../reference/REF-01_Glossary.md)) workers is an open item of [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md).
 - Review time from the owner is the only remaining latency. If it becomes the bottleneck for vulnerability fixes, §5 is revisited.
 
 ### 5. Open question
@@ -125,12 +126,12 @@ The rule "merge and publish are human" is unchanged; every further merge needs i
 
 ### 1. 背景
 
-所有者のゴール（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）は、COS が OSF を廃止しても、「AI エージェント」（課題を与えると自分でコードを読み・書き・試すプログラム）による「継続的な脆弱性対応」（弱い所を一度でなく毎日くり返し見つけて直すこと）で GRDM の提供を続けることです。[SPEC-03](../spec/03_security_gate.md) の門は毎日検出の一覧を出します。誰かがその一件一件を修正に変えなければなりません。
+所有者のゴール（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）は、COS（OSF を作る米国の団体 Center for Open Science。[REF-01](../reference/REF-01_Glossary.md)）が OSF（GRDM の土台になった研究共有ソフト。[REF-01](../reference/REF-01_Glossary.md)）を廃止しても、「AI エージェント」（課題を与えると自分でコードを読み・書き・試すプログラム）による「継続的な脆弱性対応」（弱い所を一度でなく毎日くり返し見つけて直すこと）で GRDM の提供を続けることです。[SPEC-03](../spec/03_security_gate.md) の門は毎日検出の一覧を出します。誰かがその一件一件を修正に変えなければなりません。
 
 一方で、このリポジトリが継承する GRDM コアの開発方針 POL-05 は、動かしてはならない二本の線を引いています。
 
 - **作者は自分の成果を受け入れない。** 変更を書いた者が合否を判定しない。
-- **マージと公開は人の操作。** どのエージェントも主ブランチにコミットせず、イメージやリリースを公開しない。
+- **マージと公開は人の操作。**（マージ＝変更を共有ブランチへ受け入れること。[REF-01](../reference/REF-01_Glossary.md)）どのエージェントも主ブランチにコミットせず、イメージやリリースを公開しない。
 
 問いは、「検出」から「マージ」までの道のどこまでを AI エージェントが一人で歩いてよいかです。
 
@@ -181,7 +182,7 @@ flowchart LR
 
 1. 直す検出（CVE 番号か、[SPEC-03 §7](../spec/03_security_gate.md) のスキャン報告のパス）。
 2. REV のレビュー記録 `docs/reviews/YYYY-MM-DD_<題>_rN.md` と、同じ文の PR コメント。
-3. QAE の試験記録: `grdm-dev accept` と `grdm-dev scan` の TOON 抄録、合否、試験したコミット SHA。
+3. QAE の試験記録: `grdm-dev accept` と `grdm-dev scan` の TOON（JSON を短く書いた文字の形。[REF-01](../reference/REF-01_Glossary.md)）抄録、合否、試験したコミット SHA（コミット一つの指紋。[REF-01](../reference/REF-01_Glossary.md)）。
 4. 接頭辞付きの日本語のコミット件名（`fix(security):`）。
 
 四つがそろわない PR は所有者に出す状態ではなく、QAE が AID へ戻します。
@@ -200,8 +201,8 @@ flowchart LR
 
 - 修正が人の勤務時間を待たずに日次スキャンと同じ速さで進む。所有者の仕事は証拠を読んでマージを押すことに縮む。
 - 三つの役割に三つの異なるモデルを置くことで、共通の盲点が生まれにくくなり、「自己受入の禁止」が構造として満たされる。
-- ローカル LLM のワーカー（AID）は品質がばらつく。仕様先行の決まり（`docs/spec/` の仕様を書いてから AID に渡す）と QAE の検査がその補いになる。QAE に二度落ちた PR は閉じ、仕様からやり直す。
-- 三つのエージェント体系を動かすと Mac Studio の資源を使う。Open Code 2 ワーカーの同時実行数は [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) の未決事項。
+- ローカル LLM（大規模言語モデル。文章を読み書きする AI。[REF-01](../reference/REF-01_Glossary.md)）のワーカー（AID）は品質がばらつく。仕様先行の決まり（`docs/spec/` の仕様を書いてから AID に渡す）と QAE の検査がその補いになる。QAE に二度落ちた PR は閉じ、仕様からやり直す。
+- 三つのエージェント体系を動かすと Mac Studio の資源を使う。Open Code 2（コードを書く AI プログラム。[REF-01](../reference/REF-01_Glossary.md)）ワーカーの同時実行数は [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) の未決事項。
 - 残る待ち時間は所有者のレビュー時間だけ。それが脆弱性修正のボトルネックになったら §5 を見直す。
 
 ### 5. 未決事項

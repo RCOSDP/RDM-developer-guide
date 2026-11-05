@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.5 — 2026-11-05. **Learned:** a rule written as "every repository" must say what happens to the repositories it cannot apply to (private-only, identical tips), or reviewers will read a gap (review r3, R3-01). ／ 「すべてのリポジトリ」と書いた規則は、当てはまらないもの（private 専用、先端同一）の扱いも書かないと、レビューで穴として読まれると分かった（レビュー r3、R3-01）。
   0.4 — 2026-11-05. **Learned:** a strict public-first reconstruction needs the public upstream recorded in the manifest; Shibboleth-SP had a public upstream that was mirrored but not recorded (review SR-02). ／ 公開が先の厳密再構築には、公開上流が manifest に記録されている必要がある。Shibboleth-SP はミラーされていたのに記録がなかった（レビュー SR-02）。
   0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
@@ -29,7 +30,7 @@ We must combine, without contradiction, three groups of code kept in GitHub *rep
 
 - six public cores: `RDM-osf.io`, `RDM-waterbutler`, `RDM-modular-file-renderer`, `RDM-ember-osf-web`, `RDM-cas-overlay`, `RDM-wiki-frontend`;
 - six `-private` security-verified versions, each of which already contains the history of its public core (so it is a superset, not a rival);
-- five private subsystems: y-websocket, OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm. Two of them also have a public upstream that the manifest records and the integration repository tracks as `upstream/public-<branch>`: y-websocket (RDM-y-websocket, `master`) and Shibboleth-SP (RDM-Shibboleth-SP, `main`). OASys, rdmcp and aipf_mcp_data_grdm are private-only, so their first construction starts from the `-private` tip (review SR-02, 2026-11-05).
+- five private subsystems: y-websocket, OASys (a private GRDM subsystem added in M3; see [REF-01](../reference/REF-01_Glossary.md)), Shibboleth-SP, rdmcp (the standard plug through which AI assistants talk to GRDM; see [REF-01](../reference/REF-01_Glossary.md)), aipf_mcp_data_grdm. Two of them also have a public upstream that the manifest records and the integration repository tracks as `upstream/public-<branch>`: y-websocket (RDM-y-websocket, `master`) and Shibboleth-SP (RDM-Shibboleth-SP, `main`). OASys, rdmcp and aipf_mcp_data_grdm are private-only, so their first construction starts from the `-private` tip (review SR-02, 2026-11-05).
 
 Three constraints shaped the choice:
 
@@ -57,14 +58,14 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
 2. Branches in each `-dev2027` repository:
    - `develop` — the integration branch; the only branch the installer builds from (its SHA is recorded in the manifest, see [SPEC-01](../spec/01_manifest.md));
    - one tracking branch per upstream listed in the manifest, named `upstream/<kind>-<branch>` where `<kind>` is `public`, `private`, or `cos` and `<branch>` is the upstream branch name with `/` replaced by `-` ([SPEC-01 §4](../spec/01_manifest.md#4-rules) rule 7);
-   - `upstream/public-<branch>` — an exact *mirror* (identical copy, refreshed automatically) of the public core's default branch: `upstream/public-develop` for osf.io, waterbutler, mfr, cas-overlay, wiki-frontend; `upstream/public-master` for ember-osf-web and y-websocket;
+   - `upstream/public-<branch>` — an exact *mirror* (identical copy, refreshed automatically) of the public core's default branch: `upstream/public-develop` for osf.io (the main web application), waterbutler (the file-transfer service), mfr (the file preview service), cas-overlay (the real login server), wiki-frontend (the wiki editor pages); `upstream/public-master` for ember-osf-web (the newer web pages) and y-websocket; the role of every component is listed in [REF-01](../reference/REF-01_Glossary.md);
    - `upstream/private-<branch>` — a mirror of the `-private` default branch: `upstream/private-develop`, `upstream/private-master` (ember-osf-web, y-websocket), or `upstream/private-main` (OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm). Shibboleth-SP additionally has `upstream/public-main`; OASys, rdmcp and aipf_mcp_data_grdm have no public upstream and only the private branch;
    - `upstream/cos-develop` — a mirror of the CenterForOpenScience original, for reference only (not for wiki-frontend, which has no COS original);
    - a second upstream of the same kind gets a tag: `upstream/private-sec-test-fix-sec-test` mirrors `RDM-osf.io-private` (branch `fix/sec-test`) as a candidate.
    Mirrors are refreshed daily ([SPEC-05](../spec/05_upstream_tracking.md)).
-3. **Integration order** on `develop`: public `develop` → `-private` → adopted *pull requests* (proposed changes waiting for review). Merged upstream changes are taken in full; unmerged PRs are adopted one by one, security and authentication first, and listed as candidates in the manifest.
-4. **No force-push, no deletion.** Conflicts are solved by new commits in a PR, never by rewriting history. Branches are archived with a tag rather than deleted.
-5. **Nothing from a `-dev2027` repository is copied into this public repository** except names, branch names, SHAs, dates and PR numbers. Image builds from `-private` code go only to local Docker or to a private registry, never to a public one.
+3. **Integration order** on `develop`: public `develop` → `-private` → adopted *pull requests* (proposed changes waiting for review; see [REF-01](../reference/REF-01_Glossary.md)). Merged upstream changes (a merge accepts a change into the shared branch; see [REF-01](../reference/REF-01_Glossary.md)) are taken in full; unmerged PRs are adopted one by one, security and authentication first, and listed as candidates in the manifest.
+4. **No force-push, no deletion.** Conflicts are solved by new commits in a PR (pull request: a proposed change waiting for review; see [REF-01](../reference/REF-01_Glossary.md)), never by rewriting history. Branches are archived with a tag rather than deleted.
+5. **Nothing from a `-dev2027` repository is copied into this public repository** except names, branch names, SHAs, dates and PR numbers. Image (the recipe and ingredients a container is made from; see [REF-01](../reference/REF-01_Glossary.md)) builds from `-private` code go only to local Docker (the tool that builds images and runs containers; see [REF-01](../reference/REF-01_Glossary.md)) or to a private registry, never to a public one.
 
 ```mermaid
 flowchart TD
@@ -83,8 +84,8 @@ flowchart TD
 - **Good:** one place per component where "public + private + adopted PRs" is resolved; the installer needs only a name and a SHA; daily mirrors keep diffs small; history is complete and auditable.
 - **Good:** the write boundary is respected without asking for new permissions on existing repositories.
 - **Cost:** eleven more repositories to watch. Mitigated by automation in [SPEC-05](../spec/05_upstream_tracking.md) and the status board.
-- **Cost:** `-dev2027` repositories are private, so GitHub Actions minutes and self-hosted runner usage count against the Team plan. Accepted.
-- **Risk — leakage into this public repository.** A single careless copy of a file, a stack trace or a URL from a `-dev2027` or `-private` repository would publish private security work. Controls: secret scanning in CI is mandatory; reviewers check every PR to this repository for private paths and URLs; the manifest schema allows only names, branches, SHAs, dates and PR numbers; documents name private repositories but never link to them ([SPEC-06 §5](../spec/06_documentation_conventions.md)).
+- **Cost:** `-dev2027` repositories are private, so GitHub Actions (GitHub's robot that runs checks whenever code changes; see [REF-01](../reference/REF-01_Glossary.md)) minutes and self-hosted runner usage count against the Team plan. Accepted.
+- **Risk — leakage into this public repository.** A single careless copy of a file, a stack trace or a URL from a `-dev2027` or `-private` repository would publish private security work. Controls: secret scanning in CI (continuous integration: automatic checks on every change; see [REF-01](../reference/REF-01_Glossary.md)) is mandatory; reviewers check every PR to this repository for private paths and URLs; the manifest schema allows only names, branches, SHAs, dates and PR numbers; documents name private repositories but never link to them ([SPEC-06 §5](../spec/06_documentation_conventions.md)).
 - **Risk — drift between public and private cores.** On 2026-11-05 the public `RDM-osf.io` develop was newer than its `-private` counterpart. The integration order (public first, then private) and daily mirrors make such drift visible as a merge, not as a silent overwrite.
 - **Open:** how to treat `RDM-osf.io-private` (branch `fix/sec-test`), which is distinct from `RDM-osf.io-develop-private`. It is mirrored as `upstream/private-sec-test-fix-sec-test` and listed in the manifest with `status: candidate` ([SPEC-01 §4](../spec/01_manifest.md#4-rules) rule 6); the owner decides whether it is merged.
 
@@ -102,7 +103,7 @@ flowchart TD
 2. Merge `upstream/private-<branch>` into it with a normal two-parent merge (`--no-ff`), resolving conflicts on the branch.
 3. Re-apply adopted PRs from the manifest, each as its own merge.
 4. Open a pull request from that branch to `develop`. The `develop` branch is never force-pushed or deleted; the pull request supersedes any earlier integration pull request, which is closed with a comment pointing to the new one.
-5. Review by REV, check by QAE, merge by the owner (ADR-04).
+5. Review by REV (the role that independently reviews each change; see [REF-01](../reference/REF-01_Glossary.md)), check by QAE (the role that checks that the work is correct; see [REF-01](../reference/REF-01_Glossary.md)), merge by the owner (ADR-04).
 
 **Consequence:** the first `develop` of each repository in scope (seeded from the `-private` tip during bootstrap) stays in history. The strictly reconstructed branch is merged on top of it, so from the first strict merge onward every `develop` carries the public-first order.
 
@@ -121,7 +122,7 @@ GitHub の「リポジトリ」（変更を全部覚えているフォルダ）�
 
 - 公開コア 6 本: `RDM-osf.io`、`RDM-waterbutler`、`RDM-modular-file-renderer`、`RDM-ember-osf-web`、`RDM-cas-overlay`、`RDM-wiki-frontend`。
 - `-private` のセキュリティ検証版 6 本。いずれも対応する公開コアの履歴を含んでいる（つまり対立ではなく上位互換）。
-- 非公開サブシステム 5 本: y-websocket、OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。このうち 2 本には公開の上流もあり、manifest に記録して統合リポジトリで `upstream/public-<branch>` として追跡する: y-websocket（RDM-y-websocket、`master`）と Shibboleth-SP（RDM-Shibboleth-SP、`main`）。OASys、rdmcp、aipf_mcp_data_grdm は private のみで、初回構築は `-private` の先端から始める（レビュー SR-02、2026-11-05）。
+- 非公開サブシステム 5 本: y-websocket、OASys（M3 で加える GRDM の非公開サブシステム。[REF-01](../reference/REF-01_Glossary.md)）、Shibboleth-SP、rdmcp（AI アシスタントが標準の差し込み口で GRDM と話す仕組み。[REF-01](../reference/REF-01_Glossary.md)）、aipf_mcp_data_grdm。このうち 2 本には公開の上流もあり、manifest に記録して統合リポジトリで `upstream/public-<branch>` として追跡する: y-websocket（RDM-y-websocket、`master`）と Shibboleth-SP（RDM-Shibboleth-SP、`main`）。OASys、rdmcp、aipf_mcp_data_grdm は private のみで、初回構築は `-private` の先端から始める（レビュー SR-02、2026-11-05）。
 
 選択を決めた制約は三つです。
 
@@ -149,14 +150,14 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
 2. 各 `-dev2027` のブランチ:
    - `develop` — 統合ブランチ。インストーラーが組み立てる唯一のブランチ（その SHA を manifest に記録。[SPEC-01](../spec/01_manifest.md)）。
    - manifest に載せた上流ごとに一本の追跡ブランチ。名前は `upstream/<kind>-<branch>` で、`<kind>` は `public`・`private`・`cos`、`<branch>` は上流のブランチ名の `/` を `-` に置き換えたもの（[SPEC-01 §4](../spec/01_manifest.md#4-規則) の規則 7）。
-   - `upstream/public-<branch>` — 公開コアの既定ブランチの正確な「ミラー」（自動で更新される同一の写し）。osf.io・waterbutler・mfr・cas-overlay・wiki-frontend は `upstream/public-develop`、ember-osf-web と y-websocket は `upstream/public-master`。
+   - `upstream/public-<branch>` — 公開コアの既定ブランチの正確な「ミラー」（自動で更新される同一の写し）。osf.io（中心の Web アプリ）・waterbutler（ファイルを出し入れする部品）・mfr（ファイルのプレビューの部品）・cas-overlay（本物のログインサーバ）・wiki-frontend（Wiki の編集画面）は `upstream/public-develop`、ember-osf-web（新しい方の Web 画面）と y-websocket は `upstream/public-master`。各部品の役割は [REF-01](../reference/REF-01_Glossary.md) にある。
    - `upstream/private-<branch>` — `-private` の既定ブランチのミラー。`upstream/private-develop`、`upstream/private-master`（ember-osf-web、y-websocket）、または `upstream/private-main`（OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm）。Shibboleth-SP には加えて `upstream/public-main` があり、OASys・rdmcp・aipf_mcp_data_grdm は公開上流がなく private のブランチだけを持つ。
    - `upstream/cos-develop` — CenterForOpenScience 本家のミラー。参照のみ（COS 本家のない wiki-frontend にはない）。
    - 同じ kind の二つ目の上流にはタグを挟む。`upstream/private-sec-test-fix-sec-test` は `RDM-osf.io-private`（ブランチ `fix/sec-test`）を候補として写したもの。
    ミラーは日次で更新します（[SPEC-05](../spec/05_upstream_tracking.md)）。
-3. **`develop` への統合順**: 公開 `develop` → `-private` → 採用した「プルリクエスト」（レビュー待ちの変更の提案）。上流でマージ済みの変更は全件取り込み、未マージ PR はセキュリティ・認証系を先に一件ずつ採否を決め、候補は manifest に載せます。
+3. **`develop` への統合順**: 公開 `develop` → `-private` → 採用した「プルリクエスト」（レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）。上流でマージ（変更を共有のブランチへ受け入れること。[REF-01](../reference/REF-01_Glossary.md)）済みの変更は全件取り込み、未マージ PR はセキュリティ・認証系を先に一件ずつ採否を決め、候補は manifest に載せます。
 4. **force push なし、削除なし。** 衝突は PR 上の新しいコミットで解き、履歴は書き換えません。ブランチは削除せずタグで保管します。
-5. **`-dev2027` から公開のこのリポジトリへ写すのは、名前、ブランチ名、SHA、日付、PR 番号だけ。** `-private` 由来のコードから作るイメージは、ローカルの Docker か非公開レジストリにだけ置き、公開レジストリには出しません。
+5. **`-dev2027` から公開のこのリポジトリへ写すのは、名前、ブランチ名、SHA、日付、PR 番号だけ。** `-private` 由来のコードから作るイメージ（コンテナの元になるレシピと材料。[REF-01](../reference/REF-01_Glossary.md)）は、ローカルの Docker（イメージを作りコンテナを動かす道具。[REF-01](../reference/REF-01_Glossary.md)）か非公開レジストリにだけ置き、公開レジストリには出しません。
 
 ```mermaid
 flowchart TD
@@ -175,8 +176,8 @@ flowchart TD
 - **良い点:** 「公開＋非公開＋採用 PR」を解く場所が部品ごとに一つになる。インストーラーは名前と SHA だけで足りる。日次ミラーで差分が小さく保たれる。履歴が完全で監査できる。
 - **良い点:** 既存リポジトリへの新しい権限を求めずに、書込の境界を守れる。
 - **コスト:** 見守るリポジトリが 11 本増える。[SPEC-05](../spec/05_upstream_tracking.md) の自動化と進捗ボードで和らげる。
-- **コスト:** `-dev2027` は非公開のため、GitHub Actions の実行時間とセルフホストランナーの利用が Team プランの枠を使う。受け入れる。
-- **リスク — 公開のこのリポジトリへの漏えい。** `-dev2027` や `-private` からファイル、スタックトレース、URL を一つ不注意に写すだけで、非公開のセキュリティ作業が公開されます。対策: CI の秘密スキャンを必須にする。レビュワはこのリポジトリへの全 PR で非公開のパスと URL を確かめる。manifest のスキーマは名前・ブランチ・SHA・日付・PR 番号しか許さない。文書は非公開リポジトリを名前で呼び、リンクしない（[SPEC-06 §5](../spec/06_documentation_conventions.md)）。
+- **コスト:** `-dev2027` は非公開のため、GitHub Actions（コードが変わるたびに検査を走らせる GitHub のロボット。[REF-01](../reference/REF-01_Glossary.md)）の実行時間とセルフホストランナーの利用が Team プランの枠を使う。受け入れる。
+- **リスク — 公開のこのリポジトリへの漏えい。** `-dev2027` や `-private` からファイル、スタックトレース、URL を一つ不注意に写すだけで、非公開のセキュリティ作業が公開されます。対策: CI（continuous integration。変更ごとに自動で走る検査。[REF-01](../reference/REF-01_Glossary.md)）の秘密スキャンを必須にする。レビュワはこのリポジトリへの全 PR で非公開のパスと URL を確かめる。manifest のスキーマは名前・ブランチ・SHA・日付・PR 番号しか許さない。文書は非公開リポジトリを名前で呼び、リンクしない（[SPEC-06 §5](../spec/06_documentation_conventions.md)）。
 - **リスク — 公開と非公開のずれ。** 2026-11-05 時点で公開 `RDM-osf.io` の develop は `-private` より新しかった。統合順（公開を先、次に非公開）と日次ミラーにより、こうしたずれは黙った上書きではなくマージとして見えます。
 - **未決:** `RDM-osf.io-develop-private` とは別物の `RDM-osf.io-private`（ブランチ `fix/sec-test`）の扱い。`upstream/private-sec-test-fix-sec-test` としてミラーし、manifest には `status: candidate` で載せています（[SPEC-01 §4](../spec/01_manifest.md#4-規則) の規則 6）。マージするかは所有者が決めます。
 
@@ -194,7 +195,7 @@ flowchart TD
 2. そこへ `upstream/private-<branch>` を通常の 2 親マージ（`--no-ff`）で取り込み、衝突はそのブランチ上で解消する。
 3. manifest の採用 PR を、それぞれ独立したマージとして再適用する。
 4. そのブランチから `develop` へ PR を出す。`develop` は force push も削除もしない。この PR は以前の統合 PR を置き換え、以前の PR は新しい PR を示すコメントを付けて閉じる。
-5. REV のレビュー、QAE の検査、所有者のマージ（ADR-04）。
+5. REV（担当レビュワ。各変更を独立に見直す役割。[REF-01](../reference/REF-01_Glossary.md)）のレビュー、QAE（QA担当。成果が正しいか検査する役割。[REF-01](../reference/REF-01_Glossary.md)）の検査、所有者のマージ（ADR-04）。
 
 **結果:** 範囲内の各リポジトリの最初の `develop`（初回構築で `-private` の先端から作ったもの）は履歴に残る。厳密に再構築したブランチはその上にマージされるので、最初の厳密マージ以降、どの `develop` も「公開が先」の順序を持つ。
 

@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05
 - Normative for: `README.md`
 - Related: [SPEC-06 Documentation Conventions](docs/spec/06_documentation_conventions.md) · [POL-01 Position](docs/policy/POL-01_Developer_Environment_2027_Position.md)
@@ -65,12 +66,14 @@ graph TD
 - [SPEC-00 Overview](docs/spec/00_overview.md) - Overview / 概要
 - [SPEC-01 Manifest](docs/spec/01_manifest.md) - Manifest format / マニフェスト形式
 - [SPEC-02 Installer CLI](docs/spec/02_installer_cli.md) - Installer command / インストーラー CLI
-- [SPEC-03 Security Gate](docs/spec/03_security_gate.md) - Security gate / セキュリティゲート
+- [SPEC-03 Security Gate](docs/spec/03_security_gate.md) - Security gate (the checkpoint a build must pass before anyone may use it; see [REF-01](docs/reference/REF-01_Glossary.md)) / セキュリティゲート
 - [SPEC-04 Acceptance Tests](docs/spec/04_acceptance_tests.md) - Acceptance tests / 受け入れ試験
-- [SPEC-05 Upstream Tracking](docs/spec/05_upstream_tracking.md) - Upstream tracking / アップストリーム追跡
+- [SPEC-05 Upstream Tracking](docs/spec/05_upstream_tracking.md) - Upstream tracking (Upstream: the original place our copies come from; see [REF-01](docs/reference/REF-01_Glossary.md)) / アップストリーム追跡
 - [SPEC-06 Documentation Conventions](docs/spec/06_documentation_conventions.md) - Documentation conventions / 文書規約
 
 #### Policies & Decisions / 方針と決定
+
+Each record explains one choice. Repository (a folder that remembers every change; see [REF-01](docs/reference/REF-01_Glossary.md)) placement comes first, then the network model, the staged security gate, the autonomy of AI agents, and the test IdP (the server where you log in; see [REF-01](docs/reference/REF-01_Glossary.md)) that stands in for a Shibboleth (the software that lets you log in once with your university account; see [REF-01](docs/reference/REF-01_Glossary.md)) login.
 
 - [POL-01 Position](docs/policy/POL-01_Developer_Environment_2027_Position.md) - Developer environment position / 開発環境の位置づけ
 - [ADR-01 Integration Repository Placement](docs/decisions/ADR-01_Integration_Repository_Placement.md) - Integration repository / 統合リポジトリ配置
@@ -97,7 +100,7 @@ This public repository contains only documentation, manifest, and installer code
 
 ### 🌐 HTML version
 
-The human-readable HTML version lives at [site/index.html](site/index.html) (entry page: [index.html](index.html)). It is generated from `docs/` by MkDocs through `grdm-dev docs build` (see [SPEC-02](docs/spec/02_installer_cli.md)); do not edit `site/` by hand.
+The human-readable HTML version lives at [site/index.html](site/index.html) (entry page: [index.html](index.html)). It is generated from `docs/` by MkDocs (a tool that turns Markdown files into a website; see [REF-01](docs/reference/REF-01_Glossary.md)) through `grdm-dev docs build` (see [SPEC-02](docs/spec/02_installer_cli.md)); do not edit `site/` by hand.
 
 ### License
 
@@ -159,12 +162,14 @@ graph TD
 - [SPEC-00 概要](docs/spec/00_overview.md) - Overview / 概要
 - [SPEC-01 マニフェスト](docs/spec/01_manifest.md) - Manifest format / マニフェスト形式
 - [SPEC-02 インストーラー CLI](docs/spec/02_installer_cli.md) - Installer command / インストーラー CLI
-- [SPEC-03 セキュリティゲート](docs/spec/03_security_gate.md) - Security gate / セキュリティゲート
+- [SPEC-03 セキュリティゲート](docs/spec/03_security_gate.md) - Security gate / セキュリティゲート（導入が必ず通る検問所。[REF-01](docs/reference/REF-01_Glossary.md)）
 - [SPEC-04 受け入れ試験](docs/spec/04_acceptance_tests.md) - Acceptance tests / 受け入れ試験
-- [SPEC-05 アップストリーム追跡](docs/spec/05_upstream_tracking.md) - Upstream tracking / アップストリーム追跡
+- [SPEC-05 アップストリーム追跡](docs/spec/05_upstream_tracking.md) - Upstream tracking / アップストリーム追跡（上流＝写しの元の場所。[REF-01](docs/reference/REF-01_Glossary.md)）
 - [SPEC-06 文書規約](docs/spec/06_documentation_conventions.md) - Documentation conventions / 文書規約
 
 #### 方針と決定
+
+各記録は一つの選択を説明します。まずリポジトリ（変更を全部覚えているフォルダ。[REF-01](docs/reference/REF-01_Glossary.md)）の置き場、次にネットワークモデル、段階的なセキュリティゲート、AI エージェントの自律性、そして Shibboleth（大学のアカウントで一度ログインすれば済むようにするソフト。[REF-01](docs/reference/REF-01_Glossary.md)）ログインの代わりを務めるテスト IdP（ログインする場所のサーバ。[REF-01](docs/reference/REF-01_Glossary.md)）です。
 
 - [POL-01 開発環境の位置づけ](docs/policy/POL-01_Developer_Environment_2027_Position.md) - Developer environment position / 開発環境の位置づけ
 - [ADR-01 統合リポジトリ配置](docs/decisions/ADR-01_Integration_Repository_Placement.md) - Integration repository / 統合リポジトリ配置
@@ -191,7 +196,7 @@ graph TD
 
 ### 🌐 HTML バージョン
 
-人が読む HTML 版は [site/index.html](site/index.html)（入口ページは [index.html](index.html)）にあります。`docs/` から MkDocs が `grdm-dev docs build` で生成します（[SPEC-02](docs/spec/02_installer_cli.md)）。`site/` を手で編集しないでください。
+人が読む HTML 版は [site/index.html](site/index.html)（入口ページは [index.html](index.html)）にあります。`docs/` から MkDocs（Markdown のファイルを Web サイトに変える道具。[REF-01](docs/reference/REF-01_Glossary.md)）が `grdm-dev docs build` で生成します（[SPEC-02](docs/spec/02_installer_cli.md)）。`site/` を手で編集しないでください。
 
 ### ライセンス
 

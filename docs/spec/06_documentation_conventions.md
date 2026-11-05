@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.4 — 2026-11-06. **Learned:** review records are the reviewer's record and must not be rewritten for a convention, so the glossary-note warning now skips `docs/reviews/` and §8 names that exception; first-use notes were added to the other documents instead (SPEC-06 §3). ／ レビュー記録はレビュワの記録であり規約のために書き換えてはならないと分かったため、用語注の警告は `docs/reviews/` を対象外とし、§8 にその例外を明記した。他の文書には初出の用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.3 — 2026-11-05. **Learned:** the written description of a check drifts from the tool as soon as the tool improves, so §8 must be re-read against `tools/docs_check.py` on every change to either (review r2, R2-03). ／ 検査の説明は道具が良くなった瞬間に古くなるため、どちらかを変えるたびに §8 と `tools/docs_check.py` を突き合わせる必要があると分かった（レビュー r2、R2-03）。
   0.2 — 2026-11-05. **Learned:** a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a shared convention must exist before any other document, or the English/Japanese halves and glossary notes drift from the first page onward. ／ 他の文書より先に共通規約を置かないと、初めの一枚から英和の対応と用語注がずれると分かった。
@@ -96,7 +97,7 @@ The two halves say the same thing. The English half is the one translated into o
 - the Version line;
 - relative links: the file part before any `#fragment` must exist, and the fragment must resolve to an `<a id>` / `<a name>` anchor or a heading in the target file (same-file `#fragment` links are checked the same way);
 - TOON SHA parity: when the line before a ```` ```toon ```` block carries `<!-- canonical: <path> -->`, every 40-character SHA in the block must appear in that JSON file (§4);
-- the glossary-note warning: a `REF-01` term used without a note on first occurrence is reported as a warning, not a failure.
+- the glossary-note warning: a `REF-01` term used without a note on first occurrence is reported as a warning, not a failure. Files under `docs/reviews/` are exempt from this warning only: review records are the reviewer's record and are kept verbatim, so nobody inserts notes into them after the fact. Their anchors, Jump line, Version line and links are still checked.
 
 **Legacy-format exception.** Files kept in their historical form are not checked and are not rewritten to SPEC-06: `*.legacy.md`; sample code and sub-documents under `docs/guides/<topic>/` other than that guide's `README.md`; and the pointer files left at old paths (`Environment.md`, `SetupOsfOnEC2.md` and similar at the repository root), which only redirect to the new location. They are history, not current procedure. Every other Markdown file in the repository, including `manifest/README.md` and the installer README, is checked.
 
@@ -185,7 +186,7 @@ The two halves say the same thing. The English half is the one translated into o
 - Version 行。
 - 相対リンク。`#フラグメント` より前のファイル部分が存在し、フラグメントが相手のファイルの `<a id>` / `<a name>` アンカーか見出しに解決しなければならない（同じファイル内の `#フラグメント` も同様に確かめる）。
 - TOON の SHA 一致。```` ```toon ```` ブロックの直前の行に `<!-- canonical: <パス> -->` の宣言があるとき、ブロック内の 40 文字の SHA がすべてその JSON に現れること（§4）。
-- 用語注の警告。`REF-01` の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。
+- 用語注の警告。`REF-01` の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。`docs/reviews/` の下のファイルだけはこの警告の対象外とする。レビュー記録はレビュワの記録であり、原文のまま残すので、あとから用語注を差し込まない。アンカー、Jump 行、Version 行、リンクは引き続き検査する。
 
 **旧形式の例外。** 歴史的な形のまま残すファイルは検査せず、SPEC-06 の形にも書き直さない。`*.legacy.md`、`docs/guides/<題>/` の下にあるその手引きの `README.md` 以外のサンプルコードと下位文書、そして旧パスに残した誘導ファイル（リポジトリのルートの `Environment.md`、`SetupOsfOnEC2.md` およびその類。新しい置き場へ案内するだけのもの）です。これらは歴史であり、現行の手順ではありません。それ以外のリポジトリ内の Markdown は、`manifest/README.md` と installer の README を含めてすべて検査します。
 
