@@ -57,7 +57,7 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
    - `develop` — the integration branch; the only branch the installer builds from (its SHA is recorded in the manifest, see [SPEC-01](../spec/01_manifest.md));
    - one tracking branch per upstream listed in the manifest, named `upstream/<kind>-<branch>` where `<kind>` is `public`, `private`, or `cos` and `<branch>` is the upstream branch name with `/` replaced by `-` ([SPEC-01 §4](../spec/01_manifest.md#4-rules) rule 7);
    - `upstream/public-<branch>` — an exact *mirror* (identical copy, refreshed automatically) of the public core's default branch: `upstream/public-develop` for osf.io, waterbutler, mfr, cas-overlay, wiki-frontend; `upstream/public-master` for ember-osf-web and y-websocket;
-   - `upstream/private-<branch>` — a mirror of the `-private` default branch: `upstream/private-develop`, `upstream/private-master` (ember-osf-web, y-websocket), or `upstream/private-main` (OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm, which have no public upstream and only this branch);
+   - `upstream/private-<branch>` — a mirror of the `-private` default branch: `upstream/private-develop`, `upstream/private-master` (ember-osf-web, y-websocket), or `upstream/private-main` (OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm). Shibboleth-SP additionally has `upstream/public-main`; OASys, rdmcp and aipf_mcp_data_grdm have no public upstream and only the private branch;
    - `upstream/cos-develop` — a mirror of the CenterForOpenScience original, for reference only (not for wiki-frontend, which has no COS original);
    - a second upstream of the same kind gets a tag: `upstream/private-sec-test-fix-sec-test` mirrors `RDM-osf.io-private` (branch `fix/sec-test`) as a candidate.
    Mirrors are refreshed daily ([SPEC-05](../spec/05_upstream_tracking.md)).
@@ -147,7 +147,7 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
    - `develop` — 統合ブランチ。インストーラーが組み立てる唯一のブランチ（その SHA を manifest に記録。[SPEC-01](../spec/01_manifest.md)）。
    - manifest に載せた上流ごとに一本の追跡ブランチ。名前は `upstream/<kind>-<branch>` で、`<kind>` は `public`・`private`・`cos`、`<branch>` は上流のブランチ名の `/` を `-` に置き換えたもの（[SPEC-01 §4](../spec/01_manifest.md#4-規則) の規則 7）。
    - `upstream/public-<branch>` — 公開コアの既定ブランチの正確な「ミラー」（自動で更新される同一の写し）。osf.io・waterbutler・mfr・cas-overlay・wiki-frontend は `upstream/public-develop`、ember-osf-web と y-websocket は `upstream/public-master`。
-   - `upstream/private-<branch>` — `-private` の既定ブランチのミラー。`upstream/private-develop`、`upstream/private-master`（ember-osf-web、y-websocket）、または `upstream/private-main`（OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。公開の上流がないのでこの一本だけ）。
+   - `upstream/private-<branch>` — `-private` の既定ブランチのミラー。`upstream/private-develop`、`upstream/private-master`（ember-osf-web、y-websocket）、または `upstream/private-main`（OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm）。Shibboleth-SP には加えて `upstream/public-main` があり、OASys・rdmcp・aipf_mcp_data_grdm は公開上流がなく private のブランチだけを持つ。
    - `upstream/cos-develop` — CenterForOpenScience 本家のミラー。参照のみ（COS 本家のない wiki-frontend にはない）。
    - 同じ kind の二つ目の上流にはタグを挟む。`upstream/private-sec-test-fix-sec-test` は `RDM-osf.io-private`（ブランチ `fix/sec-test`）を候補として写したもの。
    ミラーは日次で更新します（[SPEC-05](../spec/05_upstream_tracking.md)）。
