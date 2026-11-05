@@ -128,7 +128,7 @@
       ],
       "id": "osf.io",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "356a997eb5fe7d4aa49c05a0bbcf736a3cf1e31f",
       "integration_repo": "RDM-osf.io-dev2027",
       "note": null,
       "platforms": [
@@ -230,7 +230,7 @@
       ],
       "id": "waterbutler",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "e9b1ac266374d4f477083b327d9620badfc15ad9",
       "integration_repo": "RDM-waterbutler-dev2027",
       "note": null,
       "platforms": [
@@ -321,7 +321,7 @@
       ],
       "id": "modular-file-renderer",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "dac70e2209f9b4104ee2d190d7462cf18eef3c9f",
       "integration_repo": "RDM-modular-file-renderer-dev2027",
       "note": null,
       "platforms": [
@@ -404,7 +404,7 @@
       ],
       "id": "ember-osf-web",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "57d9c7ce9e7ecfef76b912953f2ff566c37035e5",
       "integration_repo": "RDM-ember-osf-web-dev2027",
       "note": "Prebuilt fallback (M2, second real install on Mac Studio): the Dockerfile's base image quay.io/centerforopenscience/ember-base is a Docker image manifest v2 schema 1 image that current Docker refuses (\"support for schema 1 has been removed\"), so the integration repository cannot be built on any host. Until M4 modernizes the Dockerfile (target_image.M4), the legacy guide's distribution image niicloudoperation/rdm-ember-osf-web:latest is run instead, pinned by its linux/amd64 manifest digest (resolved 2026-11-05 with docker buildx imagetools inspect). This bypasses the build-from-pinned-source guarantee of SPEC-01; prebuilt_image must be removed at M4.",
       "platforms": [
@@ -459,7 +459,7 @@
       "candidate_prs": [],
       "id": "cas-overlay",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "e3620a25dd45173f5c16a6cd68e1b8b6c37e26c6",
       "integration_repo": "RDM-cas-overlay-dev2027",
       "note": null,
       "platforms": [
@@ -529,7 +529,7 @@
       ],
       "id": "wiki-frontend",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "203d32fab60aad8d78e9b743987519252f99b817",
       "integration_repo": "RDM-wiki-frontend-dev2027",
       "note": null,
       "platforms": [
@@ -573,7 +573,7 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "93251589af25bb65a1397d55a9e787d55d56e9aa",
       "integration_repo": "RDM-y-websocket-dev2027",
       "note": null,
       "platforms": [
@@ -617,7 +617,7 @@
       "candidate_prs": [],
       "id": "OASys",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "b3860fda51722bbd0faffbe1d49684125e381af3",
       "integration_repo": "RDM-OASys-dev2027",
       "note": null,
       "platforms": [
@@ -652,7 +652,7 @@
       "candidate_prs": [],
       "id": "Shibboleth-SP",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "623e63fc0c1c9a8e244860ca9a9fa544d3c0ec1b",
       "integration_repo": "RDM-Shibboleth-SP-dev2027",
       "note": "mutually exclusive with fakecas; bundled test IdP for acceptance",
       "platforms": [
@@ -697,7 +697,7 @@
       "candidate_prs": [],
       "id": "rdmcp",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "7eed0db7d3726df7a4029b1b6ee024815d4f0646",
       "integration_repo": "RDM-rdmcp-dev2027",
       "note": null,
       "platforms": [
@@ -732,7 +732,7 @@
       "candidate_prs": [],
       "id": "aipf_mcp_data_grdm",
       "integration_branch": "develop",
-      "integration_sha": null,
+      "integration_sha": "94e277da694462516c7a8f12024e3aa0ad67dda7",
       "integration_repo": "RDM-aipf_mcp_data_grdm-dev2027",
       "note": null,
       "platforms": [
