@@ -568,10 +568,15 @@ def check_overlays(components: list[Any]) -> list[str]:
             by_id.setdefault(comp["id"], comp)
     overlays_of: dict[str, list[str]] = {}
     for comp in components:
-        if not isinstance(comp, dict) or not is_overlay(comp):
+        if not isinstance(comp, dict):
             continue
         cid = comp.get("id")
         label = f"component '{cid}'" if isinstance(cid, str) and cid else "component"
+        if comp.get("overlay_of") == "":
+            errors.append(f"MC-14: {label}: overlay_of must be a component id or null, not an empty string")
+            continue
+        if not is_overlay(comp):
+            continue
         target = comp["overlay_of"]
         if target == cid:
             errors.append(f"MC-14: {label}: overlay_of must not name the component itself")

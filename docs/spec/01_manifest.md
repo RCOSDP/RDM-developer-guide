@@ -47,7 +47,7 @@ The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO
 |---|---|---|
 | `id` | string | Short name, same as in [SPEC-00 §2](00_overview.md#2-component-map). Unique. |
 | `role` | `core` \| `infra` \| `subsystem` | What kind of component. COS repositories are not components; they appear as `upstreams[]` entries with `kind: cos`. |
-| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`; `wiki_assets` for the overlay `wiki-frontend`). Never empty. |
+| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`; `wiki_static_init` and `wiki_assets` for the overlay `wiki-frontend`). Never empty. |
 | `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
 | `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
 | `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
@@ -181,7 +181,7 @@ checks[14]{id,rule,severity}:
 |---|---|---|
 | `id` | 文字列 | 短い名前。[SPEC-00 §2](00_overview.md#2-部品の地図) と同じ。重複しない。 |
 | `role` | `core` \| `infra` \| `subsystem` | 部品の種類。COS のリポジトリは部品ではなく、`kind: cos` の `upstreams[]` 要素として現れる。 |
-| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`。オーバーレイ `wiki-frontend` は `wiki_assets`）。空にしない。 |
+| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`。オーバーレイ `wiki-frontend` は `wiki_static_init` と `wiki_assets`）。空にしない。 |
 | `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
 | `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
 | `integration_sha` | 文字列（40 桁の 16 進）または `null` | このマニフェストが固定する統合ブランチ `develop` の先端のコミット。`grdm-dev build` と `compose render` はこの値をイメージのタグに使う。厳密再構築 PR のマージ前は `null` でよいが、M2 の受入では必須。 |

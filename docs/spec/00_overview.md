@@ -85,7 +85,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,"wiki_static_init,wiki_assets",RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
@@ -247,7 +247,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,"wiki_static_init,wiki_assets",RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core

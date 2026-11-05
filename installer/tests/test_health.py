@@ -134,7 +134,8 @@ class HealthTests(unittest.TestCase):
         wa = next(r for r in report["services"] if r["service"] == "wiki_assets")
         self.assertEqual((wa["state"], wa["health"], wa["ok"]), ("exited", "completed", True))
         # a failed one-shot (non-zero exit) or one still running is not healthy
-        for bad in (dict(done, ExitCode=1), dict(done, State="running", ExitCode=None)):
+        no_code = {k: v for k, v in done.items() if k != "ExitCode"}
+        for bad in (dict(done, ExitCode=1), dict(done, State="running", ExitCode=None), dict(done, ExitCode=None), no_code):
             rows = [ps_row(s) for s in ("web", "api", "postgres")] + [bad]
             self.assertEqual(self.run_cmd(False, make_runner(json.dumps(rows))), exit_codes.HEALTH_FAILED)
             self.assertIn("wiki_assets", self.err.getvalue())

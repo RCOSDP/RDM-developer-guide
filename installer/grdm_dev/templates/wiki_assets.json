@@ -6,7 +6,7 @@
   "command": [
     "sh",
     "-c",
-    "set -e; src=/code/website/static/public/js; dst=/wiki_static; ls \"$src\" >/dev/null; find \"$dst\" -mindepth 1 -delete; cp -a \"$src\"/. \"$dst\"/; if [ -f /code/webpack-assets.json ]; then cp -a /code/webpack-assets.json \"$dst\"/webpack-assets.json; fi; for f in \"$dst\"/wiki-edit-page.*.js; do if [ -f \"$f\" ]; then cp -a \"$f\" \"$dst\"/wiki-edit-page.js; fi; done; ls -la \"$dst\""
+    "set -e; src=/code/website/static/public/js; dst=/wiki_static; bundle=$(ls \"$src\"/wiki-edit-page.*.js 2>/dev/null | head -n 1); if [ -z \"$bundle\" ]; then echo \"wiki_assets: no wiki-edit-page.*.js under $src\" >&2; exit 1; fi; if [ ! -w \"$dst\" ]; then echo \"wiki_assets: $dst is not writable by $(id -u)\" >&2; exit 1; fi; cp -R \"$src\"/. \"$dst\"/; if [ -f /code/webpack-assets.json ]; then cp /code/webpack-assets.json \"$dst\"/webpack-assets.json; fi; cp \"$dst/$(basename \"$bundle\")\" \"$dst\"/wiki-edit-page.js; for f in \"$dst\"/*; do n=$(basename \"$f\"); if [ ! -e \"$src/$n\" ] && [ \"$n\" != wiki-edit-page.js ] && [ \"$n\" != webpack-assets.json ]; then rm -rf \"$f\"; fi; done; test -s \"$dst\"/wiki-edit-page.js; ls -la \"$dst\""
   ],
   "volumes": [
     {
@@ -21,5 +21,11 @@
   "weight": 1,
   "mem_min_mb": 128,
   "pids_limit": 128,
-  "note": "One-shot (ADR-06): runs the wiki-frontend bundle-builder image grdm-dev/wiki-frontend:<osf_sha12>-<wiki_sha12> (osf.io tree + wiki-frontend files, built with the wiki-frontend Dockerfile, which only runs `yarn run webpack-prod`), copies its webpack output /code/website/static/public/js/ (entry wiki-edit-page -> wiki-edit-page.<chunkhash>.js, vendor.<hash>.js, source maps) and /code/webpack-assets.json into the named volume wiki_static, adds the unhashed alias wiki-edit-page.js, and exits. web/api/admin/worker mount wiki_static read-only at /code/website/static/public/js/wiki/ (a subpath: the osf.io image's own public/js keeps its ~40 bundles and its webpack-assets.json) and depend on this service with condition service_completed_successfully. Template wiring of /static/public/js/wiki/wiki-edit-page.js in osf.io is verified in the next real install run."
+  "note": "One-shot (ADR-06): runs the wiki-frontend bundle-builder image grdm-dev/wiki-frontend:<osf_sha12>-<wiki_sha12> (osf.io tree + wiki-frontend files, built with the wiki-frontend Dockerfile, which only runs `yarn run webpack-prod`), requires a wiki-edit-page.<chunkhash>.js under /code/website/static/public/js/ (the webpack output.path; also vendor.<hash>.js, source maps) and copies it with `cp -R` (no ownership preservation) into the named volume wiki_static mounted at /wiki_static, adds /code/webpack-assets.json and the unhashed alias wiki-edit-page.js, then prunes files that are no longer in the source (copy first, prune after: a running consumer never sees an empty directory), and exits. The volume is chowned to 1000:1000 beforehand by wiki_static_init (a fresh bind volume under runtime/volumes/ is owned by the host user). web/api/admin/worker mount wiki_static read-only at /code/website/static/public/js/wiki/ (a subpath: the osf.io image's own public/js keeps its ~40 bundles and its webpack-assets.json) and depend on this service with condition service_completed_successfully. The command is written for the container shell; compose render escapes `$` as `$$` so Compose does not interpolate it (PR #30 review r1). The osf.io page must reference /static/public/js/wiki/wiki-edit-page.js (RDM-osf.io-dev2027 edit.mako wiring, verified in real install run 5).",
+  "depends_on": [
+    {
+      "service": "wiki_static_init",
+      "condition": "service_completed_successfully"
+    }
+  ]
 }

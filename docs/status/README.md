@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
+- Version / 版: 0.5 — 2026-11-06. **Learned:** an installer change that depends on a matching change in an integration repository must leave an open item here, or the dependency is only visible in an ADR (PR #30 review r1 R1-03: the wiki editor page must load the new bundle path). ／ 統合リポジトリ側の対応する変更に依存するインストーラーの変更は、ここに残件を残さなければ ADR の中にしか見えないと分かった（PR #30 レビュー r1 R1-03: Wiki エディタのページが新しい束のパスを読む必要がある）。
+  0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
   0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
   0.2 — 2026-11-05. **Learned:** the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** without a single source of truth, it was unclear whether M1 completion meant "docs written" or "PR merged"; the board's explicit rules resolve ambiguity. ／ 単一の正本がなければ、M1 完了が「文書を書いた」か「PR をマージした」か分からず、ボードの明示的な規則で曖昧さを解消すると分かった。
@@ -44,6 +45,7 @@
 | GitHub Actions (docs, security) | ✅ Running on PR #19 (docs, gitleaks, manifest pass) |
 | Trivy in CI (`security.yml`) | ⏳ At M1 report-only over the repository file system, because no image exists yet ([SPEC-03 §4.1](../spec/03_security_gate.md#english)); image scanning starts with the first build (M2) |
 | Semgrep findings in legacy guide sample code (6: raw HTML in templates ×4, exec ×1, path join ×1) | ⏳ Deferred to the guide rewrite (M2/M3); paths listed in `.semgrepignore` with reasons |
+| 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 in real install run 5 | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository |
 
 ### 3. Rules
 
@@ -85,6 +87,7 @@ This board is the **single source of truth** for milestone progress:
 | GitHub Actions（docs, security） | ✅ PR #19 で稼働（docs・gitleaks・manifest 合格） |
 | CI の Trivy（`security.yml`） | ⏳ M1 ではイメージがまだないため、リポジトリのファイルシステムに対する報告のみ（[SPEC-03 §4.1](../spec/03_security_gate.md#japanese)）。イメージの検査は最初のビルド（M2）から |
 | 旧ガイドのサンプルコードに対する Semgrep 指摘（6 件: テンプレートの生 HTML ×4、exec ×1、path join ×1） | ⏳ ガイド書き直し（M2/M3）で対応。対象パスと理由は `.semgrepignore` に記載 |
+| 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機第 5 回でエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない |
 
 ### 3. 規則
 

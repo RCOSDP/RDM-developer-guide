@@ -414,6 +414,17 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("MC-14", codes(errors))
         self.assertTrue(any("must not be infra" in e for e in errors), errors)
 
+    def test_empty_string_overlay_of_is_rejected_not_normalized(self):
+        """Review r1: "when present" means a component id; "" is neither absent nor valid."""
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = ""
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("empty string" in e for e in errors), errors)
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = None  # null is "absent": an ordinary component
+        self.assertEqual(mc.validate_manifest(m, today=TODAY), [])
+
     def test_wrong_type_is_a_structure_finding(self):
         m = overlay_manifest()
         self.overlay(m)["overlay_of"] = ["osf.io"]
@@ -430,7 +441,7 @@ class OverlayTests(unittest.TestCase):
         comps = {c["id"]: c for c in data["components"]}
         wiki = comps["wiki-frontend"]
         self.assertEqual(wiki["overlay_of"], "osf.io")
-        self.assertEqual(wiki["services"], ["wiki_assets"])
+        self.assertEqual(wiki["services"], ["wiki_static_init", "wiki_assets"])
         self.assertEqual(wiki["profile"], "core")
         self.assertNotIn("prebuilt_image", comps["osf.io"])
         self.assertRegex(wiki["integration_sha"], r"^[0-9a-f]{40}$")

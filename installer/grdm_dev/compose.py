@@ -50,7 +50,9 @@ target, ro?}]), tmpfs?, user?, depends_on? (service names, or {service, conditio
 long form, e.g. `service_completed_successfully` on a one-shot), restart?, one_shot? (a container
 that runs to completion: rendered with `restart: "no"`, and `health` accepts `exited` with code 0),
 weight, mem_min_mb, pids_limit, note?. Strings may use
-`{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`.
+`{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`. `command` strings are written for the
+container shell: every `$` in them is escaped to `$$` on output, so Compose does not interpolate
+them; `environment` values are the only place where `${KEY}` means a value from runtime/.env.
 
 Upstream settings are rewritten under runtime/config/ (ADR-02 §3.3): osf/local.py, osf/api_local.py,
 osf.env, wb.env, mfr.env, sharejs.env, postgres-init/10-cas.sql, cas/cas.properties. Internal URLs use
@@ -322,6 +324,11 @@ def _mount(entry: dict[str, Any]) -> str:
     raise ValueError(f"unknown volume entry {entry!r}")
 
 
+def escape_compose_dollar(text: str) -> str:
+    """`$` -> `$$` so Compose leaves the string for the container shell (a template never means host interpolation in a command)."""
+    return text.replace("$", "$$")
+
+
 def render_depends_on(entries: list[Any], in_profile: set[str]) -> list[str] | dict[str, dict[str, str]]:
     """Template `depends_on`: strings, or `{service, condition}` objects (Compose long form).
 
@@ -365,7 +372,10 @@ def render_service(
     if plat and plat != "unknown":
         out["platform"] = plat
     if "command" in tpl:
-        out["command"] = tpl["command"]
+        # Compose interpolates `$VAR`/`${VAR}` in every string of the file before the container's shell
+        # sees it (review PR #30 R1-01: `$src` became ""). Commands are written for the container shell,
+        # so every `$` is escaped to `$$`; only `environment` values keep Compose interpolation (`${KEY}`).
+        out["command"] = [escape_compose_dollar(c) for c in tpl["command"]]
     if "user" not in relaxed:
         out["user"] = tpl.get("user", "1000:1000")
     out["read_only"] = "read_only" not in relaxed

@@ -142,8 +142,8 @@ def check_services(ctx: Context, runner, prober) -> tuple[list[dict], bool]:
         one_shot = str((compose["services"][name] or {}).get("restart", "")) == "no"
         if one_shot:
             # a one-shot service (e.g. wiki_assets, SPEC-01 overlay_of) is healthy once it has exited with code 0
-            exit_code = info.get("ExitCode", info.get("exit_code", 0))
-            ok = state == "exited" and str(exit_code) in ("0", "None", "")
+            exit_code = info.get("ExitCode", info.get("exit_code"))
+            ok = state == "exited" and exit_code is not None and str(exit_code) == "0"  # unknown completion fails closed (review r1)
             health = health or ("completed" if ok else "")
         else:
             ok = state == "running" and health in ("", "healthy")

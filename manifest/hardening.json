@@ -120,6 +120,19 @@
       "review": "2027-01-31",
       "service": "test_idp",
       "target": "M4"
+    },
+    {
+      "cap_add": [
+        "CHOWN"
+      ],
+      "controls": [
+        "user",
+        "cap_add"
+      ],
+      "reason": "One-shot owner fix for the named volume wiki_static (ADR-06, PR #30 review r1 R1-02): a fresh bind volume under runtime/volumes/ is created by the host user, so the non-root copier wiki_assets (1000:1000) could not write to it on a Linux host whose uid is not 1000. The container runs `chown 1000:1000 /wiki_static` as root with cap_drop ALL and only CAP_CHOWN, then exits (restart: no); read_only and no-new-privileges stay.",
+      "review": "2027-01-31",
+      "service": "wiki_static_init",
+      "target": "M4 (volume provisioning step in the installer, or Docker volume subpath/ownership options once the minimum Docker version allows)"
     }
   ],
   "note": "Per-service exceptions to SPEC-03 §3.3 (non-root user, read-only root, cap_drop ALL). Every entry names the controls it relaxes, why, and when it is reviewed. privileged: true and no-new-privileges are never relaxed.",
