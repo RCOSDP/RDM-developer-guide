@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
+  0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
   0.2 — 2026-11-05. **Learned:** the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** without a single source of truth, it was unclear whether M1 completion meant "docs written" or "PR merged"; the board's explicit rules resolve ambiguity. ／ 単一の正本がなければ、M1 完了が「文書を書いた」か「PR をマージした」か分からず、ボードの明示的な規則で曖昧さを解消すると分かった。
 - Normative for: [status/upstream/](upstream/README.md) and all milestone progress tracking.
@@ -35,10 +36,10 @@
 | docs skeleton (READMEs for all folders) | ✅ Written |
 | manifest/upstreams.json | ✅ Created |
 | dev2027 integration repos (11) | ✅ Created |
-| dev2027 strict reconstruction PRs (7 merged 2026-11-06; wiki-frontend had identical tips, no PR) | ✅ Merged; `integration_sha` pinned in the manifest |
+| dev2027 strict reconstruction PRs (7 merged 2026-11-06; RDM-wiki-frontend-dev2027 #1 was closed without merge because both tips were identical) | ✅ Merged; `integration_sha` pinned in the manifest |
 | MkDocs site build (`site/`, strict build passes) | ✅ Built |
 | Guides migration to `docs/guides/` (pointers kept at old paths) | ✅ Done |
-| Codex Astra review of RDM-osf.io-dev2027 PR #1 | 🔄 r1/r2 done: request changes. R1 fixed; R2 awaits the owner's decision on ADR-01 §5; R3 is the owner's call |
+| Codex Astra review of RDM-osf.io-dev2027 PR #1 (historical) | ✅ Superseded: #1 closed 2026-11-05 after the owner rejected the bootstrap interpretation; #2 (strict reconstruction) merged 2026-11-06 |
 | M1 skeleton PR to `develop` (this repository, PR #19) | 🔄 Open; review r1 of 2026-11-05 asked for changes (R1–R8); corrections in progress, then owner merge |
 | GitHub Actions (docs, security) | ✅ Running on PR #19 (docs, gitleaks, manifest pass) |
 | Trivy in CI (`security.yml`) | ⏳ At M1 report-only over the repository file system, because no image exists yet ([SPEC-03 §4.1](../spec/03_security_gate.md#english)); image scanning starts with the first build (M2) |
@@ -76,10 +77,10 @@ This board is the **single source of truth** for milestone progress:
 | docs の骨格（全フォルダの README） | ✅ 作成済み |
 | manifest/upstreams.json | ✅ 作成 |
 | dev2027 統合リポジトリ（11） | ✅ 作成 |
-| dev2027 の厳密再構築 PR（7 本を 2026-11-06 にマージ。wiki-frontend は先端同一で PR なし） | ✅ マージ済み。manifest に `integration_sha` を固定 |
+| dev2027 の厳密再構築 PR（7 本を 2026-11-06 にマージ。RDM-wiki-frontend-dev2027 #1 は両先端が同一のためマージせず閉鎖） | ✅ マージ済み。manifest に `integration_sha` を固定 |
 | MkDocs サイトのビルド（`site/`、strict ビルド合格） | ✅ 生成済み |
 | ガイドの `docs/guides/` への移植（旧パスに誘導を残す） | ✅ 完了 |
-| Codex Astra による RDM-osf.io-dev2027 PR #1 のレビュー | 🔄 r1/r2 完了: request changes。R1 修正済み、R2 は ADR-01 §5 の所有者判断待ち、R3 は所有者判断 |
+| Codex Astra による RDM-osf.io-dev2027 PR #1 のレビュー（履歴） | ✅ 置き換え済み: 所有者が初回構築の解釈を退け #1 は 2026-11-05 に閉鎖、#2（厳密再構築）を 2026-11-06 にマージ |
 | M1 骨格 PR（本リポジトリ、develop 向け、PR #19） | 🔄 作成済み。2026-11-05 のレビュー r1 が修正要求（R1〜R8）。修正中、その後に所有者マージ |
 | GitHub Actions（docs, security） | ✅ PR #19 で稼働（docs・gitleaks・manifest 合格） |
 | CI の Trivy（`security.yml`） | ⏳ M1 ではイメージがまだないため、リポジトリのファイルシステムに対する報告のみ（[SPEC-03 §4.1](../spec/03_security_gate.md#japanese)）。イメージの検査は最初のビルド（M2）から |
