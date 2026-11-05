@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with `unittest`. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を `unittest` で試験できないと分かった。
 - Normative for: `installer/install.sh`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
 - Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-04 Acceptance Tests](04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
@@ -93,11 +94,11 @@ flowchart TD
 ```toon
 profiles[3]{name,services,note}:
   minimum,"web api postgres elasticsearch rabbitmq fakecas",smallest set that shows a login and a project page
-  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis",the six core repositories with their infrastructure
-  full,"core + y_websocket rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",everything; shibboleth_sp replaces fakecas
+  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis y_websocket","the six core repositories with their infrastructure, plus y_websocket for Wiki collaborative editing"
+  full,"core + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",everything; shibboleth_sp replaces fakecas
 ```
 
-Service names follow the upstream `docker-compose.yml` of RDM-osf.io so that existing guides keep working, and they are the `services[]` values of the manifest ([SPEC-01 §3](01_manifest.md#english)). The `shibboleth` Compose profile and the `fakecas` service are mutually exclusive: `compose render --profile full --auth shibboleth` removes `fakecas` and adds `shibboleth_sp` and `test_idp`; the default for `full` is `fakecas`.
+Service names follow the upstream `docker-compose.yml` of RDM-osf.io so that existing guides keep working, and they are the `services[]` values of the manifest ([SPEC-01 §3](01_manifest.md#english)). The `shibboleth` Compose profile and the `fakecas` service are mutually exclusive: `compose render --profile full --auth shibboleth` removes `fakecas` and adds `shibboleth_sp` and `test_idp`; the default for `full` is `fakecas`. `y_websocket` belongs to `core`, not `full`, because Wiki collaborative editing is an M2 acceptance scenario (C4 in [SPEC-04 §4](04_acceptance_tests.md#english)); the manifest's `profile` for the `y-websocket` component is `core` accordingly ([SPEC-01 §3](01_manifest.md#english)).
 
 **Published ports.** This table is the only place where default host ports are defined; [ADR-02](../decisions/ADR-02_Network_Model.md), [SPEC-03](03_security_gate.md), and [REF-01](../reference/REF-01_Glossary.md) point here. Every port is published on `127.0.0.1` only.
 
@@ -129,17 +130,17 @@ All other services (`wiki`, `cas`, `y_websocket`, the subsystems, `test_idp`, da
 ```toon
 exit_codes[13]{code,meaning}:
   0,success
-  2,usage error: unknown flag or bad value
-  10,host unsupported: OS, CPU, memory, or Python too old
-  11,Docker missing, not running, or Compose / buildx plugin absent
+  2,"usage error: unknown flag or bad value"
+  10,"host unsupported: OS, CPU, memory, or Python too old"
+  11,"Docker missing, not running, or Compose / buildx plugin absent"
   12,a required port on 127.0.0.1 is in use and no free alternative was found
   20,manifest invalid or TOON excerpt disagrees with JSON
   30,image build failed
-  40,health check failed, or a port listens on a non-loopback address
+  40,"health check failed, or a port listens on a non-loopback address"
   50,security scan gate failed for the current milestone
-  51,scanner could not run: tool missing or vulnerability database download failed
-  52,services not healthy, so scan --dynamic could not run
-  53,red-team preflight failed: egress reachable or a target outside redteam-targets.json
+  51,"scanner could not run: tool missing or vulnerability database download failed"
+  52,"services not healthy, so scan --dynamic could not run"
+  53,"red-team preflight failed: egress reachable or a target outside redteam-targets.json"
   60,acceptance test failed
 ```
 
@@ -285,11 +286,11 @@ flowchart TD
 ```toon
 profiles[3]{name,services,note}:
   minimum,"web api postgres elasticsearch rabbitmq fakecas",ログインとプロジェクト画面が見える最小の組
-  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis",コア 6 リポジトリと基盤
-  full,"core + y_websocket rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",全部。shibboleth_sp は fakecas と入れ替わる
+  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis y_websocket",コア 6 リポジトリと基盤。Wiki 共同編集の y_websocket を含む
+  full,"core + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",全部。shibboleth_sp は fakecas と入れ替わる
 ```
 
-サービス名は RDM-osf.io 上流の `docker-compose.yml` に合わせ、既存の手引きがそのまま使えるようにします。これは manifest の `services[]` の値でもあります（[SPEC-01 §3](01_manifest.md#japanese)）。Compose プロファイル `shibboleth` とサービス `fakecas` は排他です。`compose render --profile full --auth shibboleth` は `fakecas` を外して `shibboleth_sp` と `test_idp` を足します。`full` の既定は `fakecas` です。
+サービス名は RDM-osf.io 上流の `docker-compose.yml` に合わせ、既存の手引きがそのまま使えるようにします。これは manifest の `services[]` の値でもあります（[SPEC-01 §3](01_manifest.md#japanese)）。Compose プロファイル `shibboleth` とサービス `fakecas` は排他です。`compose render --profile full --auth shibboleth` は `fakecas` を外して `shibboleth_sp` と `test_idp` を足します。`full` の既定は `fakecas` です。`y_websocket` は `full` でなく `core` に属します。Wiki 共同編集が M2 の受入シナリオ（[SPEC-04 §4](04_acceptance_tests.md#japanese) の C4）だからです。manifest の `y-websocket` 部品の `profile` もそれに合わせて `core` です（[SPEC-01 §3](01_manifest.md#japanese)）。
 
 **公開ポート。** 既定のホスト側ポートを定めるのはこの表だけです。[ADR-02](../decisions/ADR-02_Network_Model.md)、[SPEC-03](03_security_gate.md)、[REF-01](../reference/REF-01_Glossary.md) はここを指します。すべて `127.0.0.1` にだけ公開します。
 

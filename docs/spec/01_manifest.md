@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the public osf.io `develop` (2026-11-05) is already newer than its `-private` twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の `develop`（2026-11-05）は `-private`（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。
 - Normative for: `manifest/upstreams.json` (canonical), `manifest/upstreams.toon` (excerpt), `manifest/README.md`, the `manifest` subcommand of `grdm-dev` ([SPEC-02](02_installer_cli.md)), and every document that quotes the manifest.
 - Related: [SPEC-00 Overview](00_overview.md) · [SPEC-05 Upstream tracking](05_upstream_tracking.md) · [SPEC-06 Documentation conventions](06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration repository placement](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-03 Staged security gate](../decisions/ADR-03_Staged_Security_Gate.md) · [docs/README.md](../README.md)
@@ -85,7 +86,7 @@ components[1]:
     note: null
 ```
 
-The all-zero SHAs above are placeholders for the example only; a real manifest never contains them.
+The all-zero SHAs above are placeholders for the example only; a real manifest never contains them. The block is an illustrative example, not a mirror of `manifest/upstreams.json`, so it carries no `<!-- canonical: ... -->` declaration ([SPEC-06 §4](06_documentation_conventions.md#4-diagrams-and-data)); blocks that do mirror the manifest (for example in [SPEC-00 §2](00_overview.md#english)) declare it.
 
 ### 4. Rules
 
@@ -214,7 +215,7 @@ components[1]:
     note: null
 ```
 
-上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。
+上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。このブロックは説明のための例であって `manifest/upstreams.json` の写しではないので、`<!-- canonical: ... -->` の宣言は付けません（[SPEC-06 §4](06_documentation_conventions.md#4-図とデータ)）。マニフェストを写すブロック（たとえば [SPEC-00 §2](00_overview.md#japanese)）には宣言を付けます。
 
 ### 4. 規則
 

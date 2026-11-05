@@ -1872,6 +1872,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2553,6 +2574,7 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> an example data block must itself parse: a declared row count with an ellipsis in place of rows is a syntax error, not an example. ／ 例として置くデータブロックもそれ自体が解析できなければならない。行数を宣言して省略記号を置いたものは例ではなく構文エラーだと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the daily job's outputs need a fixed place and a fixed name before the job exists, or SPEC-05 and the status board would point at nothing. The files named here do not exist yet; the daily job (SPEC-05) will create them. ／ 日次ジョブの出力には、ジョブが存在する前から置き場と名前を決めておく必要があると分かった。さもないと SPEC-05 と進捗ボードの参照先が無くなる。ここに書いたファイルはまだ存在せず、日次ジョブ（SPEC-05）が作る。</li>
 <li>Normative for: <a href="../../spec/05_upstream_tracking/">SPEC-05 Upstream Tracking</a>.</li>
 <li>Related: <a href="../">../README.md</a> · <a href="../">status/README.md</a> · <a href="../../spec/05_upstream_tracking/#english">spec/05_upstream_tracking.md#2-daily-job-mirror-and-diff-report</a></li>
@@ -2592,18 +2614,18 @@
 <p>The report format is defined in <a href="../../spec/05_upstream_tracking/">SPEC-05 §2</a>:</p>
 <pre class="toon"><code>report:
   generated_at: 2026-11-05T03:00:12+09:00
-  repositories[11]{integration_repo,develop_sha,upstreams[action]}:
+  repositories[1]:
     - integration_repo: RDM-osf.io-dev2027
-      develop_sha: &lt;40-hex&gt;
+      develop_sha: 1111111111111111111111111111111111111111
       upstreams[3]{branch,kind,sha,ahead_of_develop,behind_develop,manifest_sha_matches,moved_since_yesterday}:
-        upstream/public-develop,public,&lt;sha&gt;,14,0,false,true
-        upstream/private-develop,private,&lt;sha&gt;,0,0,true,false
-        upstream/cos-develop,cos,&lt;sha&gt;,310,0,true,true
+        upstream/public-develop,public,2222222222222222222222222222222222222222,14,0,false,true
+        upstream/private-develop,private,3333333333333333333333333333333333333333,0,0,true,false
+        upstream/cos-develop,cos,4444444444444444444444444444444444444444,310,0,true,true
       action: integrate
-    # ... 10 more repositories ...
   summary:
-    repositories_needing_integration: &lt;count&gt;
-    force_push_detected: &lt;0 or 1&gt;</code></pre>
+    repositories_needing_integration: 1
+    force_push_detected: 0</code></pre>
+<p>The example shows one of the eleven integration repositories; a real report lists all eleven (<code>repositories[11]</code>), and the repeated digits stand for real SHAs.</p>
 <p>The <code>action</code> field is:</p>
 <table>
 <thead>
@@ -2677,20 +2699,20 @@
 </blockquote>
 <h3 id="2-報告の構造">2. 報告の構造<a class="headerlink" href="#2-報告の構造" title="Permanent link">&para;</a></h3>
 <p>報告形式は <a href="../../spec/05_upstream_tracking/">SPEC-05 §2</a> に定められています：</p>
-<pre class="toon"><code>報告:
+<pre class="toon"><code>report:
   generated_at: 2026-11-05T03:00:12+09:00
-  repositories[11]{integration_repo,develop_sha,upstreams[action]}:
+  repositories[1]:
     - integration_repo: RDM-osf.io-dev2027
-      develop_sha: &lt;40-16進&gt;
+      develop_sha: 1111111111111111111111111111111111111111
       upstreams[3]{branch,kind,sha,ahead_of_develop,behind_develop,manifest_sha_matches,moved_since_yesterday}:
-        upstream/public-develop,public,&lt;sha&gt;,14,0,false,true
-        upstream/private-develop,private,&lt;sha&gt;,0,0,true,false
-        upstream/cos-develop,cos,&lt;sha&gt;,310,0,true,true
+        upstream/public-develop,public,2222222222222222222222222222222222222222,14,0,false,true
+        upstream/private-develop,private,3333333333333333333333333333333333333333,0,0,true,false
+        upstream/cos-develop,cos,4444444444444444444444444444444444444444,310,0,true,true
       action: integrate
-    # ... 他の 10 リポジトリ ...
   summary:
-    repositories_needing_integration: &lt;件数&gt;
-    force_push_detected: &lt;0 または 1&gt;</code></pre>
+    repositories_needing_integration: 1
+    force_push_detected: 0</code></pre>
+<p>例は統合リポジトリ 11 本のうち 1 本だけを示しています。本物の報告は 11 本すべてを載せ（<code>repositories[11]</code>）、同じ数字の並びは本物の SHA の代わりです。</p>
 <p><code>action</code> フィールドは：</p>
 <table>
 <thead>

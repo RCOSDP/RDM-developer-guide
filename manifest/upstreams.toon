@@ -67,7 +67,7 @@ components[20]:
   - id: y-websocket
     role: subsystem
     integration_repo: RDM-y-websocket-dev2027
-    profile: full
+    profile: core
     upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
       RDM-y-websocket,master,public,upstream/public-master,merged,51eb21d35bd37b197514e6cc67409b7c8a2dc130,2026-11-05
       RDM-y-webocket-develop-private,master,private,upstream/private-master,merged,e16d995eb362fcc8c53e545ba39a835e5af853b9,2026-11-05

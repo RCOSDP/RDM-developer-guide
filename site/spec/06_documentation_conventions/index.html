@@ -1874,6 +1874,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2730,6 +2751,7 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> a shared convention must exist before any other document, or the English/Japanese halves and glossary notes drift from the first page onward. ／ 他の文書より先に共通規約を置かないと、初めの一枚から英和の対応と用語注がずれると分かった。</li>
 <li>Normative for: every <code>*.md</code> under this repository, including <code>README.md</code> at every directory level.</li>
 <li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../">docs/README.md</a></li>
@@ -2768,6 +2790,7 @@
 <ul>
 <li>Diagrams are written in Markdown with <strong>Mermaid</strong> fenced blocks (<code>```mermaid</code>). No binary images for architecture, flows, or sequences. Screenshots are allowed for UI guides and live under <code>images/</code> next to the document.</li>
 <li>Data shown in documents (lists of repositories, versions, test results, allow-lists) is written in <strong>TOON</strong> (Token-Oriented Object Notation: a compact, indentation-based text form of JSON that both people and AI read easily) in a <code>```toon</code> fenced block. When a machine also needs the data, the canonical file is JSON or YAML next to it and the document says so; <code>grdm-dev manifest check</code> verifies that the TOON excerpt and the JSON agree.</li>
+<li>A <code>```toon</code> block that mirrors a JSON file declares it with an HTML comment on the line before the block, for example <code>&lt;!-- canonical: manifest/upstreams.json --&gt;</code> (the path is relative to the repository root). A block that is only an illustrative example carries no declaration and the surrounding text says that it is an example, not canonical data.</li>
 <li>Tables are for comparisons with few columns. Long tabular data goes in TOON.</li>
 </ul>
 <h3 id="5-links">5. Links<a class="headerlink" href="#5-links" title="Permanent link">&para;</a></h3>
@@ -2829,6 +2852,16 @@
 <li>has a glossary term from <code>REF-01</code> used without a note on first occurrence (warning, not failure, until M2);</li>
 <li>lacks a Version line in the header.</li>
 </ul>
+<p><strong>What <code>tools/docs_check.py</code> checks today.</strong> Until <code>grdm-dev docs check</code> exists (<a href="../02_installer_cli/#english">SPEC-02 §3</a>), the helper <code>tools/docs_check.py</code>, run by the <code>docs</code> workflow, is the implementation. It checks exactly these points:</p>
+<ul>
+<li>the <code>english</code> and <code>japanese</code> anchors;</li>
+<li>the Jump line;</li>
+<li>the Version line;</li>
+<li>relative links: the file part before any <code>#fragment</code> must exist (a link such as <code>absent-file.md#english</code> fails; the fragment itself is not verified);</li>
+<li>TOON SHA parity: when the line before a <code>```toon</code> block carries <code>&lt;!-- canonical: &lt;path&gt; --&gt;</code>, every 40-character SHA in the block must appear in that JSON file (§4);</li>
+<li>the glossary-note warning: a <code>REF-01</code> term used without a note on first occurrence is reported as a warning, not a failure.</li>
+</ul>
+<p><strong>Legacy-format exception.</strong> Files kept in their historical form are not checked and are not rewritten to SPEC-06: <code>*.legacy.md</code>; sample code and sub-documents under <code>docs/guides/&lt;topic&gt;/</code> other than that guide's <code>README.md</code>; and the pointer files left at old paths (<code>Environment.md</code>, <code>SetupOsfOnEC2.md</code> and similar at the repository root), which only redirect to the new location. They are history, not current procedure. Every other Markdown file in the repository, including <code>manifest/README.md</code> and the installer README, is checked.</p>
 <hr />
 <p><a id="japanese"></a></p>
 <h2 id="日本語">日本語<a class="headerlink" href="#日本語" title="Permanent link">&para;</a></h2>
@@ -2863,6 +2896,7 @@
 <ul>
 <li>図は Markdown 内の <strong>Mermaid</strong> コードブロック（<code>```mermaid</code>）で書く。構成図・流れ図・シーケンス図に画像ファイルを使わない。UI の手引きに限りスクリーンショットを許し、文書と同じ場所の <code>images/</code> に置く。</li>
 <li>文書に載せるデータ（リポジトリ一覧、バージョン、試験結果、許容リスト）は <strong>TOON</strong>（Token-Oriented Object Notation。JSON を字下げで表した短い文字形式で、人も AI も読みやすい）で <code>```toon</code> のブロックに書く。機械も読むデータは、隣に JSON か YAML の正本を置き、文書にそう記す。<code>grdm-dev manifest check</code> が TOON の抄録と JSON の一致を確かめる。</li>
+<li>JSON ファイルを写す <code>```toon</code> ブロックは、その直前の行に HTML コメントで正本を宣言する。例: <code>&lt;!-- canonical: manifest/upstreams.json --&gt;</code>（パスはリポジトリのルートからの相対）。説明のための例にすぎないブロックには宣言を付けず、周りの文で「例であり正本ではない」と書く。</li>
 <li>表は列の少ない比較に使う。長い表形式のデータは TOON にする。</li>
 </ul>
 <h3 id="5-リンク">5. リンク<a class="headerlink" href="#5-リンク" title="Permanent link">&para;</a></h3>
@@ -2924,6 +2958,16 @@
 <li><code>REF-01</code> の用語が初出で注なしに使われている（M2 までは警告、以後は不合格）。</li>
 <li>ヘッダに Version 行がない。</li>
 </ul>
+<p><strong><code>tools/docs_check.py</code> が今日検査すること。</strong> <code>grdm-dev docs check</code> ができるまで（<a href="../02_installer_cli/#japanese">SPEC-02 §3</a>）、<code>docs</code> ワークフローが動かす補助ツール <code>tools/docs_check.py</code> が実装です。検査するのは次の点に限ります。</p>
+<ul>
+<li><code>english</code> と <code>japanese</code> のアンカー。</li>
+<li>Jump 行。</li>
+<li>Version 行。</li>
+<li>相対リンク。<code>#フラグメント</code> より前のファイル部分が存在しなければならない（<code>absent-file.md#english</code> のようなリンクは不合格。フラグメント自体は確かめない）。</li>
+<li>TOON の SHA 一致。<code>```toon</code> ブロックの直前の行に <code>&lt;!-- canonical: &lt;パス&gt; --&gt;</code> の宣言があるとき、ブロック内の 40 文字の SHA がすべてその JSON に現れること（§4）。</li>
+<li>用語注の警告。<code>REF-01</code> の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。</li>
+</ul>
+<p><strong>旧形式の例外。</strong> 歴史的な形のまま残すファイルは検査せず、SPEC-06 の形にも書き直さない。<code>*.legacy.md</code>、<code>docs/guides/&lt;題&gt;/</code> の下にあるその手引きの <code>README.md</code> 以外のサンプルコードと下位文書、そして旧パスに残した誘導ファイル（リポジトリのルートの <code>Environment.md</code>、<code>SetupOsfOnEC2.md</code> およびその類。新しい置き場へ案内するだけのもの）です。これらは歴史であり、現行の手順ではありません。それ以外のリポジトリ内の Markdown は、<code>manifest/README.md</code> と installer の README を含めてすべて検査します。</p>
 <hr />
 <h2 id="glossary--用語">Glossary / 用語<a class="headerlink" href="#glossary--用語" title="Permanent link">&para;</a></h2>
 <table>

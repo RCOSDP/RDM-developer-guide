@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** a case that may skip in the profile a milestone is judged on cannot be a pass criterion, and a diagram that renders in one language half must parse in the other too. ／ 節目を判定するプロファイルでスキップし得るケースは合格基準になれず、片方の言語で描ける図はもう片方でも解析できなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a scenario without a rejection case proves only that the happy path renders; permission and authentication bugs are found by the case that must fail. ／ 拒否ケースのないシナリオは画面が出ることしか示さず、権限と認証の不具合は「失敗しなければならないケース」で初めて見つかると分かった。
 - Normative for: `installer/acceptance/`, `grdm-dev accept`, `docs/demo/` result files, CI workflow `acceptance-arm64`.
 - Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-02 Installer CLI](02_installer_cli.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
@@ -56,7 +57,7 @@ core_scenarios[6]{id,scenario,success_case,rejection_case,services}:
   C6,Institution admin screen,institution admin lists institution users,"ordinary user opens admin URL -> 403 or redirect; API -> 403","admin api"
 ```
 
-Scenario C4 uses two independent Playwright *browser contexts* (two separate browsers in one test, with their own cookies) so that the second user's cursor and text appear in the first user's page through the `y-websocket` service; in the `core` profile without `y_websocket`, the test skips with an explicit reason, and in `full` it must pass.
+Scenario C4 uses two independent Playwright *browser contexts* (two separate browsers in one test, with their own cookies) so that the second user's cursor and text appear in the first user's page through the `y-websocket` service. `y_websocket` is part of the `core` profile ([SPEC-02 §4](02_installer_cli.md#2-en-ports)) because collaborative editing is an M2 scenario, so C4 runs and must pass in both `core` and `full`; it never skips.
 
 ### 5. Subsystem scenarios (M3)
 
@@ -91,7 +92,7 @@ sequenceDiagram
   SP->>W: forward with attributes (eppn, mail, institution)
   W-->>T: 302 to /dashboard, session cookie set
   T->>T: assert dashboard visible, assert institution name shown
-  Note over T,IdP: Rejection: mock user lacking entitlement stops at SP error page; assert no GRDM cookie
+  Note over T,IdP: Rejection: the mock user lacking entitlement stops at the SP error page and no GRDM cookie is set
 ```
 
 ### 6. Fixtures and test data
@@ -175,7 +176,7 @@ core_scenarios[6]{id,scenario,success_case,rejection_case,services}:
   C6,機関管理画面,機関管理者が機関の利用者一覧を見る,"一般利用者が管理 URL を開く -> 403 か転送。API -> 403","admin api"
 ```
 
-シナリオ C4 は独立した二つの Playwright の「ブラウザ文脈」（一つの試験の中にある、cookie を別々に持つ二つのブラウザ）を使い、二人目の文字が `y-websocket` サービスを通して一人目の画面に現れることを確かめます。`y_websocket` のない `core` プロファイルでは理由を明示してスキップし、`full` では合格が必須です。
+シナリオ C4 は独立した二つの Playwright の「ブラウザ文脈」（一つの試験の中にある、cookie を別々に持つ二つのブラウザ）を使い、二人目の文字が `y-websocket` サービスを通して一人目の画面に現れることを確かめます。共同編集は M2 のシナリオなので `y_websocket` は `core` プロファイルに含まれ（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）、C4 は `core` でも `full` でも実行して合格が必須です。スキップはしません。
 
 ### 5. サブシステムのシナリオ（M3）
 
@@ -210,7 +211,7 @@ sequenceDiagram
   SP->>W: 属性（eppn・mail・機関）を付けて転送
   W-->>T: /dashboard へ 302。セッション cookie を設定
   T->>T: ダッシュボードが見えること、機関名が表示されることを assert
-  Note over T,IdP: 拒否: entitlement のない模擬利用者は SP のエラー画面で止まる。GRDM の cookie がないことを assert
+  Note over T,IdP: 拒否: entitlement のない模擬利用者は SP のエラー画面で止まり、GRDM の cookie は作られない
 ```
 
 ### 6. フィクスチャと試験データ

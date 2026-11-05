@@ -1874,6 +1874,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2658,6 +2679,7 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the public osf.io <code>develop</code> (2026-11-05) is already newer than its <code>-private</code> twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の <code>develop</code>（2026-11-05）は <code>-private</code>（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。</li>
 <li>Normative for: <code>manifest/upstreams.json</code> (canonical), <code>manifest/upstreams.toon</code> (excerpt), <code>manifest/README.md</code>, the <code>manifest</code> subcommand of <code>grdm-dev</code> (<a href="../02_installer_cli/">SPEC-02</a>), and every document that quotes the manifest.</li>
 <li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../05_upstream_tracking/">SPEC-05 Upstream tracking</a> · <a href="../06_documentation_conventions/">SPEC-06 Documentation conventions</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../decisions/ADR-01_Integration_Repository_Placement/">ADR-01 Integration repository placement</a> · <a href="../../decisions/ADR-03_Staged_Security_Gate/">ADR-03 Staged security gate</a> · <a href="../../">docs/README.md</a></li>
@@ -2805,7 +2827,7 @@ components[1]:
     profile: core
     platforms[2]: linux/arm64,linux/amd64
     note: null</code></pre>
-<p>The all-zero SHAs above are placeholders for the example only; a real manifest never contains them.</p>
+<p>The all-zero SHAs above are placeholders for the example only; a real manifest never contains them. The block is an illustrative example, not a mirror of <code>manifest/upstreams.json</code>, so it carries no <code>&lt;!-- canonical: ... --&gt;</code> declaration (<a href="../06_documentation_conventions/#4-diagrams-and-data">SPEC-06 §4</a>); blocks that do mirror the manifest (for example in <a href="../00_overview/#english">SPEC-00 §2</a>) declare it.</p>
 <h3 id="4-rules">4. Rules<a class="headerlink" href="#4-rules" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>SHAs are pinned.</strong> Every <code>upstreams[].sha</code> is a real 40-character commit that exists on the named branch at <code>fetched_at</code>. Branch names alone are never enough.</li>
@@ -3014,7 +3036,7 @@ components[1]:
     profile: core
     platforms[2]: linux/arm64,linux/amd64
     note: null</code></pre>
-<p>上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。</p>
+<p>上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。このブロックは説明のための例であって <code>manifest/upstreams.json</code> の写しではないので、<code>&lt;!-- canonical: ... --&gt;</code> の宣言は付けません（<a href="../06_documentation_conventions/#4-図とデータ">SPEC-06 §4</a>）。マニフェストを写すブロック（たとえば <a href="../00_overview/#japanese">SPEC-00 §2</a>）には宣言を付けます。</p>
 <h3 id="4-規則">4. 規則<a class="headerlink" href="#4-規則" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>SHA を固定する。</strong> すべての <code>upstreams[].sha</code> は、<code>fetched_at</code> の時点でそのブランチに実在する 40 文字のコミットです。ブランチ名だけでは足りません。</li>

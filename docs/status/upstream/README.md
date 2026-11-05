@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** an example data block must itself parse: a declared row count with an ellipsis in place of rows is a syntax error, not an example. ／ 例として置くデータブロックもそれ自体が解析できなければならない。行数を宣言して省略記号を置いたものは例ではなく構文エラーだと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the daily job's outputs need a fixed place and a fixed name before the job exists, or SPEC-05 and the status board would point at nothing. The files named here do not exist yet; the daily job (SPEC-05) will create them. ／ 日次ジョブの出力には、ジョブが存在する前から置き場と名前を決めておく必要があると分かった。さもないと SPEC-05 と進捗ボードの参照先が無くなる。ここに書いたファイルはまだ存在せず、日次ジョブ（SPEC-05）が作る。
 - Normative for: [SPEC-05 Upstream Tracking](../../spec/05_upstream_tracking.md).
 - Related: [../README.md](../README.md) · [status/README.md](../README.md) · [spec/05_upstream_tracking.md#2-daily-job-mirror-and-diff-report](../../spec/05_upstream_tracking.md#english)
@@ -35,19 +36,20 @@ The report format is defined in [SPEC-05 §2](../../spec/05_upstream_tracking.md
 ```toon
 report:
   generated_at: 2026-11-05T03:00:12+09:00
-  repositories[11]{integration_repo,develop_sha,upstreams[action]}:
+  repositories[1]:
     - integration_repo: RDM-osf.io-dev2027
-      develop_sha: <40-hex>
+      develop_sha: 1111111111111111111111111111111111111111
       upstreams[3]{branch,kind,sha,ahead_of_develop,behind_develop,manifest_sha_matches,moved_since_yesterday}:
-        upstream/public-develop,public,<sha>,14,0,false,true
-        upstream/private-develop,private,<sha>,0,0,true,false
-        upstream/cos-develop,cos,<sha>,310,0,true,true
+        upstream/public-develop,public,2222222222222222222222222222222222222222,14,0,false,true
+        upstream/private-develop,private,3333333333333333333333333333333333333333,0,0,true,false
+        upstream/cos-develop,cos,4444444444444444444444444444444444444444,310,0,true,true
       action: integrate
-    # ... 10 more repositories ...
   summary:
-    repositories_needing_integration: <count>
-    force_push_detected: <0 or 1>
+    repositories_needing_integration: 1
+    force_push_detected: 0
 ```
+
+The example shows one of the eleven integration repositories; a real report lists all eleven (`repositories[11]`), and the repeated digits stand for real SHAs.
 
 The `action` field is:
 
@@ -87,21 +89,22 @@ The `action` field is:
 報告形式は [SPEC-05 §2](../../spec/05_upstream_tracking.md) に定められています：
 
 ```toon
-報告:
+report:
   generated_at: 2026-11-05T03:00:12+09:00
-  repositories[11]{integration_repo,develop_sha,upstreams[action]}:
+  repositories[1]:
     - integration_repo: RDM-osf.io-dev2027
-      develop_sha: <40-16進>
+      develop_sha: 1111111111111111111111111111111111111111
       upstreams[3]{branch,kind,sha,ahead_of_develop,behind_develop,manifest_sha_matches,moved_since_yesterday}:
-        upstream/public-develop,public,<sha>,14,0,false,true
-        upstream/private-develop,private,<sha>,0,0,true,false
-        upstream/cos-develop,cos,<sha>,310,0,true,true
+        upstream/public-develop,public,2222222222222222222222222222222222222222,14,0,false,true
+        upstream/private-develop,private,3333333333333333333333333333333333333333,0,0,true,false
+        upstream/cos-develop,cos,4444444444444444444444444444444444444444,310,0,true,true
       action: integrate
-    # ... 他の 10 リポジトリ ...
   summary:
-    repositories_needing_integration: <件数>
-    force_push_detected: <0 または 1>
+    repositories_needing_integration: 1
+    force_push_detected: 0
 ```
+
+例は統合リポジトリ 11 本のうち 1 本だけを示しています。本物の報告は 11 本すべてを載せ（`repositories[11]`）、同じ数字の並びは本物の SHA の代わりです。
 
 `action` フィールドは：
 

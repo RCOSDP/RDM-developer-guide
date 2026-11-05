@@ -1874,6 +1874,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2694,6 +2715,7 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> eleven upstream repositories and three tracking branches per component cannot be held in anyone's head, so the map, the manifest, and the roles had to be written down before the first integration repository was created. ／ 上流 11 本と部品ごとの追跡ブランチ 3 本は頭の中では管理できないので、最初の統合リポジトリを作る前に、地図・マニフェスト・役割分担を文書にする必要があると分かった。</li>
 <li>Normative for: the shape of the whole environment. Every other specification (<code>01</code>–<code>06</code>) refines one part of this page.</li>
 <li>Related: <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../decisions/ADR-01_Integration_Repository_Placement/">ADR-01 Integration repository placement</a> · <a href="../../decisions/ADR-02_Network_Model/">ADR-02 Network model</a> · <a href="../../decisions/ADR-03_Staged_Security_Gate/">ADR-03 Staged security gate</a> · <a href="../../decisions/ADR-04_AI_Autonomy_and_Roles/">ADR-04 AI autonomy and roles</a> · <a href="../01_manifest/">SPEC-01 Manifest</a> · <a href="../05_upstream_tracking/">SPEC-05 Upstream tracking</a> · <a href="../06_documentation_conventions/">SPEC-06 Documentation conventions</a> · <a href="../../">docs/README.md</a></li>
@@ -2736,7 +2758,7 @@
     SJ[sharejs]
     UNO[unoconv]
   end
-  subgraph subs["Subsystems (profile full)"]
+  subgraph subs["Subsystems (y-websocket in profile core, the others in full)"]
     YWS[y-websocket]
     OAS[OASys]
     SHIB["Shibboleth-SP + test IdP"]
@@ -2753,6 +2775,7 @@
   MCP &amp; AIPF --&gt; OSFA
   OAS --&gt; OSFA</code></pre>
 <p>The inventory in TOON (a compact text form of JSON; see <a href="../06_documentation_conventions/#4-diagrams-and-data">SPEC-06 §4</a>). The canonical, machine-read list is <code>manifest/upstreams.json</code> (<a href="../01_manifest/">SPEC-01</a>); this excerpt shows only <code>id</code>, <code>role</code>, <code>services</code>, <code>integration_repo</code>, and <code>profile</code> (the smallest installer profile that includes the component, <a href="../02_installer_cli/#2-en-ports">SPEC-02 §4</a>). Service names are the Compose service names.</p>
+<!-- canonical: manifest/upstreams.json -->
 <pre class="toon"><code>components[20]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
   waterbutler,core,"wb,wb_worker",RDM-waterbutler-dev2027,core
@@ -2769,7 +2792,7 @@
   sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
-  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,full
+  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
   OASys,subsystem,oasys,RDM-OASys-dev2027,full
   Shibboleth-SP,subsystem,"shibboleth_sp,test_idp",RDM-Shibboleth-SP-dev2027,full
   rdmcp,subsystem,rdmcp,RDM-rdmcp-dev2027,full
@@ -2923,7 +2946,7 @@
     SJ[sharejs]
     UNO[unoconv]
   end
-  subgraph subs["サブシステム（プロファイル full）"]
+  subgraph subs["サブシステム（y-websocket は core、ほかは full）"]
     YWS[y-websocket]
     OAS[OASys]
     SHIB["Shibboleth-SP ＋ テスト IdP"]
@@ -2940,6 +2963,7 @@
   MCP &amp; AIPF --&gt; OSFA
   OAS --&gt; OSFA</code></pre>
 <p>一覧を TOON（JSON を短く字下げで書いた形。<a href="../06_documentation_conventions/#4-図とデータ">SPEC-06 §4</a>）で示します。機械が読む正本は <code>manifest/upstreams.json</code>（<a href="../01_manifest/">SPEC-01</a>）で、この抄録は <code>id</code>・<code>role</code>・<code>services</code>・<code>integration_repo</code>・<code>profile</code>（その部品を含む最小のインストーラープロファイル。<a href="../02_installer_cli/#2-ja-ports">SPEC-02 §4</a>）だけを載せています。サービス名は Compose のサービス名です。</p>
+<!-- canonical: manifest/upstreams.json -->
 <pre class="toon"><code>components[20]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
   waterbutler,core,"wb,wb_worker",RDM-waterbutler-dev2027,core
@@ -2956,7 +2980,7 @@
   sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
-  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,full
+  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
   OASys,subsystem,oasys,RDM-OASys-dev2027,full
   Shibboleth-SP,subsystem,"shibboleth_sp,test_idp",RDM-Shibboleth-SP-dev2027,full
   rdmcp,subsystem,rdmcp,RDM-rdmcp-dev2027,full

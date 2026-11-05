@@ -1874,6 +1874,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2553,6 +2574,7 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> without a single source of truth, it was unclear whether M1 completion meant "docs written" or "PR merged"; the board's explicit rules resolve ambiguity. ／ 単一の正本がなければ、M1 完了が「文書を書いた」か「PR をマージした」か分からず、ボードの明示的な規則で曖昧さを解消すると分かった。</li>
 <li>Normative for: <a href="upstream/">status/upstream/</a> and all milestone progress tracking.</li>
 <li>Related: <a href="../">../README.md</a> · <a href="../demo/">demo/</a> · <a href="../spec/00_overview/#english">spec/00_overview.md#5-milestone-ladder</a></li>
@@ -2642,12 +2664,16 @@
 <td>🔄 r1/r2 done: request changes. R1 fixed; R2 awaits the owner's decision on ADR-01 §5; R3 is the owner's call</td>
 </tr>
 <tr>
-<td>M1 skeleton PR to <code>develop</code> (this repository)</td>
-<td>🔄 Open, awaiting Codex Astra review and owner merge</td>
+<td>M1 skeleton PR to <code>develop</code> (this repository, PR #19)</td>
+<td>🔄 Open; review r1 of 2026-11-05 asked for changes (R1–R8); corrections in progress, then owner merge</td>
 </tr>
 <tr>
 <td>GitHub Actions (docs, security)</td>
 <td>✅ Running on PR #19 (docs, gitleaks, manifest pass)</td>
+</tr>
+<tr>
+<td>Trivy in CI (<code>security.yml</code>)</td>
+<td>⏳ At M1 report-only over the repository file system, because no image exists yet (<a href="../spec/03_security_gate/#english">SPEC-03 §4.1</a>); image scanning starts with the first build (M2)</td>
 </tr>
 <tr>
 <td>Semgrep findings in legacy guide sample code (6: raw HTML in templates ×4, exec ×1, path join ×1)</td>
@@ -2747,12 +2773,16 @@
 <td>🔄 r1/r2 完了: request changes。R1 修正済み、R2 は ADR-01 §5 の所有者判断待ち、R3 は所有者判断</td>
 </tr>
 <tr>
-<td>M1 骨格 PR（本リポジトリ、develop 向け）</td>
-<td>🔄 作成済み。Codex Astra レビューと所有者マージ待ち</td>
+<td>M1 骨格 PR（本リポジトリ、develop 向け、PR #19）</td>
+<td>🔄 作成済み。2026-11-05 のレビュー r1 が修正要求（R1〜R8）。修正中、その後に所有者マージ</td>
 </tr>
 <tr>
 <td>GitHub Actions（docs, security）</td>
 <td>✅ PR #19 で稼働（docs・gitleaks・manifest 合格）</td>
+</tr>
+<tr>
+<td>CI の Trivy（<code>security.yml</code>）</td>
+<td>⏳ M1 ではイメージがまだないため、リポジトリのファイルシステムに対する報告のみ（<a href="../spec/03_security_gate/#japanese">SPEC-03 §4.1</a>）。イメージの検査は最初のビルド（M2）から</td>
 </tr>
 <tr>
 <td>旧ガイドのサンプルコードに対する Semgrep 指摘（6 件: テンプレートの生 HTML ×4、exec ×1、path join ×1）</td>

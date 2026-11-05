@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a shared convention must exist before any other document, or the English/Japanese halves and glossary notes drift from the first page onward. ／ 他の文書より先に共通規約を置かないと、初めの一枚から英和の対応と用語注がずれると分かった。
 - Normative for: every `*.md` under this repository, including `README.md` at every directory level.
 - Related: [SPEC-00 Overview](00_overview.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
@@ -51,6 +52,7 @@ The two halves say the same thing. The English half is the one translated into o
 
 - Diagrams are written in Markdown with **Mermaid** fenced blocks (```` ```mermaid ````). No binary images for architecture, flows, or sequences. Screenshots are allowed for UI guides and live under `images/` next to the document.
 - Data shown in documents (lists of repositories, versions, test results, allow-lists) is written in **TOON** (Token-Oriented Object Notation: a compact, indentation-based text form of JSON that both people and AI read easily) in a ```` ```toon ```` fenced block. When a machine also needs the data, the canonical file is JSON or YAML next to it and the document says so; `grdm-dev manifest check` verifies that the TOON excerpt and the JSON agree.
+- A ```` ```toon ```` block that mirrors a JSON file declares it with an HTML comment on the line before the block, for example `<!-- canonical: manifest/upstreams.json -->` (the path is relative to the repository root). A block that is only an illustrative example carries no declaration and the surrounding text says that it is an example, not canonical data.
 - Tables are for comparisons with few columns. Long tabular data goes in TOON.
 
 ### 5. Links
@@ -85,6 +87,17 @@ The two halves say the same thing. The English half is the one translated into o
 - has a ```` ```toon ```` block whose sibling JSON disagrees;
 - has a glossary term from `REF-01` used without a note on first occurrence (warning, not failure, until M2);
 - lacks a Version line in the header.
+
+**What `tools/docs_check.py` checks today.** Until `grdm-dev docs check` exists ([SPEC-02 §3](02_installer_cli.md#english)), the helper `tools/docs_check.py`, run by the `docs` workflow, is the implementation. It checks exactly these points:
+
+- the `english` and `japanese` anchors;
+- the Jump line;
+- the Version line;
+- relative links: the file part before any `#fragment` must exist (a link such as `absent-file.md#english` fails; the fragment itself is not verified);
+- TOON SHA parity: when the line before a ```` ```toon ```` block carries `<!-- canonical: <path> -->`, every 40-character SHA in the block must appear in that JSON file (§4);
+- the glossary-note warning: a `REF-01` term used without a note on first occurrence is reported as a warning, not a failure.
+
+**Legacy-format exception.** Files kept in their historical form are not checked and are not rewritten to SPEC-06: `*.legacy.md`; sample code and sub-documents under `docs/guides/<topic>/` other than that guide's `README.md`; and the pointer files left at old paths (`Environment.md`, `SetupOsfOnEC2.md` and similar at the repository root), which only redirect to the new location. They are history, not current procedure. Every other Markdown file in the repository, including `manifest/README.md` and the installer README, is checked.
 
 ---
 
@@ -128,6 +141,7 @@ The two halves say the same thing. The English half is the one translated into o
 
 - 図は Markdown 内の **Mermaid** コードブロック（```` ```mermaid ````）で書く。構成図・流れ図・シーケンス図に画像ファイルを使わない。UI の手引きに限りスクリーンショットを許し、文書と同じ場所の `images/` に置く。
 - 文書に載せるデータ（リポジトリ一覧、バージョン、試験結果、許容リスト）は **TOON**（Token-Oriented Object Notation。JSON を字下げで表した短い文字形式で、人も AI も読みやすい）で ```` ```toon ```` のブロックに書く。機械も読むデータは、隣に JSON か YAML の正本を置き、文書にそう記す。`grdm-dev manifest check` が TOON の抄録と JSON の一致を確かめる。
+- JSON ファイルを写す ```` ```toon ```` ブロックは、その直前の行に HTML コメントで正本を宣言する。例: `<!-- canonical: manifest/upstreams.json -->`（パスはリポジトリのルートからの相対）。説明のための例にすぎないブロックには宣言を付けず、周りの文で「例であり正本ではない」と書く。
 - 表は列の少ない比較に使う。長い表形式のデータは TOON にする。
 
 ### 5. リンク
@@ -162,6 +176,17 @@ The two halves say the same thing. The English half is the one translated into o
 - ```` ```toon ```` ブロックと隣の JSON が一致しない。
 - `REF-01` の用語が初出で注なしに使われている（M2 までは警告、以後は不合格）。
 - ヘッダに Version 行がない。
+
+**`tools/docs_check.py` が今日検査すること。** `grdm-dev docs check` ができるまで（[SPEC-02 §3](02_installer_cli.md#japanese)）、`docs` ワークフローが動かす補助ツール `tools/docs_check.py` が実装です。検査するのは次の点に限ります。
+
+- `english` と `japanese` のアンカー。
+- Jump 行。
+- Version 行。
+- 相対リンク。`#フラグメント` より前のファイル部分が存在しなければならない（`absent-file.md#english` のようなリンクは不合格。フラグメント自体は確かめない）。
+- TOON の SHA 一致。```` ```toon ```` ブロックの直前の行に `<!-- canonical: <パス> -->` の宣言があるとき、ブロック内の 40 文字の SHA がすべてその JSON に現れること（§4）。
+- 用語注の警告。`REF-01` の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。
+
+**旧形式の例外。** 歴史的な形のまま残すファイルは検査せず、SPEC-06 の形にも書き直さない。`*.legacy.md`、`docs/guides/<題>/` の下にあるその手引きの `README.md` 以外のサンプルコードと下位文書、そして旧パスに残した誘導ファイル（リポジトリのルートの `Environment.md`、`SetupOsfOnEC2.md` およびその類。新しい置き場へ案内するだけのもの）です。これらは歴史であり、現行の手順ではありません。それ以外のリポジトリ内の Markdown は、`manifest/README.md` と installer の README を含めてすべて検査します。
 
 ---
 

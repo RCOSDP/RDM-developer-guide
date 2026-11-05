@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 1.1 — 2026-11-05. **Learned:** an address quoted as a "never write this" example is still published; the rule has to be stated in words without the address. ／ 「書いてはいけない例」として載せたアドレスも公開になる。規則はアドレスを含めず言葉で書かなければならないと分かった。
 - Version / 版: 1.0 — 2026-11-05. **Learned:** the manifest must be exact because "the latest" is ambiguous; only pinned SHAs define what "consistent" means. ／ 「最新」は曖昧なので、正確なマニフェストが必要です。SHA を固定して初めて「矛盾なく」が定義できます。
 
 ---
@@ -44,12 +45,11 @@ Always run `tools/manifest_check.py` before committing to verify correctness.
 
 This repository is public. The manifest contains **repository names and SHAs only**:
 
-- ✅ Write: `RDM-osf.io-dev2027`
-- ❌ Never write: `https://github.com/rcosdp/RDM-osf.io-dev2027`
-- ❌ Never write: `git@github.com:rcosdp/RDM-osf.io-dev2027.git`
-- ❌ Never write: access tokens, API keys, or passwords
+- Write the bare repository name, for example `RDM-osf.io-dev2027`.
+- Do not write the address of a private repository in any form: no web address, no Git clone address, and not even as an example of what to avoid. Write only its name.
+- Do not write access tokens, API keys, or passwords.
 
-The CI secret scanner (`gitleaks`) will fail your PR if it finds any secret-like content.
+`tools/manifest_check.py` rejects a `repo` or `integration_repo` value that looks like an address ([SPEC-01 §4](../docs/spec/01_manifest.md#english), rule 5), and the CI secret scanner (`gitleaks`) fails the PR if it finds secret-like content.
 
 ### How to run the validation tool
 
@@ -98,12 +98,11 @@ grdm-dev manifest toon
 
 このリポジトリは公開です。マニフェストには**リポジトリ名と SHA だけ**を書きます：
 
-- ✅ 書く: `RDM-osf.io-dev2027`
-- ❌決して書かない: `https://github.com/rcosdp/RDM-osf.io-dev2027`
-- ❌決して書かない: `git@github.com:rcosdp/RDM-osf.io-dev2027.git`
-- ❌決して書かない: アクセストークン、API キー、パスワード
+- リポジトリの裸の名前だけを書く。例: `RDM-osf.io-dev2027`。
+- 非公開リポジトリのアドレスは、どんな形でも書かない。Web のアドレスも、Git のクローン用アドレスも、「書いてはいけない例」としても書かない。名前だけを書く。
+- アクセストークン、API キー、パスワードを書かない。
 
-CI の秘密スキャナー（`gitleaks`）が秘密っぽい内容を見つけると、PR は不合格になります。
+`tools/manifest_check.py` はアドレスの形をした `repo` や `integration_repo` の値を不正とし（[SPEC-01 §4](../docs/spec/01_manifest.md#japanese) の規則 5）、CI の秘密スキャナー（`gitleaks`）は秘密に見える内容を見つけると PR を不合格にします。
 
 ### 検査ツールの実行方法
 

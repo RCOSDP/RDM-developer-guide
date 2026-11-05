@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-05. **Learned:** the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** eleven upstream repositories and three tracking branches per component cannot be held in anyone's head, so the map, the manifest, and the roles had to be written down before the first integration repository was created. ／ 上流 11 本と部品ごとの追跡ブランチ 3 本は頭の中では管理できないので、最初の統合リポジトリを作る前に、地図・マニフェスト・役割分担を文書にする必要があると分かった。
 - Normative for: the shape of the whole environment. Every other specification (`01`–`06`) refines one part of this page.
 - Related: [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration repository placement](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged security gate](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-04 AI autonomy and roles](../decisions/ADR-04_AI_Autonomy_and_Roles.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-05 Upstream tracking](05_upstream_tracking.md) · [SPEC-06 Documentation conventions](06_documentation_conventions.md) · [docs/README.md](../README.md)
@@ -55,7 +56,7 @@ flowchart LR
     SJ[sharejs]
     UNO[unoconv]
   end
-  subgraph subs["Subsystems (profile full)"]
+  subgraph subs["Subsystems (y-websocket in profile core, the others in full)"]
     YWS[y-websocket]
     OAS[OASys]
     SHIB["Shibboleth-SP + test IdP"]
@@ -75,6 +76,7 @@ flowchart LR
 
 The inventory in TOON (a compact text form of JSON; see [SPEC-06 §4](06_documentation_conventions.md#4-diagrams-and-data)). The canonical, machine-read list is `manifest/upstreams.json` ([SPEC-01](01_manifest.md)); this excerpt shows only `id`, `role`, `services`, `integration_repo`, and `profile` (the smallest installer profile that includes the component, [SPEC-02 §4](02_installer_cli.md#2-en-ports)). Service names are the Compose service names.
 
+<!-- canonical: manifest/upstreams.json -->
 ```toon
 components[20]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
@@ -92,7 +94,7 @@ components[20]{id,role,services,integration_repo,profile}:
   sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
-  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,full
+  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
   OASys,subsystem,oasys,RDM-OASys-dev2027,full
   Shibboleth-SP,subsystem,"shibboleth_sp,test_idp",RDM-Shibboleth-SP-dev2027,full
   rdmcp,subsystem,rdmcp,RDM-rdmcp-dev2027,full
@@ -216,7 +218,7 @@ flowchart LR
     SJ[sharejs]
     UNO[unoconv]
   end
-  subgraph subs["サブシステム（プロファイル full）"]
+  subgraph subs["サブシステム（y-websocket は core、ほかは full）"]
     YWS[y-websocket]
     OAS[OASys]
     SHIB["Shibboleth-SP ＋ テスト IdP"]
@@ -236,6 +238,7 @@ flowchart LR
 
 一覧を TOON（JSON を短く字下げで書いた形。[SPEC-06 §4](06_documentation_conventions.md#4-図とデータ)）で示します。機械が読む正本は `manifest/upstreams.json`（[SPEC-01](01_manifest.md)）で、この抄録は `id`・`role`・`services`・`integration_repo`・`profile`（その部品を含む最小のインストーラープロファイル。[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）だけを載せています。サービス名は Compose のサービス名です。
 
+<!-- canonical: manifest/upstreams.json -->
 ```toon
 components[20]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
@@ -253,7 +256,7 @@ components[20]{id,role,services,integration_repo,profile}:
   sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
-  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,full
+  y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
   OASys,subsystem,oasys,RDM-OASys-dev2027,full
   Shibboleth-SP,subsystem,"shibboleth_sp,test_idp",RDM-Shibboleth-SP-dev2027,full
   rdmcp,subsystem,rdmcp,RDM-rdmcp-dev2027,full

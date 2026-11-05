@@ -569,7 +569,7 @@
         "linux/arm64",
         "linux/amd64"
       ],
-      "profile": "full",
+      "profile": "core",
       "role": "subsystem",
       "services": [
         "y_websocket"
