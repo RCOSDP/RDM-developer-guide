@@ -25,6 +25,10 @@ useDefault = true
 description = "Manifest commit SHAs and image digests (SPEC-01 §3). Each regex is anchored to a complete line whose only payload is that field."
 regexTarget = "line"
 regexes = [
+    # Google's documented public reCAPTCHA v2 TEST site key (always passes verification; not a credential).
+    # It sits in the history of docs/guides/storage-addon/README.legacy.md (ported from PR #18); the working
+    # tree uses the placeholder <recaptcha-site-key>. Source: https://developers.google.com/recaptcha/docs/faq
+    '''6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI''',
     # manifest/upstreams.json: "sha": "<40 lowercase hex>"
     '''^\s*"sha": "[0-9a-f]{40}",?$''',
     # manifest/upstreams.json: "base_image_digest": "sha256:<64 hex>"
