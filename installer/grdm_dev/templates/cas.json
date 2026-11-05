@@ -1,0 +1,33 @@
+{
+  "service": "cas",
+  "component": "cas-overlay",
+  "container_port": 8080,
+  "expose": [
+    8080
+  ],
+  "environment": {
+    "CAS_TGC_ENCRYPTION_KEY": "${CAS_TGC_ENCRYPTION_KEY}",
+    "CAS_TGC_SIGNING_KEY": "${CAS_TGC_SIGNING_KEY}",
+    "CAS_WEBFLOW_ENCRYPTION_KEY": "${CAS_WEBFLOW_ENCRYPTION_KEY}",
+    "CAS_WEBFLOW_SIGNING_KEY": "${CAS_WEBFLOW_SIGNING_KEY}",
+    "DATABASE_PASSWORD": "${POSTGRES_PASSWORD}"
+  },
+  "volumes": [
+    {
+      "config": "cas/cas.properties",
+      "target": "/code/etc/cas.properties",
+      "ro": true
+    }
+  ],
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "1000:1000",
+  "depends_on": [
+    "postgres"
+  ],
+  "weight": 2,
+  "mem_min_mb": 512,
+  "pids_limit": 512,
+  "note": "Uses database `cas` on the shared postgres (created by config/postgres-init). Not published on the host while fakecas is the auth provider."
+}

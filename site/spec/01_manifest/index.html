@@ -1916,6 +1916,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r3 / REV（担当レビュワ）M1 文書骨格 PR 再レビュー r3
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2700,7 +2721,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。</li>
+<li>Version / 版: 0.3 — 2026-11-05. <strong>Learned:</strong> building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an <code>integration_sha</code> (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に <code>integration_sha</code>（最初の厳密マージまでは null 可）が要ると分かった。
+  0.2 — 2026-11-05. <strong>Learned:</strong> a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the public osf.io <code>develop</code> (2026-11-05) is already newer than its <code>-private</code> twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の <code>develop</code>（2026-11-05）は <code>-private</code>（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。</li>
 <li>Normative for: <code>manifest/upstreams.json</code> (canonical), <code>manifest/upstreams.toon</code> (excerpt), <code>manifest/README.md</code>, the <code>manifest</code> subcommand of <code>grdm-dev</code> (<a href="../02_installer_cli/">SPEC-02</a>), and every document that quotes the manifest.</li>
 <li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../05_upstream_tracking/">SPEC-05 Upstream tracking</a> · <a href="../06_documentation_conventions/">SPEC-06 Documentation conventions</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../decisions/ADR-01_Integration_Repository_Placement/">ADR-01 Integration repository placement</a> · <a href="../../decisions/ADR-03_Staged_Security_Gate/">ADR-03 Staged security gate</a> · <a href="../../">docs/README.md</a></li>
@@ -2774,6 +2796,11 @@
 <td><code>integration_branch</code></td>
 <td>string or <code>null</code></td>
 <td>Always <code>develop</code>; <code>null</code> for <code>infra</code>.</td>
+</tr>
+<tr>
+<td><code>integration_sha</code></td>
+<td>string (40 hex) or null</td>
+<td>The commit at the tip of the integration branch <code>develop</code> that this manifest pins. <code>grdm-dev build</code> and <code>compose render</code> use it for image tags. May be <code>null</code> until the strict reconstruction PRs are merged; required for M2 acceptance.</td>
 </tr>
 <tr>
 <td><code>upstreams[]</code></td>
@@ -2983,6 +3010,11 @@ components[1]:
 <td><code>integration_branch</code></td>
 <td>文字列または <code>null</code></td>
 <td>常に <code>develop</code>。<code>infra</code> は <code>null</code>。</td>
+</tr>
+<tr>
+<td><code>integration_sha</code></td>
+<td>string (40 hex) or null</td>
+<td>The commit at the tip of the integration branch <code>develop</code> that this manifest pins. <code>grdm-dev build</code> and <code>compose render</code> use it for image tags. May be <code>null</code> until the strict reconstruction PRs are merged; required for M2 acceptance.</td>
 </tr>
 <tr>
 <td><code>upstreams[]</code></td>

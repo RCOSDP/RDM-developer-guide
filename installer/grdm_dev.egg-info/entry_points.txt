@@ -1,0 +1,2 @@
+[console_scripts]
+grdm-dev = grdm_dev.cli:main

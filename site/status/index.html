@@ -1916,6 +1916,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r3 / REV（担当レビュワ）M1 文書骨格 PR 再レビュー r3
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2595,7 +2616,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。</li>
+<li>Version / 版: 0.3 — 2026-11-05. <strong>Learned:</strong> a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
+  0.2 — 2026-11-05. <strong>Learned:</strong> the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> without a single source of truth, it was unclear whether M1 completion meant "docs written" or "PR merged"; the board's explicit rules resolve ambiguity. ／ 単一の正本がなければ、M1 完了が「文書を書いた」か「PR をマージした」か分からず、ボードの明示的な規則で曖昧さを解消すると分かった。</li>
 <li>Normative for: <a href="upstream/">status/upstream/</a> and all milestone progress tracking.</li>
 <li>Related: <a href="../">../README.md</a> · <a href="../demo/">demo/</a> · <a href="../spec/00_overview/#english">spec/00_overview.md#5-milestone-ladder</a></li>
@@ -2619,13 +2641,13 @@
 <td>M1</td>
 <td>Docs skeleton, manifest, dev2027 repos exist; reviewed PRs merged to develop</td>
 <td>Report + allow-list</td>
-<td><strong>In progress</strong></td>
+<td>✅ <strong>Done</strong> (PR #19 merged 2026-11-05)</td>
 </tr>
 <tr>
 <td>M2</td>
 <td>Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds</td>
 <td>Report + allow-list (fewer entries than M1)</td>
-<td>Planned</td>
+<td><strong>In progress</strong> (branch feat/m2-installer)</td>
 </tr>
 <tr>
 <td>M3</td>
@@ -2669,8 +2691,8 @@
 <td>✅ Created</td>
 </tr>
 <tr>
-<td>Integration PR osf.io #1</td>
-<td>🔄 Open</td>
+<td>dev2027 strict reconstruction PRs (8 repos, ADR-01 §5; osf.io #1 closed as superseded by #2)</td>
+<td>🔄 Open, Codex Astra review in progress</td>
 </tr>
 <tr>
 <td>MkDocs site build (<code>site/</code>, strict build passes)</td>
@@ -2728,13 +2750,13 @@
 <td>M1</td>
 <td>docs の骨格・manifest・dev2027 リポジトリ群がある。レビュー済み PR が develop にマージ</td>
 <td>報告＋許容リスト</td>
-<td><strong>進行中</strong></td>
+<td>✅ <strong>完了</strong>（PR #19 を 2026-11-05 にマージ）</td>
 </tr>
 <tr>
 <td>M2</td>
 <td>コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド</td>
 <td>報告＋許容リスト（M1 より件数を減らす）</td>
-<td>計画中</td>
+<td><strong>進行中</strong>（ブランチ feat/m2-installer）</td>
 </tr>
 <tr>
 <td>M3</td>
@@ -2778,8 +2800,8 @@
 <td>✅ 作成</td>
 </tr>
 <tr>
-<td>統合 PR RDM-osf.io-dev2027 #1</td>
-<td>🔄 作成済み（レビュー対応中）</td>
+<td>dev2027 の厳密再構築 PR（8 リポジトリ、ADR-01 §5。osf.io #1 は #2 に置き換えて閉鎖）</td>
+<td>🔄 作成済み、Codex Astra レビュー中</td>
 </tr>
 <tr>
 <td>MkDocs サイトのビルド（<code>site/</code>、strict ビルド合格）</td>

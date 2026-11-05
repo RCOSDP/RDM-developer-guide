@@ -15,7 +15,7 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-02  component id unique and matches ^[A-Za-z0-9_.-]+$
   MC-03  role in core|infra|subsystem; services is a non-empty list of strings
   MC-04  integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$, or null for infra
-  MC-05  integration_branch == "develop", or null for infra
+  MC-05  integration_branch == "develop", or null for infra; integration_sha 40-hex or null (null for infra)
   MC-06  every upstreams[].sha is ^[0-9a-f]{40}$; base_image_digest is null or
          sha256:<64 hex>; fetched_at is an ISO date not in the future
   MC-07  no string value anywhere contains http, git@, github.com, or a token-like string
@@ -137,6 +137,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "services": ("MC-03", "list[str]"),
     "integration_repo": ("MC-04", "str|null"),
     "integration_branch": ("MC-05", "str|null"),
+    "integration_sha": ("MC-05", "str|null"),
     "upstreams": ("MC-01", "list[obj]"),
     "adopted_prs": ("MC-09", "list[obj]"),
     "candidate_prs": ("MC-09", "list[obj]"),
@@ -390,6 +391,11 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
                 errors.append(f"MC-05: {label}: integration_branch must be null for infra (got {branch!r})")
         elif branch != "develop":
             errors.append(f"MC-05: {label}: integration_branch must be 'develop' (got {branch!r})")
+        isha = comp.get("integration_sha")
+        if isha is not None and not re.fullmatch(r"[0-9a-f]{40}", isha):
+            errors.append(f"MC-05: {label}: integration_sha must be 40 lowercase hex or null (got {isha!r})")
+        if comp.get("integration_repo") is None and isha is not None:
+            errors.append(f"MC-05: {label}: integration_sha must be null for infra")
 
         # MC-06 base_image_digest
         digest = comp.get("base_image_digest")

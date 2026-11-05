@@ -21,11 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="GakuNin RDM developer environment 2027 — one-command installer (SPEC-02)",
     )
     p.add_argument("--version", action="version", version=f"grdm-dev {__version__}")
-    p.add_argument("--yes", action="store_true", help="answer every question with its default (required without a terminal)")
-    p.add_argument("--json", dest="json_output", action="store_true", help="print reports as JSON instead of TOON")
-    p.add_argument("--profile", choices=["minimum", "core", "full"], help="service profile (default: saved value or core)")
+    _add_global_flags(p)
     p.add_argument("--root", help="repository root (default: auto-detect from manifest/upstreams.json)")
-    p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="command", metavar="<command>")
     for name in SUBCOMMAND_MODULES:
         try:
@@ -38,7 +35,30 @@ def build_parser() -> argparse.ArgumentParser:
                 continue
             raise
         mod.register(sub)
+    # SPEC-02 §2.2: every subcommand accepts --json (and the other global flags) after its name too,
+    # e.g. `grdm-dev doctor --json`. Add them to each sub-parser with SUPPRESS defaults so that a
+    # value given in either position wins and the global default is kept otherwise.
+    for sp in sub.choices.values():
+        _add_global_flags_recursive(sp)
     return p
+
+
+def _add_global_flags_recursive(p: argparse.ArgumentParser) -> None:
+    """Add the global flags to a sub-parser and to any nested sub-parsers (e.g. `secrets init`)."""
+    _add_global_flags(p, suppress=True)
+    for action in p._actions:  # noqa: SLF001 - argparse has no public API for nested sub-parsers
+        if isinstance(action, argparse._SubParsersAction):
+            for child in action.choices.values():
+                _add_global_flags_recursive(child)
+
+
+def _add_global_flags(p: argparse.ArgumentParser, suppress: bool = False) -> None:
+    d = argparse.SUPPRESS if suppress else None
+    kw = {"default": d} if suppress else {}
+    p.add_argument("--yes", action="store_true", help="answer every question with its default (required without a terminal)", **kw)
+    p.add_argument("--json", dest="json_output", action="store_true", help="print reports as JSON instead of TOON", **kw)
+    p.add_argument("--profile", choices=["minimum", "core", "full"], help="service profile (default: saved value or core)", **kw)
+    p.add_argument("-v", "--verbose", action="store_true", **kw)
 
 
 def main(argv: list[str] | None = None) -> int:

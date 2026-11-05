@@ -60,7 +60,9 @@ def encode(data: Any, indent: int = 0, name: str | None = None) -> str:
         out.append(f"{pad}{label}[{len(data)}]:")
         for item in data:
             if isinstance(item, (dict, list)):
-                sub = encode(item, indent + 1)
+                # "- " occupies the first two columns of the item; continuation lines align with
+                # the text after the dash (one indent level deeper than the dash itself).
+                sub = encode(item, indent + 2)
                 first, _, rest = sub.partition("\n")
                 out.append(pad + "  - " + first.strip())
                 if rest:

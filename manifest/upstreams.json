@@ -128,6 +128,7 @@
       ],
       "id": "osf.io",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-osf.io-dev2027",
       "note": null,
       "platforms": [
@@ -229,6 +230,7 @@
       ],
       "id": "waterbutler",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-waterbutler-dev2027",
       "note": null,
       "platforms": [
@@ -319,6 +321,7 @@
       ],
       "id": "modular-file-renderer",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-modular-file-renderer-dev2027",
       "note": null,
       "platforms": [
@@ -400,6 +403,7 @@
       ],
       "id": "ember-osf-web",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-ember-osf-web-dev2027",
       "note": null,
       "platforms": [
@@ -452,6 +456,7 @@
       "candidate_prs": [],
       "id": "cas-overlay",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-cas-overlay-dev2027",
       "note": null,
       "platforms": [
@@ -520,6 +525,7 @@
       ],
       "id": "wiki-frontend",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-wiki-frontend-dev2027",
       "note": null,
       "platforms": [
@@ -563,6 +569,7 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-y-websocket-dev2027",
       "note": null,
       "platforms": [
@@ -606,6 +613,7 @@
       "candidate_prs": [],
       "id": "OASys",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-OASys-dev2027",
       "note": null,
       "platforms": [
@@ -640,6 +648,7 @@
       "candidate_prs": [],
       "id": "Shibboleth-SP",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-Shibboleth-SP-dev2027",
       "note": "mutually exclusive with fakecas; bundled test IdP for acceptance",
       "platforms": [
@@ -675,6 +684,7 @@
       "candidate_prs": [],
       "id": "rdmcp",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-rdmcp-dev2027",
       "note": null,
       "platforms": [
@@ -709,6 +719,7 @@
       "candidate_prs": [],
       "id": "aipf_mcp_data_grdm",
       "integration_branch": "develop",
+      "integration_sha": null,
       "integration_repo": "RDM-aipf_mcp_data_grdm-dev2027",
       "note": null,
       "platforms": [
@@ -743,6 +754,7 @@
       "candidate_prs": [],
       "id": "postgres",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -767,6 +779,7 @@
       "candidate_prs": [],
       "id": "elasticsearch2",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -791,6 +804,7 @@
       "candidate_prs": [],
       "id": "elasticsearch6",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -815,6 +829,7 @@
       "candidate_prs": [],
       "id": "mongo",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -839,6 +854,7 @@
       "candidate_prs": [],
       "id": "rabbitmq",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -863,6 +879,7 @@
       "candidate_prs": [],
       "id": "redis",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -887,6 +904,7 @@
       "candidate_prs": [],
       "id": "sharejs",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -911,6 +929,7 @@
       "candidate_prs": [],
       "id": "unoconv",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [
@@ -935,6 +954,7 @@
       "candidate_prs": [],
       "id": "fakecas",
       "integration_branch": null,
+      "integration_sha": null,
       "integration_repo": null,
       "note": null,
       "platforms": [

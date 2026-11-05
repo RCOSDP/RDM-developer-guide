@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
+- Version / 版: 0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
+  0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the public osf.io `develop` (2026-11-05) is already newer than its `-private` twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の `develop`（2026-11-05）は `-private`（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。
 - Normative for: `manifest/upstreams.json` (canonical), `manifest/upstreams.toon` (excerpt), `manifest/README.md`, the `manifest` subcommand of `grdm-dev` ([SPEC-02](02_installer_cli.md)), and every document that quotes the manifest.
 - Related: [SPEC-00 Overview](00_overview.md) · [SPEC-05 Upstream tracking](05_upstream_tracking.md) · [SPEC-06 Documentation conventions](06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration repository placement](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-03 Staged security gate](../decisions/ADR-03_Staged_Security_Gate.md) · [docs/README.md](../README.md)
@@ -46,6 +47,7 @@ The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO
 | `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`). Never empty. |
 | `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
 | `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
+| `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
 | `upstreams[]` | list | Each: `repo` (name), `branch`, `kind` (`public` \| `private` \| `cos`), `tracking_branch` (named by rule 7), `status` (`merged` \| `reference` \| `candidate`), `sha` (40 lowercase hex), `fetched_at` (ISO date). Empty for `infra`. |
 | `adopted_prs[]` | list | Each: `repo`, `number`, `title`, `reason`, `status` (`adopted`). PRs applied on top of the merged upstreams. |
 | `candidate_prs[]` | list | Same shape; `status` is `candidate` or `rejected`. Not built. |
@@ -175,6 +177,7 @@ checks[13]{id,rule,severity}:
 | `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`）。空にしない。 |
 | `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
 | `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
+| `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
 | `upstreams[]` | 配列 | 各要素: `repo`（名前）、`branch`、`kind`（`public` \| `private` \| `cos`）、`tracking_branch`（規則 7 で命名）、`status`（`merged` \| `reference` \| `candidate`）、`sha`（小文字 16 進 40 文字）、`fetched_at`（ISO 日付）。`infra` は空。 |
 | `adopted_prs[]` | 配列 | 各要素: `repo`、`number`、`title`、`reason`、`status`（`adopted`）。上流をマージした上に適用する PR。 |
 | `candidate_prs[]` | 配列 | 同じ形。`status` は `candidate` か `rejected`。組まない。 |

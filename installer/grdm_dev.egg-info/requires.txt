@@ -1,0 +1,10 @@
+
+[accept]
+pytest>=8
+pytest-playwright>=0.5
+playwright>=1.47
+
+[docs]
+mkdocs==1.6.1
+mkdocs-material==9.5.37
+pymdown-extensions==10.12

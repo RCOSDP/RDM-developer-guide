@@ -1,0 +1,30 @@
+{
+  "service": "mfr",
+  "component": "modular-file-renderer",
+  "command": [
+    "invoke",
+    "server"
+  ],
+  "container_port": 7778,
+  "host_port": 7778,
+  "environment": {
+    "PYTHONUNBUFFERED": "1",
+    "SERVER_CONFIG_HMAC_SECRET": "${MFR_SERVER_SECRET}"
+  },
+  "env_files": [
+    "mfr.env"
+  ],
+  "volumes": [
+    {
+      "volume": "wb_tmp",
+      "target": "/tmp"
+    }
+  ],
+  "user": "1000:1000",
+  "depends_on": [
+    "unoconv"
+  ],
+  "weight": 2,
+  "mem_min_mb": 256,
+  "pids_limit": 512
+}

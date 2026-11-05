@@ -1,0 +1,14 @@
+{
+  "network": "grdm-redteam",
+  "note": "Allowed targets for the AI red team (SPEC-03 §6). Only containers of the isolated Compose project `grdm-redteam` on the `internal: true` network `grdm-redteam` may be probed; `grdm-dev redteam preflight` exits 53 if any other container is attached or if the network has egress. Never add the developer host, the `core`/`full` development project, or any address outside this project. Service names follow SPEC-02 §4.",
+  "project": "grdm-redteam",
+  "targets": [
+    "web",
+    "api",
+    "admin",
+    "wb",
+    "mfr",
+    "ember_osf_web",
+    "cas"
+  ]
+}

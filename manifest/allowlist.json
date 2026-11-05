@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "note": "Accepted findings (SPEC-03 §5.1). Every entry needs cve, component, reason, owner, expires, added_at; optional severity. Only the owner approves additions; the count must never grow between milestones (ADR-03).",
+  "fields": ["cve", "component", "reason", "owner", "expires", "added_at"],
+  "entries": []
+}
