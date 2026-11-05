@@ -3,6 +3,7 @@ import ast
 import io
 import json
 import os
+import pathlib
 import re
 import shutil
 import stat
@@ -909,3 +910,31 @@ class ComposeRenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VolumeDirOwnershipTests(unittest.TestCase):
+    """PR #30 r4: re-rendering after an init container chowned the bind directory must not fail."""
+
+    def test_existing_volume_dir_is_left_alone_even_if_chmod_would_be_denied(self):
+        import tempfile
+        from unittest import mock
+        from grdm_dev import compose
+
+        with tempfile.TemporaryDirectory() as td:
+            vol = pathlib.Path(td) / "wiki_static"
+            vol.mkdir()
+            os.chmod(vol, 0o700)  # pretend another uid set its own mode after chown
+            with mock.patch("grdm_dev.compose.os.chmod", side_effect=PermissionError("Operation not permitted")) as chmod:
+                compose._ensure_volume_dir(vol)  # existing: must not even try
+                chmod.assert_not_called()
+            self.assertEqual(oct(vol.stat().st_mode & 0o777), "0o700")
+
+    def test_fresh_volume_dir_gets_0755(self):
+        import tempfile
+        from grdm_dev import compose
+
+        with tempfile.TemporaryDirectory() as td:
+            vol = pathlib.Path(td) / "wiki_static"
+            compose._ensure_volume_dir(vol)
+            self.assertTrue(vol.is_dir())
+            self.assertEqual(oct(vol.stat().st_mode & 0o777), "0o755")

@@ -757,6 +757,23 @@ def detect_memory_gib() -> float | None:
 # --------------------------------------------------------------------------- entry point
 
 
+
+def _ensure_volume_dir(vol_dir: Path) -> None:
+    """Create a host-side bind volume directory with mode 0755 the first time only.
+
+    Containers only ever chown the directory (CAP_CHOWN works for any owner); the mode is set here
+    while the host user still owns the fresh directory. After an init container has handed the
+    directory to another uid (e.g. 1000 on a Linux host whose user is not 1000), the host user can
+    no longer chmod it, so an existing directory is left untouched (PR #30 reviews r3/r4).
+    """
+    if vol_dir.exists():
+        return
+    vol_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(vol_dir, 0o755)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- world-readable directory for a bind volume; no secrets live here
+    except PermissionError:
+        pass  # created by someone else between exists() and here; leave the owner's mode alone
+
 def run(
     ctx: Context,
     args,
@@ -856,11 +873,7 @@ def run(
         if _write_if_changed(ctx.runtime / CONFIG_DIR / rel, text):
             written.append(f"{CONFIG_DIR}/{rel}")
     for name in compose["volumes"]:
-        vol_dir = ctx.runtime / VOLUMES_DIR / name
-        vol_dir.mkdir(parents=True, exist_ok=True)
-        # Mode is set here on the host (we own the directory); containers only chown. A root container
-        # with CAP_CHOWN alone cannot chmod a directory it does not own (needs CAP_FOWNER) — PR #30 r3.
-        os.chmod(vol_dir, 0o755)
+        _ensure_volume_dir(ctx.runtime / VOLUMES_DIR / name)
     env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress)}
     env_updates.update({port_key(name): str(port) for name, port in published.items()})
     if update_dotenv(dotenv, env_updates):
