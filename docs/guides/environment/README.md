@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 1.1 — 2026-11-06. **Learned:** the Project Metadata edit page needs a waffle flag that no setup step turned on, so the legacy startup steps now set `ember_edit_draft_registration_page` once after the first migration (PR #17); the 2027 installer has no equivalent step yet. ／ Project Metadata の編集画面には、どの手順も有効にしていなかった waffle フラグが必要なため、旧ガイドの起動手順に初回マイグレーション後の `ember_edit_draft_registration_page` 設定を追加した（PR #17）。2027 インストーラーには相当する手順がまだ無いと分かった。
 - Version / 版: 1.0 — 2026-11-06. **Learned:** full startup is not yet verified by a recorded run: the ember-osf-web (the browser interface) base image is end-of-life and current Docker (the tool that runs containers: boxes that each hold one program and everything it needs) refuses to pull it, so the manifest (the list of components and the exact source revisions they are built from) already configures a digest-pinned prebuilt image for ember-osf-web as a fallback until M4 modernizes its Dockerfile (DEMO-20, `manifest/upstreams.json`). ／ 完全な起動はまだ実行記録で検証できていない。ember-osf-web（ブラウザ画面）のベースイメージがサポート終了で現行 Docker（コンテナ＝一つのプログラムと必要なものを入れた箱を動かす道具）が取得を拒むため、M4 で Dockerfile を近代化するまでの代替として、manifest（部品と、それを組む正確なソース版の一覧）にはダイジェスト固定の配布済みイメージがすでに設定されている（DEMO-20、`manifest/upstreams.json`）。
 - Version / 版: 0.1 — 2026-11-05. Initial bilingual skeleton pointing to the legacy guide. ／ 旧ガイドを指す最初の二言語の骨組み。
 - Normative for: `docs/guides/environment/`
@@ -367,6 +368,10 @@ The rows below compare what `README.legacy.md` actually describes with the 2027 
 
 > **Note:** The old instructions are kept verbatim in `README.legacy.md` for historical reference. The legacy guide itself never documented default passwords; they come from the upstream Compose files it relied on.
 
+### 8. Latest changes
+
+- **2026-11-06 — Waffle flag for the Metadata addon (PR #17).** The legacy startup steps in [`README.legacy.md`](README.legacy.md) now run `docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone` once, right after the first database migration, in each of the three startup variants. A *waffle flag* (a named on/off switch stored in the database that turns a feature on for chosen users) is required to open the Project Metadata edit page of the Metadata addon. The 2027 installer (`grdm-dev`) does not run this step yet; if you need the Metadata addon, run the same `manage.py waffle_flag` command against the `web` service by hand. Incorporated from PR #17 by yacchin1205 (2026-11-06).
+
 ---
 
 <a id="japanese"></a>
@@ -721,6 +726,10 @@ sudo lsof -i :5000
 | 上流の Compose ファイルが同梱する既定認証情報（例: `postgres`/`postgres`。[SPEC-03 §3.1](../../spec/03_security_gate.md#japanese)） | `secrets init` が生成する乱数の秘密を `runtime/.env`（モード 0600）に置く。既定値が残れば `scan --baseline` が失敗する | 既定認証情報を残さない |
 
 > **Note:** 過去の手順は参考のために `README.legacy.md` にそのまま残しています。旧ガイド自体は既定パスワードを記述しておらず、それは旧ガイドが頼っていた上流の Compose ファイルに由来します。
+
+### 8. 最近の変更
+
+- **2026-11-06 — Metadata アドオン用の waffle フラグ設定（PR #17）。** [`README.legacy.md`](README.legacy.md) の起動手順では、3 通りの起動手順それぞれで、初回の DB マイグレーション直後に `docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone` を一度実行するようになりました。*waffle フラグ*（データベースに保存される名前付きのオン／オフのスイッチで、選んだ利用者に機能を有効にするもの）は、Metadata アドオンの Project Metadata 編集画面を開くために必要です。2027 インストーラー（`grdm-dev`）にはまだこの手順が無いため、Metadata アドオンが必要な場合は同じ `manage.py waffle_flag` コマンドを `web` サービスに対して手で実行してください。Incorporated from PR #17 by yacchin1205 (2026-11-06).
 
 ---
 

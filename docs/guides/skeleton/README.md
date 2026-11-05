@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** Mako caches templates by file name in some RDM run modes, so sample templates must carry the addon name as a prefix (PR #14). ／ Mako は RDM の動作モードによってテンプレートをファイル名でキャッシュするため、サンプルのテンプレート名にはアドオン名の接頭辞が必要だと分かった（PR #14）。
 - Version / 版: 0.1 — 2026-11-05
 - Normative for: `docs/guides/skeleton/`
 - Related: [SPEC-06 Documentation Conventions](../../spec/06_documentation_conventions.md) · [Environment Guide](../environment/README.md)
@@ -43,6 +44,10 @@ The skeleton addon has the following capabilities:
 
 The legacy skeleton addon instructions are kept verbatim in `README.legacy.md` for reference and will be rewritten per milestone.
 
+### Latest changes
+
+- **2026-11-06 — Mako template file names get the addon name as a prefix (PR #14).** In [`README.legacy.md`](README.legacy.md) and the sample code, `addon/templates/node_settings.mako` is now [`myskelton_node_settings.mako`](addon/templates/myskelton_node_settings.mako), and `addon/apps.py` points to the new name. Reason: Mako (the template language used for the addon settings panel) caches templates by file name in some RDM run modes, so two addons that each ship a `node_settings.mako` can display the wrong panel. Incorporated from PR #14 by shun-nakazawa (2026-11-06).
+
 ---
 
 <a id="japanese"></a>
@@ -76,6 +81,10 @@ The legacy skeleton addon instructions are kept verbatim in `README.legacy.md` f
 ### 過去のコンテンツ
 
 過去のスケルトンアドオンの手順は、参考のために `README.legacy.md` にそのまま残しており、マイルストーンごとに書き直す予定です。
+
+### 最近の変更
+
+- **2026-11-06 — mako テンプレートのファイル名の先頭にアドオン名を付ける（PR #14）。** [`README.legacy.md`](README.legacy.md) とサンプルコードで、`addon/templates/node_settings.mako` は [`myskelton_node_settings.mako`](addon/templates/myskelton_node_settings.mako) になり、`addon/apps.py` も新しい名前を指します。理由: Mako（アドオン設定画面のテンプレート言語）は RDM の動作モードによってテンプレートをファイル名でキャッシュするため、`node_settings.mako` を持つアドオンが複数あると別のアドオンの画面が表示されることがあります。Incorporated from PR #14 by shun-nakazawa (2026-11-06).
 
 ---
 
