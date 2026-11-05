@@ -148,6 +148,9 @@ class FakeGit:
         if cmd == "rev-parse":
             s = self.resolve(args[-1])
             return (0, s + "\n") if s else (1, "")
+        if cmd == "update-ref" and args[1] == "-d":
+            self.local.pop(args[2], None)
+            return 0, ""
         if cmd == "update-ref":
             self.local[args[1]] = args[2]
             return 0, ""
@@ -165,9 +168,14 @@ class FakeGit:
                 src, dst = spec.split(":")
                 self.origin[dst[len("refs/heads/"):]] = self.local[src]
             return 0, ""
-        if cmd == "checkout":
-            assert args[1:3] == ["--no-track", "-B"]
-            self.branch, self.head = args[3], self.resolve(args[4])
+        if cmd == "switch" and args[1] == "--detach":
+            self.branch, self.head = None, self.resolve(args[2])
+            return 0, ""
+        if cmd == "switch":
+            assert args[1] == "-c" and args[3] == "--no-track", args
+            if "refs/heads/" + args[2] in self.local:
+                return 128, f"fatal: a branch named '{args[2]}' already exists"
+            self.branch, self.head = args[2], self.resolve(args[4])
             self.local["refs/heads/" + self.branch] = self.head
             return 0, ""
         if cmd == "merge" and args[1] == "--abort":
@@ -183,7 +191,8 @@ class FakeGit:
             new = sha(f"merge:{self.head}:{target}")
             self.history[new] = list(dict.fromkeys(self.history[self.head] + self.history[target] + [new]))
             self.head = new
-            self.local["refs/heads/" + self.branch] = new
+            if self.branch:
+                self.local["refs/heads/" + self.branch] = new
             self.merged_refs.append(target)
             return 0, ""
         if cmd == "diff":
@@ -302,7 +311,7 @@ class MirrorTests(UpstreamBase):
     def test_non_fast_forward_is_a_finding_and_the_old_branch_is_kept(self):
         sources = {**SOURCES, OSF_URL: {"refs/heads/develop": PUB_REWRITE, "refs/pull/796/head": PR_A}}
         runner = FakeGit(ORIGIN_YESTERDAY, sources)
-        self.assertEqual(self.mirror(runner, component="osf.io"), upstream.FAILED)
+        self.assertEqual(self.mirror(runner, component="osf.io"), exit_codes.UPSTREAM_FAILED)
         rep = self.report()
         repo = rep["repositories"][0]
         row = repo["upstreams"][0]
@@ -317,11 +326,60 @@ class MirrorTests(UpstreamBase):
         self.assertFalse(any(a.startswith("+") or a in ("--force", "-f") for c in runner.calls for a in c))
         self.assertIn("non-fast-forward", self.err.getvalue())
 
-    def test_push_failure_exits_1(self):
+    def test_push_failure_exits_70_with_the_canonical_message(self):
         runner = FakeGit(ORIGIN_YESTERDAY, SOURCES, fail_push=True)
-        self.assertEqual(self.mirror(runner, component="osf.io"), upstream.FAILED)
+        self.assertEqual(self.mirror(runner, component="osf.io"), 70)
         self.assertEqual(self.report()["repositories"][0]["pushed"], [])
-        self.assertIn("push", self.err.getvalue())
+        err = self.err.getvalue()
+        self.assertIn("exit 70", err)
+        self.assertIn(exit_codes.describe(70, "en"), err)
+        self.assertIn("push", err)
+
+    def test_failed_push_is_published_by_the_next_run(self):
+        # U1: the first push fails; origin is unchanged, so the retry must push the same branches again
+        runner = FakeGit(ORIGIN_YESTERDAY, SOURCES, fail_push=True)
+        self.assertEqual(self.mirror(runner, component="osf.io"), exit_codes.UPSTREAM_FAILED)
+        self.assertEqual(runner.origin["upstream/public-develop"], PUB1)
+        runner.fail_push = False
+        self.out, self.err = io.StringIO(), io.StringIO()
+        self.assertEqual(self.mirror(runner, component="osf.io"), exit_codes.OK)
+        pushes = self.pushes(runner)
+        self.assertEqual(len(pushes), 2)
+        self.assertEqual(pushes[1][5:], pushes[0][5:])  # the same three branches, decided from origin's SHAs
+        self.assertEqual(runner.origin["upstream/public-develop"], PUB2)
+        self.assertEqual(runner.origin["upstream/private-develop"], PRV2)
+        self.assertEqual(self.report()["repositories"][0]["pushed"],
+                         ["upstream/public-develop", "upstream/private-develop", "upstream/cos-develop"])
+
+    def test_dry_run_then_real_run_publishes_branches_origin_lacks(self):
+        # U1: a fresh -dev2027 repository holds only develop; a dry-run fetches every branch locally,
+        # and the real run that follows must still publish them (the decision is the remote state)
+        runner = FakeGit({"develop": DEV_SEED}, SOURCES)
+        self.assertEqual(self.mirror(runner, component="osf.io", dry_run=True), exit_codes.OK)
+        self.assertEqual(self.pushes(runner), [])
+        rep = self.report()
+        self.assertEqual([u["status"] for u in rep["repositories"][0]["upstreams"]], ["created"] * 4)
+        self.assertEqual(len(rep["repositories"][0]["to_publish"]), 4)
+        self.assertEqual(set(runner.origin), {"develop"})
+        self.out, self.err = io.StringIO(), io.StringIO()
+        self.assertEqual(self.mirror(runner, component="osf.io"), exit_codes.OK)
+        # the stale local refs from the dry-run were dropped, never used as "previous"
+        self.assertIn(["update-ref", "-d", "refs/heads/upstream/public-develop"],
+                      [c[3:] for c in runner.calls if c[3] == "update-ref"])
+        pushes = self.pushes(runner)
+        self.assertEqual(len(pushes), 1)
+        self.assertEqual(pushes[0][5:], [f"refs/heads/{t}:refs/heads/{t}" for t in (
+            "upstream/public-develop", "upstream/private-develop", "upstream/cos-develop", "upstream/private-sec-test-fix-sec-test")])
+        self.assertEqual(runner.origin["upstream/public-develop"], PUB2)
+        self.assertEqual(runner.origin["upstream/private-sec-test-fix-sec-test"], PRV1)
+        rep = self.report()
+        self.assertEqual([u["status"] for u in rep["repositories"][0]["upstreams"]], ["created"] * 4)
+        self.assertEqual(rep["summary"]["branches_pushed"], 4)
+        # the third run has nothing left to publish
+        self.out, self.err = io.StringIO(), io.StringIO()
+        self.assertEqual(self.mirror(runner, component="osf.io"), exit_codes.OK)
+        self.assertEqual(len(self.pushes(runner)), 1)
+        self.assertEqual(self.report()["repositories"][0]["to_publish"], [])
 
     def test_report_files_contain_names_and_shas_only(self):
         runner = FakeGit(ORIGIN_YESTERDAY, SOURCES)
@@ -387,8 +445,9 @@ class IntegrateTests(UpstreamBase):
     def test_strict_order_public_base_then_private_then_adopted_prs(self):
         runner = FakeGit(ORIGIN_MIRRORED, SOURCES)
         self.assertEqual(self.integrate(runner, component="osf.io", date="20261106"), exit_codes.OK)
-        checkout = [c for c in runner.calls if c[3] == "checkout"][0]
-        self.assertEqual(checkout[3:], ["checkout", "--no-track", "-B", "integrate/strict-20261106", "refs/remotes/origin/upstream/public-develop"])
+        switch = [c for c in runner.calls if c[3] == "switch"][0]
+        self.assertEqual(switch[3:], ["switch", "-c", "integrate/strict-20261106", "--no-track", "refs/remotes/origin/upstream/public-develop"])
+        self.assertEqual([c for c in runner.calls if c[3] == "checkout"], [])  # never `checkout -B`
         self.assertEqual(runner.merged_refs, [PRV2, PR_A])  # private first, then the adopted PR
         merges = [c for c in runner.calls if c[3] == "merge"]
         for m in merges:
@@ -432,8 +491,8 @@ class IntegrateTests(UpstreamBase):
         runner = FakeGit({**ORIGIN_MIRRORED, "develop": dev}, SOURCES)
         runner.history[dev] = [BASE, PUB1, PUB2, PRV1, PRV2, dev]
         self.assertEqual(self.integrate(runner, component="osf.io", date="20261113"), exit_codes.OK)
-        checkout = [c for c in runner.calls if c[3] == "checkout"][0]
-        self.assertEqual(checkout[6:], ["integrate/strict-20261113", "refs/remotes/origin/develop"])  # not the public tip
+        switch = [c for c in runner.calls if c[3] == "switch"][0]
+        self.assertEqual((switch[5], switch[7]), ("integrate/strict-20261113", "refs/remotes/origin/develop"))  # not the public tip
         self.assertEqual(runner.merged_refs, [PR_A])  # private already contained → "Already up to date"
         rep = self.report()
         osf = rep["repositories"][0]
@@ -453,9 +512,9 @@ class IntegrateTests(UpstreamBase):
         self.assertEqual(rep["summary"]["no_op"], 1)
         self.assertEqual(rep["repositories"][0]["branch"], "integrate/strict-20261106")
 
-    def test_conflict_aborts_the_merge_lists_files_and_exits_1(self):
+    def test_conflict_aborts_the_merge_lists_files_and_exits_70(self):
         runner = FakeGit(ORIGIN_MIRRORED, SOURCES, conflict_on={PRV2})
-        self.assertEqual(self.integrate(runner, component="osf.io"), upstream.FAILED)
+        self.assertEqual(self.integrate(runner, component="osf.io"), exit_codes.UPSTREAM_FAILED)
         calls = [c[3:] for c in runner.calls if c[0] == "git" and c[3] in ("merge", "push", "fetch", "diff")]
         self.assertIn(["merge", "--abort"], calls)
         self.assertNotIn("push", [c[0] for c in calls])
@@ -468,20 +527,52 @@ class IntegrateTests(UpstreamBase):
         self.assertEqual(osf["merges"][1]["status"], "conflict")
         self.assertEqual(rep["summary"]["conflicts"], 1)
         self.assertIn("merge conflict", self.err.getvalue())
+        self.assertIn("exit 70", self.err.getvalue())
+        self.assertTrue(exit_codes.describe(70, "ja").startswith("上流"))  # both languages exist in messages.tsv
 
-    def test_dry_run_merges_locally_but_pushes_nothing(self):
+    def test_dry_run_merges_on_a_detached_head_and_leaves_no_branch(self):
         runner = FakeGit(ORIGIN_MIRRORED, SOURCES)
         self.assertEqual(self.integrate(runner, component="osf.io", dry_run=True), exit_codes.OK)
-        self.assertEqual(runner.merged_refs, [PRV2, PR_A])
+        self.assertEqual(runner.merged_refs, [PRV2, PR_A])  # conflicts would still be detected
         self.assertEqual(self.pushes(runner), [])
         self.assertEqual([c for c in runner.calls if c[0] == "gh"], [])
         self.assertEqual(self.report()["repositories"][0]["status"], "dry-run")
+        switches = [c[3:] for c in runner.calls if c[3] == "switch"]
+        self.assertEqual(switches, [["switch", "--detach", "refs/remotes/origin/upstream/public-develop"]])
+        self.assertNotIn("refs/heads/integrate/strict-20261106", runner.local)  # no persistent local branch
+        # U2: the real run afterwards is not blocked by the dry-run
+        self.out, self.err = io.StringIO(), io.StringIO()
+        self.assertEqual(self.integrate(runner, component="osf.io"), exit_codes.OK)
+        self.assertEqual(self.report()["repositories"][0]["status"], "opened")
+        self.assertEqual(runner.local["refs/heads/integrate/strict-20261106"], runner.head)
 
-    def test_existing_integration_branch_is_never_rewritten(self):
+    def test_existing_remote_integration_branch_is_never_rewritten(self):
         runner = FakeGit({**ORIGIN_MIRRORED, "integrate/strict-20261106": PUB2}, SOURCES)
-        self.assertEqual(self.integrate(runner, component="osf.io"), upstream.FAILED)
-        self.assertEqual([c for c in runner.calls if c[3] in ("checkout", "merge", "push")], [])
-        self.assertIn("already exists", self.err.getvalue())
+        self.assertEqual(self.integrate(runner, component="osf.io"), exit_codes.UPSTREAM_FAILED)
+        self.assertEqual([c for c in runner.calls if c[3] in ("checkout", "switch", "merge", "push")], [])
+        self.assertIn("already exists in RDM-osf.io-dev2027", self.err.getvalue())
+
+    def test_existing_local_integration_branch_is_refused_not_reset(self):
+        # U2: a conflict resolved and committed by hand on the local branch (SPEC-05 §4) must survive a rerun
+        resolved = sha("resolved-by-hand")
+        runner = FakeGit(ORIGIN_MIRRORED, SOURCES)
+        runner.history[resolved] = [BASE, PUB1, PUB2, PRV1, PRV2, resolved]
+        runner.local["refs/heads/integrate/strict-20261106"] = resolved
+        for dry_run in (False, True):
+            self.out, self.err = io.StringIO(), io.StringIO()
+            self.assertEqual(self.integrate(runner, component="osf.io", dry_run=dry_run), exit_codes.UPSTREAM_FAILED)
+            self.assertEqual([c for c in runner.calls if c[3] in ("checkout", "switch", "merge", "push")], [])
+            self.assertEqual(runner.local["refs/heads/integrate/strict-20261106"], resolved)  # untouched
+            self.assertIn("already exists in the local clone", self.err.getvalue())
+            self.assertEqual(self.report()["repositories"][0]["status"], "error")
+
+    def test_switch_c_refusal_is_reported_not_forced(self):
+        # even if the pre-check were bypassed, `switch -c` refuses an existing branch; the fake models that
+        runner = FakeGit(ORIGIN_MIRRORED, SOURCES)
+        runner.local["refs/heads/x"] = PUB1
+        rc, out = runner(["git", "-C", "d", "switch", "-c", "x", "--no-track", "refs/remotes/origin/develop"])
+        self.assertEqual(rc, 128)
+        self.assertEqual(runner.local["refs/heads/x"], PUB1)
 
     def test_bad_date_is_a_usage_error(self):
         runner = FakeGit(ORIGIN_MIRRORED, SOURCES)

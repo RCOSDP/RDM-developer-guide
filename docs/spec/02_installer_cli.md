@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** `secrets rotate` had to become a coordinated database-password change plus container recreation, because `restart` keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ `restart` は旧い環境を保つため、捕られた資格情報が有効なまま残る。`secrets rotate` は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** an operational failure that only a module docstring describes is invisible to the shell wrapper and to the Japanese message table, so every new failure cause of a subcommand needs its own row in `messages.tsv` and in this table before the code may return it (PR #23 review r1, U4: `upstream` returned 1 with no canonical entry). ／ モジュールの docstring にしか書かれていない運用上の失敗は、シェルの包み紙にも日本語の文言表にも見えない。サブコマンドの新しい失敗原因は、コードがその番号を返す前に `messages.tsv` とこの表に行を持たなければならないと分かった（PR #23 レビュー r1、U4: `upstream` が正本に無い 1 を返していた）。
+  0.3 — 2026-11-05. **Learned:** `secrets rotate` had to become a coordinated database-password change plus container recreation, because `restart` keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ `restart` は旧い環境を保つため、捕られた資格情報が有効なまま残る。`secrets rotate` は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
   0.2 — 2026-11-05. **Learned:** a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with `unittest`. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を `unittest` で試験できないと分かった。
 - Normative for: `installer/install.sh`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
@@ -83,7 +84,7 @@ flowchart TD
 | `scan` | Runs the whole security gate of [SPEC-03](03_security_gate.md): baseline controls, Trivy SBOM (software bill of materials: the list of all parts inside an image) and CVE list, gitleaks, Semgrep, and OWASP ZAP; writes `runtime/reports/scan_<date>.json` plus TOON, and diffs findings against `manifest/allowlist.json` and `manifest/allowlist.baseline.json` for the milestone in `manifest/milestone.json`. Gate per [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md): M1–M3 report only, M4 exit 50 on HIGH, M5 exit 50 on CRITICAL or HIGH. Flags `--baseline`, `--secrets`, `--dynamic` run one part only. Exit 51 if a scanner cannot run, 52 if `--dynamic` was asked for while services are unhealthy. | read-only |
 | `redteam preflight` | Verifies, before an AI red-team run, that the attacker container of the red-team Compose project is isolated (proved with a reachable canary, see [SPEC-03 §6](03_security_gate.md#english)), that only the containers named in `manifest/redteam-targets.json` are attached, and that the approval record is present and current. Exit 53 if either check fails. See [SPEC-03 §6](03_security_gate.md#english). | yes (starts and removes a canary container and network for the probe) |
 | `accept` | Runs the Playwright Python acceptance suite in the same `.venv/`. `--only <scenario>` runs one scenario; `--seed` creates the disposable test users. Exit 60 on any failing test. See [SPEC-04](04_acceptance_tests.md). | read-only |
-| `upstream mirror` / `upstream integrate` | Runs the daily mirror or the weekly integration of [SPEC-05](05_upstream_tracking.md) by hand. Needs Git credentials for the private `-dev2027` repositories; never run in this repository's CI. | no (Git only) |
+| `upstream mirror` / `upstream integrate` | Runs the daily mirror or the weekly integration of [SPEC-05](05_upstream_tracking.md) by hand. Needs Git credentials for the private `-dev2027` repositories; never run in this repository's CI. Exit 70 when a fetch was refused or failed, a push failed, or a merge conflicted; the report is written in every case. | no (Git only) |
 | `manifest check` / `manifest toon` | `check` validates `manifest/upstreams.json` ([SPEC-01 §5](01_manifest.md#english)) and verifies that every TOON excerpt in `docs/` and `manifest/upstreams.toon` agree with it. Exit 20 on mismatch. `toon` prints the excerpt that `upstreams.toon` must equal. | no |
 | `docs build` / `docs check` | `build` runs MkDocs into `site/`. `check` enforces [SPEC-06 §8](06_documentation_conventions.md#english): anchors, Jump line, relative links, TOON consistency, Version line. | no |
 | `report` | Bundles the latest reports of `doctor`, `plan`, `health`, `scan`, and `accept` into `runtime/reports/<timestamp>.toon` and `.json`. | no |
@@ -129,7 +130,7 @@ All other services (`wiki`, `cas`, `y_websocket`, the subsystems, `test_idp`, da
 ### 6. Exit codes
 
 ```toon
-exit_codes[13]{code,meaning}:
+exit_codes[14]{code,meaning}:
   0,success
   2,"usage error: unknown flag or bad value"
   10,"host unsupported: OS, CPU, memory, or Python too old"
@@ -143,9 +144,10 @@ exit_codes[13]{code,meaning}:
   52,"services not healthy, so scan --dynamic could not run"
   53,"red-team preflight failed: egress reachable or a target outside redteam-targets.json"
   60,acceptance test failed
+  70,"upstream mirror or integrate failed: fetch refused, push failed, or merge conflict"
 ```
 
-Numbers are never reused for a new meaning; a new cause gets a new number. The canonical table is `installer/grdm_dev/messages.tsv`, and this TOON block must agree with it (`manifest check` verifies). Codes 50–53 are described in detail in [SPEC-03 §8](03_security_gate.md#english).
+Numbers are never reused for a new meaning; a new cause gets a new number. The canonical table is `installer/grdm_dev/messages.tsv`, and this TOON block must agree with it (`manifest check` verifies). Codes 50–53 are described in detail in [SPEC-03 §8](03_security_gate.md#english); code 70 in [SPEC-05 §2–§4](05_upstream_tracking.md#english).
 
 ### 7. Behavior rules
 
@@ -275,7 +277,7 @@ flowchart TD
 | `scan` | [SPEC-03](03_security_gate.md) のセキュリティ門を全部動かす。基本対策、Trivy の SBOM（ソフトウェア部品表。イメージに入っている部品の一覧）と CVE の一覧、gitleaks、Semgrep、OWASP ZAP。`runtime/reports/scan_<日付>.json` と TOON を書き、`manifest/milestone.json` の節目に合わせて `manifest/allowlist.json` と `manifest/allowlist.baseline.json` と差分を取る。門は [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) どおり、M1〜M3 は報告のみ、M4 は HIGH で終了 50、M5 は CRITICAL か HIGH で終了 50。フラグ `--baseline`・`--secrets`・`--dynamic` は一部だけを動かす。スキャナーが動かなければ終了 51、サービスが健全でないのに `--dynamic` を求めたら終了 52。 | 読むだけ |
 | `redteam preflight` | AI レッドチームの実行前に、レッドチーム用 Compose プロジェクトの攻撃側コンテナが隔離されていること（届くはずのカナリアで証明する。[SPEC-03 §6](03_security_gate.md#japanese)）、`manifest/redteam-targets.json` に名前のあるコンテナだけが接続していること、承認記録があり新しいことを確かめる。どちらかが外れれば終了 53。詳細は [SPEC-03 §6](03_security_gate.md#japanese)。 | 触れる（検査用のカナリアのコンテナとネットワークを作って消す） |
 | `accept` | Playwright Python の受入試験を同じ `.venv/` で実行する。`--only <シナリオ>` で一つだけ、`--seed` で使い捨ての試験利用者を作る。一件でも失敗すれば終了 60。詳細は [SPEC-04](04_acceptance_tests.md)。 | 読むだけ |
-| `upstream mirror` / `upstream integrate` | [SPEC-05](05_upstream_tracking.md) の日次ミラーと週次統合を手で動かす。非公開の `-dev2027` への Git 認証情報が要り、このリポジトリの CI では決して動かさない。 | 触れない（Git のみ） |
+| `upstream mirror` / `upstream integrate` | [SPEC-05](05_upstream_tracking.md) の日次ミラーと週次統合を手で動かす。非公開の `-dev2027` への Git 認証情報が要り、このリポジトリの CI では決して動かさない。fetch が拒まれた・失敗した、push が失敗した、マージが衝突したときは終了 70。報告はどの場合も書く。 | 触れない（Git のみ） |
 | `manifest check` / `manifest toon` | `check` は `manifest/upstreams.json` を検証し（[SPEC-01 §5](01_manifest.md#japanese)）、`docs/` 内の TOON の抄録と `manifest/upstreams.toon` がそれと一致するか確かめる。不一致は終了 20。`toon` は `upstreams.toon` が一致すべき抄録を出力する。 | 触れない |
 | `docs build` / `docs check` | `build` は MkDocs で `site/` を作る。`check` は [SPEC-06 §8](06_documentation_conventions.md#japanese) のアンカー、Jump 行、相対リンク、TOON の一致、Version 行を検査する。 | 触れない |
 | `report` | `doctor`・`plan`・`health`・`scan`・`accept` の最新の報告を `runtime/reports/<時刻>.toon` と `.json` にまとめる。 | 触れない |
@@ -321,7 +323,7 @@ ports[7]{service,host_port,profile,url}:
 ### 6. 終了コード
 
 ```toon
-exit_codes[13]{code,meaning}:
+exit_codes[14]{code,meaning}:
   0,成功
   2,指定の誤り。不明なフラグや値の形の誤り
   10,対象外のホスト。OS・CPU・メモリ、または Python が古い
@@ -335,9 +337,10 @@ exit_codes[13]{code,meaning}:
   52,サービスが健全でなく scan --dynamic を実行できない
   53,レッドチームの事前確認に失敗。外向き通信が可能、または redteam-targets.json 外の対象
   60,受入試験に失敗
+  70,上流のミラーか統合に失敗。fetch が拒まれた、push が失敗した、またはマージが衝突した
 ```
 
-番号を別の意味に使い回しません。新しい原因には新しい番号を振ります。正本は `installer/grdm_dev/messages.tsv` で、この TOON ブロックはそれと一致していなければなりません（`manifest check` が確かめます）。50〜53 の詳細は [SPEC-03 §8](03_security_gate.md#japanese) にあります。
+番号を別の意味に使い回しません。新しい原因には新しい番号を振ります。正本は `installer/grdm_dev/messages.tsv` で、この TOON ブロックはそれと一致していなければなりません（`manifest check` が確かめます）。50〜53 の詳細は [SPEC-03 §8](03_security_gate.md#japanese)、70 は [SPEC-05 §2〜§4](05_upstream_tracking.md#japanese) にあります。
 
 ### 7. 振る舞いの規則
 

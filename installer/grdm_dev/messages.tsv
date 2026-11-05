@@ -12,3 +12,4 @@ code	en	ja
 52	services not healthy, so scan --dynamic could not run	サービスが健全でないため scan --dynamic を実行できない
 53	red-team preflight failed: egress reachable or a target outside redteam-targets.json	レッドチーム事前確認に失敗: 外向き通信が可能、または redteam-targets.json 外の対象がある
 60	acceptance test failed	受入試験に失敗
+70	upstream mirror or integrate failed: fetch refused, push failed, or merge conflict	上流のミラーか統合に失敗: fetch が拒まれた、push が失敗した、またはマージが衝突した

@@ -10,20 +10,25 @@ organization. No URL is ever written to a report.
 
 1. fetch `origin` (the integration repository) so that `origin/develop` and the pushed
    `origin/upstream/*` branches are known; the local `upstream/<kind>-<branch>` ref is set to the
-   value origin has (the previous SHA);
+   value origin has (the previous SHA) — or deleted when origin does not have the branch yet, so a
+   stale local ref left by an earlier dry-run or failed push never stands in for the published state;
 2. `git fetch <source> refs/heads/<branch>:refs/heads/upstream/<kind>-<branch>` for every
    `upstreams[]` entry (merged, reference and candidate alike: rule 6 mirrors candidates too).
    The refspec has no `+`, so Git refuses a non-fast-forward: that is the force-push detection of
    SPEC-05 §1 — the old branch is kept, the row is `non-fast-forward`, the repository's action is
    `halt`, nothing is ever forced;
-3. `git push origin refs/heads/upstream/X:refs/heads/upstream/X` for each branch that moved
-   (one explicit refspec per branch, never `--force`); skipped with `--dry-run`;
+3. `git push origin refs/heads/upstream/X:refs/heads/upstream/X` for each branch whose fetched
+   SHA differs from what origin publishes (origin lacks the branch, or its SHA is older). The
+   decision is taken from the remote state, not from "did the local ref move", so a dry-run or a
+   failed push followed by a real run still publishes (one explicit refspec per branch, never
+   `--force`); skipped with `--dry-run`;
 4. per upstream: previous SHA, new SHA, commits ahead of / behind `develop`, whether `develop`
    already contains the new SHA, whether the SHA equals the one pinned in the manifest;
 5. the report (names, branches, SHAs, counts only) is written to `<report-dir>/latest.json`,
    `latest.toon` and `archive/YYYY-MM-DD.{json,toon}`; archives older than 90 days are removed.
 
-Exit 0 whether or not anything moved; exit 1 when a fetch was refused or failed, or a push failed.
+Exit 0 whether or not anything moved; exit 70 (`UPSTREAM_FAILED`, SPEC-02 §6) when a fetch was
+refused or failed, or a push failed.
 
 `upstream integrate` (SPEC-05 §3, ADR-01 §5 strict order), per component in scope — a component
 with a `public` upstream of `status: merged`. A private-only component (the five subsystems) has
@@ -41,13 +46,17 @@ Starting point rule (made explicit here and tested):
   adopted PRs are merged `--no-ff` on top. Starting again from the public tip would throw away
   every earlier integration.
 
-Merge order never changes: public (as the base, or already contained) → private → adopted PRs in
-manifest order (`refs/pull/<n>/head` of the PR's repository). Candidate upstreams and the `cos`
-reference are never merged. A conflict stops the component: the conflicted files are listed,
-`git merge --abort` runs, the row is `conflict`, exit 1. When every merge was already contained
-the branch tip equals `develop`: `no-op`, nothing pushed, no PR. Otherwise the branch is pushed
-(no force) and `gh pr create` opens the PR to `develop` with a Japanese title and body; `--dry-run`
-does the local merges only (conflicts are still detected) and pushes nothing.
+The branch is created with `git switch -c` (never `checkout -B`): a branch of that name that
+already exists on origin OR in the local clone is refused with an error, so a conflict resolution
+committed by hand on the local branch (SPEC-05 §4) is never reset. Merge order never changes:
+public (as the base, or already contained) → private → adopted PRs in manifest order
+(`refs/pull/<n>/head` of the PR's repository). Candidate upstreams and the `cos` reference are
+never merged. A conflict stops the component: the conflicted files are listed, `git merge --abort`
+runs, the row is `conflict`, exit 70. When every merge was already contained the branch tip equals
+`develop`: `no-op`, nothing pushed, no PR. Otherwise the branch is pushed (no force) and
+`gh pr create` opens the PR to `develop` with a Japanese title and body. `--dry-run` performs the
+same merges on a detached HEAD (`git switch --detach <base>`) so conflicts are still detected, but
+it creates no local branch, pushes nothing and opens no PR.
 
 Runner: `runner(argv, cwd=None) -> (returncode, stdout)`; tests inject a fake. The default
 streams child output lines to stderr while collecting them, like build.py.
@@ -65,7 +74,6 @@ from . import exit_codes, report, toon
 from .context import Context
 
 GITHUB_ORG = "RCOSDP"
-FAILED = 1  # SPEC-05 job failure (fetch refused / failed, push failed, conflict); not a SPEC-02 §6 table code
 DEFAULT_WORKDIR = "runtime/upstream"
 DEFAULT_REPORT_DIR = "docs/status/upstream"
 ARCHIVE_KEEP_DAYS = 90
@@ -168,6 +176,13 @@ def resolve_dir(ctx: Context, value: str | None, default: str) -> Path:
     return p if p.is_absolute() else ctx.root / p
 
 
+def _fail(detail: str) -> int:
+    """Exit 70 (SPEC-02 §6 `UPSTREAM_FAILED`) with the canonical message and the failure details."""
+    code = exit_codes.UPSTREAM_FAILED
+    sys.stderr.write(f"[grdm-dev] exit {code}: {exit_codes.describe(code)} — {detail}\n")
+    return code
+
+
 # --------------------------------------------------------------------------- mirror
 
 
@@ -177,7 +192,7 @@ def mirror_component(comp, workdir: Path, runner: Runner, dry_run: bool) -> dict
     dest = workdir / repo
     dev_branch = comp.integration_branch or "develop"
     entry: dict[str, Any] = {"component": comp.id, "integration_repo": repo, "develop_sha": None,
-                             "upstreams": [], "pushed": [], "action": "none", "errors": []}
+                             "upstreams": [], "to_publish": [], "pushed": [], "action": "none", "errors": []}
     rc, out = ensure_clone(repo, dest, runner)
     if rc != 0:
         entry["errors"].append(f"clone/fetch of {repo} failed (exit {rc})")
@@ -186,18 +201,22 @@ def mirror_component(comp, workdir: Path, runner: Runner, dry_run: bool) -> dict
     git = Git(runner, dest)
     develop_sha = git.rev_parse(f"refs/remotes/origin/{dev_branch}")
     entry["develop_sha"] = develop_sha
-    moved: list[str] = []
+    to_publish: list[str] = []
     halt = False
     for up in comp.upstreams:
         tracking = up.tracking_branch
         local = f"refs/heads/{tracking}"
-        previous = git.rev_parse(f"refs/remotes/origin/{tracking}")
-        if previous:
+        # "previous" is what the integration repository publishes — never a local ref: a local ref
+        # left behind by a dry-run or by a failed push is not published state (review U1)
+        remote = git.rev_parse(f"refs/remotes/origin/{tracking}")
+        previous = remote
+        if remote:
             # the local ref starts where the integration repository has it, so the fast-forward
             # check below compares the source with what was published, not with a stale local ref
-            git("update-ref", local, previous)
-        else:
-            previous = git.rev_parse(local)
+            git("update-ref", local, remote)
+        elif git.rev_parse(local):
+            # origin has no such branch: nothing is published, so nothing needs protecting
+            git("update-ref", "-d", local)
         rc, out = git("fetch", "--no-tags", repo_url(up.repo), f"refs/heads/{up.branch}:{local}")
         row: dict[str, Any] = {"branch": tracking, "kind": up.kind, "source_repo": up.repo, "source_branch": up.branch,
                                "previous_sha": previous, "sha": previous, "ahead_of_develop": None, "behind_develop": None,
@@ -217,7 +236,10 @@ def mirror_component(comp, workdir: Path, runner: Runner, dry_run: bool) -> dict
             if new != previous:
                 row["status"] = "updated" if previous else "created"
                 row["moved_since_yesterday"] = True
-                moved.append(tracking)
+            # publication is decided against the remote state (branch missing on origin, or origin's
+            # SHA differs from the fetched one), independently of the local fast-forward check above
+            if new and (remote is None or remote != new):
+                to_publish.append(tracking)
         sha = row["sha"]
         if sha:
             row["manifest_sha_matches"] = sha == up.sha
@@ -226,13 +248,15 @@ def mirror_component(comp, workdir: Path, runner: Runner, dry_run: bool) -> dict
                 row["behind_develop"] = git.count(f"{sha}..{develop_sha}")
                 row["develop_contains"] = git.is_ancestor(sha, develop_sha)
         entry["upstreams"].append(row)
-    if moved and not dry_run:
-        refspecs = [f"refs/heads/{t}:refs/heads/{t}" for t in moved]
+    entry["to_publish"] = list(to_publish)
+    if to_publish and not dry_run:
+        refspecs = [f"refs/heads/{t}:refs/heads/{t}" for t in to_publish]
         rc, out = git("push", "origin", *refspecs)
         if rc == 0:
-            entry["pushed"] = moved
+            entry["pushed"] = to_publish
         else:
-            entry["errors"].append(f"push of {len(moved)} tracking branch(es) to {repo} failed (exit {rc})")
+            entry["errors"].append(f"push of {len(to_publish)} tracking branch(es) to {repo} failed (exit {rc}); "
+                                   "the next run publishes them again")
     needs = any(r["kind"] in ("public", "private") and (r["ahead_of_develop"] or 0) > 0
                 for r, up in zip(entry["upstreams"], comp.upstreams) if up.status == "merged")
     entry["action"] = "halt" if halt else "integrate" if needs else "none"
@@ -301,8 +325,7 @@ def run_mirror(ctx: Context, args, runner: Runner, now: _dt.datetime | None = No
     out["error_details"] = errors
     report.emit(ctx, "upstream_mirror", out)
     if errors:
-        sys.stderr.write(f"[grdm-dev] exit {FAILED}: upstream mirror: {len(errors)} failure(s): " + " | ".join(errors) + "\n")
-        return FAILED
+        return _fail(f"upstream mirror: {len(errors)} failure(s): " + " | ".join(errors))
     return exit_codes.OK
 
 
@@ -371,15 +394,28 @@ def integrate_component(comp, workdir: Path, runner: Runner, as_of: _dt.date, dr
         entry["status"] = "error"
         entry["errors"].append(f"{branch} already exists in {repo}; it is never rewritten")
         return entry
+    if git.rev_parse(f"refs/heads/{branch}"):
+        # a local branch may hold a conflict resolution committed by hand (SPEC-05 §4); never reset it
+        entry["status"] = "error"
+        entry["errors"].append(f"{branch} already exists in the local clone {dest.name}; it is never rewritten "
+                               "(push or delete it by hand first)")
+        return entry
     on_develop = git.is_ancestor(public_sha, develop_sha)
     entry["mode"] = "on-develop" if on_develop else "strict"
     base = f"refs/remotes/origin/{dev_branch}" if on_develop else f"refs/remotes/origin/{public.tracking_branch}"
     entry["merges"].append({"order": 0, "ref": public.tracking_branch, "sha": public_sha,
                             "status": "contained-in-develop" if on_develop else "base"})
-    rc, out = git("checkout", "--no-track", "-B", branch, base)
+    if dry_run:
+        # preview on a detached HEAD: the merges (and their conflicts) are real, but no local branch
+        # is created, so a dry-run leaves nothing behind that a later run could reset or refuse
+        rc, out = git("switch", "--detach", base)
+    else:
+        # `switch -c` creates only; it refuses an existing branch instead of resetting it like `checkout -B`
+        rc, out = git("switch", "-c", branch, "--no-track", base)
     if rc != 0:
         entry["status"] = "error"
-        entry["errors"].append(f"could not create {branch} from {base.rsplit('/', 1)[-1]} (exit {rc})")
+        entry["errors"].append(f"could not {'detach at' if dry_run else 'create ' + branch + ' from'} "
+                               f"{base.rsplit('/', 1)[-1]} (exit {rc})")
         return entry
 
     def merge(ref: str, label: str, msg: str) -> bool:
@@ -427,7 +463,7 @@ def integrate_component(comp, workdir: Path, runner: Runner, as_of: _dt.date, dr
         entry["status"], entry["note"] = "no-op", "every source is already contained in develop; nothing to push, no PR"
         return entry
     if dry_run:
-        entry["status"], entry["note"] = "dry-run", "merged locally; push and PR skipped"
+        entry["status"], entry["note"] = "dry-run", "merged on a detached HEAD; no branch created, push and PR skipped"
         return entry
     rc, out = git("push", "origin", f"refs/heads/{branch}:refs/heads/{branch}")
     if rc != 0:
@@ -480,8 +516,7 @@ def run_integrate(ctx: Context, args, runner: Runner, now: _dt.datetime | None =
     }
     report.emit(ctx, "upstream_integrate", data)
     if errors:
-        sys.stderr.write(f"[grdm-dev] exit {FAILED}: upstream integrate: {len(errors)} failure(s): " + " | ".join(errors) + "\n")
-        return FAILED
+        return _fail(f"upstream integrate: {len(errors)} failure(s): " + " | ".join(errors))
     return exit_codes.OK
 
 
