@@ -330,7 +330,7 @@ def mask_data(data, secret_values: list[str]):
 
 def make_private_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(path, 0o700)
+    os.chmod(path, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- owner-only evidence folder (SPEC-04)
 
 
 def write_private(path: Path, text: str) -> None:
@@ -349,7 +349,7 @@ def mask_file(path: Path, secret_values: list[str]) -> None:
 def restrict_tree(run_dir: Path) -> None:
     """Directories 0700, files 0600 under the run directory (screenshots and traces included)."""
     for root, dirs, files in os.walk(run_dir):
-        os.chmod(root, 0o700)
+        os.chmod(root, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- owner-only evidence folder (SPEC-04)
         for f in files:
             p = Path(root) / f
             if not p.is_symlink():

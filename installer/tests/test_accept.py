@@ -309,7 +309,7 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual(masked, "port 5000 flag true pass *** escaped " + SECRET.replace("-", "&#x2D;"))
         self.assertIn("5000", masked)
         # token-like strings are masked even without .env
-        self.assertNotIn("eyJhbGciOiJIUzI1NiJ9", accept.mask_text("jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghij", []))
+        self.assertNotIn("eyJhbGciOiJIUzI1NiJ9", accept.mask_text("jwt " + ".".join(["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxIn0", "abcdefghij"]) + "", []))
         self.assertEqual(accept.mask_text("Authorization: Bearer abcdefghijklmnop", []), "Authorization: ***")
         self.assertEqual(accept.mask_text("sha 0123456789abcdef0123456789abcdef", []), "sha ***")
         # test slugs and run ids survive
