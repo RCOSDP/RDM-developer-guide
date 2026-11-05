@@ -21,7 +21,7 @@
 
 ### 1. Quick start
 
-Install the 2027 developer environment for GakuNin RDM with these three commands:
+Install the 2027 developer environment for GakuNin (Japan's academic identity federation) RDM with these three commands:
 
 ```bash
 git clone https://github.com/RCOSDP/RDM-developer-guide.git
@@ -31,12 +31,12 @@ cd RDM-developer-guide
 
 When the installer completes, `grdm-dev up` opens your browser at the web URL it reports. The default is `http://127.0.0.1:5000`, but if port 5000 was busy the installer chose another port and recorded it in `runtime/.env` as `GRDM_PORT_WEB`; always use the URL or port printed in the report rather than assuming 5000.
 
-> **Caveat (2026-11-06):** a complete startup of the `core` profile has not yet been verified by a recorded run. The ember-osf-web Dockerfile cannot be built with current Docker, so the manifest already runs a digest-pinned prebuilt image for that component (see §3.5 and §6). Expect the next recorded run in DEMO-20.
+> **Caveat (2026-11-06):** a complete startup of the `core` profile has not yet been verified by a recorded run. The ember-osf-web (the browser interface) Dockerfile cannot be built with current Docker, so the manifest already runs a digest-pinned prebuilt image for that component (see §3.5 and §6). Expect the next recorded run in DEMO-20.
 
 #### Prerequisites by OS
 
 - **macOS 14 or newer, Apple Silicon (arm64):** Docker Desktop installed
-- **Ubuntu 24.04, amd64 or arm64:** Docker Engine installed
+- **Ubuntu 24.04, amd64 (the Intel/AMD type of CPU; Apple Silicon is arm64) or arm64:** Docker Engine installed
 - **Windows 11 with WSL2 (Windows Subsystem for Linux 2, a way to run Ubuntu inside Windows; see [REF-01](../../reference/REF-01_Glossary.md#english)) and Ubuntu 24.04:** Docker Desktop installed
 
 > **Note:** The installer checks each prerequisite. It exits with code 10 if your host is unsupported and 11 if Docker is missing, not running, or lacks the Compose or buildx (multi-platform image builder) plugin. See [SPEC-02 §8](../../spec/02_installer_cli.md#english) for the full host list.
@@ -45,7 +45,7 @@ When the installer completes, `grdm-dev up` opens your browser at the web URL it
 
 ### 2. What you get
 
-The installer creates a self-contained environment under `runtime/` with no changes to your host network. It uses two Docker Compose networks:
+The installer creates a self-contained environment under `runtime/` with no changes to your host network. It uses two Docker Compose (the tool that starts several containers together from one file) networks:
 
 - **Internal network `grdm`** — services talk to each other using Compose service names (e.g., `web`, `api`, `postgres`). No ports are published and there is no route to the Internet.
 - **Publishing network `grdm-edge`** — the seven browser-facing services (`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`) also attach here so their ports can be published on `127.0.0.1`. Because it is an ordinary bridge network, these seven services already have outbound (egress) access; no other service does unless you grant it (§4).
@@ -134,7 +134,7 @@ Generate random secrets and write them to `runtime/.env` with mode `0600` (owner
 .venv/bin/grdm-dev secrets init
 ```
 
-**Success:** A new `runtime/.env` file appears with random database passwords, Django secret key, and CAS keys.
+**Success:** A new `runtime/.env` file appears with random database passwords, Django secret key, and CAS (the sign-in service protocol GRDM uses) keys.
 
 **Failure exit code:** `2` — usage error (e.g., missing `--force` if `runtime/.env` exists).
 
@@ -166,7 +166,7 @@ Build or pull all images:
 
 > **Real cases from DEMO-20:**
 >
-> - **modular-file-renderer:** Built with emulation (`build_platform: linux/amd64`) because `pandas==0.25.1` has no arm64 *wheel* (a prebuilt Python package file; without one, pip must compile from source, which fails on this EOL base).
+> - **modular-file-renderer (the file preview service):** Built with emulation (`build_platform: linux/amd64`) because `pandas==0.25.1` has no arm64 *wheel* (a prebuilt Python package file; without one, pip must compile from source, which fails on this EOL base).
 > - **ember-osf-web:** The source build fails on every CPU because the base image uses Docker manifest v2 schema 1, which current Docker refuses. The manifest therefore already carries a digest-pinned `prebuilt_image` for ember-osf-web, which `build` pulls instead of building; this fallback stays until M4 modernizes the Dockerfile (`manifest/upstreams.json`, DEMO-20).
 
 #### 3.6 `grdm-dev up`
@@ -202,7 +202,7 @@ Run the whole security gate of [SPEC-03](../../spec/03_security_gate.md):
 .venv/bin/grdm-dev scan
 ```
 
-Without flags, `scan` runs every part: baseline controls, the Trivy image scanner's SBOM (software bill of materials: the list of every part inside an image) and CVE list (a CVE is a public identifier for one known security weakness), the gitleaks secret scan, Semgrep (static analysis that reads source code for dangerous patterns), and the OWASP ZAP dynamic baseline (a tool that probes the running website the way an attacker would). The flags `--baseline`, `--secrets`, and `--dynamic` each run **one part only** and are *not* the whole gate:
+Without flags, `scan` runs every part: baseline controls, the Trivy (a scanner that lists known weaknesses in images) image scanner's SBOM (software bill of materials: the list of every part inside an image) and CVE list (a CVE is a public identifier for one known security weakness), the gitleaks secret scan, Semgrep (static analysis that reads source code for dangerous patterns), and the OWASP ZAP (a scanner that probes a running web application) dynamic baseline (a tool that probes the running website the way an attacker would). The flags `--baseline`, `--secrets`, and `--dynamic` each run **one part only** and are *not* the whole gate:
 
 ```bash
 .venv/bin/grdm-dev scan --baseline   # subset: baseline controls of runtime/docker-compose.yml and runtime/.env only
@@ -210,7 +210,7 @@ Without flags, `scan` runs every part: baseline controls, the Trivy image scanne
 .venv/bin/grdm-dev scan --dynamic    # subset: OWASP ZAP baseline only (needs healthy services)
 ```
 
-**Gate rule by milestone** (`manifest/milestone.json`, currently M1; [ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md)): at M1–M3 vulnerability findings are *report-only* (the run exits 0 and records them); at M4 any HIGH finding not in the allow-list is exit `50`; at M5 any CRITICAL or HIGH finding is exit `50`. Baseline-control violations (default secrets, non-loopback publishing, `privileged: true`, ...) are exit `50` at every milestone.
+**Gate rule by milestone** (`manifest/milestone.json`, currently M1; [ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md), [SPEC-03 §5](../../spec/03_security_gate.md)): at M1–M3 vulnerability findings are *report-only* (the run exits 0 and records them), but the number of allow-list entries may never grow from one milestone to the next (`manifest/allowlist.baseline.json`; a larger count exits `50`); at M4 any finding of severity HIGH **or CRITICAL** that is not in the allow-list exits `50`; at M5 every CRITICAL or HIGH finding exits `50`, allow-listed or not, and a passing AI red-team preflight is required. Baseline violations (default secrets, publishing outside loopback, `privileged: true`, a missing `grdm` internal network) exit `50` at every milestone.
 
 **Success:** Exit `0`; the report under `runtime/reports/scan_<date>.json` (plus TOON) shows the baseline controls passed and the findings for the current milestone.
 
@@ -300,7 +300,7 @@ The installer implements these controls from milestone M1 ([SPEC-03 §3](../../s
 
 - **Secrets:** All passwords and keys are generated at install time with random values, written to `runtime/.env` (mode `0600`), and never committed to Git.
 - **Network:** Services talk on an internal Compose network (`internal: true`). Browser-facing ports are published *only* on `127.0.0.1`; `health --network` verifies it.
-- **Container hardening:** Non-root user, read-only root filesystem, and `cap_drop: [ALL]` are the defaults for every service, together with resource limits (memory, CPU, process count). `privileged: true` is forbidden everywhere. A service that cannot tolerate one of the defaults (for example the PostgreSQL, RabbitMQ, or Elasticsearch images, which must write inside the image at start-up) gets a documented per-service exception in [`manifest/hardening.json`](../../../manifest/hardening.json), naming the relaxed control, the reason, the review date, and the milestone at which it is to be removed. Read-only roots therefore apply where the service tolerates them, not to every service.
+- **Container (a box that holds one program and everything it needs) hardening:** Non-root (the program does not run as the all-powerful administrator user) user, read-only root filesystem, and `cap_drop: [ALL]` are the defaults for every service, together with resource limits (memory, CPU, process count). `privileged: true` is forbidden everywhere. A service that cannot tolerate one of the defaults (for example the PostgreSQL, RabbitMQ, or Elasticsearch images, which must write inside the image at start-up) gets a documented per-service exception in [`manifest/hardening.json`](../../../manifest/hardening.json), naming the relaxed control, the reason, the review date, and the milestone at which it is to be removed. Read-only roots therefore apply where the service tolerates them, not to every service.
 - **Supply chain:** Images are pulled by digest (exact fingerprint), never a floating tag such as `latest`.
 
 > These are the requirements the installer enforces; whether a given running environment satisfies them is shown by `health --network` and `scan`, not by this guide.
@@ -317,7 +317,7 @@ The installer implements these controls from milestone M1 ([SPEC-03 §3](../../s
 
 #### Port in use (exit 12)
 
-`compose render` starts from the port you requested or the one saved in `runtime/.env` (`GRDM_PORT_<SERVICE>`; the SPEC-02 §4 default if neither exists) and searches up to 100 ports above it for a free one. Ports already held by this project's own running containers are kept. If another program holds the port, the service moves to the first free candidate, the choice is recorded as `GRDM_PORT_<SERVICE>`, and the render reports it. Exit code 12 happens only when no free alternative exists in that range.
+`compose render` starts from the port you requested or the one saved in `runtime/.env` (`GRDM_PORT_<SERVICE>`; the SPEC-02 §4 default if neither exists) and searches up to 100 ports above it for a free one. Port (a numbered door a program listens on)s already held by this project's own running containers are kept. If another program holds the port, the service moves to the first free candidate, the choice is recorded as `GRDM_PORT_<SERVICE>`, and the render reports it. Exit code 12 happens only when no free alternative exists in that range.
 
 **Fix:** Stop the other program if you want the original port back, or simply use the port `compose render` / `plan` reports.
 
@@ -565,7 +565,7 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 .venv/bin/grdm-dev scan --dynamic    # 限定: OWASP ZAP の baseline のみ（健康なサービスが必要）
 ```
 
-**節目ごとの門の規則**（`manifest/milestone.json`、現在は M1。[ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md)）: M1〜M3 では脆弱性の指摘は*報告のみ*（終了 0 で記録する）。M4 では許可リストにない HIGH が一件でもあれば終了 `50`。M5 では CRITICAL または HIGH が一件でもあれば終了 `50`。基本対策の違反（既定の秘密、ループバック以外への公開、`privileged: true` など）はどの節目でも終了 `50` です。
+**節目ごとの門の規則**（`manifest/milestone.json`、現在は M1。[ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md)、[SPEC-03 §5](../../spec/03_security_gate.md)）: M1〜M3 では脆弱性の指摘は*報告のみ*（終了 0 で記録する）だが、許容リストの件数は節目をまたいで増やしてはならない（`manifest/allowlist.baseline.json`。増えていれば終了 `50`）。M4 では許容リストにない HIGH **または CRITICAL** の指摘が一件でもあれば終了 `50`。M5 では CRITICAL か HIGH の指摘は許容リストにあっても一件で終了 `50` となり、AI レッドチームの事前確認の合格も必須。基本対策の違反（既定の秘密、ループバック以外への公開、`privileged: true`、内部ネットワーク `grdm` の欠落）はどの節目でも終了 `50`。
 
 **成功:** 終了 `0`。`runtime/reports/scan_<日付>.json`（と TOON）の報告に、基本対策の合格と現在の節目での指摘が示されます。
 
