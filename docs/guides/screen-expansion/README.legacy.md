@@ -48,7 +48,7 @@ ember-osf-webは、 [Ember.js](https://www.emberjs.com) をベースとしたOSF
 │   ├── node-cfg.js ... Node設定のエントリとなるJavaScriptファイル
 │   └── widget-cfg.js ... (*) ウィジェットのJavaScriptファイル
 ├── templates ... テンプレートディレクトリ
-│   └── node_settings.mako ... Node設定パネル
+│   └── <アドオン名>_node_settings.mako ... Node設定パネル
 ├── tests ... テストコード
 │   ├── __init__.py
 │   ├── conftest.py
