@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the module contract (`register`/`run`, injectable runner) had to be fixed before several people could implement subcommands in parallel without stepping on each other. ／ 複数人が同時にサブコマンドを実装してもぶつからないよう、モジュールの契約（`register`/`run`、差し替え可能な runner）を先に固定する必要があると分かった。
 - Related: [docs/README.md](../docs/README.md) · [SPEC-02](../docs/spec/02_installer_cli.md) · [SPEC-04](../docs/spec/04_acceptance_tests.md)
 
@@ -26,7 +27,7 @@ def register(subparsers): ...   # add a sub-parser; call set_defaults(_module=sy
 def run(ctx, args) -> int: ...  # return a code from grdm_dev.exit_codes
 ```
 
-Modules that call external tools take an injectable `runner` so unit tests never need Docker. Run tests with `python3 -m unittest discover -s installer/tests` from the repository root (set `PYTHONPATH=installer` or `pip install -e installer`).
+Modules that call external tools take an injectable `runner` so unit tests never need Docker (the tool that builds images and runs containers). Run tests with `python3 -m unittest discover -s installer/tests` from the repository root (set `PYTHONPATH=installer` or `pip install -e installer`).
 
 ---
 
@@ -46,7 +47,7 @@ def register(subparsers): ...   # サブパーサを追加し set_defaults(_modu
 def run(ctx, args) -> int: ...  # grdm_dev.exit_codes の値を返す
 ```
 
-外部の道具を呼ぶモジュールは差し替え可能な `runner` を受け取り、単体テストで Docker を要らなくする。テストはリポジトリのルートで `python3 -m unittest discover -s installer/tests`（`PYTHONPATH=installer` か `pip install -e installer`）。
+外部の道具を呼ぶモジュールは差し替え可能な `runner` を受け取り、単体テストで Docker（イメージを作りコンテナを動かす道具）を要らなくする。テストはリポジトリのルートで `python3 -m unittest discover -s installer/tests`（`PYTHONPATH=installer` か `pip install -e installer`）。
 
 ---
 

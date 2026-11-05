@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 1.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 1.1 — 2026-11-05. **Learned:** an address quoted as a "never write this" example is still published; the rule has to be stated in words without the address. ／ 「書いてはいけない例」として載せたアドレスも公開になる。規則はアドレスを含めず言葉で書かなければならないと分かった。
 - Version / 版: 1.0 — 2026-11-05. **Learned:** the manifest must be exact because "the latest" is ambiguous; only pinned SHAs define what "consistent" means. ／ 「最新」は曖昧なので、正確なマニフェストが必要です。SHA を固定して初めて「矛盾なく」が定義できます。
 
@@ -17,11 +18,11 @@
 
 ### What is upstreams.json?
 
-`manifest/upstreams.json` is the canonical file that tells the installer exactly which repositories to combine and at which commit SHA each should be pinned. It is JSON (UTF-8, two-space indent, keys sorted).
+`manifest/upstreams.json` is the canonical file that tells the installer exactly which repositories to combine and at which commit SHA (the fingerprint of one commit) each should be pinned. It is JSON (UTF-8, two-space indent, keys sorted).
 
 ### What is upstreams.toon?
 
-`manifest/upstreams.toon` is a human-readable excerpt of the manifest in TOON format (a compact, indentation-based text form of JSON that both people and AI read easily). It is generated automatically from `upstreams.json` by running:
+`manifest/upstreams.toon` is a human-readable excerpt of the manifest in TOON (a compact, indentation-based text form of JSON that both people and AI read easily) format. It is generated automatically from `upstreams.json` by running:
 
 ```sh
 grdm-dev manifest toon
@@ -35,8 +36,8 @@ The manifest is updated by opening a pull request:
 
 1. Update `upstreams.json` with the new SHA values for each upstream repository.
 2. Run `grdm-dev manifest toon` to regenerate `upstreams.toon`.
-3. Commit both files.
-4. Open a PR with the changes.
+3. Commit (save the change with a message saying why; see [REF-01](../docs/reference/REF-01_Glossary.md)) both files.
+4. Open a PR (pull request: a proposed change waiting for review) with the changes.
 
 Changes follow [SPEC-01](../docs/spec/01_manifest.md) rules.
 Always run `tools/manifest_check.py` before committing to verify correctness.
@@ -49,7 +50,7 @@ This repository is public. The manifest contains **repository names and SHAs onl
 - Do not write the address of a private repository in any form: no web address, no Git clone address, and not even as an example of what to avoid. Write only its name.
 - Do not write access tokens, API keys, or passwords.
 
-`tools/manifest_check.py` rejects a `repo` or `integration_repo` value that looks like an address ([SPEC-01 §4](../docs/spec/01_manifest.md#english), rule 5), and the CI secret scanner (`gitleaks`) fails the PR if it finds secret-like content.
+`tools/manifest_check.py` rejects a `repo` or `integration_repo` value that looks like an address ([SPEC-01 §4](../docs/spec/01_manifest.md#english), rule 5), and the CI (continuous integration: automatic checks on every change) secret scanner (`gitleaks`) fails the PR if it finds secret-like content.
 
 ### How to run the validation tool
 
@@ -71,7 +72,7 @@ Exit code:
 
 ### upstreams.json とは？
 
-`manifest/upstreams.json` は、インストーラーに「どのリポジトリを、どのコミット SHA で組むか」を正確に伝える正本ファイルです。JSON（UTF-8、字下げ 2 つ、キーは並べ替え済み）で書きます。
+`manifest/upstreams.json` は、インストーラーに「どのリポジトリを、どのコミット SHA（コミット一つの指紋）で組むか」を正確に伝える正本ファイルです。JSON（UTF-8、字下げ 2 つ、キーは並べ替え済み）で書きます。
 
 ### upstreams.toon とは？
 
@@ -89,8 +90,8 @@ grdm-dev manifest toon
 
 1. `upstreams.json` を上流リポジトリの新しい SHA で更新する。
 2. `grdm-dev manifest toon` を実行して `upstreams.toon` を再生成する。
-3. 両方のファイルをコミットする。
-4. 変更内容の PR を開く。
+3. 両方のファイルをコミット（理由を添えて保存。[REF-01](../docs/reference/REF-01_Glossary.md)）する。
+4. 変更内容の PR（プルリクエスト。レビュー待ちの変更の提案）を開く。
 
 変更は [SPEC-01](../docs/spec/01_manifest.md) の規則に従います。コミットする前に `tools/manifest_check.py` を実行して正しいか検証してください。
 
@@ -102,7 +103,7 @@ grdm-dev manifest toon
 - 非公開リポジトリのアドレスは、どんな形でも書かない。Web のアドレスも、Git のクローン用アドレスも、「書いてはいけない例」としても書かない。名前だけを書く。
 - アクセストークン、API キー、パスワードを書かない。
 
-`tools/manifest_check.py` はアドレスの形をした `repo` や `integration_repo` の値を不正とし（[SPEC-01 §4](../docs/spec/01_manifest.md#japanese) の規則 5）、CI の秘密スキャナー（`gitleaks`）は秘密に見える内容を見つけると PR を不合格にします。
+`tools/manifest_check.py` はアドレスの形をした `repo` や `integration_repo` の値を不正とし（[SPEC-01 §4](../docs/spec/01_manifest.md#japanese) の規則 5）、CI（continuous integration。変更ごとに自動で走る検査）の秘密スキャナー（`gitleaks`）は秘密に見える内容を見つけると PR を不合格にします。
 
 ### 検査ツールの実行方法
 

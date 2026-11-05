@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.5 — 2026-11-06. **Learned:** a subsystem scenario written as one sentence per case cannot be implemented without guessing; naming the user, the port variable, the path and the exact status in the table turned the five M3 stubs into tests whose only unknowns are selectors, and showed that three subsystems have no browser-facing port yet. ／ 一ケース一文で書いたサブシステムのシナリオは推測なしに実装できない。表に利用者・ポート変数・パス・正確なステータスを書くことで、五つの M3 の骨格はセレクタだけが未知の試験になり、三つのサブシステムにまだブラウザ向けポートがないことも分かった。
   0.4 — 2026-11-05. **Learned:** a browser trace is raw evidence that can carry cookies and response bodies, so it cannot live under the public evidence folder; it is off by default and quarantined under `runtime/` when requested (PR #21 review r2, R2-01). ／ ブラウザのトレースは cookie や応答本文を含み得る生の証跡なので、公開される証跡フォルダには置けない。既定では記録せず、求められたときだけ `runtime/` 配下に隔離する（PR #21 レビュー r2、R2-01）。
   0.3 — 2026-11-05. **Learned:** downloading a browser inside a test run would make the run depend on the network, so installation is a separate, explicit step and `accept` only checks for it. ／ 試験の実行中にブラウザをダウンロードすると実行がネットワークに依存するため、導入は別の明示的な手順にし、`accept` は有無を確かめるだけにする。
@@ -26,7 +27,7 @@ Acceptance tests drive a real browser against the environment that [SPEC-02](02_
 
 - Location: `installer/acceptance/`, one file per scenario, named `test_<scenario>.py`.
 - Runner: `grdm-dev accept [--profile ...] [--only <scenario>] [--json]`. It runs `pytest` inside the same `.venv/` that `install.sh` created ([SPEC-02 §2.2](02_installer_cli.md#english)) and exits 60 if any test fails.
-- Browsers: `grdm-dev accept` checks that Chromium is present under `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` and, if not, exits 2 and prints the exact install command (`pip install -e "installer[accept]"` then `playwright install chromium` with that variable). The download is a one-time setup step, never part of a test run. Nothing is installed outside the venv.
+- Browsers: `grdm-dev accept` checks that Chromium is present under `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` and, if not, exits 2 and prints the exact install command (`pip install -e "installer[accept]"` then `playwright install chromium` with that variable). The download is a one-time setup step, never part of a test run. Nothing is installed outside the venv (a private box of Python tools for one project).
 - Target URL: always `http://127.0.0.1:<port>` as published by `compose render` ([ADR-02](../decisions/ADR-02_Network_Model.md); defaults in the ports table of [SPEC-02 §4](02_installer_cli.md#2-en-ports)). Tests read the ports from `runtime/.env` (`GRDM_PORT_<SERVICE>`); they never hard-code them.
 
 ### 2. Test tiers
@@ -73,13 +74,13 @@ subsystem_scenarios[5]{id,subsystem,success_case,rejection_case,services,prerequ
   S5,Shibboleth-SP via test IdP,"mock-user-01 (eduPersonAffiliation member) : web /login?campaign=institution -> SP -> test IdP form -> SAML POST -> GRDM dashboard served by web; osf cookie set; /v2/users/me/institutions/ includes MOCK Institution","mock-user-noaff (eduPersonAffiliation affiliate only) -> the SP RequestMap answers 403 with its error page; no osf cookie; API /v2/users/me/ -> 401","web shibboleth_sp test_idp","--auth shibboleth render (GRDM_AUTH=shibboleth in runtime/.env; fakecas absent); mock users from installer/acceptance/fixtures/idp/mock_users.json; ADR-05"
 ```
 
-The table is the contract of `installer/acceptance/test_s1_y_websocket.py` … `test_s5_shibboleth.py`. Until M3 the five files carry `skip(reason="M3")` and `TODO(M3)` marks on every locator and path that has not been seen on the real subsystem; the success and rejection logic is written in full so that M3 only verifies selectors. Services without a host port today (`rdmcp`, `aipf_mcp_data_grdm`, `oasys`) get one in their template at M3; a test whose port is missing from `runtime/.env` skips with that exact reason instead of failing on a wrong URL. The test IdP and its mock-attribute rule are decided in [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md).
+The table is the contract of `installer/acceptance/test_s1_y_websocket.py` … `test_s5_shibboleth.py`. Until M3 the five files carry `skip(reason="M3")` and `TODO(M3)` marks on every locator and path that has not been seen on the real subsystem; the success and rejection logic is written in full so that M3 only verifies selectors. Services without a host port today (`rdmcp`, `aipf_mcp_data_grdm`, `oasys`) get one in their template at M3; a test whose port is missing from `runtime/.env` skips with that exact reason instead of failing on a wrong URL. The test IdP (identity provider: the server that checks who you are when you log in) and its mock-attribute rule are decided in [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md).
 
 **MCP** (Model Context Protocol) is a standard way for an AI assistant to ask a service for tools and data; `rdmcp` and `aipf_mcp_data_grdm` expose GRDM through it. Their tests use an HTTP client in the same `pytest` session, not a browser.
 
 #### 5.1 Shibboleth scenario
 
-With `compose render --profile full --auth shibboleth` ([SPEC-02 §4](02_installer_cli.md#2-en-ports)) `fakecas` is removed and a bundled test *IdP* (identity provider: the server that checks who you are, like a university login page) answers for the *SP* (service provider: the part of GRDM that trusts the IdP). Mock attributes used by the test IdP (names like `Test User 01`, `test01@idp.test`) live only in `installer/acceptance/fixtures/idp/` and are clearly labeled `MOCK`; they never resemble real institution attributes, as [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) requires for separating mock and real data.
+With `compose render --profile full --auth shibboleth` ([SPEC-02 §4](02_installer_cli.md#2-en-ports)) `fakecas` is removed and a bundled test *IdP* (identity provider: the server that checks who you are, like a university login page) answers for the *SP* (service provider: the part of GRDM that trusts the IdP) through Shibboleth (the software that makes SAML login work for universities). Mock attributes used by the test IdP (names like `Test User 01`, `test01@idp.test`) live only in `installer/acceptance/fixtures/idp/` and are clearly labeled `MOCK`; they never resemble real institution attributes, as [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) requires for separating mock and real data.
 
 ```mermaid
 sequenceDiagram
@@ -119,7 +120,7 @@ evidence:
   trace: "off by default. With --trace, Playwright trace zips are retained only on failure and moved to runtime/reports/quarantine/<run_id>/ (0700, git-ignored, raw: may hold cookies and bodies). Any zip left under docs/demo/runs/ is sanitized member by member"
 ```
 
-`grdm-dev report` ([SPEC-02 §3](02_installer_cli.md#english)) copies `results.toon` into the bundle. The demo document for the milestone (`docs/demo/20_core_install_mac_studio.md` and similar) links to the run folder; the TOON in the document must agree with `results.json` (`docs check`).
+`grdm-dev report` ([SPEC-02 §3](02_installer_cli.md#english)) copies `results.toon` into the bundle. The demo document for the milestone (`docs/demo/20_core_install_mac_studio.md` and similar) links to the run folder; the TOON (a compact text form of JSON) in the document must agree with `results.json` (`docs check`).
 
 ### 8. Pass criteria per milestone
 
@@ -130,9 +131,9 @@ evidence:
 | M4 | M3, unchanged after Python 3.13 migration | Mac Studio arm64 | Acceptance is the regression gate for the port |
 | M5 | M4 plus [SPEC-03](03_security_gate.md) final gate | Mac Studio arm64 and Ubuntu 24.04 amd64 | Full acceptance on both architectures |
 
-A milestone is not passed by the author of the change. The QAE role runs `grdm-dev accept` and records the run id in `docs/status/`; the owner approves ([SPEC-00](00_overview.md)).
+A milestone is not passed by the author of the change. The QAE (QA engineer) role runs `grdm-dev accept` and records the run id in `docs/status/`; the owner approves ([SPEC-00](00_overview.md)).
 
-The Mac Studio self-hosted runner is registered only with the private `-dev2027` repositories, never with this public repository ([REF-01](../reference/REF-01_Glossary.md)). The `acceptance-arm64` workflow therefore runs there, and the QAE brings the run folder into `docs/demo/runs/` here through a PR.
+The Mac Studio self-hosted runner is registered only with the private `-dev2027` repositories, never with this public repository ([REF-01](../reference/REF-01_Glossary.md)). The `acceptance-arm64` workflow therefore runs there, and the QAE brings the run folder into `docs/demo/runs/` here through a PR (pull request).
 
 ---
 
@@ -147,7 +148,7 @@ The Mac Studio self-hosted runner is registered only with the private `-dev2027`
 
 - 置き場: `installer/acceptance/`。シナリオごとに一ファイル、名前は `test_<シナリオ>.py`。
 - 実行器: `grdm-dev accept [--profile ...] [--only <シナリオ>] [--json]`。`install.sh` が作った同じ `.venv/` の中で `pytest` を動かし（[SPEC-02 §2.2](02_installer_cli.md#japanese)）、一件でも失敗すれば終了 60。
-- ブラウザ: `grdm-dev accept` は `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` に Chromium があるかを確かめ、なければ終了コード 2 で導入コマンド（`pip install -e "installer[accept]"` のあと同じ変数を付けて `playwright install chromium`）をそのまま表示する。ダウンロードは一度だけの準備であり、試験の実行には含めない。venv の外には何も入れない。
+- ブラウザ: `grdm-dev accept` は `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` に Chromium があるかを確かめ、なければ終了コード 2 で導入コマンド（`pip install -e "installer[accept]"` のあと同じ変数を付けて `playwright install chromium`）をそのまま表示する。ダウンロードは一度だけの準備であり、試験の実行には含めない。venv（プロジェクトごとの Python 道具箱）の外には何も入れない。
 - 対象 URL: 常に `compose render` が公開した `http://127.0.0.1:<ポート>`（[ADR-02](../decisions/ADR-02_Network_Model.md)。既定値は [SPEC-02 §4](02_installer_cli.md#2-ja-ports) のポート表）。ポートは `runtime/.env`（`GRDM_PORT_<SERVICE>`）から読み、決め打ちしない。
 
 ### 2. 試験の段
@@ -194,13 +195,13 @@ subsystem_scenarios[5]{id,subsystem,success_case,rejection_case,services,prerequ
   S5,テスト IdP 経由の Shibboleth-SP,"mock-user-01（eduPersonAffiliation に member）: web /login?campaign=institution -> SP -> テスト IdP のフォーム -> SAML POST -> web が出す GRDM ダッシュボード。osf cookie あり。/v2/users/me/institutions/ に MOCK Institution","mock-user-noaff（eduPersonAffiliation は affiliate のみ）-> SP の RequestMap がエラー画面で 403。osf cookie なし。API /v2/users/me/ -> 401","web shibboleth_sp test_idp","--auth shibboleth での描画（runtime/.env に GRDM_AUTH=shibboleth。fakecas なし）。模擬利用者は installer/acceptance/fixtures/idp/mock_users.json。ADR-05"
 ```
 
-この表が `installer/acceptance/test_s1_y_websocket.py` 〜 `test_s5_shibboleth.py` の契約です。M3 までは五つのファイルが `skip(reason="M3")` を持ち、実機のサブシステムで未確認のロケータとパスに `TODO(M3)` を付けます。成功と拒否の論理は全部書いてあり、M3 ではセレクタの確認だけをします。今日ホスト側ポートを持たないサービス（`rdmcp`、`aipf_mcp_data_grdm`、`oasys`）は M3 でテンプレートにポートを得ます。`runtime/.env` にポートがない試験は、誤った URL で失敗するのでなく、その理由を書いてスキップします。テスト IdP と模擬属性の規則は [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md) で決めます。
+この表が `installer/acceptance/test_s1_y_websocket.py` 〜 `test_s5_shibboleth.py` の契約です。M3 までは五つのファイルが `skip(reason="M3")` を持ち、実機のサブシステムで未確認のロケータとパスに `TODO(M3)` を付けます。成功と拒否の論理は全部書いてあり、M3 ではセレクタの確認だけをします。今日ホスト側ポートを持たないサービス（`rdmcp`、`aipf_mcp_data_grdm`、`oasys`）は M3 でテンプレートにポートを得ます。`runtime/.env` にポートがない試験は、誤った URL で失敗するのでなく、その理由を書いてスキップします。テスト IdP（アイデンティティプロバイダ。ログインのときに「あなたが誰か」を確かめるサーバ）と模擬属性の規則は [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md) で決めます。
 
 **MCP**（Model Context Protocol）は、AI アシスタントがサービスに道具とデータを尋ねるための共通の決まりです。`rdmcp` と `aipf_mcp_data_grdm` は GRDM をこの決まりで公開します。これらの試験はブラウザでなく、同じ `pytest` セッション内の HTTP クライアントで行います。
 
 #### 5.1 Shibboleth のシナリオ
 
-`compose render --profile full --auth shibboleth`（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）では `fakecas` を外し、同梱したテスト用 *IdP*（アイデンティティプロバイダ。大学のログイン画面のように「あなたが誰か」を確かめるサーバ）が *SP*（サービスプロバイダ。IdP を信頼する GRDM 側の部品）に応えます。テスト IdP の模擬属性（`Test User 01`、`test01@idp.test` のような名前）は `installer/acceptance/fixtures/idp/` にだけ置き、`MOCK` と明記します。実在の機関の属性に似せてはならず、模擬と実データの分離は [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) の要求どおりです。
+`compose render --profile full --auth shibboleth`（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）では `fakecas` を外し、同梱したテスト用 *IdP*（アイデンティティプロバイダ。大学のログイン画面のように「あなたが誰か」を確かめるサーバ）が *SP*（サービスプロバイダ。IdP を信頼する GRDM 側の部品）に Shibboleth（大学向けに SAML ログインを動かすソフト）経由で応えます。テスト IdP の模擬属性（`Test User 01`、`test01@idp.test` のような名前）は `installer/acceptance/fixtures/idp/` にだけ置き、`MOCK` と明記します。実在の機関の属性に似せてはならず、模擬と実データの分離は [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) の要求どおりです。
 
 ```mermaid
 sequenceDiagram
@@ -240,7 +241,7 @@ evidence:
   trace: "既定では記録しない。--trace のときだけ失敗時に Playwright のトレース zip を残し、runtime/reports/quarantine/<run_id>/（0700、git 管理外、生データで cookie や本文を含み得る）へ隔離する。docs/demo/runs/ に残った zip はメンバー単位で無害化する"
 ```
 
-`grdm-dev report`（[SPEC-02 §3](02_installer_cli.md#japanese)）が `results.toon` を束に写します。節目の実証文書（`docs/demo/20_core_install_mac_studio.md` およびその類）は実行フォルダへリンクし、文書内の TOON は `results.json` と一致していなければなりません（`docs check`）。
+`grdm-dev report`（[SPEC-02 §3](02_installer_cli.md#japanese)）が `results.toon` を束に写します。節目の実証文書（`docs/demo/20_core_install_mac_studio.md` およびその類）は実行フォルダへリンクし、文書内の TOON（JSON を短く書いた文字の形）は `results.json` と一致していなければなりません（`docs check`）。
 
 ### 8. 節目ごとの合格基準
 
@@ -253,7 +254,7 @@ evidence:
 
 節目の合格は変更の作者が判定しません。QAE（QA担当）の役割が `grdm-dev accept` を実行し、実行 ID を `docs/status/` に記録し、所有者が承認します（[SPEC-00](00_overview.md)）。
 
-Mac Studio のセルフホストランナーは非公開の `-dev2027` リポジトリにだけ登録し、公開のこのリポジトリには登録しません（[REF-01](../reference/REF-01_Glossary.md)）。そのため `acceptance-arm64` ワークフローはそちらで動き、QAE が実行フォルダを PR でこのリポジトリの `docs/demo/runs/` へ持ち込みます。
+Mac Studio のセルフホストランナーは非公開の `-dev2027` リポジトリにだけ登録し、公開のこのリポジトリには登録しません（[REF-01](../reference/REF-01_Glossary.md)）。そのため `acceptance-arm64` ワークフローはそちらで動き、QAE が実行フォルダを PR（プルリクエスト）でこのリポジトリの `docs/demo/runs/` へ持ち込みます。
 
 ---
 

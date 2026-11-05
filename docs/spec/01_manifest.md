@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.5 — 2026-11-05. **Learned:** the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned `prebuilt_image` fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた `note` を伴うダイジェスト固定の `prebuilt_image` が部品ごとに要る。
   0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
   0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
@@ -36,7 +37,7 @@ The installer reads the manifest and nothing else to decide what to build. If a 
 
 The excerpt contains the top-level fields and, for every component, `id`, `role`, `integration_repo`, `profile`, every field of `upstreams[]`, and `adopted_prs[]` reduced to `repo`, `number`, `status`. It omits `candidate_prs`, images, services, and platforms. Other files under `manifest/` (`allowlist.json`, `allowlist.baseline.json`, `milestone.json`, `hardening.json`, `redteam-targets.json`) are defined by [SPEC-03](03_security_gate.md); their file list is in [SPEC-02 §9](02_installer_cli.md#english).
 
-> **Warning:** This repository is public. The manifest contains **repository names and SHAs only**. It never contains URLs to private repositories, access tokens, or code fragments from `-private` repositories. The CI secret scan fails the PR if it finds any.
+> **Warning:** This repository is public. The manifest contains **repository names and SHAs only**. It never contains URLs to private repositories, access tokens, or code fragments from `-private` repositories. The CI (continuous integration: automatic checks on every change) secret scan fails the PR (pull request: a proposed change waiting for review) if it finds any.
 
 ### 3. Schema
 
@@ -96,7 +97,7 @@ The all-zero SHAs above are placeholders for the example only; a real manifest n
 
 ### 4. Rules
 
-1. **SHAs are pinned.** Every `upstreams[].sha` is a real 40-character commit that exists on the named branch at `fetched_at`. Branch names alone are never enough.
+1. **SHAs are pinned.** Every `upstreams[].sha` is a real 40-character commit that exists on the named branch at `fetched_at`. Branch (a separate line of work in a repository) names alone are never enough.
 2. **A change to the manifest is a PR.** Nobody edits `upstreams.json` on `develop` directly. The weekly integration PR ([SPEC-05 §3](05_upstream_tracking.md#3-weekly-integration-pr)) is the normal way SHAs move. Adopting or rejecting a PR is also a manifest PR, with the `reason` filled in.
 3. **Integration order is fixed:** merge the `public` upstream with `status: merged`, then the `private` one, then apply `adopted_prs` in list order. A component that has no `public` upstream (the private subsystems) starts from its `private` upstream. The `cos` upstream (`status: reference`) is never merged; it is compared.
 4. **"Consistent" (矛盾なく) means all of the following:**
@@ -168,7 +169,7 @@ checks[13]{id,rule,severity}:
 
 抄録には、最上位の項目と、各部品の `id`・`role`・`integration_repo`・`profile`、`upstreams[]` の全項目、そして `repo`・`number`・`status` に絞った `adopted_prs[]` を載せます。`candidate_prs`、イメージ、サービス、platform は載せません。`manifest/` の下のほかのファイル（`allowlist.json`、`allowlist.baseline.json`、`milestone.json`、`hardening.json`、`redteam-targets.json`）は [SPEC-03](03_security_gate.md) が定め、一覧は [SPEC-02 §9](02_installer_cli.md#japanese) にあります。
 
-> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI の秘密スキャンが見つけたら PR は不合格です。
+> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI（continuous integration。変更ごとに自動で走る検査）の秘密スキャンが見つけたら PR は不合格です。
 
 ### 3. 形（スキーマ）
 
@@ -228,7 +229,7 @@ components[1]:
 
 ### 4. 規則
 
-1. **SHA を固定する。** すべての `upstreams[].sha` は、`fetched_at` の時点でそのブランチに実在する 40 文字のコミットです。ブランチ名だけでは足りません。
+1. **SHA を固定する。** すべての `upstreams[].sha` は、`fetched_at` の時点でそのブランチに実在する 40 文字のコミットです。ブランチ（リポジトリの中の別の作業の道）名だけでは足りません。
 2. **マニフェストの変更は PR で行う。** `develop` 上の `upstreams.json` を直接編集する人はいません。SHA が進む通常の経路は週次の統合 PR（[SPEC-05 §3](05_upstream_tracking.md#3-週次の統合-pr)）です。PR の採用・却下もマニフェストの PR で、`reason` を書きます。
 3. **統合の順番は固定:** `status: merged` の `public` の上流をマージ、次に `private` の上流をマージ、最後に `adopted_prs` を並び順に適用。`public` の上流がない部品（非公開サブシステム）は `private` の上流から始めます。`cos` の上流（`status: reference`）はマージせず、比較だけに使います。
 4. **「矛盾なく」とは次のすべてを満たすこと:**

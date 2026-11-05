@@ -34,7 +34,8 @@ Checks on `full` files (failure => exit 1):
 
 Warnings (printed, never fail; SPEC-06 says warning until M2):
   - a REF-01 glossary term used in the English half without a parenthetical note
-    on its first occurrence
+    on its first occurrence. Files under docs/reviews/ are exempt from this
+    warning: review records are kept verbatim (SPEC-06 §8).
 
 Exit codes: 0 pass (warnings allowed); 1 any failure; 2 usage error.
 """
@@ -54,6 +55,7 @@ EXIT_FAIL = 1
 EXIT_USAGE = 2
 
 GLOSSARY_PATH = Path("docs/reference/REF-01_Glossary.md")
+GLOSSARY_EXEMPT_PREFIXES = ("docs/reviews/",)  # review records are kept verbatim (SPEC-06 §8)
 
 POINTER_FILES: dict[str, str] = {
     "Environment.md": "old path of the environment guide; redirect to docs/guides/environment/",
@@ -334,6 +336,13 @@ def check_glossary_terms(content: str, rel: str, terms: list[str]) -> list[str]:
     return warnings
 
 
+def glossary_check_applies(rel: str) -> bool:
+    """The glossary-note warning skips REF-01 itself and review records (docs/reviews/, kept verbatim)."""
+    if rel == str(GLOSSARY_PATH):
+        return False
+    return not rel.startswith(GLOSSARY_EXEMPT_PREFIXES)
+
+
 def check_pointer_file(content: str, rel: str, root: Path) -> list[str]:
     errors = check_links(content, rel, root)
     if not re.search(r"\]\(\s*<?[^)\s>]*docs/guides/", content):
@@ -361,7 +370,7 @@ def check_file(rel: str, root: Path, terms: list[str]) -> FileResult:
     result.errors.extend(check_version_line(content, rel))
     result.errors.extend(check_links(content, rel, root))
     result.errors.extend(check_toon_parity(content, rel, root))
-    if rel != str(GLOSSARY_PATH):
+    if glossary_check_applies(rel):
         result.warnings.extend(check_glossary_terms(content, rel, terms))
     return result
 

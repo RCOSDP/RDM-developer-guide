@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.3 — 2026-11-06. **Learned:** PR #23 review r1 showed three ways a "safe" automation silently stops being safe: a publish decision taken from "did my local ref move" skips publication after a dry-run or a failed push, so it must be taken from the remote state; `checkout -B` turns a rerun into a reset of hand-made conflict resolutions, so branch creation must refuse an existing local branch and a dry-run must leave no branch; and a report generated before the status branch is checked out blocks the checkout and a failed run never publishes its report, so the status checkout comes first and publication runs `always()`. The job's failure also needs a canonical exit code (70) rather than a bare 1. ／ PR #23 レビュー r1 で、「安全な」自動化が黙って安全でなくなる三つの経路が分かった。「ローカルの参照が動いたか」で公開を決めると dry-run や push 失敗の後に公開されないので、公開はリモートの状態から決める。`checkout -B` は再実行を手作業の衝突解決のリセットに変えるので、ブランチ作成はローカルの既存ブランチを拒み、dry-run はブランチを残さない。status ブランチの checkout より前に報告を生成すると checkout を妨げ、失敗した実行は報告を公開しないので、status の checkout を先に用意し公開は `always()` で行う。ジョブの失敗にも素の 1 でなく正本の終了コード（70）が要る。
   0.2 — 2026-11-06. **Learned:** writing the mirror showed that a non-forced `git fetch src:dst` refspec is itself the force-push detector, that the tracking branches of the integration repository (not a local clone) are the only trustworthy "previous SHA", and that the strict reconstruction of ADR-01 §5 needs an explicit second case — once `develop` already contains the public tip, the weekly branch must start at `develop`, or every earlier integration would be discarded. ／ ミラーを実装して分かったこと: `+` を付けない `git fetch src:dst` の refspec がそのまま force push の検出器になる。「昨日の SHA」として信じられるのは統合リポジトリ側の追跡ブランチだけで、ローカルの写しではない。ADR-01 §5 の厳密再構築には第二の場合を明示する必要がある — `develop` が既に公開先端を含むなら週次ブランチは `develop` から始めなければ、それまでの統合を全部捨ててしまう。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the 2026-11-05 survey found eleven upstreams that moved on five different days in one week; without a daily mirror and a weekly merge the integration branch would drift into large, unreviewable conflicts. ／ 2026-11-05 の調査で、上流 11 本が一週間に 5 つの異なる日に動いていた。日次ミラーと週次マージが無ければ、統合ブランチは大きくレビュー不能な衝突にはまると分かった。
@@ -35,12 +36,12 @@ A component has only the branches its manifest entry lists: the five private sub
 Rules that never bend:
 
 - `upstream/*` branches are **written only by the mirror job**. No human and no agent commits to them.
-- `upstream/*` branches are **never rewritten**. The mirror job fast-forwards; if the source itself was force-pushed, the job keeps the old branch, reports `non-fast-forward` / `halt`, and exits 70 ([SPEC-02 §6](02_installer_cli.md#english)) so the workflow fails visibly; the AID agent opens an issue from that failure.
-- Nobody **force-pushes** anywhere in a `-dev2027` repository. Branch protection on `develop` enforces this.
+- `upstream/*` branches are **never rewritten**. The mirror job fast-forwards; if the source itself was force-pushed, the job keeps the old branch, reports `non-fast-forward` / `halt`, and exits 70 ([SPEC-02 §6](02_installer_cli.md#english)) so the workflow fails visibly; the AID (AI developer role) agent opens an issue from that failure.
+- Nobody **force-pushes** anywhere in a `-dev2027` repository. Branch protection on `develop` enforces this (Branch protection is a GitHub rule that rejects force-pushes and deletions on one branch; [REF-01](../reference/REF-01_Glossary.md) explains the term).
 
 ### 2. Daily job: mirror and diff report
 
-The `upstream-mirror` workflow runs once a day (03:00 JST) in each `-dev2027` repository, and can be run by hand with `grdm-dev upstream mirror [--component <id>] [--workdir runtime/upstream] [--report-dir docs/status/upstream] [--dry-run]` ([SPEC-02](02_installer_cli.md)). The workflow template that a `-dev2027` repository adopts is `installer/grdm_dev/templates/workflows/upstream-mirror.yml`; it is not a workflow of this repository, because this repository's CI never holds credentials for the private repositories.
+The `upstream-mirror` workflow runs once a day (03:00 JST) in each `-dev2027` repository, and can be run by hand with `grdm-dev upstream mirror [--component <id>] [--workdir runtime/upstream] [--report-dir docs/status/upstream] [--dry-run]` ([SPEC-02](02_installer_cli.md)). The workflow template that a `-dev2027` repository adopts is `installer/grdm_dev/templates/workflows/upstream-mirror.yml`; it is not a workflow of this repository, because this repository's CI (continuous integration: the automatic checks on every change) never holds credentials for the private repositories.
 
 For every component with an `integration_repo` (private subsystems included; infra components have none):
 
@@ -48,7 +49,7 @@ For every component with an `integration_repo` (private subsystems included; inf
 2. For each `upstreams[]` entry — merged, reference and candidate alike ([SPEC-01 §4](01_manifest.md#4-rules) rule 6) — set the local `tracking_branch` to the value the integration repository has (the *previous SHA*) — or delete the local ref when the integration repository does not have the branch yet, so that a ref left behind by an earlier `--dry-run` or by a failed push never stands in for the published state — then `git fetch <source> refs/heads/<branch>:refs/heads/<tracking_branch>`. The refspec carries no `+`, so Git refuses a non-fast-forward: that refusal is the force-push detection of §1. The old branch is kept, the row is `non-fast-forward`, the repository's `action` is `halt`, and the job exits 70. Nothing is ever forced.
 3. Push every tracking branch whose fetched SHA differs from what the integration repository publishes (the branch is missing there, or its SHA is older), with one explicit refspec each, `git push origin refs/heads/upstream/X:refs/heads/upstream/X`, never `--force`. The decision is taken from the remote state, never from "did the local ref move": a `--dry-run` or a failed push followed by a real run therefore still publishes. The report lists the branches selected (`to_publish`) and those actually pushed (`pushed`). `--dry-run` fetches and reports but pushes nothing.
 4. Compare each tracking branch with `develop` (`ahead_of_develop`, `behind_develop`, `develop_contains`) and with the SHA pinned in the manifest ([SPEC-01](01_manifest.md), `manifest_sha_matches`).
-5. Write the diff report. The workflow then commits it to the bot branch `status/upstream` of this public repository, from which a daily PR brings it into `develop`; the CLI itself only writes the files.
+5. Write the diff report. The workflow then commits it to the bot branch `status/upstream` of this public repository, from which a daily PR (pull request) brings it into `develop`; the CLI itself only writes the files.
 
 Exit code: 0 whether or not anything moved; 70 (`UPSTREAM_FAILED`, [SPEC-02 §6](02_installer_cli.md#english), canonical message in `messages.tsv`) when a fetch was refused (`non-fast-forward`) or failed, or a push failed. The report is written in every case, so a failure is visible in it; the workflow template publishes the report with `if: always()`, so a failed run's report reaches the status branch too, while the job itself still fails.
 
@@ -122,7 +123,7 @@ sequenceDiagram
 Steps in words, as `grdm-dev upstream integrate [--component <id>] [--date YYYYMMDD] [--dry-run]` performs them for every component **in scope** — a component with a `public` upstream of `status: merged` ([ADR-01 §5](../decisions/ADR-01_Integration_Repository_Placement.md)). A private-only component (the five subsystems) has nothing to reconstruct: its `develop` is seeded from `upstream/private-<branch>`, so it is reported `skipped` with a note and no branch is made.
 
 1. Create branch `integrate/strict-<YYYYMMDD>` (the ADR-01 §5 name). **Starting point rule:** when `develop` does *not* yet contain the tip of `upstream/public-<branch>`, the branch starts at that tip (`mode: strict`, ADR-01 §5 step 1). When `develop` already contains it — the strict order was established by an earlier integration — the branch starts at `develop` (`mode: on-develop`), because starting again from the public tip would discard every earlier integration. In both modes the merge order below is the same. The branch is created with `git switch -c` (create only), never with `checkout -B`: a branch of that name that already exists in the integration repository **or in the local clone** is never rewritten — the run stops with an error, because the local branch may hold a conflict resolution committed by hand (§4). With `--dry-run` no branch is created at all: the merges run on a detached HEAD at the same starting point, so a dry-run leaves no local branch that a later run could reset or refuse.
-2. Merge the `private` tracking branch with `status: merged` (`upstream/private-develop`, `upstream/private-master`) with `git merge --no-ff --no-edit`. Candidate upstreams such as `upstream/private-sec-test-fix-sec-test` and the `cos` reference are never merged. Then, for each `adopted_prs[]` entry in list order, fetch `refs/pull/<n>/head` from the PR's repository and merge it `--no-ff` as its own merge commit (ADR-01 §5 step 3). A source already contained in the branch is `already-contained` and creates no commit.
+2. Merge (bring the changes in; see [REF-01](../reference/REF-01_Glossary.md)) the `private` tracking branch with `status: merged` (`upstream/private-develop`, `upstream/private-master`) with `git merge --no-ff --no-edit`. Candidate upstreams such as `upstream/private-sec-test-fix-sec-test` and the `cos` reference are never merged. Then, for each `adopted_prs[]` entry in list order, fetch `refs/pull/<n>/head` from the PR's repository and merge it `--no-ff` as its own merge commit (ADR-01 §5 step 3). A source already contained in the branch is `already-contained` and creates no commit.
 3. When the branch tip equals `develop` after all merges (identical tips), the result is `no-op`: nothing is pushed and no PR is opened. Otherwise push the branch (plain `git push`, never forced) and open one PR per repository to `develop` with `gh pr create`, titled `統合: upstream YYYY-MM-DD（<name>）`. The body (Japanese) states the starting point, the `develop` SHA, and the merge order with each source's SHA and status; it names repositories, never addresses. With `--dry-run` the merges are performed locally on a detached HEAD (so conflicts are still detected) but no branch is created, nothing is pushed and no PR is opened. In this public repository, a matching PR bumps `manifest/upstreams.json` and `upstreams.toon` to the new SHAs ([SPEC-01 §4](01_manifest.md#4-rules) rule 2); that bump is not automated yet.
 4. CI runs the build, the security gate ([SPEC-03](03_security_gate.md)), and the acceptance tests ([SPEC-04](04_acceptance_tests.md)).
 
@@ -147,7 +148,7 @@ A *merge conflict* happens when two sides changed the same lines and Git cannot 
 
 ### 6. COS reference tracking
 
-`CenterForOpenScience/*` repositories are mirrored to `upstream/cos-develop` only. They are never merged, because RCOSDP's code has diverged for years. They are used to:
+`CenterForOpenScience/*` repositories (COS, the Center for Open Science, is the US group that makes OSF) are mirrored to `upstream/cos-develop` only. They are never merged, because RCOSDP's code has diverged for years. They are used to:
 
 - Compare how COS solved the same modernization (for example the Python 3.12 port of osf.io) when we do ours at M4.
 - Spot security fixes COS made that RCOSDP has not yet made; the weekly PR body is to list commits on `upstream/cos-develop` whose message mentions `CVE`, `security`, or `vuln`. (`grdm-dev upstream integrate` does not write this list yet; the mirror report carries the `cos` row's SHAs and counts.)
@@ -182,12 +183,12 @@ tracking[4]{branch,source,kind,merged_into_develop,examples}:
 決して曲げない規則:
 
 - `upstream/*` に書くのは **ミラージョブだけ** です。人もエージェントもコミットしません。
-- `upstream/*` は **書き換えません**。ミラージョブは fast-forward（まっすぐ前に進める）だけを行い、元のリポジトリ側が force push されていたら古いブランチを残し、`non-fast-forward` / `halt` と報告して終了 70（[SPEC-02 §6](02_installer_cli.md#japanese)）で止まります（ワークフローが見える形で失敗する）。その失敗から Issue を開くのは AID エージェントです。
-- `-dev2027` のどこにも **force push しません**。`develop` のブランチ保護がこれを強制します。
+- `upstream/*` は **書き換えません**。ミラージョブは fast-forward（まっすぐ前に進める）だけを行い、元のリポジトリ側が force push されていたら古いブランチを残し、`non-fast-forward` / `halt` と報告して終了 70（[SPEC-02 §6](02_installer_cli.md#japanese)）で止まります（ワークフローが見える形で失敗する）。その失敗から Issue を開くのは AID（AI開発担当者）エージェントです。
+- `-dev2027` のどこにも **force push しません**。`develop` のブランチ保護（一つのブランチへの force push や削除を GitHub が拒む設定。[REF-01](../reference/REF-01_Glossary.md)）がこれを強制します。
 
 ### 2. 日次ジョブ: ミラーと差分報告
 
-`upstream-mirror` ワークフローは、各 `-dev2027` リポジトリで毎日一回（JST 03:00）動きます。手で動かすなら `grdm-dev upstream mirror [--component <id>] [--workdir runtime/upstream] [--report-dir docs/status/upstream] [--dry-run]` です（[SPEC-02](02_installer_cli.md)）。`-dev2027` リポジトリが取り込むワークフローの雛形は `installer/grdm_dev/templates/workflows/upstream-mirror.yml` です。このリポジトリ自身のワークフローではありません。このリポジトリの CI は非公開リポジトリの認証情報を決して持たないからです。
+`upstream-mirror` ワークフローは、各 `-dev2027` リポジトリで毎日一回（JST 03:00）動きます。手で動かすなら `grdm-dev upstream mirror [--component <id>] [--workdir runtime/upstream] [--report-dir docs/status/upstream] [--dry-run]` です（[SPEC-02](02_installer_cli.md)）。`-dev2027` リポジトリが取り込むワークフローの雛形は `installer/grdm_dev/templates/workflows/upstream-mirror.yml` です。このリポジトリ自身のワークフローではありません。このリポジトリの CI（continuous integration。変更ごとに自動で走る検査）は非公開リポジトリの認証情報を決して持たないからです。
 
 `integration_repo` を持つ部品ごとに（非公開サブシステムも含む。基盤部品には無い）:
 
@@ -195,7 +196,7 @@ tracking[4]{branch,source,kind,merged_into_develop,examples}:
 2. `upstreams[]` の各要素について — merged・reference・candidate の区別なく（[SPEC-01 §4](01_manifest.md#4-規則) の規則 6）— ローカルの `tracking_branch` を統合リポジトリが持つ値（「昨日の SHA」）に合わせる — 統合リポジトリにまだそのブランチが無ければローカルの参照を削除し、以前の `--dry-run` や失敗した push が残した参照を公開済みの状態の代わりに使わない — そして `git fetch <元> refs/heads/<branch>:refs/heads/<tracking_branch>` を行う。refspec に `+` を付けないので、fast-forward でなければ Git が拒む。この拒否が §1 の force push 検出である。古いブランチは残し、行は `non-fast-forward`、そのリポジトリの `action` は `halt`、ジョブは終了 70。何も強制しない。
 3. 取得した SHA が統合リポジトリの公開している値と違う追跡ブランチ（そこにブランチが無い、または SHA が古い）を、一本ずつ明示の refspec `git push origin refs/heads/upstream/X:refs/heads/upstream/X` で push する。`--force` は使わない。公開するかどうかは「ローカルの参照が動いたか」でなくリモートの状態から決める。だから `--dry-run` や失敗した push の後の本実行でも公開される。報告には選ばれたブランチ（`to_publish`）と実際に push したブランチ（`pushed`）を書く。`--dry-run` は fetch と報告だけ行い、何も push しない。
 4. 各追跡ブランチを `develop` と比べ（`ahead_of_develop`・`behind_develop`・`develop_contains`）、マニフェスト（[SPEC-01](01_manifest.md)）に固定した SHA とも比べる（`manifest_sha_matches`）。
-5. 差分報告を書く。ワークフローがそれをこの公開リポジトリのボット用ブランチ `status/upstream` にコミットし、日次の PR が `develop` に取り込む。CLI 自体はファイルを書くだけである。
+5. 差分報告を書く。ワークフローがそれをこの公開リポジトリのボット用ブランチ `status/upstream` にコミットし、日次の PR（プルリクエスト）が `develop` に取り込む。CLI 自体はファイルを書くだけである。
 
 終了コード: 何かが動いたかどうかに関わらず 0。fetch が拒まれた（`non-fast-forward`）か失敗したとき、または push が失敗したときは 70（`UPSTREAM_FAILED`。[SPEC-02 §6](02_installer_cli.md#japanese)。正本の文言は `messages.tsv`）。報告はどの場合も書くので、失敗は報告の中に見える。ワークフローの雛形は報告の公開を `if: always()` で行うので、失敗した実行の報告も status ブランチに届く。ジョブ自体はそれでも失敗する。
 
@@ -269,7 +270,7 @@ sequenceDiagram
 言葉で書くと、`grdm-dev upstream integrate [--component <id>] [--date YYYYMMDD] [--dry-run]` が **対象の** 部品 — `status: merged` の `public` 上流を持つ部品（[ADR-01 §5](../decisions/ADR-01_Integration_Repository_Placement.md)）— ごとに次を行います。非公開のみの部品（サブシステム 5 本）には再構築するものがありません。その `develop` は `upstream/private-<branch>` から始まっているので、注を付けて `skipped` と報告し、ブランチは作りません。
 
 1. `integrate/strict-<YYYYMMDD>` ブランチ（ADR-01 §5 の名前）を作る。**開始点の規則:** `develop` が `upstream/public-<branch>` の先端を *まだ* 含まないなら、その先端から始める（`mode: strict`。ADR-01 §5 の手順 1）。`develop` が既に含むなら — 以前の統合で厳密な順が確立している — `develop` から始める（`mode: on-develop`）。公開先端から再び始めると、それまでの統合を全部捨ててしまうからである。どちらの mode でも以下のマージ順は同じ。ブランチは `git switch -c`（作成のみ）で作り、`checkout -B` は使わない。同名のブランチが統合リポジトリ **またはローカルの clone** に既にあれば決して書き換えず、エラーで止まる。ローカルのブランチには手で解いた衝突のコミット（§4）があり得るからである。`--dry-run` ではブランチを一切作らない。同じ開始点の detached HEAD 上でマージを行うので、dry-run は後の実行がリセットしたり拒んだりするブランチを残さない。
-2. `status: merged` の `private` 追跡ブランチ（`upstream/private-develop`、`upstream/private-master`）を `git merge --no-ff --no-edit` でマージする。`upstream/private-sec-test-fix-sec-test` のような候補の上流と `cos` の参照は決してマージしない。次に `adopted_prs[]` を並び順に、PR のリポジトリから `refs/pull/<n>/head` を fetch して、それぞれ独立したマージコミットとして `--no-ff` でマージする（ADR-01 §5 の手順 3）。既にブランチに含まれる元は `already-contained` となり、コミットを作らない。
+2. `status: merged` の `private` 追跡ブランチ（`upstream/private-develop`、`upstream/private-master`）を `git merge --no-ff --no-edit` でマージ（取り込み。[REF-01](../reference/REF-01_Glossary.md)）する。`upstream/private-sec-test-fix-sec-test` のような候補の上流と `cos` の参照は決してマージしない。次に `adopted_prs[]` を並び順に、PR のリポジトリから `refs/pull/<n>/head` を fetch して、それぞれ独立したマージコミットとして `--no-ff` でマージする（ADR-01 §5 の手順 3）。既にブランチに含まれる元は `already-contained` となり、コミットを作らない。
 3. 全部のマージの後でブランチの先端が `develop` と同じなら（先端が一致）、結果は `no-op`。何も push せず PR も開かない。そうでなければブランチを push し（素の `git push`。決して強制しない）、`gh pr create` で `develop` への PR をリポジトリごとに一本、`統合: upstream YYYY-MM-DD（<name>）` の題で開く。本文（日本語）には開始点、`develop` の SHA、マージ順と各元の SHA・状態を書く。リポジトリは名前で書き、アドレスは書かない。`--dry-run` ではマージをローカルの detached HEAD 上で行う（だから衝突は検出される）が、ブランチは作らず、push も PR も行わない。この公開リポジトリ側では、対になる PR が `manifest/upstreams.json` と `upstreams.toon` を新しい SHA に進める（[SPEC-01 §4](01_manifest.md#4-規則) の規則 2）。この更新はまだ自動化していない。
 4. CI がビルド、セキュリティ門（[SPEC-03](03_security_gate.md)）、受入試験（[SPEC-04](04_acceptance_tests.md)）を実行する。
 
@@ -294,7 +295,7 @@ sequenceDiagram
 
 ### 6. COS 本家の参照追跡
 
-`CenterForOpenScience/*` は `upstream/cos-develop` にミラーするだけです。RCOSDP のコードは何年も前に分かれているので、マージはしません。使い方は次の二つです。
+`CenterForOpenScience/*`（COS。OSF を作る米国の団体 Center for Open Science）は `upstream/cos-develop` にミラーするだけです。RCOSDP のコードは何年も前に分かれているので、マージはしません。使い方は次の二つです。
 
 - 同じ近代化（例: osf.io の Python 3.12 移植）を COS がどう解いたかを、M4 で私たちが移植するときに比べる。
 - COS が行い RCOSDP がまだ行っていないセキュリティ修正を見つける。週次 PR の本文に、`upstream/cos-develop` のコミットのうちメッセージに `CVE`・`security`・`vuln` を含むものを列挙する予定である（`grdm-dev upstream integrate` はまだこの一覧を書かない。ミラー報告が `cos` 行の SHA とコミット数を持つ）。

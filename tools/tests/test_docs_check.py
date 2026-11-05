@@ -166,6 +166,19 @@ class DocsCheckTests(unittest.TestCase):
         self.assertEqual(len(result.warnings), 1)
         self.assertIn("'Upstream'", result.warnings[0])
 
+    def test_glossary_warning_skips_review_records(self):
+        body = "\nThe manifest pins every Upstream.\n"
+        text = HEADER.replace("Body text.\n", body)
+        rel = self.repo.write("docs/reviews/2026-11-06_PR99_r1.md", text)
+        result = self.repo.check(rel, terms=["Upstream"])
+        self.assertEqual(result.errors, [])  # anchors, links and version are still checked
+        self.assertEqual(result.warnings, [])  # review records are kept verbatim (SPEC-06 §8)
+        self.assertFalse(dc.glossary_check_applies("docs/reviews/README.md"))
+        self.assertFalse(dc.glossary_check_applies("docs/reference/REF-01_Glossary.md"))
+        self.assertTrue(dc.glossary_check_applies("docs/spec/00_overview.md"))
+        rel = self.repo.write("docs/spec/a.md", text)
+        self.assertEqual(len(self.repo.check(rel, terms=["Upstream"]).warnings), 1)
+
     def test_glossary_terms_loaded_from_ref01(self):
         self.repo.write(
             "docs/reference/REF-01_Glossary.md",

@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05
 - Normative for: `docs/guides/ec2/`
 - Related: [SPEC-06 Documentation Conventions](../../spec/06_documentation_conventions.md)
@@ -18,7 +19,7 @@
 
 ### Overview
 
-This guide shows how to set up the GakuNin RDM development environment on an Amazon EC2 instance.
+This guide shows how to set up the GakuNin RDM (GakuNin is Japan's academic network for logging in with a university account) development environment on an Amazon EC2 instance.
 
 ### Prerequisites
 
@@ -29,11 +30,11 @@ This guide shows how to set up the GakuNin RDM development environment on an Ama
 ### Quick start on EC2
 
 1. Launch an EC2 instance (Ubuntu 22.04 or Amazon Linux 2 recommended)
-2. Install Docker and Docker Compose
+2. Install Docker (the tool that builds images and runs containers) and Docker Compose (a tool that starts many containers together from one file)
 3. Clone this repository
 4. Run `./installer/install.sh --yes`
 5. Configure your EC2 security group to allow HTTP (port 80) and SSH (port 22)
-6. Open http://localhost:5000 in your browser
+6. Open http://localhost:5000 (localhost means your own computer) in your browser
 
 > This command is available from milestone M2.
 
@@ -50,7 +51,7 @@ The legacy EC2 setup instructions are kept verbatim in `README.legacy.md` for re
 
 ### 概要
 
-このガイドは、Amazon EC2 上に GakuNin RDM の開発環境を構築する方法を示します。
+このガイドは、Amazon EC2 上に GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク）の開発環境を構築する方法を示します。
 
 ### 前提条件
 
@@ -61,11 +62,11 @@ The legacy EC2 setup instructions are kept verbatim in `README.legacy.md` for re
 ### EC2 でのクイックスタート
 
 1. EC2 インスタンスを起動する（Ubuntu 22.04 または Amazon Linux 2 を推奨）
-2. Docker と Docker Compose をインストールする
+2. Docker（イメージを作りコンテナを動かす道具）と Docker Compose（一つのファイルから多くのコンテナをまとめて起こす道具）をインストールする
 3. このリポジトリを clone する
 4. `./installer/install.sh --yes` を実行する
 5. EC2 のセキュリティグループで HTTP (ポート 80) と SSH (ポート 22) を許可する
-6. ブラウザで http://localhost:5000 を開く
+6. ブラウザで http://localhost:5000（localhost は自分の計算機のこと）を開く
 
 > このコマンドは M2 マイルストーンから利用可能です。
 
