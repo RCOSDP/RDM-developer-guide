@@ -82,7 +82,7 @@ flowchart LR
 
 ### 4. Consequences
 
-- **Cost — no egress by default.** Add-on development against external providers requires `compose render --egress <service>`; the choice is visible to the security gate.
+- **Exposure to be aware of.** The seven browser-facing services (`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`) sit on the ordinary bridge `grdm-edge` so that their ports can be published; on that network they also have outbound access to the Internet. All other services have no egress by default. Add-on development against external providers from a non-publishing service requires `compose render --egress <service>`; every grant, implicit or explicit, is visible to the security gate.
 
 - **Good:** no `sudo`, nothing survives a reboot that must be redone, nothing is reachable from the LAN, the same Compose file works on macOS, Ubuntu and WSL2, and CI can run it unmodified.
 - **Good:** fewer moving parts for the security gate — the "listening address" check in [SPEC-03](../spec/03_security_gate.md) becomes a one-line rule.
@@ -162,7 +162,7 @@ flowchart LR
 
 ### 4. 結果
 
-- **代価 — 既定では外向き通信がない。** 外部プロバイダに対するアドオン開発には `compose render --egress <service>` が要り、その選択はセキュリティの門から見える。
+- **知っておくべき露出。** ブラウザ向けの 7 サービス（`web`、`api`、`admin`、`wb`、`mfr`、`fakecas`、`ember_osf_web`）はポートを公開するために通常の bridge `grdm-edge` にいて、その網ではインターネットへの外向き通信もできる。それ以外のサービスには既定で外向き通信がない。公開しないサービスから外部プロバイダへ向かうアドオン開発には `compose render --egress <service>` が要り、暗黙・明示を問わずすべての付与はセキュリティの門から見える。
 
 - **良い点:** `sudo` が不要。再起動後にやり直す手順がない。LAN から届くものがない。同じ Compose ファイルが macOS・Ubuntu・WSL2 で動き、CI でもそのまま動く。
 - **良い点:** セキュリティ門の部品が減る。[SPEC-03](../spec/03_security_gate.md) の「待ち受けアドレス」の検査が一行の規則になる。

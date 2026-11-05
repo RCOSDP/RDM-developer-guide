@@ -6,9 +6,21 @@ wrapper around Playwright's APIRequestContext.
 """
 from __future__ import annotations
 
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 LOOPBACK_HOST = "127.0.0.1"
+# Redirects of API calls are never delegated to Playwright (max_redirects is forced to 0); the wrapper
+# follows at most this many hops itself and checks every Location against the loopback origin.
+MAX_REDIRECT_HOPS = 5
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+# 307/308 keep the verb and the body; the others are re-issued as GET without a body (RFC 9110 §15.4).
+METHOD_PRESERVING_STATUSES = frozenset({307, 308})
+BODY_KWARGS = ("data", "form", "multipart")
+WEBSOCKET_ROUTE_REQUIREMENT = (
+    "BrowserContext.route_web_socket is unavailable: the loopback guard cannot intercept WebSockets. "
+    "Playwright >= 1.48 (pytest-playwright >= 0.6) is required; run: pip install -e \"installer[accept]\" "
+    "&& PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium"
+)
 HTTP_SCHEMES: tuple[str, ...] = ("http",)
 WS_SCHEMES: tuple[str, ...] = ("ws",)
 ALL_SCHEMES: tuple[str, ...] = HTTP_SCHEMES + WS_SCHEMES
@@ -54,3 +66,36 @@ def same_origin(url: str, other: str, schemes: tuple[str, ...] = ALL_SCHEMES) ->
 def offending_urls(urls: list[str], schemes: tuple[str, ...] = ALL_SCHEMES) -> list[str]:
     """The subset of `urls` that would leave the machine."""
     return [u for u in urls if not is_loopback_origin(u, schemes)]
+
+
+def forced_redirect_kwargs(kwargs: dict) -> dict:
+    """`kwargs` with `max_redirects` forced to 0. A caller asking for automatic redirects is a
+    programming error (ValueError): Playwright would follow them before any origin check."""
+    requested = kwargs.get("max_redirects", 0)
+    if requested not in (0, None):
+        raise ValueError(f"max_redirects={requested!r} is not allowed: the guard follows redirects itself (SPEC-04 §3.4)")
+    return {**kwargs, "max_redirects": 0}
+
+
+def redirect_target(url: str, status: int, headers: dict | None) -> str | None:
+    """Absolute URL of the Location header for a 3xx answer to `url`, or None when the response is
+    not a redirect. Relative Locations resolve against the answered URL (ADR-02 §3.5 keeps the check
+    on the resolved value, never on the raw header)."""
+    if status not in REDIRECT_STATUSES or not headers:
+        return None
+    location = None
+    for k, v in headers.items():
+        if isinstance(k, str) and k.lower() == "location":
+            location = v
+            break
+    if not location:
+        return None
+    return urljoin(url, location.strip())
+
+
+def redirect_follow_up(verb: str, status: int, kwargs: dict) -> tuple[str, dict]:
+    """(verb, kwargs) to use for the next hop: 307/308 keep both, every other 3xx becomes a GET without
+    a body."""
+    if status in METHOD_PRESERVING_STATUSES:
+        return verb, dict(kwargs)
+    return "get", {k: v for k, v in kwargs.items() if k not in BODY_KWARGS}

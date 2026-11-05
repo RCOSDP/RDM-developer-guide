@@ -15,7 +15,11 @@ Three jobs:
 
 Images: a component with an integration repository is built locally as
 `grdm-dev/<component id, lower case>:<sha12>` (same rule as build.py); an infra component runs its
-pinned upstream image, `base_image[@base_image_digest]`. The build SHA is the integration
+pinned upstream image, `base_image[@base_image_digest]`. A component with `prebuilt_image`
+(SPEC-01 §3: a registry reference pinned by digest, allowed only with a `note` and until M4) is
+not built at all: `grdm-dev build` records it as `prebuilt`, and `compose render` runs that
+reference. The ember-osf-web Dockerfile's schema-1 base image (refused by current Docker) is the
+case that made this fallback necessary. The build SHA is the integration
 commit when the manifest carries one (`integration_sha`, optional, written by the weekly
 integration PR), else the first merged upstream in SPEC-01 rule 3 order (public, then private).
 The clone URL is composed at run time from the bare repository name; it is never stored here.
@@ -88,6 +92,7 @@ class Component:
     profile: str
     platforms: list[str]
     note: str | None
+    prebuilt_image: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     # dict compatibility for modules written against the raw JSON
@@ -98,8 +103,14 @@ class Component:
         return self.raw.get(key, default)
 
     @property
+    def is_prebuilt(self) -> bool:
+        """True when `prebuilt_image` replaces the build from the integration repository (SPEC-01 §3)."""
+        return bool(self.prebuilt_image)
+
+    @property
     def is_built(self) -> bool:
-        return bool(self.integration_repo)
+        """Built locally from the integration repository (never true for a prebuilt component)."""
+        return bool(self.integration_repo) and not self.is_prebuilt
 
     @property
     def build_sha(self) -> str | None:
@@ -129,6 +140,8 @@ class Component:
         return f"{LOCAL_IMAGE_PREFIX}/{self.id.lower()}:{sha12 or self.sha12 or 'develop'}"
 
     def image_reference(self, sha12: str | None = None) -> str:
+        if self.is_prebuilt:
+            return str(self.prebuilt_image)
         return self.local_image(sha12) if self.is_built else self.pinned_image
 
 
@@ -174,10 +187,20 @@ class Service:
     profile: str
     build: BuildInfo | None
     template: dict[str, Any] = field(default_factory=dict, repr=False)
+    prebuilt_image: str | None = None  # set when the component bypasses the build (SPEC-01 §3)
 
     @property
     def is_built(self) -> bool:
         return self.build is not None
+
+    @property
+    def is_prebuilt(self) -> bool:
+        return bool(self.prebuilt_image)
+
+    @property
+    def origin(self) -> str:
+        """`built` (from the integration repository), `prebuilt` (registry image by digest) or `pinned` (infra)."""
+        return "prebuilt" if self.is_prebuilt else "built" if self.is_built else "pinned"
 
 
 # --------------------------------------------------------------------------- loading
@@ -216,6 +239,7 @@ def parse(data: dict[str, Any], path: Path | None = None) -> Manifest:
                     profile=c["profile"],
                     platforms=list(c.get("platforms", [])),
                     note=c.get("note"),
+                    prebuilt_image=c.get("prebuilt_image") or None,
                     raw=c,
                 )
             )
@@ -344,7 +368,7 @@ def services_for_profile(
             if name == "fakecas" and use_shib:
                 continue
             build = None
-            if comp.is_built:
+            if comp.is_built:  # false for a prebuilt component: no BuildInfo, build-report tags do not apply
                 sha12 = (image_tags or {}).get(comp.id) or comp.sha12
                 build = BuildInfo(repo=comp.integration_repo or "", branch=comp.integration_branch or "develop", sha=comp.build_sha, sha12=sha12)
             else:
@@ -358,6 +382,7 @@ def services_for_profile(
                     profile=service_profile(comp, tpl),
                     build=build,
                     template=tpl or {},
+                    prebuilt_image=comp.prebuilt_image,
                 )
             )
     return out

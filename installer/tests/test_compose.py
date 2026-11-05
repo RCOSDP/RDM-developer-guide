@@ -288,6 +288,60 @@ class ComposeRenderTests(unittest.TestCase):
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["mfr"]["platform"], "linux/amd64")
 
+    # ---- prebuilt_image (SPEC-01 §3): compose runs the digest-pinned reference as image:
+
+    def test_prebuilt_image_is_the_compose_image_with_build_platform(self):
+        root = make_root()
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
+        reports = root / "runtime" / "reports"
+        reports.mkdir(parents=True)
+        (reports / "build_latest.json").write_text(json.dumps({"components": [
+            {"component": "ember-osf-web", "sha12": "", "status": "prebuilt", "image": ember["prebuilt_image"]},
+        ]}), encoding="utf-8")
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        svc = doc["services"]["ember_osf_web"]
+        self.assertEqual(svc["image"], ember["prebuilt_image"])
+        self.assertRegex(svc["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
+        self.assertEqual(svc["platform"], ember["build_platform"])
+        self.assertEqual(svc["platform"], "linux/amd64")
+        self.assertEqual(svc["cap_drop"], ["ALL"])  # hardening applies to a prebuilt service like any other
+        rows = {r["service"]: r for r in json.loads(out)["services"]}
+        self.assertEqual(rows["ember_osf_web"]["origin"], "prebuilt")
+        self.assertEqual(rows["ember_osf_web"]["image"], ember["prebuilt_image"])
+        self.assertEqual(rows["web"]["origin"], "built")
+        self.assertEqual(rows["postgres"]["origin"], "pinned")
+        self.assertFalse(any(v["image"].startswith("grdm-dev/ember-osf-web") for v in doc["services"].values()))
+
+    def test_removing_prebuilt_image_renders_the_local_build_tag(self):
+        root = make_root()
+        path = root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            if comp["id"] == "ember-osf-web":
+                del comp["prebuilt_image"]
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertTrue(doc["services"]["ember_osf_web"]["image"].startswith("grdm-dev/ember-osf-web:"))
+        self.assertEqual({r["service"]: r for r in json.loads(out)["services"]}["ember_osf_web"]["origin"], "built")
+
+    def test_prebuilt_without_note_is_rejected_at_render(self):
+        root = make_root()
+        path = root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            if comp["id"] == "ember-osf-web":
+                comp["note"] = None
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, exit_codes.MANIFEST_INVALID)
+        self.assertIn("MC-06", err)
+        self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
+
     def test_port_collision_remaps_and_records_in_env(self):
         root = make_root()
         rc, out, _, _ = render(root, checker=lambda port: port not in (5000, 5001))

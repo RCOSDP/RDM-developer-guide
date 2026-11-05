@@ -406,12 +406,13 @@
       "integration_branch": "develop",
       "integration_sha": null,
       "integration_repo": "RDM-ember-osf-web-dev2027",
-      "note": null,
+      "note": "Prebuilt fallback (M2, second real install on Mac Studio): the Dockerfile's base image quay.io/centerforopenscience/ember-base is a Docker image manifest v2 schema 1 image that current Docker refuses (\"support for schema 1 has been removed\"), so the integration repository cannot be built on any host. Until M4 modernizes the Dockerfile (target_image.M4), the legacy guide's distribution image niicloudoperation/rdm-ember-osf-web:latest is run instead, pinned by its linux/amd64 manifest digest (resolved 2026-11-05 with docker buildx imagetools inspect). This bypasses the build-from-pinned-source guarantee of SPEC-01; prebuilt_image must be removed at M4.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
       "build_platform": "linux/amd64",
+      "prebuilt_image": "niicloudoperation/rdm-ember-osf-web@sha256:65ee1fae52a33ec7dbc42546f5b3a240dddd70eb963d1ebe2ededa80135cc2e7",
       "profile": "core",
       "role": "core",
       "services": [

@@ -260,6 +260,102 @@ class BaselineValidatorTests(ScanTestBase):
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # ---- recorded egress grant (SPEC-03 §3.2, review r2 finding R2-04)
+
+    def render_and_check(self, egress=None, mutate=None):
+        """Render the real core manifest, optionally mutate the JSON, and run check_baseline on it."""
+        root = test_compose.make_root()
+        try:
+            rc, _, err, _ = test_compose.render(root, egress=egress)
+            self.assertEqual(rc, exit_codes.OK, err)
+            compose_path = root / "runtime" / "docker-compose.yml"
+            if mutate is not None:
+                doc = json.loads(compose_path.read_text(encoding="utf-8"))
+                mutate(doc)
+                compose_path.write_text(json.dumps(doc), encoding="utf-8")
+            env_text = (root / "runtime" / ".env").read_text(encoding="utf-8")
+            findings, notes, accepted = scan.check_baseline(compose_path, REPO_ROOT / "manifest" / "hardening.json",
+                                                            root / "runtime" / ".env", TODAY)
+            return findings, notes, accepted, env_text
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_rendered_egress_grant_is_accepted_not_a_network_finding(self):
+        findings, notes, accepted, env_text = self.render_and_check(egress="worker")
+        self.assertIn("GRDM_EGRESS_SERVICES=worker", env_text)  # the record check_baseline reads
+        self.assertEqual([f for f in findings if f["id"] == "BASE-NETWORK"], [], json.dumps(findings, indent=1))
+        self.assertEqual([f for f in findings if f["id"] == "BASE-EGRESS-STALE"], [])
+        self.assertEqual(findings, [], json.dumps(findings, indent=1))
+        egress = [a for a in accepted if a["status"] == "accepted-egress"]
+        self.assertEqual(len(egress), 1, accepted)
+        self.assertEqual(egress[0]["service"], "worker")
+        self.assertEqual(egress[0]["control"], "egress")
+        self.assertEqual(egress[0]["network"], "grdm-edge")
+        self.assertEqual(egress[0]["source"], "env")
+        self.assertIn("GRDM_EGRESS_SERVICES", egress[0]["reason"])
+        # the other accepted rows are still the hardening exceptions of the plain render
+        self.assertTrue(all(a["status"] == "accepted-exception" for a in accepted if a is not egress[0]))
+
+    def test_undeclared_attachment_to_edge_is_base_network(self):
+        def attach_worker(doc):
+            doc["services"]["worker"]["networks"] = ["grdm", "grdm-edge"]
+        findings, notes, accepted, env_text = self.render_and_check(egress=None, mutate=attach_worker)
+        self.assertIn("GRDM_EGRESS_SERVICES=\n", env_text)  # rendered without a grant
+        net = [f for f in findings if f["id"] == "BASE-NETWORK"]
+        self.assertEqual(len(net), 1, json.dumps(findings, indent=1))
+        self.assertEqual(net[0]["component"], "worker")
+        self.assertIn("grdm-edge", net[0]["title"])
+        self.assertIn("without a recorded egress grant", net[0]["title"])
+        self.assertEqual([a for a in accepted if a["status"] == "accepted-egress"], [])
+
+    def test_grant_naming_an_unattached_service_is_stale_warning(self):
+        # grant recorded for worker, but worker is only on the internal network (someone edited the file)
+        def detach_worker(doc):
+            doc["services"]["worker"]["networks"] = ["grdm"]
+        findings, notes, accepted, _ = self.render_and_check(egress="worker", mutate=detach_worker)
+        stale = [f for f in findings if f["id"] == "BASE-EGRESS-STALE"]
+        self.assertEqual(len(stale), 1, json.dumps(findings, indent=1))
+        self.assertEqual(stale[0]["component"], "worker")
+        self.assertEqual(stale[0]["severity"], "MEDIUM")
+        self.assertIn("compose render", stale[0]["title"])
+        self.assertEqual([f for f in findings if f["id"] == "BASE-NETWORK"], [])
+        self.assertEqual([a for a in accepted if a["status"] == "accepted-egress"], [])
+        # a stale grant still fails the baseline gate (fail-closed: record and reality must agree)
+        self.write_compose({"api": hardened("grdm-dev/api:dev")})
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=api\n")
+        code, data, ids = self.baseline_ids()
+        self.assertEqual(ids, {"BASE-EGRESS-STALE"})
+        self.assertEqual(code, exit_codes.SCAN_GATE_FAILED)
+        self.assertEqual(data["baseline"], "fail")
+
+    def test_grant_sources_env_wins_over_compose_and_publishing_service_grant_is_not_stale(self):
+        edge = hardened("grdm-dev/api:dev", networks=["grdm", "grdm-edge"])
+        # grant only in x-grdm-dev (no key in .env): accepted from the compose record
+        self.write_compose({"api": edge})
+        doc = json.loads((self.root / "runtime" / "docker-compose.yml").read_text())
+        doc["x-grdm-dev"] = {"egress_services": ["api"]}
+        (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps(doc))
+        code, data, ids = self.baseline_ids()
+        self.assertEqual(ids, set())
+        self.assertEqual([(a["service"], a["source"]) for a in data["baseline_exceptions"] if a["status"] == "accepted-egress"],
+                         [("api", "compose")])
+        # .env present and empty: it is the record, so the compose list alone does not grant anything
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=\n")
+        self.assertEqual(self.baseline_ids()[2], {"BASE-NETWORK"})
+        # .env grants a service that publishes a port: redundant, not stale, and no accepted-egress row
+        self.write_compose({"web": hardened(ports=["127.0.0.1:5000:5000"], networks=["grdm", "grdm-edge"])})
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=web\n")
+        code, data, ids = self.baseline_ids()
+        self.assertEqual(ids, set())
+        self.assertEqual([a for a in data["baseline_exceptions"] if a["status"] == "accepted-egress"], [])
+        # `none` and an unknown service: none clears, unknown is stale
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=none\n")
+        self.assertEqual(self.baseline_ids()[2], set())
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=ghost\n")
+        code, data, ids = self.baseline_ids()
+        self.assertEqual(ids, {"BASE-EGRESS-STALE"})
+        self.assertIn("not a service", data["findings"][0]["title"])
+
     def test_root_user_forms_fail_without_exception(self):
         for user in ("0:0", "0", "root", "root:root", "", None):
             self.write_compose({"db": hardened("postgres:15", user=user)})
@@ -335,9 +431,15 @@ class BaselineValidatorTests(ScanTestBase):
         # publishing service on grdm + grdm-edge is the accepted shape
         self.write_compose({"web": hardened(ports=["127.0.0.1:5000:5000"], networks=["grdm", "grdm-edge"]), "api": hardened("grdm-dev/api:dev")})
         self.assertEqual(self.baseline_ids()[2], set())
-        # a non-publishing service on the edge bridge has a route out: finding
+        # a non-publishing service on the edge bridge without a recorded grant has a route out: finding
         self.write_compose({"api": hardened("grdm-dev/api:dev", networks=["grdm", "grdm-edge"])})
         self.assertEqual(self.baseline_ids()[2], {"BASE-NETWORK"})
+        # ... and with the grant recorded in runtime/.env it is an accepted, reported egress (R2-04)
+        self.write_env(test_compose.fake_secrets() + "GRDM_EGRESS_SERVICES=api\n")
+        code, data, ids = self.baseline_ids()
+        self.assertEqual(ids, set())
+        self.assertEqual([a["service"] for a in data["baseline_exceptions"] if a["status"] == "accepted-egress"], ["api"])
+        self.write_env()
         # a service on no network (default bridge), on an undefined network, or with network_mode
         self.write_compose({"api": hardened(networks=None) | {"networks": []}})
         self.assertEqual(self.baseline_ids()[2], {"BASE-NETWORK"})

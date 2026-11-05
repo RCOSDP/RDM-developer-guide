@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
+- Version / 版: 0.5 — 2026-11-05. **Learned:** the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned `prebuilt_image` fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた `note` を伴うダイジェスト固定の `prebuilt_image` が部品ごとに要る。
+  0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
   0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
   0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the public osf.io `develop` (2026-11-05) is already newer than its `-private` twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の `develop`（2026-11-05）は `-private`（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。
@@ -49,6 +50,8 @@ The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO
 | `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
 | `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
 | `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
+| `build_platform` | string or absent | Platform used to build and run this component's image, for example `linux/amd64`. Absent means the host platform. `grdm-dev build --platform` overrides it. Components whose EOL base has no arm64 wheels (modular-file-renderer, ember-osf-web, cas-overlay until M4) set `linux/amd64`; Compose then runs them under emulation. Must be `null` or absent for `infra`. |
+| `prebuilt_image` | string or absent | A registry image reference pinned by digest (`name@sha256:<64 hex>`, for example `niicloudoperation/rdm-ember-osf-web@sha256:…`) that is run **instead of** building from the integration repository. Allowed only together with a `note` that says why the build is impossible and until which milestone the fallback stays; never a URL or a private-repository reference; not allowed for `infra`. `grdm-dev build` records the component as `prebuilt`, pulls the reference and does not clone or build; `compose render` writes it as `image:` (with `platform:` from `build_platform`); `scan` treats it like any other compose image. **A prebuilt image bypasses the "build from pinned source" guarantee of this specification: nobody can show which commits are inside it.** It is a temporary measure for M2 and must be removed by M4. Current use: `ember-osf-web`, whose Dockerfile base `quay.io/centerforopenscience/ember-base` is a Docker image manifest v2 schema 1 image that current Docker refuses to pull. |
 | `upstreams[]` | list | Each: `repo` (name), `branch`, `kind` (`public` \| `private` \| `cos`), `tracking_branch` (named by rule 7), `status` (`merged` \| `reference` \| `candidate`), `sha` (40 lowercase hex), `fetched_at` (ISO date). Empty for `infra`. |
 | `adopted_prs[]` | list | Each: `repo`, `number`, `title`, `reason`, `status` (`adopted`). PRs applied on top of the merged upstreams. |
 | `candidate_prs[]` | list | Same shape; `status` is `candidate` or `rejected`. Not built. |
@@ -122,7 +125,7 @@ checks[13]{id,rule,severity}:
   MC-03,"role is one of core|infra|subsystem; services is a non-empty list",error
   MC-04,"integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$ or is null for infra",error
   MC-05,"integration_branch is develop, or null for infra",error
-  MC-06,"every sha matches ^[0-9a-f]{40}$; base_image_digest is null or sha256:<64 hex>; fetched_at is an ISO date not in the future",error
+  MC-06,"every sha matches ^[0-9a-f]{40}$; base_image_digest is null or sha256:<64 hex>; fetched_at is an ISO date not in the future; prebuilt_image, when present, is name@sha256:<64 hex>, has a non-empty note, is not a URL or private-repository reference, and is not on infra",error
   MC-07,"no value anywhere contains http, git@, github.com, or a token-like string",error
   MC-08,"the same (repo, branch) pair has one sha across all components",error
   MC-09,"adopted_prs status is adopted; candidate_prs status is candidate|rejected; upstreams status is merged|reference|candidate and cos upstreams are reference; number is a positive integer",error
@@ -178,7 +181,9 @@ checks[13]{id,rule,severity}:
 | `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`）。空にしない。 |
 | `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
 | `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
-| `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
+| `integration_sha` | 文字列（40 桁の 16 進）または `null` | このマニフェストが固定する統合ブランチ `develop` の先端のコミット。`grdm-dev build` と `compose render` はこの値をイメージのタグに使う。厳密再構築 PR のマージ前は `null` でよいが、M2 の受入では必須。 |
+| `build_platform` | 文字列または省略 | この部品のイメージを組んで動かすプラットフォーム。例: `linux/amd64`。省略時はホストと同じ。`grdm-dev build --platform` が優先する。EOL ベースで arm64 の wheel がない部品（M4 までの modular-file-renderer・ember-osf-web・cas-overlay）は `linux/amd64` を指定し、Compose はエミュレーションで動かす。`infra` では `null` か省略。 |
+| `prebuilt_image` | 文字列または省略 | 統合リポジトリから組む **代わりに** 動かす、ダイジェストで固定したレジストリのイメージ参照（`name@sha256:<16 進 64 文字>`。例: `niicloudoperation/rdm-ember-osf-web@sha256:…`）。なぜ組めないか、どの節目までこの代替を続けるかを書いた `note` と一緒にしか書けない。URL や非公開リポジトリの参照は不可。`infra` には使えない。`grdm-dev build` はその部品を `prebuilt` として記録し、参照を pull するだけで clone も build もしない。`compose render` はそれを `image:` に書き（`platform:` は `build_platform` から）、`scan` はほかの Compose イメージと同じに扱う。**事前ビルド済みイメージは、この仕様の「固定した元から組む」保証を外す。中にどのコミットが入っているかを誰も示せない。** M2 のための一時措置であり、M4 までに必ず外す。現在の使用: `ember-osf-web`。その Dockerfile のベース `quay.io/centerforopenscience/ember-base` は Docker image manifest v2 schema 1 のイメージで、現行の Docker は pull を拒否する。 |
 | `upstreams[]` | 配列 | 各要素: `repo`（名前）、`branch`、`kind`（`public` \| `private` \| `cos`）、`tracking_branch`（規則 7 で命名）、`status`（`merged` \| `reference` \| `candidate`）、`sha`（小文字 16 進 40 文字）、`fetched_at`（ISO 日付）。`infra` は空。 |
 | `adopted_prs[]` | 配列 | 各要素: `repo`、`number`、`title`、`reason`、`status`（`adopted`）。上流をマージした上に適用する PR。 |
 | `candidate_prs[]` | 配列 | 同じ形。`status` は `candidate` か `rejected`。組まない。 |
@@ -252,7 +257,7 @@ checks[13]{id,rule,severity}:
   MC-03,"role が core|infra|subsystem のいずれか。services が空でない配列",error
   MC-04,"integration_repo が ^RDM-[A-Za-z0-9_.-]+-dev2027$ に合う。infra は null",error
   MC-05,"integration_branch が develop。infra は null",error
-  MC-06,"sha が ^[0-9a-f]{40}$ に合う。base_image_digest は null か sha256:<16 進 64 文字>。fetched_at が未来でない ISO 日付",error
+  MC-06,"sha が ^[0-9a-f]{40}$ に合う。base_image_digest は null か sha256:<16 進 64 文字>。fetched_at が未来でない ISO 日付。prebuilt_image があるときは name@sha256:<16 進 64 文字> で、空でない note を伴い、URL や非公開リポジトリの参照でなく、infra に無い",error
   MC-07,"どの値にも http、git@、github.com、トークンらしい文字列が含まれない",error
   MC-08,"同じ (repo, branch) の組は全部品で一つの sha",error
   MC-09,"adopted_prs の status は adopted。candidate_prs は candidate|rejected。upstreams の status は merged|reference|candidate で cos は reference。number は正の整数",error

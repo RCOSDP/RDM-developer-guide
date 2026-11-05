@@ -2,7 +2,8 @@
 
 Touches no Docker. Resolves the profile (flag > runtime/.env GRDM_PROFILE > core), validates the
 manifest (exit 20 on any SPEC-01 finding), and prints a TOON report: profile, platform, services
-with image and build origin (integration repository name + sha12), published ports (SPEC-02 §4
+with image and build origin (integration repository name + sha12; `prebuilt <reference>` for a
+component whose manifest `prebuilt_image` bypasses the build, SPEC-01 §3), published ports (SPEC-02 §4
 table, honoring GRDM_PORT_<SERVICE> overrides in runtime/.env), and named volumes.
 
 The helpers here (`read_dotenv`, `resolve_profile`, `published_ports`, `detect_platform`) are
@@ -145,6 +146,14 @@ def volumes_of(services: list[_manifest.Service]) -> list[str]:
 # --------------------------------------------------------------------------- report
 
 
+def _build_from(svc: _manifest.Service) -> str:
+    if svc.is_prebuilt:
+        return f"prebuilt {svc.prebuilt_image}"
+    if svc.build and svc.build.sha12:
+        return f"{svc.build.repo}@{svc.build.sha12}"
+    return svc.build.repo if svc.build else "pinned image"
+
+
 def build_report(ctx: Context, profile: str, auth: str, services: list[_manifest.Service], env: dict[str, str], platform_string: str) -> dict[str, Any]:
     rows = []
     for svc in services:
@@ -153,7 +162,8 @@ def build_report(ctx: Context, profile: str, auth: str, services: list[_manifest
             "component": svc.component,
             "role": svc.role,
             "image": svc.image,
-            "build_from": f"{svc.build.repo}@{svc.build.sha12}" if svc.build and svc.build.sha12 else (svc.build.repo if svc.build else "pinned image"),
+            "build_from": _build_from(svc),
+            "origin": svc.origin,
             "profile": svc.profile,
         })
     ports = published_ports(services, env)
@@ -164,6 +174,7 @@ def build_report(ctx: Context, profile: str, auth: str, services: list[_manifest
         "manifest": str(ctx.manifest_path.relative_to(ctx.root)) if ctx.manifest_path.is_relative_to(ctx.root) else str(ctx.manifest_path),
         "services": rows,
         "images_to_build": sorted({svc.image for svc in services if svc.is_built}),
+        "prebuilt_images": sorted({svc.image for svc in services if svc.is_prebuilt}),
         "ports": ports,
         "volumes": volumes_of(services),
         "network": "grdm",

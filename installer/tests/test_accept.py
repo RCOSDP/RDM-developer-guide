@@ -5,6 +5,7 @@ import os
 import stat
 import tempfile
 import unittest
+import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -58,13 +59,14 @@ def unhealthy(ctx):
 class FakeRunner:
     """Records argv; writes junit.xml (and optionally collector.json) when asked to run pytest."""
 
-    def __init__(self, pytest_rc=0, junit=None, seed_rc=0, output="pytest output", collector=None):
+    def __init__(self, pytest_rc=0, junit=None, seed_rc=0, output="pytest output", collector=None, trace_members=None):
         self.calls = []
         self.pytest_rc = pytest_rc
         self.junit = junit
         self.seed_rc = seed_rc
         self.output = output
         self.collector = collector
+        self.trace_members = trace_members  # {member name: bytes} -> artifacts/<test>/trace.zip like pytest-playwright
 
     def __call__(self, argv, env=None, cwd=None):
         self.calls.append((argv, env))
@@ -73,10 +75,38 @@ class FakeRunner:
                 Path(argv[argv.index("--junitxml") + 1]).write_text(self.junit, encoding="utf-8")
             if self.collector is not None:
                 Path(env["GRDM_ACCEPT_RESULTS"]).write_text(json.dumps(self.collector), encoding="utf-8")
+            if self.trace_members is not None:
+                run_dir = Path(argv[argv.index("--junitxml") + 1]).parent
+                write_zip(run_dir / "artifacts" / "test-c1-login-rejection-chromium" / "trace.zip", self.trace_members)
             return self.pytest_rc, self.output
         if "manage.py" in argv:
             return self.seed_rc, "seeded " + self.output
         return 0, ""
+
+
+def write_zip(path: Path, members: dict[str, bytes]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return path
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+
+
+def trace_members(secret: str) -> dict[str, bytes]:
+    """A Playwright-shaped trace: JSON-lines members plus response bodies under resources/."""
+    return {
+        "trace.trace": json.dumps({"type": "before", "apiName": "page.goto", "params": {"url": f"http://127.0.0.1:5000/?t={secret}"}}).encode(),
+        "trace.network": (json.dumps({"type": "resource-snapshot", "snapshot": {"request": {"headers": [{"name": "Cookie", "value": f"osf={secret}"}]},
+                                                                                "response": {"headers": [{"name": "Set-Cookie", "value": f"osf={secret}; Path=/"}]}}}) + "\n").encode(),
+        "trace.stacks": json.dumps({"stacks": [[0, 0, 0, f"POSTGRES_PASSWORD={secret}"]]}).encode(),
+        "resources/0a1b2c.html": f"<html>{secret}</html>".encode(),
+        "resources/9f8e7d.dat": secret.encode() + b"\x00\x01",
+        "resources/c0ffee.png": PNG,
+        "screenshot.png": PNG,
+    }
 
 
 class AcceptTests(unittest.TestCase):
@@ -95,7 +125,7 @@ class AcceptTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def args(self, **kw):
-        base = dict(only=None, seed=False, base_url=None, headed=False)
+        base = dict(only=None, seed=False, base_url=None, headed=False, trace=False)
         base.update(kw)
         return argparse.Namespace(**base)
 
@@ -183,7 +213,9 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("--junitxml", argv)
         self.assertEqual(argv[argv.index("--base-url") + 1], "http://127.0.0.1:5000")
         self.assertEqual(argv[argv.index("--screenshot") + 1], "only-on-failure")
-        self.assertEqual(argv[argv.index("--tracing") + 1], "retain-on-failure")
+        self.assertEqual(argv[argv.index("--tracing") + 1], "off")  # traces only with --trace (R2-01)
+        self.assertIsNone(results["trace_quarantine"])
+        self.assertEqual(results["tracing"], "off")
         self.assertEqual(env["PLAYWRIGHT_BROWSERS_PATH"], str(self.root / ".venv" / ".playwright"))
         self.assertEqual(env["GRDM_BASE_URL"], "http://127.0.0.1:5000")
         self.assertTrue(env["GRDM_ACCEPT_USER_A"].endswith("@acceptance.test"))
@@ -294,6 +326,96 @@ class AcceptTests(unittest.TestCase):
         # the port and profile stay readable
         self.assertIn("http://127.0.0.1:5000", (run_dir / "results.json").read_text())
 
+    def _assert_zip_has_no_secret(self, zip_path: Path):
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            for name in names:
+                data = zf.read(name)
+                self.assertNotIn(SECRET.encode(), data, f"{zip_path.name}:{name}")
+                self.assertNotIn(json.dumps(SECRET)[1:-1].encode(), data, f"{zip_path.name}:{name}")
+        return names
+
+    def test_sanitize_run_dir_masks_zip_members_and_every_text_file(self):
+        """R2-01: a .env value inside pytest.log and inside a trace ZIP member must be gone after sanitize."""
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-x"
+        run_dir.mkdir(parents=True)
+        (run_dir / "pytest.log").write_text(f"E  assert cookie osf={SECRET}\n")
+        nested = run_dir / "artifacts" / "test-c1-login-rejection-chromium"
+        nested.mkdir(parents=True)
+        (nested / "network.har").write_text(json.dumps({"log": {"entries": [{"request": {"headers": [{"name": "Cookie", "value": f"osf={SECRET}"}]}}]}}))
+        (nested / "notes.md").write_text(f"saw {SECRET}\n")
+        (nested / "context.json").write_text(json.dumps({"cookies": [{"value": SECRET}]}))
+        (nested / "console.txt").write_text(f"{SECRET}\n")
+        (nested / "screenshot.png").write_bytes(PNG)
+        zip_path = write_zip(nested / "trace.zip", trace_members(SECRET))
+        with zipfile.ZipFile(zip_path) as zf:  # precondition: the raw trace leaks
+            self.assertIn(SECRET.encode(), zf.read("trace.network"))
+
+        accept.sanitize_run_dir(run_dir, [SECRET])
+
+        self._assert_no_secret_under(run_dir)  # text files, permissions
+        names = self._assert_zip_has_no_secret(zip_path)
+        self.assertIn("trace.network", names)
+        self.assertIn("trace.trace", names)
+        self.assertIn("trace.stacks", names)
+        self.assertIn("resources/c0ffee.png", names)   # image bodies stay
+        self.assertIn("screenshot.png", names)
+        self.assertNotIn("resources/0a1b2c.html", names)  # response bodies are dropped
+        self.assertNotIn("resources/9f8e7d.dat", names)
+        with zipfile.ZipFile(zip_path) as zf:
+            self.assertIn(b"***", zf.read("trace.network"))
+            self.assertIn(b"page.goto", zf.read("trace.trace"))  # structure survives, value masked
+            self.assertEqual(zf.read("screenshot.png"), PNG)
+        self.assertEqual(stat.S_IMODE(zip_path.stat().st_mode), 0o600)
+        self.assertEqual((nested / "screenshot.png").read_bytes(), PNG)
+        for name in ("network.har", "notes.md", "context.json", "console.txt"):
+            self.assertIn("***", (nested / name).read_text(), name)
+        # a corrupt archive cannot be sanitized and is removed rather than kept
+        bad = nested / "broken.zip"
+        bad.write_bytes(b"not a zip")
+        self.assertEqual(accept.sanitize_zip(bad, [SECRET]), {"kept": 0, "dropped": -1})
+        self.assertFalse(bad.exists())
+
+    def test_sanitize_zip_member_rules(self):
+        self.assertIsNone(accept.sanitize_zip_member("resources/a.html", b"<html>x</html>", []))
+        self.assertIsNone(accept.sanitize_zip_member("resources/a.json", b"{}", []))
+        self.assertEqual(accept.sanitize_zip_member("resources/a.png", PNG, []), PNG)
+        self.assertEqual(accept.sanitize_zip_member("resources/noext", b"\xff\xd8\xff\xe0jpeg", []), b"\xff\xd8\xff\xe0jpeg")
+        self.assertEqual(accept.sanitize_zip_member("trace.network", f"x={SECRET}".encode(), [SECRET]), b"x=***")
+        self.assertIsNone(accept.sanitize_zip_member("blob.bin", b"\x00\x01" + SECRET.encode(), [SECRET]))  # unknown binary: dropped
+
+    def test_trace_flag_quarantines_zips_outside_the_run_dir(self):
+        """R2-01 quarantine design: --trace keeps traces under runtime/reports/quarantine/<run_id>/, never in docs/demo/runs/."""
+        self._write_env()
+        runner = FakeRunner(pytest_rc=1, junit=JUNIT_ONE_FAILURE, trace_members=trace_members(SECRET))
+        rc, err, _ = self.run_accept(self.args(trace=True, base_url="http://127.0.0.1:5000"), runner)
+        self.assertEqual(rc, exit_codes.ACCEPTANCE_FAILED)
+        argv, _ = runner.calls[-1]
+        self.assertEqual(argv[argv.index("--tracing") + 1], "retain-on-failure")
+        run_dir = self.run_dir()
+        self.assertEqual(list(run_dir.rglob("*.zip")), [])
+        self._assert_no_secret_under(run_dir)
+        quarantine = self.root / "runtime" / "reports" / "quarantine" / run_dir.name
+        zips = list(quarantine.rglob("*.zip"))
+        self.assertEqual([z.relative_to(quarantine).as_posix() for z in zips], ["artifacts/test-c1-login-rejection-chromium/trace.zip"])
+        self.assertEqual(stat.S_IMODE(quarantine.stat().st_mode), 0o700)
+        self.assertEqual(stat.S_IMODE(zips[0].stat().st_mode), 0o600)
+        results = json.loads((run_dir / "results.json").read_text())
+        self.assertEqual(results["tracing"], "retain-on-failure")
+        q = results["trace_quarantine"]
+        self.assertEqual(q["dir"], f"runtime/reports/quarantine/{run_dir.name}")
+        self.assertEqual(q["files"], ["artifacts/test-c1-login-rejection-chromium/trace.zip"])
+        self.assertIn("not sanitized evidence", q["note"])
+        self.assertNotIn(SECRET, err)
+        # runtime/ is git-ignored, so the quarantine never reaches a commit
+        self.assertIn("runtime/", (Path(__file__).resolve().parents[2] / ".gitignore").read_text())
+
+    def test_zip_left_in_run_dir_is_sanitized_even_if_quarantine_is_skipped(self):
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-y"
+        zip_path = write_zip(run_dir / "artifacts" / "t" / "trace.zip", trace_members(SECRET))
+        accept.sanitize_run_dir(run_dir, [SECRET])
+        self._assert_zip_has_no_secret(zip_path)
+
     def test_seed_failure_output_is_masked(self):
         self._write_env()
         runner = FakeRunner(seed_rc=1, output=f"django.db.utils.OperationalError: password authentication failed for {SECRET}")
@@ -370,7 +492,8 @@ class AcceptTests(unittest.TestCase):
         parser = cli.build_parser()
         args = parser.parse_args(["accept", "--only", "C1", "--seed", "--base-url", "http://127.0.0.1:5000"])
         self.assertIs(args._module, accept)
-        self.assertEqual((args.only, args.seed, args.base_url), ("C1", True, "http://127.0.0.1:5000"))
+        self.assertEqual((args.only, args.seed, args.base_url, args.trace), ("C1", True, "http://127.0.0.1:5000", False))
+        self.assertTrue(parser.parse_args(["accept", "--trace"]).trace)
 
 
 class NetGuardTests(unittest.TestCase):
@@ -405,6 +528,163 @@ class NetGuardTests(unittest.TestCase):
         self.assertFalse(netguard.same_origin("https://127.0.0.1:7777/", "http://127.0.0.1:7777"))
         self.assertFalse(netguard.same_origin("", "http://127.0.0.1:7777"))
         self.assertEqual(netguard.offending_urls(["http://127.0.0.1:1/", "http://example.com/"]), ["http://example.com/"])
+
+    # --- redirects (R2-02) --------------------------------------------------------------------------
+
+    def test_forced_redirect_kwargs_rejects_overrides(self):
+        self.assertEqual(netguard.forced_redirect_kwargs({}), {"max_redirects": 0})
+        self.assertEqual(netguard.forced_redirect_kwargs({"max_redirects": 0, "headers": {"a": "b"}}), {"max_redirects": 0, "headers": {"a": "b"}})
+        self.assertEqual(netguard.forced_redirect_kwargs({"max_redirects": None}), {"max_redirects": 0})
+        for bad in (1, 20, -1):
+            with self.assertRaises(ValueError):
+                netguard.forced_redirect_kwargs({"max_redirects": bad})
+
+    def test_redirect_target_resolves_location_against_answered_url(self):
+        self.assertEqual(netguard.redirect_target("http://127.0.0.1:5000/login", 302, {"location": "/dashboard"}), "http://127.0.0.1:5000/dashboard")
+        self.assertEqual(netguard.redirect_target("http://127.0.0.1:5000/login", 302, {"Location": "http://evil.test/"}), "http://evil.test/")
+        self.assertEqual(netguard.redirect_target("http://127.0.0.1:5000/a/b", 301, {"location": "../c"}), "http://127.0.0.1:5000/c")
+        self.assertEqual(netguard.redirect_target("http://127.0.0.1:5000/a", 302, {"location": "//evil.test/x"}), "http://evil.test/x")
+        self.assertIsNone(netguard.redirect_target("http://127.0.0.1:5000/", 200, {"location": "/x"}))
+        self.assertIsNone(netguard.redirect_target("http://127.0.0.1:5000/", 302, {}))
+        self.assertIsNone(netguard.redirect_target("http://127.0.0.1:5000/", 302, None))
+        self.assertIsNone(netguard.redirect_target("http://127.0.0.1:5000/", 304, {"location": "/x"}))
+
+    def test_redirect_follow_up_method_and_body(self):
+        self.assertEqual(netguard.redirect_follow_up("post", 302, {"data": "x", "headers": {"h": 1}, "max_redirects": 0}),
+                         ("get", {"headers": {"h": 1}, "max_redirects": 0}))
+        self.assertEqual(netguard.redirect_follow_up("post", 307, {"data": "x", "max_redirects": 0}), ("post", {"data": "x", "max_redirects": 0}))
+        self.assertEqual(netguard.redirect_follow_up("put", 308, {"form": {"a": 1}}), ("put", {"form": {"a": 1}}))
+        self.assertEqual(netguard.redirect_follow_up("post", 303, {"multipart": {}}), ("get", {}))
+        self.assertEqual(netguard.MAX_REDIRECT_HOPS, 5)
+        self.assertIn("1.48", netguard.WEBSOCKET_ROUTE_REQUIREMENT)
+
+
+try:
+    import pytest as _pytest  # the conftest imports pytest; the unit tests below need the venv with [accept]
+    from acceptance import conftest as _conftest
+except ImportError:  # pragma: no cover - system python without pytest
+    _pytest = _conftest = None
+
+
+class FakeResponse:
+    def __init__(self, url, status=200, headers=None):
+        self.url, self.status, self.headers = url, status, headers or {}
+
+
+class FakeRequestContext:
+    """Scripted APIRequestContext: answers in order, records every (verb, url, kwargs) it was asked."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def _answer(self, verb, url, **kwargs):
+        self.calls.append((verb, url, kwargs))
+        return self.responses.pop(0)
+
+    def get(self, url, **kw):
+        return self._answer("get", url, **kw)
+
+    def post(self, url, **kw):
+        return self._answer("post", url, **kw)
+
+
+class FakeBrowserContext:
+    def __init__(self, websocket_routing=True):
+        self.routes, self.ws_routes, self.handlers, self.pages = [], [], [], []
+        if websocket_routing:
+            self.route_web_socket = lambda pattern, handler: self.ws_routes.append((pattern, handler))
+
+    def route(self, pattern, handler):
+        self.routes.append((pattern, handler))
+
+    def on(self, event, handler):
+        self.handlers.append(event)
+
+
+@unittest.skipIf(_conftest is None, "pytest/acceptance conftest not importable in this interpreter (use .venv with [accept])")
+class GuardedRequestTests(unittest.TestCase):
+    """acceptance/conftest.py GuardedRequest and guard_context (R2-02)."""
+
+    LOCAL = "http://127.0.0.1:8000/v2/"
+
+    def guarded(self, responses):
+        rc = FakeRequestContext(responses)
+        return rc, _conftest.GuardedRequest(rc, offenders=[])
+
+    def test_max_redirects_override_is_a_value_error_and_nothing_is_sent(self):
+        rc, g = self.guarded([FakeResponse(self.LOCAL)])
+        with self.assertRaises(ValueError):
+            g.get(self.LOCAL, max_redirects=20)
+        self.assertEqual(rc.calls, [])
+
+    def test_max_redirects_is_forced_to_zero_on_every_call(self):
+        rc, g = self.guarded([FakeResponse(self.LOCAL, 200)])
+        resp = g.get(self.LOCAL, headers={"Accept": "x"})
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(rc.calls, [("get", self.LOCAL, {"headers": {"Accept": "x"}, "max_redirects": 0})])
+
+    def test_redirect_to_external_host_fails_before_the_hop_is_sent(self):
+        rc, g = self.guarded([FakeResponse(self.LOCAL + "login", 302, {"location": "https://cas.example.org/login"}),
+                              FakeResponse("https://cas.example.org/login", 200)])
+        with self.assertRaises(_pytest.fail.Exception) as cm:
+            g.get(self.LOCAL + "login")
+        self.assertIn("cas.example.org", str(cm.exception))
+        self.assertEqual(len(rc.calls), 1)  # the external hop was never requested
+        self.assertEqual(g._offenders, ["https://cas.example.org/login"])
+
+    def test_redirect_to_lookalike_or_other_loopback_scheme_fails(self):
+        for location in ("http://localhost:8000/x", "http://127.0.0.1.evil.test/x", "https://127.0.0.1:8000/x", "//evil.test/x"):
+            rc, g = self.guarded([FakeResponse(self.LOCAL, 301, {"Location": location}), FakeResponse(self.LOCAL)])
+            with self.assertRaises(_pytest.fail.Exception):
+                g.get(self.LOCAL)
+            self.assertEqual(len(rc.calls), 1, location)
+
+    def test_redirect_to_loopback_is_followed_with_each_hop_checked(self):
+        rc, g = self.guarded([FakeResponse(self.LOCAL + "login", 302, {"location": "/v2/dashboard"}),
+                              FakeResponse("http://127.0.0.1:8000/v2/dashboard", 307, {"location": "http://127.0.0.1:5000/home"}),
+                              FakeResponse("http://127.0.0.1:5000/home", 200)])
+        resp = g.post(self.LOCAL + "login", data="a=b")
+        self.assertEqual((resp.status, resp.url), (200, "http://127.0.0.1:5000/home"))
+        self.assertEqual([(v, u) for v, u, _ in rc.calls],
+                         [("post", self.LOCAL + "login"), ("get", "http://127.0.0.1:8000/v2/dashboard"), ("get", "http://127.0.0.1:5000/home")])
+        self.assertTrue(all(kw["max_redirects"] == 0 for _, _, kw in rc.calls))
+        self.assertNotIn("data", rc.calls[1][2])  # 302 -> GET without body
+        self.assertEqual(g._offenders, [])
+
+    def test_more_than_five_hops_fails(self):
+        responses = [FakeResponse(self.LOCAL, 302, {"location": f"/hop{i}"}) for i in range(7)] + [FakeResponse(self.LOCAL)]
+        rc, g = self.guarded(responses)
+        with self.assertRaises(_pytest.fail.Exception) as cm:
+            g.get(self.LOCAL)
+        self.assertIn("redirect hops", str(cm.exception))
+        self.assertEqual(len(rc.calls), _conftest.MAX_REDIRECT_HOPS + 1)
+
+    def test_answer_from_another_origin_fails(self):
+        rc, g = self.guarded([FakeResponse("http://localhost:8000/v2/", 200)])
+        with self.assertRaises(_pytest.fail.Exception):
+            g.get(self.LOCAL)
+
+    def test_guard_context_fails_closed_without_websocket_routing(self):
+        ctx = FakeBrowserContext(websocket_routing=False)
+        with self.assertRaises(RuntimeError) as cm:
+            _conftest.guard_context(ctx, offenders=[])
+        self.assertIn("1.48", str(cm.exception))
+        self.assertIn("route_web_socket", str(cm.exception))
+        self.assertEqual(ctx.routes, [])  # nothing half-installed
+
+    def test_guard_context_installs_http_and_websocket_routes(self):
+        ctx = FakeBrowserContext()
+        _conftest.guard_context(ctx, offenders=[])
+        self.assertEqual([p for p, _ in ctx.routes], ["**/*"])
+        self.assertEqual([p for p, _ in ctx.ws_routes], ["**/*"])
+        self.assertIn("serviceworker", ctx.handlers)
+        self.assertIn("page", ctx.handlers)
+
+    def test_pyproject_requires_playwright_with_websocket_routing(self):
+        text = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+        self.assertIn('"playwright>=1.48"', text)
+        self.assertIn('"pytest-playwright>=0.6"', text)
 
 
 if __name__ == "__main__":

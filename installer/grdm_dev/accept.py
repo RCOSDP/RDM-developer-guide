@@ -12,8 +12,15 @@ Flow (SPEC-04 §2: integration before acceptance):
      selected scenario lacks a success or a rejection row.
 
 Evidence never contains secrets (SPEC-03 §3.1, SPEC-04 §7): every value of runtime/.env and every
-token-like string is masked in pytest.log, junit.xml, collector.json, results.* and in anything
-printed; the run directory is 0700 and its files 0600.
+token-like string is masked in every text artefact under the run directory (pytest.log, junit.xml,
+collector.json, results.*, *.har/*.json/*.txt/*.log/*.md anywhere below it) and in anything printed;
+ZIP archives that remain under the run directory are rewritten member by member (text-like members
+masked, binary members other than images dropped); the run directory is 0700 and its files 0600.
+
+Browser traces are off by default (`--tracing off`). `--trace` enables `retain-on-failure`, and the
+resulting trace ZIPs are moved out of docs/demo/runs/ into runtime/reports/quarantine/<run_id>/
+(0700, git-ignored, never part of a report bundle) before the run directory is sanitized; results.json
+records the quarantine in `trace_quarantine`.
 
 The suite is resolved from the installed `acceptance` package (importlib.resources) first and from
 the repository checkout (installer/acceptance/) as a fallback, so a non-editable `pip install
@@ -31,10 +38,12 @@ import json
 import os
 import re
 import secrets
+import shutil
 import stat
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
@@ -87,6 +96,16 @@ TOKEN_PATTERNS: tuple[re.Pattern[str], ...] = (
     # long base64/urlsafe blobs with at least four digits (test slugs like test-c4-... have one)
     re.compile(r"\b(?=(?:[A-Za-z_-]*\d){4})[A-Za-z0-9_-]{40,}\b"),
 )
+# Text-like files under the run directory that are masked in place (suffix match, case-insensitive).
+TEXT_SUFFIXES = (".har", ".json", ".jsonl", ".txt", ".log", ".md", ".xml")
+# ZIP members (Playwright traces: trace.trace / trace.network / trace.stacks are JSON lines) whose
+# bytes are masked; anything else is dropped unless it is an image (screenshots stay).
+ZIP_TEXT_SUFFIXES = TEXT_SUFFIXES + (".trace", ".network", ".stacks", ".html", ".htm", ".css", ".js", ".csv", ".svg")
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
+IMAGE_MAGIC = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"RIFF", b"BM")
+# Members of a Playwright trace that carry response bodies (resources/<sha1>.<ext>); dropped unless image.
+ZIP_BODY_PREFIX = "resources/"
+QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 
 # Django management call executed inside the `web` container by `--seed`.
 # TODO(M2): confirm on the real app. OSFUser.create_confirmed(username, password, fullname) exists in
@@ -110,6 +129,8 @@ def register(subparsers) -> None:
     p.add_argument("--seed", action="store_true", help="create disposable test users in the web container before running (removed afterwards)")
     p.add_argument("--base-url", dest="base_url", help="web URL; must be http://127.0.0.1:<port> (default: GRDM_PORT_WEB from runtime/.env, else 5000)")
     p.add_argument("--headed", action="store_true", help="show the browser window (debugging only)")
+    p.add_argument("--trace", action="store_true",
+                   help="record Playwright traces for failed tests; the ZIPs are quarantined under runtime/reports/quarantine/<run_id>/ (owner-only, git-ignored), never kept in docs/demo/runs/")
     p.set_defaults(_module=sys.modules[__name__])
 
 
@@ -264,7 +285,8 @@ def incomplete_scenarios(rows: list[dict], expected: list[str]) -> list[str]:
     return [sid for sid in expected if not {"success", "rejection"} <= seen.get(sid, set())]
 
 
-def pytest_argv(paths: list[str], extra: list[str], run_dir: Path, base_url: str, headed: bool) -> list[str]:
+def pytest_argv(paths: list[str], extra: list[str], run_dir: Path, base_url: str, headed: bool,
+                trace: bool = False) -> list[str]:
     argv = [sys.executable, "-m", "pytest", *paths, "-q", "--no-header",
             "-p", "no:cacheprovider",
             # pytest-playwright registers itself through its entry point; naming it again with -p would
@@ -272,7 +294,8 @@ def pytest_argv(paths: list[str], extra: list[str], run_dir: Path, base_url: str
             "--base-url", base_url,
             "--junitxml", str(run_dir / "junit.xml"),
             "--screenshot", "only-on-failure",
-            "--tracing", "retain-on-failure",
+            # Traces carry cookies, headers and response bodies: off unless --trace, and then quarantined.
+            "--tracing", "retain-on-failure" if trace else "off",
             "--output", str(run_dir / "artifacts"),
             "--browser", "chromium",
             *extra]
@@ -342,8 +365,56 @@ def write_private(path: Path, text: str) -> None:
 
 
 def mask_file(path: Path, secret_values: list[str]) -> None:
-    if path.is_file():
+    if path.is_file() and not path.is_symlink():
         write_private(path, mask_text(path.read_text(encoding="utf-8", errors="replace"), secret_values))
+
+
+def _is_image(name: str, head: bytes) -> bool:
+    return name.lower().endswith(IMAGE_SUFFIXES) or any(head.startswith(m) for m in IMAGE_MAGIC)
+
+
+def sanitize_zip_member(name: str, data: bytes, secret_values: list[str]) -> bytes | None:
+    """Masked bytes of one ZIP member, or None when the member must be dropped.
+
+    Text-like members (trace.trace, trace.network, trace.stacks, *.json, *.har, ...) are masked like
+    any text file. `resources/*` members are response bodies: only images survive. Any other binary
+    member is dropped too, because its content cannot be inspected (fail closed)."""
+    lower = name.lower()
+    is_body = lower.startswith(ZIP_BODY_PREFIX) or f"/{ZIP_BODY_PREFIX}" in lower
+    if is_body:
+        return data if _is_image(lower, data[:16]) else None
+    if lower.endswith(ZIP_TEXT_SUFFIXES):
+        return mask_text(data.decode("utf-8", errors="replace"), secret_values).encode("utf-8")
+    if _is_image(lower, data[:16]):
+        return data
+    return None
+
+
+def sanitize_zip(path: Path, secret_values: list[str]) -> dict[str, int]:
+    """Rewrite a ZIP in place with every member passed through `sanitize_zip_member`.
+    Returns {"kept": n, "dropped": m}. An unreadable archive is removed (it cannot be sanitized)."""
+    tmp = path.with_name(path.name + ".sanitizing")
+    kept = dropped = 0
+    try:
+        with zipfile.ZipFile(path) as src:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as fh, zipfile.ZipFile(fh, "w", compression=zipfile.ZIP_DEFLATED) as dst:
+                for info in src.infolist():
+                    if info.is_dir():
+                        continue
+                    masked = sanitize_zip_member(info.filename, src.read(info), secret_values)
+                    if masked is None:
+                        dropped += 1
+                        continue
+                    dst.writestr(info.filename, masked)
+                    kept += 1
+    except (zipfile.BadZipFile, OSError):
+        tmp.unlink(missing_ok=True)
+        path.unlink(missing_ok=True)
+        return {"kept": 0, "dropped": -1}
+    os.replace(tmp, path)
+    os.chmod(path, 0o600)
+    return {"kept": kept, "dropped": dropped}
 
 
 def restrict_tree(run_dir: Path) -> None:
@@ -357,10 +428,39 @@ def restrict_tree(run_dir: Path) -> None:
 
 
 def sanitize_run_dir(run_dir: Path, secret_values: list[str]) -> None:
-    """Mask every text artefact pytest wrote (junit.xml, collector.json, pytest.log) and lock permissions."""
-    for name in ("junit.xml", "collector.json", "pytest.log"):
-        mask_file(run_dir / name, secret_values)
+    """Mask every retained artefact under the run directory and lock permissions (SPEC-04 §7):
+    text files by suffix (junit.xml, collector.json, pytest.log, *.har, *.json, *.txt, *.log, *.md)
+    anywhere below it, ZIP archives member by member (`sanitize_zip`), screenshots untouched."""
+    for root, _dirs, files in os.walk(run_dir):
+        for f in files:
+            p = Path(root) / f
+            if p.is_symlink():
+                continue
+            lower = f.lower()
+            if lower.endswith(TEXT_SUFFIXES):
+                mask_file(p, secret_values)
+            elif lower.endswith(".zip"):
+                sanitize_zip(p, secret_values)
     restrict_tree(run_dir)
+
+
+def quarantine_traces(run_dir: Path, quarantine_dir: Path) -> list[str]:
+    """Move every *.zip under `run_dir` (Playwright traces) into `quarantine_dir` (0700, files 0600),
+    preserving the path relative to the run directory. Returns the moved paths relative to
+    `quarantine_dir`. The quarantine lives under runtime/ (git-ignored) and is not evidence."""
+    moved: list[str] = []
+    for src in sorted(run_dir.rglob("*.zip")):
+        if src.is_symlink() or not src.is_file():
+            continue
+        rel = src.relative_to(run_dir)
+        dst = quarantine_dir / rel
+        make_private_dir(dst.parent)
+        shutil.move(str(src), str(dst))
+        os.chmod(dst, 0o600)
+        moved.append(str(rel))
+    if moved:
+        restrict_tree(quarantine_dir)
+    return moved
 
 
 # --- integration precheck (SPEC-04 §2) -----------------------------------------------------------
@@ -525,14 +625,19 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
                 return fail(exit_codes.SERVICES_UNHEALTHY, f"seed failed for {u['email']}: {out.strip()[-400:]}")
         seeded = True
 
+    trace = bool(getattr(args, "trace", False))
     try:
-        rc, out = runner(pytest_argv(paths, extra, run_dir, base_url, getattr(args, "headed", False)), env=env, cwd=ctx.root)
+        rc, out = runner(pytest_argv(paths, extra, run_dir, base_url, getattr(args, "headed", False), trace=trace), env=env, cwd=ctx.root)
     finally:
         if seeded:
             cleanup = CLEANUP_SNIPPET.format(domain=SEED_DOMAIN, run_id=run_id)
             crc, cout = runner(compose_exec(ctx, "web", "python3", "manage.py", "shell", "-c", cleanup), env=env, cwd=ctx.root)
             if crc != 0:
                 sys.stderr.write(mask_text(f"warning: cleanup of seeded users failed: {cout.strip()[-200:]}\n", secret_values))
+    # Traces (cookies, headers, bodies) never stay under docs/demo/runs/: quarantine first, then
+    # sanitize whatever remains (any ZIP still present is rewritten member by member).
+    quarantine_dir = ctx.runtime / QUARANTINE_SUBDIR / run_id
+    quarantined = quarantine_traces(run_dir, quarantine_dir)
     write_private(run_dir / "pytest.log", mask_text(out, secret_values))
     sanitize_run_dir(run_dir, secret_values)
 
@@ -551,6 +656,12 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
         "precheck": {"healthy": healthy, "services": len(health_rows)},
         "pytest_returncode": rc,
         "evidence_dir": str(run_dir.relative_to(ctx.root)) if run_dir.is_relative_to(ctx.root) else str(run_dir),
+        "tracing": "retain-on-failure" if trace else "off",
+        "trace_quarantine": {
+            "dir": str(quarantine_dir.relative_to(ctx.root)) if quarantine_dir.is_relative_to(ctx.root) else str(quarantine_dir),
+            "files": quarantined,
+            "note": "Playwright traces are not sanitized evidence: they stay under runtime/ (0700, git-ignored) and are never copied into docs/demo/runs/ or a report bundle.",
+        } if quarantined else None,
         "expected_scenarios": expected,
         "incomplete_scenarios": missing_cases,
         "summary": summary,

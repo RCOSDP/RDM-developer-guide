@@ -2104,6 +2104,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2624,7 +2645,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。</li>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> traces are raw and may hold secrets, so the public evidence folder keeps only screenshots and masked text (PR #21 review r2). ／ トレースは生で秘密を含み得るため、公開の証跡フォルダにはスクリーンショットとマスク済みの文字だけを置く（PR #21 レビュー r2）。
+  0.1 — 2026-11-05. <strong>Learned:</strong> the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。</li>
 <li>Normative source: <a href="../../spec/04_acceptance_tests/">SPEC-04 Acceptance Tests</a></li>
 <li>Related: <a href="../">docs/demo/README.md</a> · <a href="../../status/">docs/status/README.md</a></li>
 </ul>
@@ -2655,8 +2677,8 @@
 <td>Test results in the format CI tools read</td>
 </tr>
 <tr>
-<td><code>screenshots/</code>, <code>trace/</code></td>
-<td>Only when a test failed: what the browser saw</td>
+<td><code>screenshots/</code></td>
+<td>Only when a test failed: what the browser saw. Browser traces are not kept here; with <code>--trace</code> they go to <code>runtime/reports/quarantine/&lt;run_id&gt;/</code>, which is private and git-ignored</td>
 </tr>
 </tbody>
 </table>
@@ -2690,8 +2712,8 @@
 <td>CI の道具が読む形式の試験結果</td>
 </tr>
 <tr>
-<td><code>screenshots/</code>, <code>trace/</code></td>
-<td>試験が失敗したときだけ: ブラウザが見ていた画面</td>
+<td><code>screenshots/</code></td>
+<td>試験が失敗したときだけ: ブラウザが見ていた画面。ブラウザのトレースはここには置かない。<code>--trace</code> のときは <code>runtime/reports/quarantine/&lt;run_id&gt;/</code>（非公開、git 管理外）へ</td>
 </tr>
 </tbody>
 </table>

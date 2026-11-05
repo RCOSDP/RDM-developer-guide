@@ -26,7 +26,16 @@ from typing import Any, Callable
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.netguard import HTTP_SCHEMES, WS_SCHEMES, is_loopback_origin
+from acceptance.netguard import (
+    HTTP_SCHEMES,
+    MAX_REDIRECT_HOPS,
+    WEBSOCKET_ROUTE_REQUIREMENT,
+    WS_SCHEMES,
+    forced_redirect_kwargs,
+    is_loopback_origin,
+    redirect_follow_up,
+    redirect_target,
+)
 
 TEST_TIMEOUT_S = 120          # SPEC-04 §3.3
 SUITE_TIMEOUT_S = 30 * 60
@@ -140,8 +149,11 @@ def tmp_pdf(run_id) -> bytes:
 # --- network guard (SPEC-04 §3.4) ----------------------------------------------------------------
 
 class GuardedRequest:
-    """Wraps a Playwright APIRequestContext: every URL is checked before sending, redirects are not
-    followed unless the caller passes `max_redirects`, and the answered URL is checked as well.
+    """Wraps a Playwright APIRequestContext: every URL is checked before sending, Playwright never
+    follows a redirect itself (`max_redirects` is forced to 0; a caller passing another value gets a
+    ValueError), and the answered URL is checked as well. A 3xx answer is followed by the wrapper, at
+    most MAX_REDIRECT_HOPS times, only while each resolved Location is a loopback origin; any hop that
+    would leave the machine fails the test before it is sent.
 
     Attribute access other than the HTTP verbs is delegated (dispose, storage_state, ...).
     """
@@ -157,13 +169,22 @@ class GuardedRequest:
         pytest.fail(f"{why}: {url!r} is not http://127.0.0.1:<port> (SPEC-04 §3.4, ADR-02)")
 
     def _call(self, verb: str, url: str, **kwargs):
-        if not isinstance(url, str) or not is_loopback_origin(url, HTTP_SCHEMES):
-            self._refuse(str(url), f"refusing API {verb.upper()}")
-        kwargs.setdefault("max_redirects", 0)
-        resp = getattr(self._rc, verb)(url, **kwargs)
-        if not is_loopback_origin(resp.url, HTTP_SCHEMES):
-            self._refuse(resp.url, f"API {verb.upper()} {url!r} was answered from another origin")
-        return resp
+        kwargs = forced_redirect_kwargs(kwargs)  # ValueError on a non-zero max_redirects
+        hop_verb, hop_url, hop_kwargs = verb, url, kwargs
+        for hop in range(MAX_REDIRECT_HOPS + 1):
+            if not isinstance(hop_url, str) or not is_loopback_origin(hop_url, HTTP_SCHEMES):
+                self._refuse(str(hop_url), f"refusing API {hop_verb.upper()}" + (f" (redirect hop {hop} of {url!r})" if hop else ""))
+            resp = getattr(self._rc, hop_verb)(hop_url, **hop_kwargs)
+            if not is_loopback_origin(resp.url, HTTP_SCHEMES):
+                self._refuse(resp.url, f"API {hop_verb.upper()} {hop_url!r} was answered from another origin")
+            target = redirect_target(resp.url, resp.status, getattr(resp, "headers", None))
+            if target is None:
+                return resp
+            if not is_loopback_origin(target, HTTP_SCHEMES):
+                self._refuse(target, f"API {hop_verb.upper()} {hop_url!r} redirects ({resp.status}) off the machine")
+            hop_verb, hop_kwargs = redirect_follow_up(hop_verb, resp.status, hop_kwargs)
+            hop_url = target
+        pytest.fail(f"API {verb.upper()} {url!r}: more than {MAX_REDIRECT_HOPS} redirect hops (SPEC-04 §3.4)")
 
     def __getattr__(self, name: str):
         if name in self.VERBS:
@@ -180,7 +201,12 @@ def api(context) -> GuardedRequest:
 
 def guard_context(context, offenders: list[str] | None = None) -> None:
     """Abort any browser request, WebSocket or service worker that would leave loopback and remember
-    it (SPEC-04 §3.4). Installed on the context *and* on every page it opens."""
+    it (SPEC-04 §3.4). Installed on the context *and* on every page it opens.
+
+    Fails closed: without `BrowserContext.route_web_socket` (Playwright < 1.48) WebSockets could not be
+    intercepted, so the guard refuses to run at all instead of guarding silently less."""
+    if not callable(getattr(context, "route_web_socket", None)):
+        raise RuntimeError(WEBSOCKET_ROUTE_REQUIREMENT)
     seen = offenders if offenders is not None else _OFFENDERS
 
     def _route(route):
@@ -206,8 +232,7 @@ def guard_context(context, offenders: list[str] | None = None) -> None:
         page.on("worker", lambda w: seen.append(w.url) if _network_url(w.url) and not is_loopback_origin(w.url, HTTP_SCHEMES) else None)
 
     context.route("**/*", _route)
-    if hasattr(context, "route_web_socket"):
-        context.route_web_socket("**/*", _ws_route)
+    context.route_web_socket("**/*", _ws_route)
     context.on("serviceworker", lambda w: seen.append(w.url))  # blocked by browser_context_args too
     context.on("page", _watch_page)
     for page in context.pages:

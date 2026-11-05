@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** downloading a browser inside a test run would make the run depend on the network, so installation is a separate, explicit step and `accept` only checks for it. ／ 試験の実行中にブラウザをダウンロードすると実行がネットワークに依存するため、導入は別の明示的な手順にし、`accept` は有無を確かめるだけにする。
+- Version / 版: 0.4 — 2026-11-05. **Learned:** a browser trace is raw evidence that can carry cookies and response bodies, so it cannot live under the public evidence folder; it is off by default and quarantined under `runtime/` when requested (PR #21 review r2, R2-01). ／ ブラウザのトレースは cookie や応答本文を含み得る生の証跡なので、公開される証跡フォルダには置けない。既定では記録せず、求められたときだけ `runtime/` 配下に隔離する（PR #21 レビュー r2、R2-01）。
+  0.3 — 2026-11-05. **Learned:** downloading a browser inside a test run would make the run depend on the network, so installation is a separate, explicit step and `accept` only checks for it. ／ 試験の実行中にブラウザをダウンロードすると実行がネットワークに依存するため、導入は別の明示的な手順にし、`accept` は有無を確かめるだけにする。
   0.2 — 2026-11-05. **Learned:** a case that may skip in the profile a milestone is judged on cannot be a pass criterion, and a diagram that renders in one language half must parse in the other too. ／ 節目を判定するプロファイルでスキップし得るケースは合格基準になれず、片方の言語で描ける図はもう片方でも解析できなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a scenario without a rejection case proves only that the happy path renders; permission and authentication bugs are found by the case that must fail. ／ 拒否ケースのないシナリオは画面が出ることしか示さず、権限と認証の不具合は「失敗しなければならないケース」で初めて見つかると分かった。
 - Normative for: `installer/acceptance/`, `grdm-dev accept`, `docs/demo/` result files, CI workflow `acceptance-arm64`.
@@ -112,7 +113,7 @@ evidence:
   results.json: same data, canonical, consumed by grdm-dev report
   junit.xml: for CI and the GitHub checks tab
   screenshots/: <test>_<case>.png, taken only on failure
-  trace/: Playwright trace zip, only on failure, kept 14 days in CI
+  trace: "off by default. With --trace, Playwright trace zips are retained only on failure and moved to runtime/reports/quarantine/<run_id>/ (0700, git-ignored, raw: may hold cookies and bodies). Any zip left under docs/demo/runs/ is sanitized member by member"
 ```
 
 `grdm-dev report` ([SPEC-02 §3](02_installer_cli.md#english)) copies `results.toon` into the bundle. The demo document for the milestone (`docs/demo/20_core_install_mac_studio.md` and similar) links to the run folder; the TOON in the document must agree with `results.json` (`docs check`).
@@ -231,7 +232,7 @@ evidence:
   results.json: 同じデータの正本。grdm-dev report が読む
   junit.xml: CI と GitHub の checks タブ向け
   screenshots/: <試験>_<ケース>.png。失敗時だけ撮る
-  trace/: Playwright のトレース zip。失敗時だけ。CI では 14 日保持
+  trace: "既定では記録しない。--trace のときだけ失敗時に Playwright のトレース zip を残し、runtime/reports/quarantine/<run_id>/（0700、git 管理外、生データで cookie や本文を含み得る）へ隔離する。docs/demo/runs/ に残った zip はメンバー単位で無害化する"
 ```
 
 `grdm-dev report`（[SPEC-02 §3](02_installer_cli.md#japanese)）が `results.toon` を束に写します。節目の実証文書（`docs/demo/20_core_install_mac_studio.md` およびその類）は実行フォルダへリンクし、文書内の TOON は `results.json` と一致していなければなりません（`docs check`）。

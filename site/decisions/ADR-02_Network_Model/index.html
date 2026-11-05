@@ -2135,6 +2135,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2757,7 +2778,7 @@
 <h3 id="4-consequences">4. Consequences<a class="headerlink" href="#4-consequences" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
-<p><strong>Cost — no egress by default.</strong> Add-on development against external providers requires <code>compose render --egress &lt;service&gt;</code>; the choice is visible to the security gate.</p>
+<p><strong>Exposure to be aware of.</strong> The seven browser-facing services (<code>web</code>, <code>api</code>, <code>admin</code>, <code>wb</code>, <code>mfr</code>, <code>fakecas</code>, <code>ember_osf_web</code>) sit on the ordinary bridge <code>grdm-edge</code> so that their ports can be published; on that network they also have outbound access to the Internet. All other services have no egress by default. Add-on development against external providers from a non-publishing service requires <code>compose render --egress &lt;service&gt;</code>; every grant, implicit or explicit, is visible to the security gate.</p>
 </li>
 <li>
 <p><strong>Good:</strong> no <code>sudo</code>, nothing survives a reboot that must be redone, nothing is reachable from the LAN, the same Compose file works on macOS, Ubuntu and WSL2, and CI can run it unmodified.</p>
@@ -2828,7 +2849,7 @@
 <h3 id="4-結果">4. 結果<a class="headerlink" href="#4-結果" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
-<p><strong>代価 — 既定では外向き通信がない。</strong> 外部プロバイダに対するアドオン開発には <code>compose render --egress &lt;service&gt;</code> が要り、その選択はセキュリティの門から見える。</p>
+<p><strong>知っておくべき露出。</strong> ブラウザ向けの 7 サービス（<code>web</code>、<code>api</code>、<code>admin</code>、<code>wb</code>、<code>mfr</code>、<code>fakecas</code>、<code>ember_osf_web</code>）はポートを公開するために通常の bridge <code>grdm-edge</code> にいて、その網ではインターネットへの外向き通信もできる。それ以外のサービスには既定で外向き通信がない。公開しないサービスから外部プロバイダへ向かうアドオン開発には <code>compose render --egress &lt;service&gt;</code> が要り、暗黙・明示を問わずすべての付与はセキュリティの門から見える。</p>
 </li>
 <li>
 <p><strong>良い点:</strong> <code>sudo</code> が不要。再起動後にやり直す手順がない。LAN から届くものがない。同じ Compose ファイルが macOS・Ubuntu・WSL2 で動き、CI でもそのまま動く。</p>

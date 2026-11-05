@@ -12,6 +12,15 @@ Checks, none of them an attack (review r1 finding 4: isolation is proven, never 
      "probe inconclusive" -> fail); the same probe run inside the attacker container must reach neither
      the canary nor an external address (1.1.1.1:443). Reaching either proves egress -> fail.
 
+The probe (review r2 finding R2-03) never equates "the tool exited nonzero" with "blocked". Inside the
+probed container it first starts a loopback listener and checks the tool against it: connecting to the
+open loopback port must succeed and connecting to a closed loopback port must return the tool's exact
+"connection failed" status; only then it prints `GRDM_SELFTEST_OK`. Each target then gets exactly one
+marker: `GRDM_REACHED <host:port>` (exit 0), `GRDM_BLOCKED <host:port>` (the connection-failed status
+observed in the self-test, or the `timeout` status), or `GRDM_TOOL_ERROR <rc> <host:port>` (anything
+else: unsupported option, missing library, ...). A missing self-test, a tool error, or a missing marker
+is `inconclusive`, never `blocked`.
+
 Exit 53 if any check fails or is inconclusive, 20 if the targets manifest is missing or malformed,
 0 otherwise. External commands go through an injectable `runner(argv) -> (returncode, output)`. The
 canary container and (if preflight created it) its network are removed before returning.
@@ -33,9 +42,18 @@ APPROVAL_FIELDS = ("approved_by", "approved_on", "scope", "run_id")
 DEFAULT_CANARY = {"network": "grdm-redteam-canary", "image": "alpine:3.20", "port": 8080}
 DEFAULT_EXTERNAL_PROBE = "1.1.1.1:443"
 DEFAULT_APPROVAL_MAX_AGE_DAYS = 30
-REACH_OK = "GRDM_REACH_OK"
-REACH_FAIL = "GRDM_REACH_FAIL"
+# Probe markers (one line each; see probe_script / verdict).
+SELFTEST_OK = "GRDM_SELFTEST_OK"
+SELFTEST_FAIL = "GRDM_SELFTEST_FAIL"
+REACHED = "GRDM_REACHED"
+BLOCKED = "GRDM_BLOCKED"
+TOOL_ERROR = "GRDM_TOOL_ERROR"
 PROBE_NOTOOL = "GRDM_PROBE_NOTOOL"
+# Loopback ports used by the self-test inside the probed container: SELFTEST_PORT gets a listener,
+# SELFTEST_PORT + 1 stays closed so the tool's "connection failed" exit status is observed, not assumed.
+SELFTEST_PORT = 47321
+# Exit status of `timeout` when the command ran out of time (GNU coreutils and busybox).
+TIMEOUT_RC = 124
 _NAME_RE = r"[a-z0-9][a-zA-Z0-9_.-]*"
 
 
@@ -201,26 +219,77 @@ def inspect_container(runner, name: str) -> tuple[dict | None, str]:
 
 
 def probe_script(host: str, port: int) -> str:
-    """Shell that prints REACH_OK / REACH_FAIL / PROBE_NOTOOL for a TCP connect to host:port."""
-    url = f"http://{host}:{port}/"
-    return (
-        f"if command -v nc >/dev/null 2>&1; then nc -z -w 3 {host} {port} >/dev/null 2>&1 && echo {REACH_OK} || echo {REACH_FAIL}; "
-        f"elif command -v wget >/dev/null 2>&1; then wget -T 3 -q -O- {url} >/dev/null 2>&1 && echo {REACH_OK} || echo {REACH_FAIL}; "
-        f"elif command -v curl >/dev/null 2>&1; then curl -s -m 3 -o /dev/null {url} >/dev/null 2>&1 && echo {REACH_OK} || echo {REACH_FAIL}; "
-        f"elif command -v bash >/dev/null 2>&1; then bash -c 'exec 3<>/dev/tcp/{host}/{port}' >/dev/null 2>&1 && echo {REACH_OK} || echo {REACH_FAIL}; "
-        f"else echo {PROBE_NOTOOL}; fi"
-    )
+    """POSIX sh that proves the probe tool works, then probes host:port once, printing exactly one of
+    REACHED / BLOCKED / TOOL_ERROR (after SELFTEST_OK), or SELFTEST_FAIL / PROBE_NOTOOL.
+
+    Tool preference: `nc -z -w 3` (busybox/OpenBSD netcat: 0 connected, 1 refused or timed out), else
+    `bash -c 'exec 3<>/dev/tcp/host/port'` under `timeout 3` when available (1 refused, 124 timed out).
+    The self-test starts a listener on 127.0.0.1:SELFTEST_PORT (`nc -l`, else `python3 -m http.server`),
+    requires exit 0 against it and exit 1 against the closed neighbouring port, and kills the listener.
+    Exit status is classified exactly: 0 reached, 1 (or 124) blocked, anything else is a tool error.
+    """
+    sp, cp = SELFTEST_PORT, SELFTEST_PORT + 1
+    lines = [
+        "set +e",
+        f"H={host}; P={port}; SP={sp}; CP={cp}",
+        "if command -v nc >/dev/null 2>&1; then TOOL=nc; "
+        "elif command -v bash >/dev/null 2>&1; then TOOL=bash; "
+        f"else echo {PROBE_NOTOOL}; exit 0; fi",
+        "echo GRDM_TOOL $TOOL",
+        # connect HOST PORT -> the tool's exit status, untouched
+        'connect() { if [ "$TOOL" = nc ]; then nc -z -w 3 "$1" "$2" >/dev/null 2>&1; '
+        'elif command -v timeout >/dev/null 2>&1; then timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" >/dev/null 2>&1; '
+        'else bash -c "exec 3<>/dev/tcp/$1/$2" >/dev/null 2>&1; fi; }',
+        f'classify() {{ case "$1" in 0) echo REACHED;; 1|{TIMEOUT_RC}) echo BLOCKED;; *) echo ERROR;; esac; }}',
+        # self-test listener on loopback (the same nc when present, else python3)
+        "if command -v nc >/dev/null 2>&1; then (nc -l -p $SP >/dev/null 2>&1 || nc -l $SP >/dev/null 2>&1) & LPID=$!; "
+        "elif command -v python3 >/dev/null 2>&1; then python3 -m http.server --bind 127.0.0.1 $SP >/dev/null 2>&1 & LPID=$!; "
+        f"else echo {SELFTEST_FAIL} no-listener; exit 0; fi",
+        "sleep 1",
+        "connect 127.0.0.1 $SP; POS=$?",
+        "connect 127.0.0.1 $CP; NEG=$?",
+        "kill $LPID >/dev/null 2>&1",
+        'if [ "$(classify $POS)" != REACHED ] || [ "$(classify $NEG)" != BLOCKED ]; then '
+        f"echo {SELFTEST_FAIL} tool=$TOOL open-port-rc=$POS closed-port-rc=$NEG; exit 0; fi",
+        f"echo {SELFTEST_OK} tool=$TOOL",
+        "connect $H $P; RC=$?",
+        f'case "$(classify $RC)" in REACHED) echo {REACHED} $H:$P;; BLOCKED) echo {BLOCKED} $H:$P;; '
+        f"*) echo {TOOL_ERROR} $RC $H:$P;; esac",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _marker(out: str, marker: str) -> str | None:
+    """The rest of the first output line that starts with `marker` (None when absent)."""
+    for line in out.splitlines():
+        line = line.strip()
+        if line == marker or line.startswith(marker + " "):
+            return line[len(marker):].strip()
+    return None
 
 
 def verdict(rc: int, out: str) -> tuple[str, str]:
-    """Map probe output to 'reachable' | 'unreachable' | 'inconclusive' with a detail string."""
-    if REACH_OK in out:
-        return "reachable", "connect succeeded"
-    if REACH_FAIL in out:
-        return "unreachable", "connect failed"
-    if PROBE_NOTOOL in out:
-        return "inconclusive", "no nc/wget/curl/bash in the container; probe inconclusive"
-    return "inconclusive", f"probe did not run (rc={rc}): {out.strip()[-160:]}; probe inconclusive"
+    """Map probe output to 'reached' | 'blocked' | 'inconclusive' with a detail string.
+
+    'blocked' needs the self-test marker AND a BLOCKED marker; 'reached' needs a REACHED marker (a
+    connection is a connection, self-test or not). Everything else is inconclusive (exit 53 upstream).
+    """
+    if _marker(out, REACHED) is not None:
+        return "reached", "connect succeeded"
+    if _marker(out, PROBE_NOTOOL) is not None:
+        return "inconclusive", "no nc/bash in the container; probe inconclusive"
+    fail = _marker(out, SELFTEST_FAIL)
+    if fail is not None:
+        return "inconclusive", f"probe tool self-test failed ({fail}); probe inconclusive"
+    if _marker(out, SELFTEST_OK) is None:
+        return "inconclusive", f"probe did not run (rc={rc}): {out.strip()[-160:]}; probe inconclusive"
+    err = _marker(out, TOOL_ERROR)
+    if err is not None:
+        code = err.split()[0] if err else "?"
+        return "inconclusive", f"probe tool error (exit {code}), not a blocked connection; probe inconclusive"
+    if _marker(out, BLOCKED) is not None:
+        return "blocked", "connection refused or timed out after a passing tool self-test"
+    return "inconclusive", f"probe printed no result marker (rc={rc}): {out.strip()[-160:]}; probe inconclusive"
 
 
 class Canary:
@@ -345,31 +414,33 @@ def preflight(ctx: Context, targets_path: Path, approval: Path | None, runner, t
             return data, failures
         data["canary"] = {"network": canary.network, "ip": canary.ip, "port": canary.port}
         v, detail = canary.control_probe()
-        if v != "reachable":
+        if v != "reached":
             check("probe_control", False, f"canary {canary.ip}:{canary.port} not reached from its own network ({detail}); probe inconclusive")
         else:
             check("probe_control", True, f"canary {canary.ip}:{canary.port} reached from network {canary.network}")
         ext_host, ext_port = manifest["external_probe"].rsplit(":", 1)
         probes = []
-        reachable: list[str] = []
+        reached: list[str] = []
         inconclusive: list[str] = []
         for label, host, port in (("canary", canary.ip, canary.port), ("external", ext_host, int(ext_port))):
             rc, out = runner(["docker", "exec", attacker, "sh", "-c", probe_script(host, port)])
             pv, pdetail = verdict(rc, out)
             probes.append({"probe": label, "destination": f"{host}:{port}", "verdict": pv, "detail": pdetail})
-            if pv == "reachable":
-                reachable.append(f"{label} {host}:{port}")
-            elif pv == "inconclusive":
+            if pv == "reached":
+                reached.append(f"{label} {host}:{port}")
+            elif pv != "blocked":
                 inconclusive.append(f"{label}: {pdetail}")
         data["probes"] = probes
-        if reachable:
-            check("attacker_isolated", False, f"reachable from {attacker}: {', '.join(reachable)}; network is NOT isolated")
+        # isolated only when every probe is BLOCKED after a passing self-test and the control reached the canary
+        if reached:
+            check("attacker_isolated", False, f"reachable from {attacker}: {', '.join(reached)}; network is NOT isolated")
         elif inconclusive:
-            check("attacker_isolated", False, "; ".join(inconclusive))
-        elif v != "reachable":
+            check("attacker_isolated", False, "; ".join(inconclusive) + "; isolation not proven")
+        elif v != "reached":
             check("attacker_isolated", False, "probe inconclusive (control failed); isolation not proven")
         else:
-            check("attacker_isolated", True, f"{attacker} reached neither the canary nor {manifest['external_probe']}")
+            check("attacker_isolated", True,
+                  f"{attacker} reached neither the canary nor {manifest['external_probe']} (connections blocked, tool self-test passed)")
     finally:
         canary.stop()
     return data, failures

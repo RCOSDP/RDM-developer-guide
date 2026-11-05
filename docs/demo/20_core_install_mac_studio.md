@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05. **Learned:** the first real run proved the stop-at-first-failure design and exposed that an EOL Python 3.5 image cannot be built for arm64, which the specifications had only predicted. ／ 最初の実行で「最初の失敗で止まる」設計が働くことと、EOL の Python 3.5 イメージは arm64 で組めないこと（仕様では予測だった）が実証された。
+- Version / 版: 0.2 — 2026-11-05. **Learned:** emulation solves missing arm64 wheels but not a base image that current Docker refuses outright; that needs a prebuilt fallback until the Dockerfile is modernized. ／ エミュレーションは arm64 の wheel 不足を解くが、現行 Docker が取得そのものを拒むベースイメージには効かない。Dockerfile を近代化するまでは配布済みイメージの代替が要る。
+  0.1 — 2026-11-05. **Learned:** the first real run proved the stop-at-first-failure design and exposed that an EOL Python 3.5 image cannot be built for arm64, which the specifications had only predicted. ／ 最初の実行で「最初の失敗で止まる」設計が働くことと、EOL の Python 3.5 イメージは arm64 で組めないこと（仕様では予測だった）が実証された。
 - Normative source: [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md)
 - Related: [docs/demo/README.md](README.md) · [docs/status/README.md](../status/README.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md)
 
@@ -45,7 +46,36 @@ What this proves:
 
 Decision taken: components whose base cannot be built for arm64 (modular-file-renderer, ember-osf-web, cas-overlay) get `build_platform: linux/amd64` in the manifest ([SPEC-01](../spec/01_manifest.md)) and run under emulation until M4 modernizes them. Run 2 will be recorded below after the review fixes land.
 
-Evidence: full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
+### Run 2 — 2026-11-05, branch `feat/m2-installer` (after review fixes r1, commit 3149c76 + 1c2a925)
+
+Same host. Changes since run 1: `build_platform: linux/amd64` for modular-file-renderer, ember-osf-web and cas-overlay; two networks (`grdm` internal, `grdm-edge` publishing); PostgreSQL 9.6 `auth-host=md5`.
+
+```toon
+run2:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 30 (image build failed)
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,30,failed
+  images[4]{component,platform,status,note}:
+    osf.io,linux/arm64,built,cached from run 1
+    waterbutler,linux/arm64,built,cached from run 1
+    modular-file-renderer,linux/amd64,built,"emulated build succeeded (pandas 0.25.1 has an amd64 wheel)"
+    ember-osf-web,linux/amd64,build-failed,"base image quay.io/centerforopenscience/ember-base is a Docker manifest v2 schema 1 image; current Docker refuses to pull it"
+```
+
+What this proves:
+
+- `build_platform` works: the component that could not be built for arm64 in run 1 now builds under emulation.
+- `secrets init` is idempotent (kept the existing `runtime/.env`), and re-rendering did not move ports.
+- The ember-osf-web Dockerfile cannot be built at all with current Docker, independent of CPU. This is a defect of the EOL base, to be fixed in the integration repository at M4.
+
+Decision taken: add a documented, digest-pinned `prebuilt_image` fallback to the manifest ([SPEC-01](../spec/01_manifest.md)) for ember-osf-web until M4, using the distribution image the legacy guide relied on. Run 3 will be recorded below.
+
+Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
 ---
 
@@ -83,7 +113,36 @@ run1:
 
 決めたこと: arm64 で組めない部品（modular-file-renderer、ember-osf-web、cas-overlay）は manifest に `build_platform: linux/amd64` を持たせ（[SPEC-01](../spec/01_manifest.md)）、M4 で近代化するまでエミュレーションで動かす。第 2 回はレビュー修正の反映後に下へ追記する。
 
-証跡: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
+### 第 2 回 — 2026-11-05、ブランチ `feat/m2-installer`（レビュー r1 対応後、コミット 3149c76 ＋ 1c2a925）
+
+同じホスト。第 1 回からの変更: modular-file-renderer・ember-osf-web・cas-overlay に `build_platform: linux/amd64`、ネットワークを二つ（内部の `grdm` と公開用の `grdm-edge`）、PostgreSQL 9.6 の `auth-host=md5`。
+
+```toon
+run2:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 30（イメージのビルド失敗）"
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,30,failed
+  images[4]{component,platform,status,note}:
+    osf.io,linux/arm64,built,第 1 回のキャッシュ
+    waterbutler,linux/arm64,built,第 1 回のキャッシュ
+    modular-file-renderer,linux/amd64,built,"エミュレーションでのビルドに成功（pandas 0.25.1 に amd64 の wheel がある）"
+    ember-osf-web,linux/amd64,build-failed,"ベースイメージ quay.io/centerforopenscience/ember-base が Docker の manifest v2 schema 1 形式で、現行 Docker は取得を拒否する"
+```
+
+これで分かったこと:
+
+- `build_platform` は働く。第 1 回で arm64 向けに組めなかった部品が、エミュレーションで組めた。
+- `secrets init` は冪等（既存の `runtime/.env` を保持）で、再描画でポートは動かなかった。
+- ember-osf-web の Dockerfile は CPU に関係なく現行 Docker ではまったく組めない。EOL ベースの欠陥であり、M4 で統合リポジトリ側を直す。
+
+決めたこと: M4 まで、ember-osf-web には manifest の記録付き・ダイジェスト固定の `prebuilt_image`（旧ガイドが頼っていた配布イメージ）を使う（[SPEC-01](../spec/01_manifest.md)）。第 3 回は下へ追記する。
+
+証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 
 ---
 

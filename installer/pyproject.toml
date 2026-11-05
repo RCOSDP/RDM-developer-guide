@@ -12,7 +12,8 @@ license = "MIT"
 dependencies = []
 
 [project.optional-dependencies]
-accept = ["pytest>=8", "pytest-playwright>=0.5", "playwright>=1.47"]
+# playwright>=1.48 provides BrowserContext.route_web_socket, which the loopback guard requires (fails closed without it).
+accept = ["pytest>=8", "pytest-playwright>=0.6", "playwright>=1.48"]
 docs = ["mkdocs==1.6.1", "mkdocs-material==9.5.37", "pymdown-extensions==10.12"]
 
 [project.scripts]

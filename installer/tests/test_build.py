@@ -200,6 +200,65 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(len(bx), 1)
         self.assertTrue(any(a.startswith("grdm-dev/oasys:") for a in bx[0]))  # lower-cased image name
 
+    # ---- prebuilt_image (SPEC-01 §3): the component is pulled, not cloned or built (ember-osf-web until M4)
+
+    PREBUILT = "niicloudoperation/rdm-ember-osf-web@sha256:" + "e" * 64
+
+    def _with_prebuilt_waterbutler(self):
+        data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
+        data["components"][1]["prebuilt_image"] = self.PREBUILT  # waterbutler stands in for ember-osf-web here
+        data["components"][1]["build_platform"] = "linux/amd64"
+        data["components"][1]["note"] = "schema-1 base image; remove at M4"
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
+
+    def test_prebuilt_component_is_pulled_and_recorded_not_built(self):
+        self._with_prebuilt_waterbutler()
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK)
+        self.assertFalse([c for c in runner.calls if c[0] == "git" and "waterbutler" in " ".join(c)])
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]]
+        self.assertEqual(len(bx), 1)  # osf.io only
+        self.assertFalse(any("waterbutler" in a for c in bx for a in c))
+        pulls = [c for c in runner.calls if c[:2] == ["docker", "pull"]]
+        self.assertEqual(pulls, [["docker", "pull", "--platform", "linux/amd64", self.PREBUILT]])
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["waterbutler"]["status"], "prebuilt")
+        self.assertEqual(rows["waterbutler"]["image"], self.PREBUILT)
+        self.assertEqual(rows["waterbutler"]["sha12"], "")
+        self.assertEqual(rows["waterbutler"]["platforms"], "linux/amd64")
+        self.assertIn("M4", rows["waterbutler"]["note"])
+        self.assertEqual(rows["osf.io"]["status"], "built")
+        self.assertIn("prebuilt_image", self.err.getvalue())
+        self.assertFalse((self.root / "runtime" / "src" / "RDM-waterbutler-dev2027").exists())
+
+    def test_prebuilt_pull_failure_is_30_and_names_component(self):
+        self._with_prebuilt_waterbutler()
+
+        class PullFails(FakeRunner):
+            def __call__(self, argv):
+                if argv[:2] == ["docker", "pull"]:
+                    self.calls.append(argv)
+                    return 1, "Error response from daemon: manifest unknown"
+                return super().__call__(argv)
+
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, PullFails()), exit_codes.BUILD_FAILED)
+        self.assertIn("waterbutler", self.err.getvalue())
+        self.assertIn("prebuilt_image", self.err.getvalue())
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["waterbutler"]["status"], "pull-failed")
+
+    def test_prebuilt_component_can_be_selected_alone_and_platform_flag_applies(self):
+        self._with_prebuilt_waterbutler()
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, component="waterbutler", platform="linux/arm64"), exit_codes.OK)
+        self.assertEqual(runner.calls, [["docker", "pull", "--platform", "linux/arm64", self.PREBUILT]])
+
+    def test_pull_argv(self):
+        self.assertEqual(build.pull_argv("img@sha256:" + "0" * 64, []), ["docker", "pull", "img@sha256:" + "0" * 64])
+
     def test_host_platform_mapping(self):
         self.assertIn(build.host_platform(), ("linux/arm64", "linux/amd64") + (f"linux/{build._platform.machine().lower()}",))
 

@@ -133,5 +133,57 @@ class ServicesForProfileTests(unittest.TestCase):
             manifest.services_for_profile(self.man, "huge")
 
 
+class PrebuiltImageTests(unittest.TestCase):
+    """SPEC-01 §3 `prebuilt_image`: the component is not built; the reference is the image (ember-osf-web until M4)."""
+
+    def test_real_manifest_ember_osf_web_is_prebuilt(self):
+        man = manifest.load(Context(root=REPO_ROOT))
+        ember = man.component("ember-osf-web")
+        self.assertTrue(ember.is_prebuilt)
+        self.assertFalse(ember.is_built)  # still has an integration_repo, but the build is bypassed
+        self.assertEqual(ember.integration_repo, "RDM-ember-osf-web-dev2027")
+        self.assertRegex(ember.prebuilt_image, r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
+        self.assertEqual(ember.image_reference(), ember.prebuilt_image)
+        self.assertEqual(ember.image_reference("feedfacecafe"), ember.prebuilt_image)  # a build-report tag cannot apply
+        self.assertIn("M4", ember.note)
+        services = {s.name: s for s in manifest.services_for_profile(man, "core")}
+        svc = services["ember_osf_web"]
+        self.assertEqual(svc.image, ember.prebuilt_image)
+        self.assertIsNone(svc.build)
+        self.assertTrue(svc.is_prebuilt)
+        self.assertFalse(svc.is_built)
+        self.assertEqual(svc.origin, "prebuilt")
+        self.assertEqual(services["web"].origin, "built")
+        self.assertEqual(services["postgres"].origin, "pinned")
+
+    def test_image_tags_do_not_override_a_prebuilt_reference(self):
+        man = manifest.load(Context(root=REPO_ROOT))
+        services = {s.name: s for s in manifest.services_for_profile(man, "core", image_tags={"ember-osf-web": "abcdef123456"})}
+        self.assertEqual(services["ember_osf_web"].image, man.component("ember-osf-web").prebuilt_image)
+
+    def test_removing_prebuilt_image_restores_the_local_build(self):
+        def strip(data):
+            for c in data["components"]:
+                if c["id"] == "ember-osf-web":
+                    del c["prebuilt_image"]
+        root = temp_root_with_manifest(strip)
+        man = manifest.load(Context(root=root))
+        ember = man.component("ember-osf-web")
+        self.assertFalse(ember.is_prebuilt)
+        self.assertTrue(ember.is_built)
+        self.assertTrue(ember.image_reference().startswith("grdm-dev/ember-osf-web:"))
+        svc = {s.name: s for s in manifest.services_for_profile(man, "core")}["ember_osf_web"]
+        self.assertEqual(svc.origin, "built")
+        self.assertEqual(svc.build.repo, "RDM-ember-osf-web-dev2027")
+
+    def test_prebuilt_without_note_is_rejected_by_validate(self):
+        def bad(data):
+            for c in data["components"]:
+                if c["id"] == "ember-osf-web":
+                    c["note"] = None
+        errors = manifest.validate(Context(root=temp_root_with_manifest(bad)))
+        self.assertTrue(any("MC-06" in e and "note" in e for e in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

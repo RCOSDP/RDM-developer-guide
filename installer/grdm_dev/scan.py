@@ -20,6 +20,12 @@ Fail-closed rules (review r1 findings 2 and 5):
     `incomplete`; one incomplete scanner makes the whole run exit 51, never 0;
   * Trivy scans every image the rendered compose file references (project-built and infrastructure),
     every integration repository under runtime/src/, and this repository.
+
+Recorded egress (SPEC-03 §3.2, review r2 finding R2-04): `compose render --egress` records the granted
+services in runtime/.env as GRDM_EGRESS_SERVICES (and in the compose file's `x-grdm-dev.egress_services`).
+A non-publishing service on `grdm-edge` passes the baseline only when that record names it (reported as
+`accepted-egress`); an attachment the record does not name is BASE-NETWORK, and a record that names a
+service which is not attached is BASE-EGRESS-STALE (re-render so record and reality agree).
 """
 from __future__ import annotations
 
@@ -55,6 +61,8 @@ GATE_BY_MILESTONE = {
 ZAP_DEFAULT_TARGETS = {"web": 5000, "admin": 8001, "ember_osf_web": 4200}
 ZAP_IMAGE = "ghcr.io/zaproxy/zaproxy:stable"
 DEFAULT_NETWORK = "grdm"
+EGRESS_ENV_KEY = "GRDM_EGRESS_SERVICES"
+EGRESS_NONE = "none"
 FORBIDDEN_ALIAS = "192.168.168.167"
 IMAGE_PREFIX = "grdm-dev/"
 # Semgrep rule packs of SPEC-03 §4.2; all four run in one invocation.
@@ -344,6 +352,50 @@ def _internal_networks(doc: dict) -> tuple[set[str], set[str], bool]:
     return internal, {str(k) for k in nets}, grdm_ok
 
 
+def _env_values(env_path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        values[k.strip()] = v.strip().strip("'\"")
+    return values
+
+
+def _split_services(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        parts = [str(x) for x in raw]
+    elif isinstance(raw, str):
+        parts = raw.split(",")
+    else:
+        parts = []
+    out: list[str] = []
+    for part in parts:
+        name = part.strip()
+        if name and name.lower() != EGRESS_NONE and name not in out:
+            out.append(name)
+    return out
+
+
+def egress_grant(doc: dict | None, env_path: Path | None) -> tuple[list[str], str]:
+    """The recorded egress grant (SPEC-03 §3.2) and where it came from.
+
+    runtime/.env GRDM_EGRESS_SERVICES is the record `compose render --egress` writes and keeps; it wins.
+    When the key is absent (older render, or no .env given) the compose file's own `x-grdm-dev.egress_services`
+    is used. Returns (services, source) with source one of 'env', 'compose', 'none'.
+    """
+    if env_path is not None and env_path.exists():
+        values = _env_values(env_path)
+        if EGRESS_ENV_KEY in values:
+            return _split_services(values[EGRESS_ENV_KEY]), "env"
+    if isinstance(doc, dict):
+        meta = doc.get("x-grdm-dev")
+        if isinstance(meta, dict) and "egress_services" in meta:
+            return _split_services(meta.get("egress_services")), "compose"
+    return [], "none"
+
+
 def check_env_file(env_path: Path, required_keys: tuple[str, ...] | None = None) -> list[dict]:
     """SPEC-03 §3.1: runtime/.env is mode 0600 and holds no default, empty, or short secret.
     Findings name keys only, never values."""
@@ -354,13 +406,7 @@ def check_env_file(env_path: Path, required_keys: tuple[str, ...] | None = None)
     mode = env_path.stat().st_mode & 0o777
     if mode != ENV_SECRET_MODE:
         findings.append(_finding("baseline", "BASE-ENV-MODE", "HIGH", "env", loc, f"mode {mode:04o}; must be 0600"))
-    values: dict[str, str] = {}
-    for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        values[k.strip()] = v.strip().strip("'\"")
+    values = _env_values(env_path)
     required = tuple(required_keys if required_keys is not None else _required_secret_keys())
     secret_keys = [k for k in values if _SECRET_KEY_PATTERN.search(k) or k in required]
     for k in required:
@@ -380,8 +426,9 @@ def check_baseline(compose_path: Path, hardening_path: Path | None = None, env_p
     """Re-check the SPEC-03 §3.1–§3.3 controls of a rendered compose file plus runtime/.env.
 
     Returns (findings, notes, accepted). `accepted` lists every hardening exception that was applied:
-    {service, control, status: accepted-exception, reason, review}. An exception whose review date has
-    passed is not applied and becomes a BASE-EXCEPTION-EXPIRED finding (fail-closed).
+    {service, control, status: accepted-exception, reason, review}, and every recorded egress grant that
+    was applied: {service, control: egress, status: accepted-egress, reason, network, source}. An exception
+    whose review date has passed is not applied and becomes a BASE-EXCEPTION-EXPIRED finding (fail-closed).
     """
     today = today or _dt.date.today()
     if not compose_path.exists():
@@ -438,6 +485,11 @@ def check_baseline(compose_path: Path, hardening_path: Path | None = None, env_p
         findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", "compose", f"{loc}#networks",
                                  f"no network '{DEFAULT_NETWORK}' with internal: true (SPEC-03 §3.2, ADR-02)"))
 
+    # Recorded egress grant (SPEC-03 §3.2): a declared service may sit on the edge bridge without a port.
+    granted, grant_source = egress_grant(data, env_path)
+    grant_desc = f"runtime/.env {EGRESS_ENV_KEY}" if grant_source == "env" else f"{loc}#x-grdm-dev.egress_services"
+    egress_used: set[str] = set()
+
     services = data.get("services") or {}
     for name, svc in services.items():
         if not isinstance(svc, dict):
@@ -485,13 +537,33 @@ def check_baseline(compose_path: Path, hardening_path: Path | None = None, env_p
             if net not in all_nets:
                 findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks", f"network {net} is not defined"))
             elif net not in internal and not ports and on_internal:
-                findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
-                                         f"attached to non-internal network {net} without publishing a port"))
+                if name in granted:
+                    egress_used.add(name)
+                    accepted.append({"service": name, "control": "egress", "status": "accepted-egress",
+                                     "reason": f"egress granted by {grant_desc} (SPEC-03 §3.2)",
+                                     "network": net, "source": grant_source})
+                else:
+                    findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
+                                             f"attached to non-internal network {net} without publishing a port and "
+                                             f"without a recorded egress grant ({EGRESS_ENV_KEY})"))
         if attached and not on_internal:
             findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
                                      "service is not attached to any internal network"))
         if svc.get("network_mode"):
             findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, sloc, f"network_mode {svc['network_mode']} is forbidden"))
+
+    # A grant that names a service which is not actually on a non-internal network is stale: the record and
+    # the rendered file disagree, so the report would claim egress that does not exist. Re-render to fix.
+    for name in granted:
+        if name in egress_used:
+            continue
+        svc = services.get(name) if isinstance(services, dict) else None
+        attached = _network_names(svc.get("networks")) if isinstance(svc, dict) else []
+        if isinstance(svc, dict) and (svc.get("ports") or []) and any(n in all_nets and n not in internal for n in attached):
+            continue  # a publishing service is on the edge bridge anyway; the grant is redundant, not stale
+        why = "is not a service of the rendered file" if svc is None else "is not attached to a non-internal network"
+        findings.append(_finding("baseline", "BASE-EGRESS-STALE", "MEDIUM", name, f"{loc}#services.{name}.networks",
+                                 f"egress grant in {grant_desc} names {name}, which {why}; re-run compose render"))
 
     if env_path is not None:
         findings.extend(check_env_file(env_path, required_keys))

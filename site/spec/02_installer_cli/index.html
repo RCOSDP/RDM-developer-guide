@@ -1979,6 +1979,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -3086,7 +3107,7 @@
 </tr>
 <tr>
 <td><code>build</code></td>
-<td>Builds images with <code>docker buildx</code> for <code>linux/arm64,linux/amd64</code>. Default is local load of the host platform only; <code>--push</code> pushes the multi-arch manifest to <code>ghcr.io/rcosdp/&lt;name&gt;</code> (private). Exit 30 on failure.</td>
+<td>Builds images with <code>docker buildx</code>. The platform is, in order of precedence, <code>--platform</code>, the component's <code>build_platform</code> in the manifest (for example <code>linux/amd64</code> for components whose EOL base cannot be built for arm64, run under emulation), otherwise the host platform; the image is loaded locally. A component with <code>prebuilt_image</code> (<a href="../01_manifest/">SPEC-01</a>) is not built: the digest-pinned image is pulled and reported as <code>prebuilt</code> (<code>pull-failed</code> → exit 30). <code>--push</code> pushes the multi-arch manifest to <code>ghcr.io/rcosdp/&lt;name&gt;</code> (private). Exit 30 on failure.</td>
 <td>yes</td>
 </tr>
 <tr>
@@ -3106,8 +3127,8 @@
 </tr>
 <tr>
 <td><code>redteam preflight</code></td>
-<td>Verifies, before an AI red-team run, that the red-team Compose project has no egress and that only the containers named in <code>manifest/redteam-targets.json</code> are reachable. Exit 53 if either check fails. See <a href="../03_security_gate/#english">SPEC-03 §6</a>.</td>
-<td>read-only</td>
+<td>Verifies, before an AI red-team run, that the attacker container of the red-team Compose project is isolated (proved with a reachable canary, see <a href="../03_security_gate/#english">SPEC-03 §6</a>), that only the containers named in <code>manifest/redteam-targets.json</code> are attached, and that the approval record is present and current. Exit 53 if either check fails. See <a href="../03_security_gate/#english">SPEC-03 §6</a>.</td>
+<td>yes (starts and removes a canary container and network for the probe)</td>
 </tr>
 <tr>
 <td><code>accept</code></td>
@@ -3355,7 +3376,7 @@
 </tr>
 <tr>
 <td><code>build</code></td>
-<td><code>docker buildx</code> で <code>linux/arm64,linux/amd64</code> のイメージを作る。既定はホストの platform だけをローカルに読み込む。<code>--push</code> で multi-arch の manifest を <code>ghcr.io/rcosdp/&lt;name&gt;</code>（非公開）へ送る。失敗は終了 30。</td>
+<td><code>docker buildx</code> でイメージを作る。プラットフォームは優先順に <code>--platform</code>、manifest の部品の <code>build_platform</code>（例: EOL ベースで arm64 に組めない部品は <code>linux/amd64</code> にしてエミュレーションで動かす）、それもなければホストと同じ。イメージはローカルに読み込む。<code>prebuilt_image</code>（<a href="../01_manifest/">SPEC-01</a>）を持つ部品は組まず、ダイジェスト固定のイメージを取得して <code>prebuilt</code> と報告する（<code>pull-failed</code> は終了 30）。<code>--push</code> で multi-arch の manifest を <code>ghcr.io/rcosdp/&lt;name&gt;</code>（非公開）へ送る。失敗は終了 30。</td>
 <td>触れる</td>
 </tr>
 <tr>
@@ -3375,8 +3396,8 @@
 </tr>
 <tr>
 <td><code>redteam preflight</code></td>
-<td>AI レッドチームの実行前に、レッドチーム用の Compose プロジェクトに外向き通信がなく、<code>manifest/redteam-targets.json</code> に名前のあるコンテナだけに届くことを確かめる。どちらかが外れれば終了 53。詳細は <a href="../03_security_gate/#japanese">SPEC-03 §6</a>。</td>
-<td>読むだけ</td>
+<td>AI レッドチームの実行前に、レッドチーム用 Compose プロジェクトの攻撃側コンテナが隔離されていること（届くはずのカナリアで証明する。<a href="../03_security_gate/#japanese">SPEC-03 §6</a>）、<code>manifest/redteam-targets.json</code> に名前のあるコンテナだけが接続していること、承認記録があり新しいことを確かめる。どちらかが外れれば終了 53。詳細は <a href="../03_security_gate/#japanese">SPEC-03 §6</a>。</td>
+<td>触れる（検査用のカナリアのコンテナとネットワークを作って消す）</td>
 </tr>
 <tr>
 <td><code>accept</code></td>

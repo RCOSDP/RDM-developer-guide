@@ -26,6 +26,14 @@ has no arm64 wheels — mfr's pandas 0.25.1 on Python 3.5 is the case that made 
 component in the build report, and `compose render` writes the same value as `platform:` so Compose
 runs the service under emulation.
 
+Prebuilt fallback (SPEC-01 §3 `prebuilt_image`): a component whose manifest entry carries a registry
+image pinned by digest is NOT cloned or built. It is recorded in the build report with status
+`prebuilt` and `image` = that reference, and the image is pulled through the runner (`docker pull
+--platform <build_platform or host> <reference>`) so that `up` does not pull implicitly; a failed
+pull is exit 30 like a failed build. The manifest checker only admits the field with a `note`
+(why, and until which milestone); ember-osf-web uses it because its Dockerfile's base image is a
+schema-1 manifest that current Docker refuses, until M4 modernizes the Dockerfile.
+
 Runner: `runner(argv) -> (returncode, stdout)`; the default streams the child's output lines to
 stderr while collecting them, so a long build stays visible. Tests inject a fake.
 """
@@ -153,6 +161,15 @@ def component_platforms(comp, override: str | None) -> list[str]:
     return [s.strip() for s in str(raw).split(",") if s.strip()]
 
 
+def pull_argv(reference: str, platforms: list[str]) -> list[str]:
+    """`docker pull` of a prebuilt reference for exactly one platform (a digest names one manifest)."""
+    argv = ["docker", "pull"]
+    if platforms:
+        argv += ["--platform", platforms[0]]
+    argv.append(reference)
+    return argv
+
+
 def pinned_ref(comp) -> str:
     sha = getattr(comp, "build_sha", None) or comp.get("integration_sha")
     if sha:
@@ -191,6 +208,17 @@ def run(ctx: Context, args, runner=None) -> int:
         repo = comp["integration_repo"]
         dest = ctx.runtime / "src" / repo
         platforms = component_platforms(comp, override)
+        prebuilt = comp.get("prebuilt_image")
+        if prebuilt:
+            sys.stderr.write(f"[grdm-dev] build: {cid} uses prebuilt_image {prebuilt} (not built from {repo}; see manifest note)\n")
+            rc, _ = runner(pull_argv(str(prebuilt), platforms))
+            rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms),
+                         "status": "prebuilt" if rc == 0 else "pull-failed", "image": str(prebuilt),
+                         "note": comp.get("note") or ""})
+            if rc != 0:
+                failed, detail = cid, f"docker pull of prebuilt_image exited {rc}"
+                break
+            continue
         rc, sha, log = sync_source(repo, dest, pinned_ref(comp), runner)
         if rc != 0 or not sha:
             rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms), "status": "source-failed"})

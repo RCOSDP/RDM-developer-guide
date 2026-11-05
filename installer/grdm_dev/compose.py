@@ -30,6 +30,11 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   component carries `build_platform` (SPEC-01; e.g. mfr, ember-osf-web, cas-overlay on
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
+* `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
+  (sha12 from the build report when present), `base_image[@digest]` for infra, and the
+  `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
+  ember-osf-web until M4). A prebuilt service gets `platform:` from `build_platform` like any
+  other, and the report row says `origin: prebuilt`; `scan` sees it as one more compose image;
 * named volumes are local bind volumes under runtime/volumes/<name>;
 * secrets never enter generated files: the compose file references `${KEY}` and Compose reads
   runtime/.env (same directory) at `up`; `secrets init` must have run (exit 2 otherwise).
@@ -838,6 +843,7 @@ def run(
             {
                 "service": s.name,
                 "image": s.image,
+                "origin": s.origin,
                 "platform": compose["services"][s.name].get("platform", "unknown"),
                 "user": compose["services"][s.name].get("user", "image default"),
                 "read_only": compose["services"][s.name]["read_only"],

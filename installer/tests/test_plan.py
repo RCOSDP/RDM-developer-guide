@@ -97,6 +97,34 @@ class PlanTests(unittest.TestCase):
         self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
         self.assertTrue((root / "runtime" / "reports" / "plan_latest.json").exists())
 
+    def test_prebuilt_component_is_shown_with_its_reference_and_not_built(self):
+        """SPEC-01 §3 prebuilt_image: ember-osf-web runs a digest-pinned registry image until M4."""
+        rc, out, _ = run_plan(make_root())
+        self.assertEqual(rc, exit_codes.OK)
+        data = json.loads(out)
+        services = {r["service"]: r for r in data["services"]}
+        ember = services["ember_osf_web"]
+        self.assertRegex(ember["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
+        self.assertEqual(ember["build_from"], "prebuilt " + ember["image"])
+        self.assertEqual(ember["origin"], "prebuilt")
+        self.assertEqual(services["web"]["origin"], "built")
+        self.assertEqual(services["postgres"]["origin"], "pinned")
+        self.assertEqual(data["prebuilt_images"], [ember["image"]])
+        self.assertFalse(any("ember-osf-web" in i for i in data["images_to_build"]))
+
+    def test_without_prebuilt_image_ember_is_built_again(self):
+        def strip(data):
+            for c in data["components"]:
+                if c["id"] == "ember-osf-web":
+                    del c["prebuilt_image"]
+        rc, out, _ = run_plan(make_root(mutate=strip))
+        self.assertEqual(rc, exit_codes.OK)
+        data = json.loads(out)
+        ember = {r["service"]: r for r in data["services"]}["ember_osf_web"]
+        self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
+        self.assertTrue(ember["build_from"].startswith("RDM-ember-osf-web-dev2027@"))
+        self.assertEqual(data["prebuilt_images"], [])
+
     def test_read_dotenv_and_resolve_profile(self):
         root = make_root("# comment\nGRDM_PROFILE='full'\nX=\"1\"\n\nbad line\n")
         env = plan.read_dotenv(root / "runtime" / ".env")
