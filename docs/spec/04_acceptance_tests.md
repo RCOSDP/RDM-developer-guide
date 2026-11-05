@@ -5,12 +5,13 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.4 — 2026-11-05. **Learned:** a browser trace is raw evidence that can carry cookies and response bodies, so it cannot live under the public evidence folder; it is off by default and quarantined under `runtime/` when requested (PR #21 review r2, R2-01). ／ ブラウザのトレースは cookie や応答本文を含み得る生の証跡なので、公開される証跡フォルダには置けない。既定では記録せず、求められたときだけ `runtime/` 配下に隔離する（PR #21 レビュー r2、R2-01）。
+- Version / 版: 0.5 — 2026-11-06. **Learned:** a subsystem scenario written as one sentence per case cannot be implemented without guessing; naming the user, the port variable, the path and the exact status in the table turned the five M3 stubs into tests whose only unknowns are selectors, and showed that three subsystems have no browser-facing port yet. ／ 一ケース一文で書いたサブシステムのシナリオは推測なしに実装できない。表に利用者・ポート変数・パス・正確なステータスを書くことで、五つの M3 の骨格はセレクタだけが未知の試験になり、三つのサブシステムにまだブラウザ向けポートがないことも分かった。
+  0.4 — 2026-11-05. **Learned:** a browser trace is raw evidence that can carry cookies and response bodies, so it cannot live under the public evidence folder; it is off by default and quarantined under `runtime/` when requested (PR #21 review r2, R2-01). ／ ブラウザのトレースは cookie や応答本文を含み得る生の証跡なので、公開される証跡フォルダには置けない。既定では記録せず、求められたときだけ `runtime/` 配下に隔離する（PR #21 レビュー r2、R2-01）。
   0.3 — 2026-11-05. **Learned:** downloading a browser inside a test run would make the run depend on the network, so installation is a separate, explicit step and `accept` only checks for it. ／ 試験の実行中にブラウザをダウンロードすると実行がネットワークに依存するため、導入は別の明示的な手順にし、`accept` は有無を確かめるだけにする。
   0.2 — 2026-11-05. **Learned:** a case that may skip in the profile a milestone is judged on cannot be a pass criterion, and a diagram that renders in one language half must parse in the other too. ／ 節目を判定するプロファイルでスキップし得るケースは合格基準になれず、片方の言語で描ける図はもう片方でも解析できなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a scenario without a rejection case proves only that the happy path renders; permission and authentication bugs are found by the case that must fail. ／ 拒否ケースのないシナリオは画面が出ることしか示さず、権限と認証の不具合は「失敗しなければならないケース」で初めて見つかると分かった。
 - Normative for: `installer/acceptance/`, `grdm-dev accept`, `docs/demo/` result files, CI workflow `acceptance-arm64`.
-- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-02 Installer CLI](02_installer_cli.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
+- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-02 Installer CLI](02_installer_cli.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-05 Test IdP for Shibboleth](../decisions/ADR-05_Test_IdP_for_Shibboleth.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
 
 ---
 
@@ -64,13 +65,15 @@ Scenario C4 uses two independent Playwright *browser contexts* (two separate bro
 ### 5. Subsystem scenarios (M3)
 
 ```toon
-subsystem_scenarios[5]{id,subsystem,success_case,rejection_case}:
-  S1,y-websocket,two contexts converge on same Wiki document within 5 s,"connection without valid token -> close code 4401, no document state leaked"
-  S2,rdmcp (MCP endpoint),"authenticated MCP client lists tools and reads one project resource","request without token -> 401; token of user B reading project of user A -> 403"
-  S3,aipf_mcp_data_grdm,"MCP data query returns the run's project metadata","query for a project id the user cannot see -> 403 or empty with explicit code"
-  S4,OASys,"OASys page loads and shows the run's project linked from GRDM","unauthenticated OASys API call -> 401"
-  S5,Shibboleth-SP via test IdP,"SP -> IdP login -> GRDM dashboard with institution attribute","IdP user without the eduPersonEntitlement required by SP -> SP error page, no GRDM session"
+subsystem_scenarios[5]{id,subsystem,success_case,rejection_case,services,prerequisite}:
+  S1,y-websocket,"user_a and user_b (write contributor) open the Wiki of the run's project in two contexts; a sentence typed by A is in B's editor within 5 s; the page's WebSocket is ws://127.0.0.1:<port>","the captured WebSocket URL reopened from a logged-out context without its token -> close code 4401 and zero document frames before the close","web wiki y_websocket","none (core profile)"
+  S2,rdmcp (MCP endpoint),"user_a's personal access token: initialize, tools/list returns tools, resources/read of grdm://nodes/<run project> returns its title","no Authorization header -> 401; user_b's token reading user_a's private project -> 403 (404 not acceptable)",rdmcp,"GRDM_PORT_RDMCP in runtime/.env (host_port in the template); otherwise the test skips with that reason"
+  S3,aipf_mcp_data_grdm,"user_a's token calls the project-metadata tool for the run's project; id and title equal the OSF API's","user_b's token for user_a's project -> 403, or an empty answer with an explicit denial code; a silent empty list fails",aipf_mcp_data_grdm,"GRDM_PORT_AIPF_MCP_DATA_GRDM in runtime/.env; otherwise skip with reason"
+  S4,OASys,"user_a signed in to GRDM opens http://127.0.0.1:<GRDM_PORT_OASYS>/ -> 200; the projects page lists the run's project with a link to its GRDM page (same origin as web)","anonymous GET of a session-protected OASys API path -> 401 (not a login page, not 404)",oasys,"GRDM_PORT_OASYS in runtime/.env; otherwise skip with reason"
+  S5,Shibboleth-SP via test IdP,"mock-user-01 (eduPersonAffiliation member) : web /login?campaign=institution -> SP -> test IdP form -> SAML POST -> GRDM dashboard served by web; osf cookie set; /v2/users/me/institutions/ includes MOCK Institution","mock-user-noaff (eduPersonAffiliation affiliate only) -> the SP RequestMap answers 403 with its error page; no osf cookie; API /v2/users/me/ -> 401","web shibboleth_sp test_idp","--auth shibboleth render (GRDM_AUTH=shibboleth in runtime/.env; fakecas absent); mock users from installer/acceptance/fixtures/idp/mock_users.json; ADR-05"
 ```
+
+The table is the contract of `installer/acceptance/test_s1_y_websocket.py` … `test_s5_shibboleth.py`. Until M3 the five files carry `skip(reason="M3")` and `TODO(M3)` marks on every locator and path that has not been seen on the real subsystem; the success and rejection logic is written in full so that M3 only verifies selectors. Services without a host port today (`rdmcp`, `aipf_mcp_data_grdm`, `oasys`) get one in their template at M3; a test whose port is missing from `runtime/.env` skips with that exact reason instead of failing on a wrong URL. The test IdP and its mock-attribute rule are decided in [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md).
 
 **MCP** (Model Context Protocol) is a standard way for an AI assistant to ask a service for tools and data; `rdmcp` and `aipf_mcp_data_grdm` expose GRDM through it. Their tests use an HTTP client in the same `pytest` session, not a browser.
 
@@ -183,13 +186,15 @@ core_scenarios[6]{id,scenario,success_case,rejection_case,services}:
 ### 5. サブシステムのシナリオ（M3）
 
 ```toon
-subsystem_scenarios[5]{id,subsystem,success_case,rejection_case}:
-  S1,y-websocket,二つの文脈が 5 秒以内に同じ Wiki 文書に収束する,"正しいトークンのない接続 -> 終了コード 4401。文書の内容は漏れない"
-  S2,rdmcp（MCP の口）,"認証済みの MCP クライアントがツール一覧を得て一つのプロジェクト資源を読む","トークンなし -> 401。利用者 B のトークンで利用者 A のプロジェクトを読む -> 403"
-  S3,aipf_mcp_data_grdm,"MCP のデータ問い合わせが実行中のプロジェクトのメタデータを返す","見えないプロジェクト ID の問い合わせ -> 403、または明示のコード付きの空"
-  S4,OASys,"OASys の画面が開き、GRDM からリンクした実行中のプロジェクトが見える","未認証の OASys API 呼び出し -> 401"
-  S5,テスト IdP 経由の Shibboleth-SP,"SP -> IdP ログイン -> 機関属性付きで GRDM ダッシュボード","SP が要求する eduPersonEntitlement のない IdP 利用者 -> SP のエラー画面。GRDM のセッションは作られない"
+subsystem_scenarios[5]{id,subsystem,success_case,rejection_case,services,prerequisite}:
+  S1,y-websocket,"user_a と user_b（書込の共同研究者）が二つの文脈で実行中プロジェクトの Wiki を開き、A が打った一文が 5 秒以内に B のエディタに現れる。ページの WebSocket は ws://127.0.0.1:<port>","捕らえた WebSocket の URL をトークンなしでログアウト文脈から開き直す -> 終了コード 4401。閉じる前の文書フレームは 0","web wiki y_websocket","なし（core プロファイル）"
+  S2,rdmcp（MCP の口）,"user_a の個人アクセストークンで initialize、tools/list がツールを返し、grdm://nodes/<実行中プロジェクト> の resources/read が題名を返す","Authorization ヘッダなし -> 401。user_b のトークンで user_a の非公開プロジェクトを読む -> 403（404 は不可）",rdmcp,"runtime/.env に GRDM_PORT_RDMCP（テンプレートの host_port）。なければその理由でスキップ"
+  S3,aipf_mcp_data_grdm,"user_a のトークンで実行中プロジェクトのメタデータ取得ツールを呼び、id と題名が OSF API と一致する","user_b のトークンで user_a のプロジェクト -> 403、または明示の拒否コード付きの空。黙った空の一覧は失敗",aipf_mcp_data_grdm,"runtime/.env に GRDM_PORT_AIPF_MCP_DATA_GRDM。なければ理由付きでスキップ"
+  S4,OASys,"GRDM にログイン済みの user_a が http://127.0.0.1:<GRDM_PORT_OASYS>/ を開く -> 200。プロジェクト一覧に実行中プロジェクトがあり、GRDM の画面（web と同じ起点）へリンクする","セッションが要る OASys API のパスを匿名で GET -> 401（ログイン画面も 404 も不可）",oasys,"runtime/.env に GRDM_PORT_OASYS。なければ理由付きでスキップ"
+  S5,テスト IdP 経由の Shibboleth-SP,"mock-user-01（eduPersonAffiliation に member）: web /login?campaign=institution -> SP -> テスト IdP のフォーム -> SAML POST -> web が出す GRDM ダッシュボード。osf cookie あり。/v2/users/me/institutions/ に MOCK Institution","mock-user-noaff（eduPersonAffiliation は affiliate のみ）-> SP の RequestMap がエラー画面で 403。osf cookie なし。API /v2/users/me/ -> 401","web shibboleth_sp test_idp","--auth shibboleth での描画（runtime/.env に GRDM_AUTH=shibboleth。fakecas なし）。模擬利用者は installer/acceptance/fixtures/idp/mock_users.json。ADR-05"
 ```
+
+この表が `installer/acceptance/test_s1_y_websocket.py` 〜 `test_s5_shibboleth.py` の契約です。M3 までは五つのファイルが `skip(reason="M3")` を持ち、実機のサブシステムで未確認のロケータとパスに `TODO(M3)` を付けます。成功と拒否の論理は全部書いてあり、M3 ではセレクタの確認だけをします。今日ホスト側ポートを持たないサービス（`rdmcp`、`aipf_mcp_data_grdm`、`oasys`）は M3 でテンプレートにポートを得ます。`runtime/.env` にポートがない試験は、誤った URL で失敗するのでなく、その理由を書いてスキップします。テスト IdP と模擬属性の規則は [ADR-05](../decisions/ADR-05_Test_IdP_for_Shibboleth.md) で決めます。
 
 **MCP**（Model Context Protocol）は、AI アシスタントがサービスに道具とデータを尋ねるための共通の決まりです。`rdmcp` と `aipf_mcp_data_grdm` は GRDM をこの決まりで公開します。これらの試験はブラウザでなく、同じ `pytest` セッション内の HTTP クライアントで行います。
 

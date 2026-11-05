@@ -385,6 +385,137 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertNotIn("fakecas", doc["services"])
         self.assertEqual(len(doc["services"]), 24)
 
+    # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
+
+    def _render_shibboleth(self, dotenv: str = fake_secrets()):
+        root = make_root(dotenv)
+        rc, out, err, _ = render(root, profile="full", auth="shibboleth")
+        self.assertEqual(rc, exit_codes.OK, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        return root, doc, json.loads(out)
+
+    def test_shibboleth_profile_publishes_idp_and_sp_on_loopback_and_drops_fakecas(self):
+        root, doc, data = self._render_shibboleth()
+        services = doc["services"]
+        self.assertNotIn("fakecas", services)
+        self.assertIn("test_idp", services)
+        self.assertIn("shibboleth_sp", services)
+        # the browser must reach both (SAML redirects and the ACS POST), so both publish on 127.0.0.1 and join grdm-edge
+        self.assertEqual(services["test_idp"]["ports"], ["127.0.0.1:8081:8080"])
+        self.assertEqual(services["shibboleth_sp"]["ports"], ["127.0.0.1:8082:80"])
+        for name in ("test_idp", "shibboleth_sp"):
+            self.assertEqual(services[name]["networks"], ["grdm", "grdm-edge"], name)
+            self.assertEqual(services[name]["labels"]["org.gakunin-rdm.egress"], "published", name)
+            self.assertEqual(services[name]["cap_drop"], ["ALL"], name)
+            self.assertIn("no-new-privileges:true", services[name]["security_opt"], name)
+            self.assertNotIn("privileged", services[name], name)
+            self.assertNotIn("expose", services[name], name)   # published: nothing stays internal-only
+        # 8080 stays reserved for fakecas in the ports table; the IdP must not take it even though fakecas is absent
+        self.assertNotIn("127.0.0.1:8080", json.dumps(services))
+        published = {r["service"]: r["host_port"] for r in data["ports"]}
+        self.assertEqual(published["test_idp"], 8081)
+        self.assertEqual(published["shibboleth_sp"], 8082)
+        self.assertNotIn("fakecas", published)
+        env = plan.read_dotenv(root / "runtime" / ".env")
+        self.assertEqual(env["GRDM_PORT_TEST_IDP"], "8081")       # the acceptance suite reads these (S5)
+        self.assertEqual(env["GRDM_PORT_SHIBBOLETH_SP"], "8082")
+        self.assertEqual(env["GRDM_PROFILE"], "full")
+        self.assertEqual(data["auth"], "shibboleth")
+
+    def test_shibboleth_sp_environment_points_at_web_and_the_test_idp_by_rendered_ports(self):
+        root, doc, _ = self._render_shibboleth("GRDM_PORT_WEB=5050\n" + fake_secrets())
+        sp = doc["services"]["shibboleth_sp"]["environment"]
+        idp = doc["services"]["test_idp"]["environment"]
+        self.assertEqual(sp["OSF_INTERNAL_URL"], "http://web:5000/")                 # service name inside the network (ADR-02)
+        self.assertEqual(sp["OSF_EXTERNAL_URL"], "http://127.0.0.1:5050/")            # browser-facing URL follows the override
+        self.assertEqual(sp["SP_ENTITY_ID"], "http://127.0.0.1:8082/shibboleth")
+        self.assertEqual(sp["IDP_ENTITY_ID"], "http://127.0.0.1:8081/simplesaml/saml2/idp/metadata.php")
+        self.assertEqual(idp["TEST_IDP_ENTITY_ID"], sp["IDP_ENTITY_ID"])              # both sides name the same IdP
+        self.assertEqual(idp["TEST_IDP_SP_ENTITY_ID"], sp["SP_ENTITY_ID"])            # and the same SP
+        self.assertEqual(idp["TEST_IDP_SP_ACS_URL"], "http://127.0.0.1:8082/Shibboleth.sso/SAML2/POST")
+        self.assertEqual(sp["SP_HANDLER_SSL"], "false")                               # plain HTTP on loopback (SPEC-04 §3.4)
+        self.assertIn("HttpOnly", sp["SP_COOKIE_PROPS"])
+        self.assertIn("SameSite=Lax", sp["SP_COOKIE_PROPS"])
+        self.assertNotIn("Secure", sp["SP_COOKIE_PROPS"])
+        self.assertEqual(sp["SP_REQUIRED_AFFILIATION"], "member")                     # S5 rejection rule
+        for value in list(sp.values()) + list(idp.values()):
+            self.assertNotIn("{{", value, value)                                      # every placeholder was substituted
+            self.assertNotIn("https://", value, value)                                # nothing asks the browser for TLS
+            self.assertNotIn("localhost", value, value)
+        self.assertEqual(doc["services"]["shibboleth_sp"]["depends_on"], ["web", "test_idp"])
+        self.assertNotIn("depends_on", doc["services"]["test_idp"])
+
+    def test_shibboleth_services_mount_rendered_idp_and_sp_config_read_only(self):
+        _, doc, _ = self._render_shibboleth()
+        idp_mounts = doc["services"]["test_idp"]["volumes"]
+        self.assertEqual(idp_mounts, [
+            "./config/idp/config:/var/simplesamlphp/config:ro",
+            "./config/idp/metadata:/var/simplesamlphp/metadata:ro",
+            "./config/idp/cert:/var/simplesamlphp/cert:ro",
+        ])
+        sp_mounts = doc["services"]["shibboleth_sp"]["volumes"]
+        self.assertIn("./config/shibboleth_sp/shibboleth2.xml:/etc/shibboleth/shibboleth2.xml:ro", sp_mounts)
+        self.assertIn("./config/shibboleth_sp/attribute-map.xml:/etc/shibboleth/attribute-map.xml:ro", sp_mounts)
+        self.assertIn("./config/shibboleth_sp/idp-metadata.xml:/etc/shibboleth/idp-metadata.xml:ro", sp_mounts)
+        self.assertIn("./config/idp/cert/sp.key:/etc/shibboleth/sp-key.pem:ro", sp_mounts)
+        self.assertTrue(all(m.endswith(":ro") for m in idp_mounts + sp_mounts))
+        # writable paths are explicit tmpfs, so read_only can hold once the hardening exception goes (ADR-05)
+        self.assertIn("/var/simplesamlphp/log", doc["services"]["test_idp"]["tmpfs"])
+        self.assertIn("/var/simplesamlphp/data", doc["services"]["test_idp"]["tmpfs"])
+        # every rendered file the two services mount has a template under templates/idp/ (follow-up F-1 renders them)
+        tpl_dir = Path(compose.__file__).parent / "templates" / "idp"
+        expected = {"config.php.tmpl", "authsources.php.tmpl", "saml20-idp-hosted.php.tmpl", "saml20-sp-remote.php.tmpl",
+                    "sp-shibboleth2.xml.tmpl", "sp-attribute-map.xml", "sp-idp-metadata.xml.tmpl", "README.md"}
+        self.assertEqual({p.name for p in tpl_dir.iterdir()}, expected)
+
+    def test_shibboleth_hardening_follows_manifest_exceptions(self):
+        _, doc, data = self._render_shibboleth()
+        exceptions = load_hardening()
+        rows = {r["service"]: r for r in data["services"]}
+        for name in ("test_idp", "shibboleth_sp"):
+            svc = doc["services"][name]
+            relaxed = exceptions.get(name, set())
+            self.assertEqual("user" not in svc, "user" in relaxed, name)
+            self.assertEqual(svc["read_only"], "read_only" not in relaxed, name)
+            self.assertEqual(rows[name]["exceptions"], ",".join(sorted(relaxed)) if relaxed else "none", name)
+        # the SP binds port 80 as root and needs exactly the recorded capability for it; the IdP (uid 1000 on 8080) needs none
+        self.assertIn("NET_BIND_SERVICE", doc["services"]["shibboleth_sp"].get("cap_add", []))
+        self.assertNotIn("cap_add", doc["services"]["test_idp"])
+        # the template itself asks for a non-root user, so the service becomes non-root the moment the exception is removed (F-3)
+        tpl = json.loads((Path(compose.__file__).parent / "templates" / "test_idp.json").read_text(encoding="utf-8"))
+        self.assertEqual(tpl["user"], "1000:1000")
+        self.assertEqual(tpl["container_port"], 8080)   # unprivileged port: no NET_BIND_SERVICE needed
+
+    def test_mock_users_fixture_and_idp_authsources_agree_and_are_mock(self):
+        """POL-05 §4 / ADR-05 rule: one canonical MOCK list, mirrored verbatim in the IdP template, every value visibly mock."""
+        fixture = json.loads((REPO_ROOT / "installer" / "acceptance" / "fixtures" / "idp" / "mock_users.json").read_text(encoding="utf-8"))
+        authsources = (Path(compose.__file__).parent / "templates" / "idp" / "authsources.php.tmpl").read_text(encoding="utf-8")
+        self.assertIn("MOCK", fixture["_label"])
+        self.assertIn("MOCK", authsources)
+        roles = {u["role"] for u in fixture["users"]}
+        self.assertTrue({"success", "rejection"} <= roles, roles)
+        for user in fixture["users"]:
+            self.assertIn(f"'{user['username']}:{user['password']}'", authsources, user["username"])
+            self.assertTrue(user["username"].startswith("mock-") and user["password"].startswith("mock-"), user["username"])
+            for key, value in user["attributes"].items():
+                values = value if isinstance(value, list) else [value]
+                for v in values:
+                    self.assertIn(f"'{v}'", authsources, f"{user['username']}.{key}={v!r} missing from authsources.php.tmpl")
+                    if key in ("eduPersonAffiliation",):
+                        continue   # controlled vocabulary (member, faculty, student, affiliate)
+                    looks_mock = v.startswith(("mock-", "MOCK", "モック", "https://idp.mock.test/")) or v.endswith("idp.mock.test") or v == "USER"
+                    self.assertTrue(looks_mock, f"{user['username']}.{key}={v!r} does not look like mock data (ADR-05 §3.5)")
+        # the rejection user really lacks the affiliation the SP requires, and the success user has it
+        by_role = {u["role"]: u for u in fixture["users"]}
+        self.assertIn("member", by_role["success"]["attributes"]["eduPersonAffiliation"])
+        self.assertNotIn("member", by_role["rejection"]["attributes"]["eduPersonAffiliation"])
+        sp = json.loads((Path(compose.__file__).parent / "templates" / "shibboleth_sp.json").read_text(encoding="utf-8"))
+        self.assertEqual(sp["environment"]["SP_REQUIRED_AFFILIATION"], "member")
+        # no real-looking e-mail or institution anywhere in the mock material
+        for text in (json.dumps(fixture, ensure_ascii=False), authsources):
+            self.assertNotRegex(text, r"@[a-z0-9.-]+\.(ac\.jp|edu|com|org)\b")
+            self.assertNotIn("Test User", text)
+
     def test_resource_limits_scale_with_memory(self):
         root = make_root()
         render(root, memory_gib=8.0)
