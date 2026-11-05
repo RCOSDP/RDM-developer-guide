@@ -30,5 +30,5 @@ grdm_dev = "grdm_dev"
 acceptance = "acceptance"
 
 [tool.setuptools.package-data]
-grdm_dev = ["messages.tsv", "templates/*.json"]
+grdm_dev = ["messages.tsv", "templates/*.json", "templates/workflows/*.yml"]
 acceptance = ["pytest.ini", "README.md"]
