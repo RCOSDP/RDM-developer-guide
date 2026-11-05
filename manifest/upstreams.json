@@ -461,12 +461,13 @@
       "integration_branch": "develop",
       "integration_sha": "e3620a25dd45173f5c16a6cd68e1b8b6c37e26c6",
       "integration_repo": "RDM-cas-overlay-dev2027",
-      "note": null,
+      "note": "prebuilt_image: the Dockerfile builds with maven:3.3-jdk-8 (EOL) and, under linux/amd64 emulation on Apple Silicon, the Maven build hung for 8 hours in real install run 3 (DEMO-20). Until M4 modernizes the Dockerfile, the distribution image's linux/amd64 manifest is used, pinned by digest. Remove at M4.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
       "build_platform": "linux/amd64",
+      "prebuilt_image": "niicloudoperation/rdm-cas-overlay@sha256:d2f018a957162c4bcaeefdd1645ec7516d0a670199e1813712d91b9e676fa661",
       "profile": "core",
       "role": "core",
       "services": [
