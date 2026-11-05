@@ -100,7 +100,7 @@ run3:
 
 What this proves:
 
-- The `prebuilt_image` fallback works end to end (pull, report row `prebuilt`, image tagged for Compose).
+- The `prebuilt_image` fallback works end to end: the digest-pinned reference is pulled for the component's platform, the build report row says `prebuilt`, and `compose render` writes that same reference as the service's `image:` (no local re-tagging).
 - An EOL Java 8 / Maven 3.3 build under CPU emulation is not viable on this host: it hung rather than failed. The stop-at-first-failure rule still held (exit 30, nothing started).
 
 Decision taken: cas-overlay also uses a digest-pinned `prebuilt_image` (the distribution image's `linux/amd64` manifest) until M4 modernizes its Dockerfile; recorded in the manifest note. Run 4 will be recorded below.
@@ -196,7 +196,7 @@ run3:
 
 これで分かったこと:
 
-- `prebuilt_image` の代替は端から端まで働く（取得、報告行 `prebuilt`、Compose 用のタグ付け）。
+- `prebuilt_image` の代替は端から端まで働く: ダイジェスト固定の参照を部品のプラットフォームで取得し、ビルド報告の行は `prebuilt`、`compose render` はその同じ参照をサービスの `image:` に書く（ローカルでのタグ付け直しはしない）。
 - EOL の Java 8 / Maven 3.3 を CPU エミュレーションで組むのはこのホストでは現実的でなく、失敗ではなくハングした。「最初の失敗で止まる」規則は守られた（終了 30、何も起動していない）。
 
 決めたこと: cas-overlay も M4 で Dockerfile を近代化するまで、配布イメージの `linux/amd64` マニフェストをダイジェスト固定の `prebuilt_image` として使う。manifest の note に記録。第 4 回は下へ追記する。
