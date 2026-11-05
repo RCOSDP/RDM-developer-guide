@@ -732,7 +732,7 @@ class ComposeRenderTests(unittest.TestCase):
         cmd = init["command"][2]
         self.assertNotIn("chmod", cmd)
         self.assertIn("chown 1000:1000 /wiki_static", cmd)
-        vol_dir = self.root / "runtime" / "volumes" / "wiki_static"
+        vol_dir = root / "runtime" / "volumes" / "wiki_static"
         if vol_dir.exists():
             self.assertEqual(oct(vol_dir.stat().st_mode & 0o777), "0o755")
         self.assertEqual(init["volumes"], ["wiki_static:/wiki_static"])
