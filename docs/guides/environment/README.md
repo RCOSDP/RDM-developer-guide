@@ -1,13 +1,16 @@
-# Environment / 環境設定と開発環境
+# Environment guide / 環境設定と開発環境
 
-> **Summary:** Guide to setting up the development environment for GakuNin RDM using Docker Compose and the 2027 installer
-> **概要:** GakuNin RDM の開発環境を Docker Compose と 2027 インストーラーで構築する手引き
+> **Summary:** How to install the 2027 developer environment for GakuNin (Japan's academic identity federation) RDM using the installer script, including prerequisites, step-by-step commands, everyday operations, security notes, and troubleshooting. All services run on `127.0.0.1` with no host network changes.
+> **概要:** GakuNin（日本の学術認証連携）RDM の 2027 開発環境をインストーラーで導入する手順。前提条件、ステップごとのコマンド、日常操作、セキュリティ注意点、トラブルシューティングを含む。すべてのサービスは `127.0.0.1` で動作し、ホストのネットワーク設定は変えません。
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05
+- Version / 版: 1.0 — 2026-11-06. **Learned:** full startup is not yet verified by a recorded run: the ember-osf-web (the browser interface) base image is end-of-life and current Docker (the tool that runs containers: boxes that each hold one program and everything it needs) refuses to pull it, so the manifest (the list of components and the exact source revisions they are built from) already configures a digest-pinned prebuilt image for ember-osf-web as a fallback until M4 modernizes its Dockerfile (DEMO-20, `manifest/upstreams.json`). ／ 完全な起動はまだ実行記録で検証できていない。ember-osf-web（ブラウザ画面）のベースイメージがサポート終了で現行 Docker（コンテナ＝一つのプログラムと必要なものを入れた箱を動かす道具）が取得を拒むため、M4 で Dockerfile を近代化するまでの代替として、manifest（部品と、それを組む正確なソース版の一覧）にはダイジェスト固定の配布済みイメージがすでに設定されている（DEMO-20、`manifest/upstreams.json`）。
+- Version / 版: 0.1 — 2026-11-05. Initial bilingual skeleton pointing to the legacy guide. ／ 旧ガイドを指す最初の二言語の骨組み。
 - Normative for: `docs/guides/environment/`
-- Related: [SPEC-02 Installer CLI](../../spec/02_installer_cli.md) · [ADR-02 Network Model](../../decisions/ADR-02_Network_Model.md) · [SPEC-06 Documentation Conventions](../../spec/06_documentation_conventions.md)
+- Parent index / 親索引: [Guides](../README.md)
+- Related: [SPEC-02 Installer CLI](../../spec/02_installer_cli.md) · [ADR-02 Network Model](../../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../../decisions/ADR-03_Staged_Security_Gate.md) · [SPEC-03 Security Gate](../../spec/03_security_gate.md) · [SPEC-04 Acceptance Tests](../../spec/04_acceptance_tests.md) · [SPEC-06 Documentation Conventions](../../spec/06_documentation_conventions.md) · [DEMO-20 Core Install on Mac Studio](../../demo/20_core_install_mac_studio.md) · [REF-01 Glossary](../../reference/REF-01_Glossary.md)
+- Used by: [Guides index](../README.md) · [DEMO-20 Core Install on Mac Studio](../../demo/20_core_install_mac_studio.md)
 
 ---
 
@@ -16,36 +19,353 @@
 
 [→ 日本語版へ](#japanese)
 
-### Overview
+### 1. Quick start
 
-This guide shows how to set up the GakuNin RDM development environment.
+Install the 2027 developer environment for [GakuNin](../../reference/REF-01_Glossary.md#english) RDM with these three commands:
 
-> **Warning:** The loopback alias `192.168.168.167` and `docker-compose.override.yml` method described below are the OLD way. The 2027 installer uses a Compose internal network and `127.0.0.1` only. See [ADR-02 Network Model](../../decisions/ADR-02_Network_Model.md) and [SPEC-02 Installer CLI](../../spec/02_installer_cli.md).
+```bash
+git clone https://github.com/RCOSDP/RDM-developer-guide.git
+cd RDM-developer-guide
+./installer/install.sh --yes
+```
 
-For the current method, use the 2027 installer (`installer/install.sh`) which creates a self-contained environment under `runtime/` with no host network changes.
+When the installer completes, `grdm-dev up` opens your browser at the web URL it reports. The default is `http://127.0.0.1:5000`, but if port (a numbered door a program listens on) 5000 was busy the installer chose another port and recorded it in `runtime/.env` as `GRDM_PORT_WEB`; always use the URL or port printed in the report rather than assuming 5000.
 
-### Docker Compose services
+> **Caveat (2026-11-06):** a complete startup of the `core` profile (a named subset of services to run) has not yet been verified by a recorded run. The [ember-osf-web](../../reference/REF-01_Glossary.md#english) Dockerfile cannot be built with current [Docker](../../reference/REF-01_Glossary.md#english), so the manifest already runs a digest-pinned prebuilt image for that component (see §3.5 and §6). Expect the next recorded run in DEMO-20.
 
-The development environment uses Docker Compose to run multiple microservices:
+#### Prerequisites by OS
 
-- **Data storage & sharing services:** PostgreSQL, Elasticsearch, RabbitMQ, MongoDB
-- **Core services:** web server, API server, admin interface, worker (RDM-osf.io), WaterButler file storage service
-- **UI services:** Ember frontend, Modular File Renderer (MFR), Unoconv file converter
-- **Test authentication service:** FakeCAS or CAS-Overlay for OAuth testing
+- **macOS 14 or newer, Apple Silicon (arm64):** Docker Desktop installed
+- **Ubuntu 24.04, amd64 (the Intel/AMD type of CPU; Apple Silicon is arm64) or arm64:** Docker Engine installed
+- **Windows 11 with WSL2 (Windows Subsystem for Linux 2, a way to run Ubuntu inside Windows; see [REF-01](../../reference/REF-01_Glossary.md#english)) and Ubuntu 24.04:** Docker Desktop installed
 
-> In GakuNin RDM, the `preprints` and `registries` services are not used.
+> **Note:** The installer checks each prerequisite. It exits with code 10 if your host is unsupported and 11 if Docker is missing, not running, or lacks the Compose or buildx (multi-platform image builder) plugin. See [SPEC-02 §8](../../spec/02_installer_cli.md#english) for the full host list.
 
-### Quick start
+---
 
-1. Clone this repository
-2. Run `./installer/install.sh --yes`
-3. Open http://127.0.0.1:5000 in your browser
+### 2. What you get
 
-> This command is available from milestone M2.
+The installer creates a self-contained environment under `runtime/` with no changes to your host network. It uses two Docker Compose (the tool that starts several containers together from one file) networks:
 
-### Legacy content
+- **Internal network `grdm`** — services talk to each other using Compose service names (e.g., `web`, `api`, `postgres`). No ports are published and there is no route to the Internet.
+- **Publishing network `grdm-edge`** — the seven browser-facing services (`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`) also attach here so their ports can be published on `127.0.0.1`. Because it is an ordinary bridge network, these seven services already have outbound (egress) access; no other service does unless you grant it (§4).
 
-The legacy Docker Compose instructions (loopback alias, manual setup) are kept verbatim in `README.legacy.md` for reference and will be rewritten per milestone.
+```mermaid
+flowchart TD
+    subgraph HOST["Host computer (macOS / Ubuntu / WSL2)"]
+        BROWSER["Browser → http://127.0.0.1:GRDM_PORT_WEB"]
+        subgraph DOCKER["Docker Compose"]
+            INTERNAL[internal network grdm]
+            PUBLISHING[public bridge network grdm-edge]
+        end
+    end
+    
+    subgraph SERVICES["Running services"]
+        web[web (default port 5000)]
+        api[api (default port 8000)]
+        postgres[postgres]
+        rabbitmq[rabbitmq]
+    end
+    
+    BROWSER -->|"127.0.0.1:<web port>"| web
+    web -->|"http://api:8000"| api
+    api -->|"postgres:5432"| postgres
+    web -->|"rabbitmq:5672"| rabbitmq
+    
+    BROWSER --- PUBLISHING
+    web --- PUBLISHING
+    api --- PUBLISHING
+    
+    web --- INTERNAL
+    api --- INTERNAL
+    postgres --- INTERNAL
+    rabbitmq --- INTERNAL
+```
+
+---
+
+### 3. Step by step
+
+`./installer/install.sh --yes` creates a Python virtual environment at `.venv/` (a *venv* is a private folder of Python and its libraries, separate from the system), installs `grdm-dev` into it, and then runs `grdm-dev install`. That command executes the following steps in this exact order and stops at the first non-zero exit ([SPEC-02 §2.1](../../spec/02_installer_cli.md#english), `installer/grdm_dev/install.py`):
+
+1. `doctor`
+2. `plan`
+3. `secrets init` — only when `runtime/.env` does not exist yet
+4. `compose render`
+5. `build`
+6. `up`
+7. `health --network`
+8. `scan`
+9. `report`
+
+The acceptance tests (`accept`, §3.9) are **not** part of this sequence; run them manually afterwards. The subsections below describe each step so you can also run it on its own after the bootstrap has created `.venv/`.
+
+#### 3.1 `grdm-dev doctor`
+
+Check that your host meets all requirements (run on its own after the bootstrap created `.venv/`):
+
+```bash
+.venv/bin/grdm-dev doctor
+```
+
+**Success:** You see a TOON report (TOON is a compact text form of JSON data that people and AI read easily; see [REF-01](../../reference/REF-01_Glossary.md#english)) showing your OS, CPU, memory, free disk, and Docker version.
+
+**Failure exit codes:** `10` — unsupported host (OS, CPU, memory, or Python < 3.11); `11` — Docker missing, not running, or Compose / buildx plugin absent.
+
+#### 3.2 `grdm-dev plan`
+
+See which images will be built and which services will start:
+
+```bash
+.venv/bin/grdm-dev plan --profile core
+```
+
+A *manifest* is the list of components and the exact source revisions they are built from (`manifest/upstreams.json`; see [REF-01](../../reference/REF-01_Glossary.md#english)). A *profile* is a named subset of services to run: `minimum`, `core` (default), or `full` ([SPEC-02 §4](../../spec/02_installer_cli.md#english)). The choice is saved in `runtime/.env` as `GRDM_PROFILE` and reused later.
+
+**Success:** You see a TOON report with the services and their published ports.
+
+**Failure exit code:** `20` — manifest invalid or TOON excerpt disagrees with JSON.
+
+#### 3.3 `grdm-dev secrets init`
+
+Generate random secrets and write them to `runtime/.env` with mode `0600` (owner read/write only):
+
+```bash
+.venv/bin/grdm-dev secrets init
+```
+
+**Success:** A new `runtime/.env` file appears with random database passwords, Django secret key, and CAS (the sign-in service protocol GRDM uses) keys.
+
+**Failure exit code:** `2` — usage error (e.g., missing `--force` if `runtime/.env` exists).
+
+> **Security note:** The installer *never* writes default or example passwords. Every secret is generated from your OS's random source.
+
+#### 3.4 `grdm-dev compose render`
+
+Generate the Docker Compose file from the manifest and profile:
+
+```bash
+.venv/bin/grdm-dev compose render --profile core
+```
+
+**Success (exit `0`):** `runtime/docker-compose.yml` appears with all services configured for your host, and any port that had to move away from its default is reported.
+
+**Failure exit codes:** `20` — manifest invalid; `2` — usage error, for example `runtime/.env` is missing (run `secrets init` first) or `--egress` names an unknown service; `12` — a required port is in use and no free alternative was found within +100 (§6).
+
+#### 3.5 `grdm-dev build`
+
+Build or pull all images:
+
+```bash
+.venv/bin/grdm-dev build
+```
+
+**Success:** All images are built or pulled, and a TOON report shows their status (`built`, `prebuilt`, ...).
+
+**Failure exit code:** `30` — image build or prebuilt pull failed (e.g., an EOL base cannot be built for arm64 without emulation). *EOL* means end of life: the vendor no longer fixes bugs or security holes ([REF-01](../../reference/REF-01_Glossary.md#english)). *Emulation* means running an `linux/amd64` image on an arm64 CPU through Docker's built-in CPU translation; it is slower but works for most images.
+
+> **Real cases from DEMO-20:**
+>
+> - **modular-file-renderer (the file preview service):** Built with emulation (`build_platform: linux/amd64`) because `pandas==0.25.1` has no arm64 *wheel* (a prebuilt Python package file; without one, pip must compile from source, which fails on this EOL base).
+> - **ember-osf-web:** The source build fails on every CPU because the base image uses Docker manifest v2 schema 1, which current Docker refuses. The manifest therefore already carries a digest-pinned `prebuilt_image` for ember-osf-web, which `build` pulls instead of building; this fallback stays until M4 modernizes the Dockerfile (`manifest/upstreams.json`, DEMO-20).
+
+#### 3.6 `grdm-dev up`
+
+Start all services and wait for health:
+
+```bash
+.venv/bin/grdm-dev up --profile core
+```
+
+**Success:** All services report healthy, and the browser opens at the web URL `up` reports (`http://127.0.0.1:<GRDM_PORT_WEB>`, default port 5000). Add `--no-open` to skip the browser.
+
+**Failure exit code:** `40` — one or more services did not become healthy within the timeout.
+
+#### 3.7 `grdm-dev health` and `health --network`
+
+Manually check service health:
+
+```bash
+.venv/bin/grdm-dev health            # service responses only
+.venv/bin/grdm-dev health --network  # also verify that every published port listens on 127.0.0.1 only
+```
+
+**Success:** All services report healthy; with `--network`, the report also shows `loopback_only: true`.
+
+**Failure exit code:** `40` — one or more services are unhealthy; with `--network`, also when any container port is bound to an address other than `127.0.0.1`. Plain `health` does **not** check host exposure, so only `health --network` proves loopback-only publishing. The automatic `install` sequence runs `health --network`.
+
+#### 3.8 `grdm-dev scan`
+
+Run the whole security gate of [SPEC-03](../../spec/03_security_gate.md):
+
+```bash
+.venv/bin/grdm-dev scan
+```
+
+Without flags, `scan` runs every part: baseline controls, the Trivy (a scanner that lists known weaknesses in images) image scanner's SBOM (software bill of materials: the list of every part inside an image) and CVE list (a CVE is a public identifier for one known security weakness), the gitleaks secret scan, Semgrep (static analysis that reads source code for dangerous patterns), and the OWASP ZAP (a scanner that probes the running website the way an attacker would) dynamic baseline. The flags `--baseline`, `--secrets`, and `--dynamic` each run **one part only** and are *not* the whole gate:
+
+```bash
+.venv/bin/grdm-dev scan --baseline   # subset: baseline controls of runtime/docker-compose.yml and runtime/.env only
+.venv/bin/grdm-dev scan --secrets    # subset: gitleaks over the repository only
+.venv/bin/grdm-dev scan --dynamic    # subset: OWASP ZAP baseline only (needs healthy services)
+```
+
+**Gate rule by milestone** (`manifest/milestone.json`, currently M1; [ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md), [SPEC-03 §5](../../spec/03_security_gate.md)): the gate data — `manifest/milestone.json`, the allow-list `manifest/allowlist.json` (the written list of known findings accepted for a limited time) and its baseline `manifest/allowlist.baseline.json` — must be readable and well-formed at every milestone, M1 included: an unreadable file or an allow-list entry missing one of its six fields exits `50` (SPEC-03 §5.1 rule 1). Baseline-control violations (default secrets, publishing outside loopback, `privileged: true`, a missing `grdm` internal network) also exit `50` at every milestone. Only with valid gate data and passing baseline controls are M1–M3 *report-only* for vulnerability findings: the run exits `0` and records them. From M2 the allow-list may not grow: `scan` compares the entry count with `manifest/allowlist.baseline.json` and a larger count exits `50` (at M1 the count is only reported). At M4 any HIGH or CRITICAL finding not in the allow-list exits `50`; in addition, passing M4 requires that the first real AI red-team run (authorized attack testing of the isolated environment, [SPEC-03 §6](../../spec/03_security_gate.md)) has been completed and every intrusion path it found has been fixed or allow-listed — the red-team *preflight* (`grdm-dev redteam preflight`, a readiness check that proves isolation before a run) is not that run. At M5 every CRITICAL or HIGH finding exits `50`, allow-listed or not; the allow-list may contain no CRITICAL or HIGH entry (`scan` exits `50` if it does); and the AI red team must report zero unresolved intrusion paths. `scan` itself enforces the data validity, baseline, count, and severity rules; the M4 red-team completion and the M5 zero-paths result are milestone acceptance requirements that the owner records with the red-team evidence (SPEC-03 §6–7), not checks `scan` performs.
+
+**Success:** Exit `0`; the report under `runtime/reports/scan_<date>.json` (plus TOON) shows the baseline controls passed and the findings for the current milestone.
+
+**Failure exit codes:** `50` — gate failed for the current milestone (see rule above); `51` — a scanner could not run (Trivy, gitleaks, or Semgrep missing, or its vulnerability database could not be downloaded); `52` — `--dynamic` was requested while services are unhealthy.
+
+#### 3.9 `grdm-dev accept` (manual, separate step)
+
+The acceptance tests ([SPEC-04](../../spec/04_acceptance_tests.md)) are not run by `install`. They need the optional Python extra and a Chromium build in the **existing** `.venv/`, installed once:
+
+```bash
+.venv/bin/pip install -e "installer[accept]"
+PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install chromium
+```
+
+Then run the tests with `--seed`, which creates disposable test users, runs the browser scenarios, and removes those users again within the same run (there is no persistent seed step):
+
+```bash
+.venv/bin/grdm-dev accept --seed
+```
+
+**Success:** All tests pass, and a report is written under `docs/demo/runs/<run-id>/`.
+
+**Failure exit codes:** `2` — the extra or Chromium is not installed (the message repeats the two commands above); `40` — the integration precheck failed, so the browser tests did not start (fix health first); `60` — one or more tests failed.
+
+> **Tip:** `--only <scenario>` runs one scenario; `--headed` shows the browser window.
+
+---
+
+### 4. Everyday commands
+
+#### Start, stop, reset
+
+```bash
+.venv/bin/grdm-dev up       # start services and wait for health
+.venv/bin/grdm-dev down     # stop containers, keep volumes
+.venv/bin/grdm-dev reset    # stop and delete runtime/volumes/
+```
+
+> **Tip:** Add `--yes` to skip confirmation prompts.
+
+#### View logs
+
+```bash
+docker compose -f runtime/docker-compose.yml logs -f web api
+```
+
+> **Note:** The generated `runtime/docker-compose.yml` uses the service names from the manifest.
+
+#### Change profile
+
+```bash
+.venv/bin/grdm-dev compose render --profile full --yes
+.venv/bin/grdm-dev up --yes
+```
+
+#### Egress control
+
+The seven publishing services on `grdm-edge` (`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`) already have outbound access to the Internet. Every other service has none by default ([ADR-02 §4](../../decisions/ADR-02_Network_Model.md#english)). `--egress` adds that access for the services you name, by attaching them to `grdm-edge` too:
+
+```bash
+# Requires the full profile (rdmcp and aipf_mcp_data_grdm are not in core); select it first or in the same command.
+.venv/bin/grdm-dev compose render --profile full --egress rdmcp,aipf_mcp_data_grdm
+.venv/bin/grdm-dev compose render --egress none   # clear the saved grant
+```
+
+The choice is saved in `runtime/.env` as `GRDM_EGRESS_SERVICES`, kept on later renders, shown by `scan --baseline`, and cleared with `--egress none`. Naming a service that is not in the selected profile is a usage error (exit 2).
+
+#### Default ports
+
+| Service | Host port | Profile |
+|---|---|---|
+| web | 5000 | minimum |
+| api | 8000 | minimum |
+| admin | 8001 | core |
+| wb (WaterButler) | 7777 | core |
+| mfr (Modular File Renderer) | 7778 | core |
+| fakecas | 8080 | minimum |
+| ember_osf_web | 4200 | core |
+
+> **Note:** If a port is in use (e.g., macOS AirPlay on 5000), `compose render` finds the next free port and records it in `runtime/.env` as `GRDM_PORT_<SERVICE>`; see §6.
+
+---
+
+### 5. Security notes
+
+The installer implements these controls from milestone M1 ([SPEC-03 §3](../../spec/03_security_gate.md#english)):
+
+- **Secrets:** All passwords and keys are generated at install time with random values, written to `runtime/.env` (mode `0600`), and never committed to Git.
+- **Network:** Services talk on an internal Compose network (`internal: true`). Browser-facing ports are published *only* on `127.0.0.1`; `health --network` verifies it.
+- **[Container](../../reference/REF-01_Glossary.md#english) hardening:** Non-root (the program does not run as the all-powerful administrator user) user, read-only root filesystem, and `cap_drop: [ALL]` are the defaults for every service, together with resource limits (memory, CPU, process count). `privileged: true` is forbidden everywhere. A service that cannot tolerate one of the defaults (for example the PostgreSQL, RabbitMQ, or Elasticsearch images, which must write inside the image at start-up) gets a documented per-service exception in [`manifest/hardening.json`](../../../manifest/hardening.json), naming the relaxed control, the reason, the review date, and the milestone at which it is to be removed. Read-only roots therefore apply where the service tolerates them, not to every service.
+- **Supply chain:** Images are pulled by digest (exact fingerprint), never a floating tag such as `latest`.
+
+> These are the requirements the installer enforces; whether a given running environment satisfies them is shown by `health --network` and `scan`, not by this guide.
+
+> **What the installer does *not* protect:**
+>
+> - Attacks on your operating system itself (e.g., kernel vulnerabilities)
+> - Phishing of the developer
+> - The production GRDM service (this guide is for development only)
+
+---
+
+### 6. Troubleshooting
+
+#### A port is in use (exit 12)
+
+`compose render` starts from the port you requested or the one saved in `runtime/.env` (`GRDM_PORT_<SERVICE>`; the SPEC-02 §4 default if neither exists) and searches up to 100 ports above it for a free one. Ports already held by this project's own running containers are kept. If another program holds the port, the service moves to the first free candidate, the choice is recorded as `GRDM_PORT_<SERVICE>`, and the render reports it. Exit code 12 happens only when no free alternative exists in that range.
+
+**Fix:** Stop the other program if you want the original port back, or simply use the port `compose render` / `plan` reports.
+
+```bash
+# macOS: AirPlay shares port 5000
+sudo lsof -i :5000
+# Kill the process if you do not need AirPlay
+```
+
+#### Docker missing (exit 11)
+
+`doctor` fails if Docker is not installed, not running, or lacks the Compose plugin.
+
+**Fix:** Install Docker Desktop (macOS) or Docker Engine (Ubuntu). Version ≥ 27 with Compose v2 plugin is required.
+
+#### Build failed (exit 30)
+
+This happens when an image cannot be built for your CPU architecture or a prebuilt image cannot be pulled.
+
+**Real cases from DEMO-20:**
+
+1. **modular-file-renderer on arm64:** Built successfully with `build_platform: linux/amd64` (emulation) because the base Python 3.5 image has no arm64 wheel for `pandas==0.25.1`.
+2. **ember-osf-web on any platform:** The source build fails because the base image uses Docker manifest v2 schema 1, which current Docker refuses to pull.
+
+**Current state:** For ember-osf-web the manifest already contains a digest-pinned `prebuilt_image` (`niicloudoperation/rdm-ember-osf-web@sha256:...`, `manifest/upstreams.json`), so `build` pulls that image instead of building and reports it as `prebuilt`. The fallback stays until M4 modernizes the Dockerfile, when it must be removed. A failed source build therefore does not by itself mean the configured fallback fails; check the `prebuilt` row in the build report.
+
+#### Health check failed (exit 40)
+
+`health` fails if a service does not respond. `health --network` additionally fails if any published port listens on an address other than `127.0.0.1`; the plain command does not perform that check.
+
+**Fix:** Check logs with `docker compose -f runtime/docker-compose.yml logs <service>`, then restart the service. For a non-loopback listener, inspect `runtime/docker-compose.yml` (every `ports:` entry must start with `127.0.0.1:`) and re-run `compose render`.
+
+---
+
+### 7. What changed since the old guide
+
+The rows below compare what `README.legacy.md` actually describes with the 2027 installer.
+
+| Old way (README.legacy.md) | New way (2027 installer) | Why |
+|---|---|---|
+| Configure a loopback alias `192.168.168.167` on the host (needs `sudo`) so services can reach each other | Internal network `grdm` with Compose service names + publishing network `grdm-edge` on `127.0.0.1` | No `sudo`, no host network change, no LAN exposure, same setup on macOS/Ubuntu/WSL2 ([ADR-02](../../decisions/ADR-02_Network_Model.md)) |
+| Copy `local-dist.py` to `local.py` for web and api by hand; one URL serves both the browser and the services | Generated settings separate *internal* URLs (service names) from *external* browser URLs (`http://127.0.0.1:<port>/`) | Redirects and absolute URLs work from the browser without the alias ([ADR-02 §4](../../decisions/ADR-02_Network_Model.md#english)) |
+| Hand-written `docker-compose.override.yml` that swaps images to `niicloudoperation/*:latest` and carries commented `platform:` lines per CPU | `grdm-dev compose render` generates `runtime/docker-compose.yml` from the manifest and profile; `platform:` comes from the manifest's `build_platform` | No manual edits, no host-specific file to commit by mistake, same output for everyone |
+| Start from distribution images (`niicloudoperation/*:latest`, `quay.io/centerforopenscience/*`) and install Python/Node modules into volumes with the `*_requirements` services | Build from manifest-pinned source revisions; prebuilt images only as documented, digest-pinned exceptions | Exact reproducibility, no floating tags, no stale module volumes |
+| Uncomment Elasticsearch limits and single-node settings in `docker-compose.yml` by hand on Apple Silicon | `compose render` writes resource limits scaled from `doctor` and per-service exceptions from `manifest/hardening.json` | One generated file instead of per-host edits |
+| Default credentials shipped by the upstream Compose files (e.g., `postgres`/`postgres`; [SPEC-03 §3.1](../../spec/03_security_gate.md#english)) | Random secrets in `runtime/.env` (mode 0600), generated by `secrets init`; `scan --baseline` fails if a default remains | No default credentials left behind |
+
+> **Note:** The old instructions are kept verbatim in `README.legacy.md` for historical reference. The legacy guide itself never documented default passwords; they come from the upstream Compose files it relied on.
 
 ---
 
@@ -54,36 +374,353 @@ The legacy Docker Compose instructions (loopback alias, manual setup) are kept v
 
 [→ To English](#english)
 
-### 概要
+### 1. クイックスタート
 
-このガイドは、GakuNin RDM の開発環境を構築する方法を示します。
+[GakuNin](../../reference/REF-01_Glossary.md#japanese) RDM の 2027 開発環境を以下の三つのコマンドで導入します：
 
-> **警告:** 以下に説明する ループバックエイリアス `192.168.168.167` と `docker-compose.override.yml` の方法は、昔の方法です。2027 インストーラーは Compose の内部ネットワークと `127.0.0.1` のみを使用します。詳細は [ADR-02 ネットワークモデル](../../decisions/ADR-02_Network_Model.md) と [SPEC-02 インストーラー CLI](../../spec/02_installer_cli.md) を参照してください。
+```bash
+git clone https://github.com/RCOSDP/RDM-developer-guide.git
+cd RDM-developer-guide
+./installer/install.sh --yes
+```
 
-現在の方法では、`installer/install.sh` コマンドを使用して、ホストのネットワーク設定を変更せずに `runtime/` ディレクトリ内に自己完結型の環境を作成します。
+インストーラーが完了すると、`grdm-dev up` が報告した web の URL をブラウザで開きます。既定は `http://127.0.0.1:5000` ですが、ポート（プログラムが待ち受ける番号付きの入口）5000 が使用中だった場合はインストーラーが別のポートを選び、`runtime/.env` に `GRDM_PORT_WEB` として記録しています。5000 と決めつけず、必ず報告に表示された URL またはポートを使ってください。
 
-### Docker Compose サービス
+> **注意（2026-11-06 時点）:** `core` プロファイル（起動するサービスの名前付きの組）の完全な起動は、まだ実行記録で検証できていません。[ember-osf-web](../../reference/REF-01_Glossary.md#japanese) の Dockerfile は現行 [Docker](../../reference/REF-01_Glossary.md#japanese) では組めないため、manifest はこの部品についてダイジェスト固定の配布済みイメージをすでに使う設定になっています（§3.5・§6）。次の実行記録は DEMO-20 に追記されます。
 
-開発環境は、複数のマイクロサービスを Docker Compose で実行します:
+#### OS ごとの前提条件
 
-- **データ保存・共有サービス:** PostgreSQL, Elasticsearch, RabbitMQ, MongoDB
-- **コアサービス:** Webサーバー、APIサーバー、管理画面、ワーカー (RDM-osf.io)、WaterButler ファイルストレージサービス
-- **UI サービス:** Ember フロントエンド、Modular File Renderer (MFR)、Unoconv ファイル変換サービス
-- **テスト認証サービス:** FakeCAS または CAS-Overlay (OAuth テスト用)
+- **macOS 14 以上、Apple Silicon (arm64):** Docker Desktop をインストール済み
+- **Ubuntu 24.04、amd64（Intel/AMD 系の CPU の種類。Apple Silicon は arm64）または arm64:** Docker Engine をインストール済み
+- **Windows 11 + WSL2（Windows Subsystem for Linux 2。Windows の中で Ubuntu を動かす仕組み。[REF-01](../../reference/REF-01_Glossary.md#japanese)）の Ubuntu 24.04:** Docker Desktop をインストール済み
 
-> GakuNin RDM では、`preprints` と `registries` サービスは使用しません。
+> **Note:** インストーラーは各前提条件を確認します。ホストが未対応なら終了コード 10、Docker が無い・動いていない・Compose や buildx（複数 CPU 向けイメージを作る機能）プラグインが無いなら 11 で終わります。対応ホストの一覧は [SPEC-02 §8](../../spec/02_installer_cli.md#japanese) を参照。
 
-### クイックスタート
+---
 
-1. このリポジトリを clone する
-2. `./installer/install.sh --yes` を実行する
-3. ブラウザで http://127.0.0.1:5000 を開く
+### 2. 得られるもの
 
-> このコマンドは M2 マイルストーンから利用可能です。
+インストーラーはホストのネットワーク設定を一切変えず、`runtime/` の下に自己完結型の環境を作ります。二つの Docker Compose（一つの設定ファイルから複数のコンテナをまとめて起こす道具）ネットワークを使います：
 
-### 過去のコンテンツ
+- **内部ネットワーク `grdm`** — サービス間は Compose のサービス名（例: `web`, `api`, `postgres`）で通信します。ポートは公開されず、インターネットへの経路もありません。
+- **公開ネットワーク `grdm-edge`** — ブラウザが届く必要のある 7 サービス（`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`）がここにも接続し、`127.0.0.1` にポートを公開します。通常の bridge ネットワークなので、この 7 サービスは外向き通信（egress）がすでに可能です。それ以外のサービスは、明示的に付与しない限り外向き通信を持ちません（§4）。
 
-過去の Docker Compose の手順（ループバックエイリアス、手動設定）は、参考のために `README.legacy.md` にそのまま残しており、マイルストーンごとに書き直す予定です。
+```mermaid
+flowchart TD
+    subgraph HOST["ホスト（macOS / Ubuntu / WSL2）"]
+        BROWSER["ブラウザ → http://127.0.0.1:GRDM_PORT_WEB"]
+        subgraph DOCKER["Docker Compose"]
+            INTERNAL[内部ネットワーク grdm]
+            PUBLISHING[通常 bridge ネットワーク grdm-edge]
+        end
+    end
+    
+    subgraph SERVICES["稼働中のサービス"]
+        web[web（既定ポート 5000）]
+        api[api（既定ポート 8000）]
+        postgres[postgres]
+        rabbitmq[rabbitmq]
+    end
+    
+    BROWSER -->|"127.0.0.1:<web ポート>"| web
+    web -->|"http://api:8000"| api
+    api -->|"postgres:5432"| postgres
+    web -->|"rabbitmq:5672"| rabbitmq
+    
+    BROWSER --- PUBLISHING
+    web --- PUBLISHING
+    api --- PUBLISHING
+    
+    web --- INTERNAL
+    api --- INTERNAL
+    postgres --- INTERNAL
+    rabbitmq --- INTERNAL
+```
+
+---
+
+### 3. ステップごとの手順
+
+`./installer/install.sh --yes` は `.venv/` に Python の仮想環境（venv。システムとは別の、Python とライブラリだけの私用フォルダ）を作り、そこへ `grdm-dev` をインストールしてから `grdm-dev install` を実行します。このコマンドは次の手順をこの順番どおりに実行し、最初に 0 以外で終わった段で止まります（[SPEC-02 §2.1](../../spec/02_installer_cli.md#japanese)、`installer/grdm_dev/install.py`）：
+
+1. `doctor`
+2. `plan`
+3. `secrets init` — `runtime/.env` がまだ無いときだけ
+4. `compose render`
+5. `build`
+6. `up`
+7. `health --network`
+8. `scan`
+9. `report`
+
+受入試験（`accept`、§3.9）はこの自動手順に**含まれません**。導入後に手動で実行します。以下の各節は各手順の説明で、初期準備が `.venv/` を作った後なら単独でも実行できます。
+
+#### 3.1 `grdm-dev doctor`
+
+ホストがすべての前提条件を満たすか確認します（初期準備で `.venv/` ができた後に単独で実行）：
+
+```bash
+.venv/bin/grdm-dev doctor
+```
+
+**成功:** OS、CPU、メモリ、空き容量、Docker のバージョンを TOON（JSON のデータを短く書いたテキスト形式。人にも AI にも読みやすい。[REF-01](../../reference/REF-01_Glossary.md#japanese)）で表示します。
+
+**失敗終了コード:** `10` — 対応外のホスト（OS・CPU・メモリ、または Python < 3.11）。`11` — Docker が無い、動いていない、または Compose / buildx プラグインが無い。
+
+#### 3.2 `grdm-dev plan`
+
+どのイメージを作り、どのサービスを起動するか確認します：
+
+```bash
+.venv/bin/grdm-dev plan --profile core
+```
+
+*manifest*（マニフェスト）は、どの部品をどの正確なソース版から組むかの一覧です（`manifest/upstreams.json`。[REF-01](../../reference/REF-01_Glossary.md#japanese)）。*プロファイル*は起動するサービスの名前付きの組で、`minimum`・`core`（既定）・`full` があります（[SPEC-02 §4](../../spec/02_installer_cli.md#japanese)）。選択は `runtime/.env` に `GRDM_PROFILE` として保存され、次回以降も使われます。
+
+**成功:** サービスと公開ポートの TOON レポートが表示されます。
+
+**失敗終了コード:** `20` — manifest が不正、または TOON の抄録が JSON と一致しない。
+
+#### 3.3 `grdm-dev secrets init`
+
+乱数の秘密を生成し、モード 0600（所有者のみ読み書き可）で `runtime/.env` に書きます：
+
+```bash
+.venv/bin/grdm-dev secrets init
+```
+
+**成功:** `runtime/.env` が乱数のデータベースパスワード、Django の秘密鍵、CAS（GRDM が使うサインインの仕組み）の鍵で生成されます。
+
+**失敗終了コード:** `2` — 使用法の誤り（例: `runtime/.env` があるのに `--force` が足りない）。
+
+> **Security note:** インストーラーは *決して* 既定値や例のパスワードを書きません。すべての秘密は OS の乱数源から生成されます。
+
+#### 3.4 `grdm-dev compose render`
+
+manifest とプロファイルから Docker Compose ファイルを生成します：
+
+```bash
+.venv/bin/grdm-dev compose render --profile core
+```
+
+**成功（終了コード `0`）:** `runtime/docker-compose.yml` がホストに合わせて設定されたサービスで生成され、既定から移動したポートがあれば報告されます。
+
+**失敗終了コード:** `20` — manifest が不正。`2` — 使用法の誤り（例: `runtime/.env` が無い（先に `secrets init` を実行）、`--egress` に知らないサービス名を指定）。`12` — 必要なポートが使用中で、+100 の範囲に空きの代替が無い（§6）。
+
+#### 3.5 `grdm-dev build`
+
+すべてのイメージをビルドまたは取得します：
+
+```bash
+.venv/bin/grdm-dev build
+```
+
+**成功:** 全イメージがビルドまたは取得され、TOON レポートにその状態（`built`、`prebuilt` など）が表示されます。
+
+**失敗終了コード:** `30` — イメージのビルドまたは配布済みイメージの取得に失敗（例: EOL ベースが arm64 でエミュレーションなしに組めない）。*EOL* は end of life、つまり作った人がバグや穴を直してくれなくなった状態です（[REF-01](../../reference/REF-01_Glossary.md#japanese)）。*エミュレーション*は Docker 内蔵の CPU 変換で `linux/amd64` のイメージを arm64 の CPU 上で動かすことで、遅くなりますが多くのイメージで動きます。
+
+> **DEMO-20 の実際のケース:**
+>
+> - **modular-file-renderer（ファイルのプレビューを作るサービス）:** `pandas==0.25.1` の arm64 *wheel*（ビルド済みの Python パッケージファイル。無いと pip がソースから組む必要があり、この EOL ベースでは失敗する）が存在しないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
+> - **ember-osf-web:** ベースイメージが Docker manifest v2 schema 1 を使っており現行 Docker が拒否するため、ソースからのビルドはどの CPU でも失敗します。そのため manifest には ember-osf-web 向けにダイジェスト固定の `prebuilt_image` がすでに設定されており、`build` はビルドの代わりにそれを取得します。この代替は M4 で Dockerfile を近代化するまで維持されます（`manifest/upstreams.json`、DEMO-20）。
+
+#### 3.6 `grdm-dev up`
+
+全サービスを起動し、健康になるまで待ちます：
+
+```bash
+.venv/bin/grdm-dev up --profile core
+```
+
+**成功:** 全サービスが健康と報告し、`up` が報告する web の URL（`http://127.0.0.1:<GRDM_PORT_WEB>`、既定ポート 5000）でブラウザが開きます。ブラウザを開かないなら `--no-open` を付けます。
+
+**失敗終了コード:** `40` — 一つ以上のサービスが制限時間内に健康にならなかった。
+
+#### 3.7 `grdm-dev health` と `health --network`
+
+手動でサービスの健康を確認します：
+
+```bash
+.venv/bin/grdm-dev health            # サービスの応答のみ
+.venv/bin/grdm-dev health --network  # 加えて、公開ポートがすべて 127.0.0.1 だけで待ち受けているか検証
+```
+
+**成功:** 全サービスが健康と報告します。`--network` 付きなら報告に `loopback_only: true` も表示されます。
+
+**失敗終了コード:** `40` — 一つ以上のサービスが不健康。`--network` 付きなら、コンテナのポートが `127.0.0.1` 以外のアドレスに結び付いている場合も。通常の `health` はホストへの露出を**検査しない**ため、ループバック限定公開を証明できるのは `health --network` だけです。自動の `install` 手順は `health --network` を実行します。
+
+#### 3.8 `grdm-dev scan`
+
+[SPEC-03](../../spec/03_security_gate.md) のセキュリティ門を全部動かします：
+
+```bash
+.venv/bin/grdm-dev scan
+```
+
+フラグなしの `scan` はすべての部分を実行します。基本対策、Trivy（イメージの中の既知の弱点を一覧にするスキャナー）の SBOM（ソフトウェア部品表。イメージに入っている部品の一覧）と CVE 一覧（CVE は既知の弱点一つに付く公開番号）、gitleaks の秘密検査、Semgrep（ソースコードから危険なパターンを探す静的解析）、OWASP ZAP の動的検査（攻撃者のように稼働中のサイトを調べる道具）です。`--baseline`・`--secrets`・`--dynamic` はそれぞれ**一部分だけ**を動かす限定検査で、全検査では*ありません*：
+
+```bash
+.venv/bin/grdm-dev scan --baseline   # 限定: runtime/docker-compose.yml と runtime/.env の基本対策のみ
+.venv/bin/grdm-dev scan --secrets    # 限定: リポジトリに対する gitleaks のみ
+.venv/bin/grdm-dev scan --dynamic    # 限定: OWASP ZAP の baseline のみ（健康なサービスが必要）
+```
+
+**節目ごとの門の規則**（`manifest/milestone.json`、現在は M1。[ADR-03](../../decisions/ADR-03_Staged_Security_Gate.md)、[SPEC-03 §5](../../spec/03_security_gate.md)）: 門のデータ、すなわち `manifest/milestone.json`、許容リスト `manifest/allowlist.json`（知っていて期限付きで受け入れる検出を書いた一覧）とその基準 `manifest/allowlist.baseline.json` は、M1 を含むどの節目でも読めて形が正しくなければならない。読めないファイルや、六つの欄のどれかが欠けた許容リスト項目は終了 `50`（SPEC-03 §5.1 第1項）。基本対策の違反（既定の秘密、ループバック以外への公開、`privileged: true`、内部ネットワーク `grdm` の欠落）もどの節目でも終了 `50`。門のデータが有効で基本対策に合格した場合に限り、M1〜M3 では脆弱性の指摘は*報告のみ*（終了 `0` で記録する）。M2 からは許容リストを増やしてはならない。`scan` は項目数を `manifest/allowlist.baseline.json` と比べ、増えていれば終了 `50`（M1 では件数を報告するだけ）。M4 では許容リストにない HIGH または CRITICAL の指摘が一件でもあれば終了 `50`。加えて M4 の合格には、初回の実際の AI レッドチーム（隔離環境に対して許可を受けて行う攻撃検証。[SPEC-03 §6](../../spec/03_security_gate.md)）を完了し、見つかった侵入経路をすべて修正か許容リスト登録していることが必要で、レッドチームの*事前確認*（`grdm-dev redteam preflight`。実施前に隔離を証明する準備の検査）はこの実検証ではない。M5 では CRITICAL か HIGH の指摘は許容リストにあっても一件で終了 `50`。許容リストに CRITICAL・HIGH の項目があってはならず（あれば `scan` は終了 `50`）、AI レッドチームが未解決の侵入経路ゼロを報告しなければならない。`scan` 自身が強制するのはデータ有効性・基本対策・件数・重大度の規則であり、M4 のレッドチーム完了と M5 の経路ゼロは、所有者がレッドチームの証跡とともに記録する節目の受入条件で（SPEC-03 §6–7）、`scan` が検査するものではない。
+
+**成功:** 終了 `0`。`runtime/reports/scan_<日付>.json`（と TOON）の報告に、基本対策の合格と現在の節目での指摘が示されます。
+
+**失敗終了コード:** `50` — 現在の節目で門に落ちた（上の規則）。`51` — スキャナーが動かせない（Trivy・gitleaks・Semgrep が無い、または脆弱性データベースを取得できない）。`52` — サービスが健康でないのに `--dynamic` を求めた。
+
+#### 3.9 `grdm-dev accept`（手動・別手順）
+
+受入試験（[SPEC-04](../../spec/04_acceptance_tests.md)）は `install` では実行されません。**既存の** `.venv/` に、任意の Python 追加依存と Chromium を一度だけ準備します：
+
+```bash
+.venv/bin/pip install -e "installer[accept]"
+PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install chromium
+```
+
+次に `--seed` を付けて試験を実行します。`--seed` は使い捨ての試験利用者を作成し、ブラウザのシナリオを実行し、同じ一回の実行の中でその利用者を削除します（事前に別途「シード」しておく手順はありません）：
+
+```bash
+.venv/bin/grdm-dev accept --seed
+```
+
+**成功:** 全試験が合格し、`docs/demo/runs/<run-id>/` に報告が書かれます。
+
+**失敗終了コード:** `2` — 追加依存または Chromium が未準備（メッセージに上の二つのコマンドが表示される）。`40` — 統合の事前確認に失敗し、ブラウザ試験を開始しなかった（先に health を直す）。`60` — 一件以上の試験が失敗した。
+
+> **Tip:** `--only <シナリオ>` で一つだけ実行、`--headed` でブラウザの画面を表示します。
+
+---
+
+### 4. 日常操作
+
+#### 起動、停止、リセット
+
+```bash
+.venv/bin/grdm-dev up       # サービス起動し健康になるまで待つ
+.venv/bin/grdm-dev down     # コンテナ停止、ボリュームを残す
+.venv/bin/grdm-dev reset    # 停止し runtime/volumes/ を削除
+```
+
+> **Tip:** 確認プロンプトを省くには `--yes` を追加。
+
+#### ログの確認
+
+```bash
+docker compose -f runtime/docker-compose.yml logs -f web api
+```
+
+> **Note:** 生成された `runtime/docker-compose.yml` は manifest のサービス名を使います。
+
+#### プロファイルの変更
+
+```bash
+.venv/bin/grdm-dev compose render --profile full --yes
+.venv/bin/grdm-dev up --yes
+```
+
+#### 外向き通信（egress）の制御
+
+`grdm-edge` 上の公開サービス 7 種（`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`）は、インターネットへの外向き通信がすでに可能です。それ以外のサービスは既定では持ちません（[ADR-02 §4](../../decisions/ADR-02_Network_Model.md#japanese)）。`--egress` は指定したサービスを `grdm-edge` にも接続して、その外向き通信を追加します：
+
+```bash
+# full プロファイルが前提（rdmcp と aipf_mcp_data_grdm は core に含まれない）。先に選ぶか、同じコマンドで指定する。
+.venv/bin/grdm-dev compose render --profile full --egress rdmcp,aipf_mcp_data_grdm
+.venv/bin/grdm-dev compose render --egress none   # 保存した付与を消す
+```
+
+選択は `runtime/.env` の `GRDM_EGRESS_SERVICES` に保存され、以降の render でも維持され、`scan --baseline` の報告に表示され、`--egress none` で消去されます。選択中のプロファイルに無いサービス名を指定すると使用法の誤り（終了 2）です。
+
+#### 既定のポート
+
+| サービス | ホスト側ポート | プロファイル |
+|---|---|---|
+| web | 5000 | minimum |
+| api | 8000 | minimum |
+| admin | 8001 | core |
+| wb (WaterButler) | 7777 | core |
+| mfr (Modular File Renderer) | 7778 | core |
+| fakecas | 8080 | minimum |
+| ember_osf_web | 4200 | core |
+
+> **Note:** ポートが使用中なら（例: macOS の AirPlay と 5000）、`compose render` が次の空きポートを取り、`runtime/.env` に `GRDM_PORT_<SERVICE>` として記録します（§6）。
+
+---
+
+### 5. セキュリティ注意点
+
+インストーラーは M1 から次の対策を実装します（[SPEC-03 §3](../../spec/03_security_gate.md#japanese)）：
+
+- **秘密:** 全パスワードと鍵は導入時に乱数で生成し、`runtime/.env`（モード `0600`）に書き、決して Git にコミットしません。
+- **ネットワーク:** サービスは内部 Compose ネットワーク（`internal: true`）で通信します。ブラウザ向けのポートは `127.0.0.1` に*だけ*公開され、`health --network` がそれを検証します。
+- **[コンテナ](../../reference/REF-01_Glossary.md#japanese)堅牢化:** 非 root ユーザー（全権限を持つ管理者ユーザーでプログラムを動かさない）、読み取り専用ルートファイルシステム、`cap_drop: [ALL]` が全サービスの既定で、資源制限（メモリ、CPU、プロセス数）も付きます。`privileged: true` はどこでも禁止です。既定に耐えられないサービス（例: 起動時にイメージ内へ書き込む必要がある PostgreSQL・RabbitMQ・Elasticsearch のイメージ）には、[`manifest/hardening.json`](../../../manifest/hardening.json) にサービスごとの記録付き例外があり、緩める対策、理由、見直し日、解消予定の節目を明記します。したがって読み取り専用ルートは「耐えられるサービス」に適用され、全サービスではありません。
+- **サプライチェーン:** イメージは「ダイジェスト」（正確な指紋）で取得し、`latest` のような動くタグは使いません。
+
+> 上記はインストーラーが課す要求事項です。実際の稼働環境がそれを満たしているかは、このガイドではなく `health --network` と `scan` の結果が示します。
+
+> **インストーラーが守らないもの:**
+>
+> - OS 自体への攻撃（例: カーネルの脆弱性）
+> - 開発者へのフィッシング
+> - 本番 GRDM サービス（このガイドは開発用のみ）
+
+---
+
+### 6. トラブルシューティング
+
+#### ポートが使用中（終了コード 12）
+
+`compose render` は、要求したポートまたは `runtime/.env` に保存されたポート（`GRDM_PORT_<SERVICE>`。どちらも無ければ SPEC-02 §4 の既定）を起点に、そこから最大 100 上まで空きポートを探します。このプロジェクト自身の稼働中コンテナが持つポートはそのまま保ちます。別のプログラムがポートを使っていれば、サービスは最初に見つかった空きの候補へ移り、その選択が `GRDM_PORT_<SERVICE>` として記録され、render が報告します。終了コード 12 になるのは、その範囲に空きの代替がまったくないときだけです。
+
+**対応:** 元のポートを使いたければ相手のプログラムを止める。そうでなければ `compose render` / `plan` が示すポートをそのまま使う。
+
+```bash
+# macOS: AirPlay はポート 5000 を使う
+sudo lsof -i :5000
+# AirPlay が不要ならプロセスを終了させる
+```
+
+#### Docker が無い（終了コード 11）
+
+`doctor` は Docker がインストールされていない、動いていない、または Compose プラグインがないと失敗します。
+
+**対応:** Docker Desktop（macOS）または Docker Engine（Ubuntu）をインストール。版 ≥ 27、Compose v2 プラグインが必要です。
+
+#### ビルド失敗（終了コード 30）
+
+イメージがコンピュータのアーキテクチャで組めない、または配布済みイメージを取得できないときに起きます。
+
+**DEMO-20 の実際のケース:**
+
+1. **modular-file-renderer on arm64:** ベース Python 3.5 イメージが arm64 向けの `pandas==0.25.1` wheel を持たないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
+2. **ember-osf-web on 任意プラットフォーム:** ベースイメージが Docker manifest v2 schema 1 を使っているため、現行 Docker が取得を拒み、ソースからのビルドは失敗。
+
+**現状:** ember-osf-web については manifest にダイジェスト固定の `prebuilt_image`（`niicloudoperation/rdm-ember-osf-web@sha256:...`、`manifest/upstreams.json`）がすでに設定されているため、`build` はビルドの代わりにそのイメージを取得し `prebuilt` と報告します。この代替は M4 で Dockerfile を近代化するまで維持され、その時点で削除が必要です。したがってソースビルドの失敗だけでは、設定済みの代替も失敗するとは言えません。ビルド報告の `prebuilt` 行を確認してください。
+
+#### 健康確認失敗（終了コード 40）
+
+`health` はサービスが応答しないと失敗します。`health --network` はさらに、公開ポートが `127.0.0.1` 以外のアドレスで待ち受けていると失敗します。通常のコマンドはこの検査を行いません。
+
+**対応:** `docker compose -f runtime/docker-compose.yml logs <service>` でログを確認し、サービスを再起動します。ループバック以外の待受があれば `runtime/docker-compose.yml` を確認し（すべての `ports:` は `127.0.0.1:` で始まる必要がある）、`compose render` をやり直します。
+
+---
+
+### 7. 過去のガイドとの違い
+
+以下の表は、`README.legacy.md` が実際に記述している方法と 2027 インストーラーを比較します。
+
+| 過去の方法（README.legacy.md） | 新しい方法（2027 インストーラー） | 理由 |
+|---|---|---|
+| サービス同士が通信できるよう、ホストにループバック別名 `192.168.168.167` を設定する（`sudo` が必要） | Compose のサービス名で通信する内部ネットワーク `grdm` + `127.0.0.1` に公開する公開ネットワーク `grdm-edge` | `sudo` 不要、ホストのネットワーク変更なし、LAN への露出なし、macOS/Ubuntu/WSL2 で同じ設定（[ADR-02](../../decisions/ADR-02_Network_Model.md)） |
+| web と api の `local-dist.py` を手で `local.py` にコピーする。一つの URL をブラウザとサービスの両方が使う | 生成される設定は*内部* URL（サービス名）と*外部*のブラウザ用 URL（`http://127.0.0.1:<ポート>/`）を分ける | 別名なしでも転送と絶対 URL がブラウザから正しく動く（[ADR-02 §4](../../decisions/ADR-02_Network_Model.md#japanese)） |
+| イメージを `niicloudoperation/*:latest` に差し替え、CPU ごとの `platform:` 行をコメントで持つ `docker-compose.override.yml` を手書きする | `grdm-dev compose render` が manifest とプロファイルから `runtime/docker-compose.yml` を生成する。`platform:` は manifest の `build_platform` から決まる | 手動編集なし、ホスト固有のファイルを誤ってコミットしない、全員同じ出力 |
+| 配布イメージ（`niicloudoperation/*:latest`、`quay.io/centerforopenscience/*`）から起動し、Python/Node モジュールは `*_requirements` サービスでボリュームにインストールする | manifest で固定したソース版からビルドする。配布済みイメージは記録付き・ダイジェスト固定の例外に限る | 精密な再現性、動くタグなし、古いモジュールのボリュームなし |
+| Apple Silicon では `docker-compose.yml` の Elasticsearch の制限・シングルノード設定のコメントを手で外す | `compose render` が `doctor` の結果から資源制限を、`manifest/hardening.json` からサービスごとの例外を書く | ホストごとの編集ではなく一つの生成ファイル |
+| 上流の Compose ファイルが同梱する既定認証情報（例: `postgres`/`postgres`。[SPEC-03 §3.1](../../spec/03_security_gate.md#japanese)） | `secrets init` が生成する乱数の秘密を `runtime/.env`（モード 0600）に置く。既定値が残れば `scan --baseline` が失敗する | 既定認証情報を残さない |
+
+> **Note:** 過去の手順は参考のために `README.legacy.md` にそのまま残しています。旧ガイド自体は既定パスワードを記述しておらず、それは旧ガイドが頼っていた上流の Compose ファイルに由来します。
 
 ---
 
@@ -91,7 +728,20 @@ The legacy Docker Compose instructions (loopback alias, manual setup) are kept v
 
 | Term | English note | 日本語注 |
 |---|---|---|
-| Docker Compose | A tool that runs multiple containers together using one configuration file. | 1つの設定ファイルで複数のコンテナを一緒に実行するツール。 |
-| Microservice | A small program that does one job and works with other programs over the network. | 1つの仕事をする小さなプログラムで、ネットワーク経由で他のプログラムと連携します。 |
-| Loopback alias | A fake IP address added to your computer so programs can talk to each other. | プログラム同士が通信できるようにコンピュータに追加する仮の IP アドレス。 |
-| Compose internal network | A private network created by Docker Compose so containers can talk without changing your computer. | Docker Compose が作るプライベートネットワークで、コンピュータを変更せずにコンテナ同士が通信できます。 |
+| Container | A box that holds one program and everything it needs, so it runs the same on any computer. | 一つのプログラムと必要なものを一箱に入れて、どのコンピュータでも同じように動かすための箱。 |
+| Docker Compose | A tool that starts many containers together from one description file. | 一つの設定ファイルから多くのコンテナをまとめて起こす道具。 |
+| Loopback / 127.0.0.1 | The address that means "this same computer"; nothing outside can reach it. | 「この同じコンピュータ」を指す番地。外からは届かない。 |
+| Internal network | A private network inside Docker that services use to talk without publishing ports. | Docker の中だけにある私設ネットワークで、ポートを公開せずにコンテナ同士が通信できる。 |
+| Egress | Traffic sent from a service to the outside network (the Internet). | サービスから外部ネットワーク（インターネット）へ出る通信。 |
+| Manifest | The list of components and the exact source revisions they are built from (`manifest/upstreams.json`). | 部品と、それを組む正確なソース版の一覧（`manifest/upstreams.json`）。 |
+| Profile | A named subset of services to run: `minimum`, `core`, or `full`. | 起動するサービスの名前付きの組。`minimum`・`core`・`full`。 |
+| TOON | A compact text form of JSON data that people and AI read easily. | JSON のデータを短く書いたテキスト形式。人にも AI にも読みやすい。 |
+| Digest | The exact fingerprint of one image version (`sha256:...`). | 一つのイメージ版の正確な指紋（`sha256:...` の形式）。 |
+| Non-root user | A regular user account (not the computer's administrator). | コンピュータの管理者でない通常のユーザアカウント。 |
+| EOL | End of life: the vendor no longer fixes bugs or security holes. | end of life。作った人がバグや穴を直してくれなくなった状態。 |
+| Wheel | A prebuilt Python package file; without one, pip must compile from source. | ビルド済みの Python パッケージファイル。無いと pip がソースから組む必要がある。 |
+| Emulation | Running an image built for another CPU (e.g., `linux/amd64` on arm64) through Docker's CPU translation. | 別の CPU 向けのイメージ（例: arm64 上で `linux/amd64`）を Docker の CPU 変換で動かすこと。 |
+| WSL2 | Windows Subsystem for Linux 2: a way to run Linux inside Windows. | Windows Subsystem for Linux 2。Windows の中で Linux を動かす仕組み。 |
+| CVE | A public record number for one known security weakness (e.g., `CVE-2026-12345`). | 一つの既知の弱点に付く公開の番号（例: `CVE-2026-12345`）。 |
+| Baseline controls | Security checks that every install must pass from milestone M1. | M1 から全導入に必須のセキュリティチェック。 |
+| Milestone (M1–M5) | A numbered stage of the 2027 plan; the security gate gets stricter at each one. | 2027 計画の番号付き段階。セキュリティ門は段階ごとに厳しくなる。 |
