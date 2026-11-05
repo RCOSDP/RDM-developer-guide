@@ -221,7 +221,7 @@ $ npm install
   "apiDomainUrl": "http://localhost",
   "addonsApiUrl": "http://localhost/v1",
   "casUrl": "http://localhost:8080",
-  "recaptchaSiteKey": "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI",
+  "recaptchaSiteKey": "<recaptcha-site-key>",
   "sentryDsn": "",
   "googleTagManagerId": "",
   "newRelicEnabled": false
