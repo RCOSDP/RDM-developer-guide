@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a safety rule that cannot be met on the day it is written is not a rule but a wish; writing the schedule down turns the wish into something we can measure at each milestone. ／ 書いた日に守れない安全規則は規則ではなく願いにすぎず、予定表として書くことで、節目ごとに測れるものになると分かった。
 - Status: Accepted (owner, 2026-11-05). Review date: at the start of M4.
 - Related: [SPEC-03 Security Gate](../spec/03_security_gate.md) · [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](../spec/06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration Repository Placement](ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network Model](ADR-02_Network_Model.md) · [ADR-04 AI Autonomy and Roles](ADR-04_AI_Autonomy_and_Roles.md) · [docs/README.md](../README.md)
@@ -19,7 +19,7 @@
 
 ### 1. Context
 
-The owner's final goal for the developer environment 2027 ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)) is to remove *vulnerabilities* (known weak spots that an attacker could use) until the system resists even a top-tier AI attacker, and to keep removing them with AI agents even if COS (the Center for Open Science, the US group that makes OSF) discontinues OSF (the research-sharing software GRDM is built on). A *security gate* (a checkpoint an install must pass) is the tool that makes this measurable: see [SPEC-03](../spec/03_security_gate.md).
+The owner's final goal for the developer environment 2027 ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)) is to remove *vulnerabilities* (known weak spots that an attacker could use) until the system resists even a top-tier AI attacker, and to keep removing them with AI agents even if COS (the Center for Open Science, the US group that makes OSF; see [REF-01](../reference/REF-01_Glossary.md)) discontinues OSF (the research-sharing software GRDM is built on; see [REF-01](../reference/REF-01_Glossary.md)). A *security gate* (a checkpoint an install must pass) is the tool that makes this measurable: see [SPEC-03](../spec/03_security_gate.md).
 
 The starting point is far from zero. The *base images* (the ready-made operating system and language layers our containers are built on) used by the six core repositories are all *end-of-life* (EOL: the maker no longer publishes security fixes):
 
@@ -36,7 +36,7 @@ base_images_2026_11[9]{service,base,eol_status}:
   elasticsearch,"6.3.1",EOL
 ```
 
-A first scan with Trivy (a scanner that reads our images and lists the security holes it knows about) of such a stack reports hundreds of CVEs, dozens of them HIGH or CRITICAL, and most of them cannot be fixed without the Python 3.13 port planned for M4 and the middleware consolidation planned for M5. If the gate demanded zero at M1, no install would ever complete, and we would have no running baseline to measure the acceptance tests of [SPEC-04](../spec/04_acceptance_tests.md) against. On the other hand, a gate that only warns gives nobody a reason to fix anything, and the final goal would never be reached.
+A first scan with Trivy (a scanner that reads our images and lists the security holes it knows about; see [REF-01](../reference/REF-01_Glossary.md)) of such a stack reports hundreds of CVEs (a CVE is the public ID number given to one known security hole; see [REF-01](../reference/REF-01_Glossary.md)), dozens of them HIGH or CRITICAL, and most of them cannot be fixed without the Python 3.13 port planned for M4 and the middleware consolidation planned for M5. If the gate demanded zero at M1, no install would ever complete, and we would have no running baseline to measure the acceptance tests of [SPEC-04](../spec/04_acceptance_tests.md) against. On the other hand, a gate that only warns gives nobody a reason to fix anything, and the final goal would never be reached.
 
 ### 2. Options considered
 
@@ -52,7 +52,7 @@ A variant of C that counted only CRITICAL at M4 was considered and dropped: the 
 
 1. The gate follows the schedule in [SPEC-03 §5.2](../spec/03_security_gate.md). The current milestone is stored in `manifest/milestone.json` and only the owner changes it.
 2. The *baseline controls* of [SPEC-03 §3](../spec/03_security_gate.md) (random secrets with mode 0600, publish only on `127.0.0.1`, internal network, non-root, no privileged, resource limits, pinned digests, secret scanning in CI) have **no stage and no allow-list**. They fail the gate at every milestone, including M1.
-3. The *allow-list* (`manifest/allowlist.json`) is the only way to pass a known finding. Every entry carries a CVE (the public ID number of one known security hole), component, reason, owner, and expiry date. The entry count is compared with the previous milestone's baseline and **must never increase**. Only the owner approves additions.
+3. The *allow-list* (`manifest/allowlist.json`) is the only way to pass a known finding. Every entry carries a CVE id, component, reason, owner, and expiry date. The entry count is compared with the previous milestone's baseline and **must never increase**. Only the owner approves additions.
 4. From M4, any HIGH or CRITICAL finding not in the allow-list stops `grdm-dev install` with exit code 50 ([SPEC-02](../spec/02_installer_cli.md)).
 5. At M5 and in steady state, CRITICAL and HIGH must be zero, the allow-list may contain no CRITICAL or HIGH entry, and the AI red team ([SPEC-03 §6](../spec/03_security_gate.md)) must report zero unresolved intrusion paths.
 6. The environment is documented as development-only and never exposed outside `127.0.0.1` while any allow-list entry exists ([ADR-02](ADR-02_Network_Model.md)).
@@ -94,7 +94,7 @@ This decision is reviewed at the start of M4. Questions to answer then: whether 
 
 ### 1. 背景
 
-開発環境 2027 版の所有者の最終ゴール（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）は、「脆弱性」（攻撃者が侵入に使えると分かっている弱い所）を最上位の AI 攻撃者にも耐えるまで除去し、COS（OSF を作る米国の団体 Center for Open Science）が OSF（GRDM の土台になった研究共有ソフト）を廃止しても AI エージェントで除去を続けることです。「セキュリティの門」（導入が必ず通る検問所）は、これを測れるようにする道具です（[SPEC-03](../spec/03_security_gate.md)）。
+開発環境 2027 版の所有者の最終ゴール（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）は、「脆弱性」（攻撃者が侵入に使えると分かっている弱い所）を最上位の AI 攻撃者にも耐えるまで除去し、COS（OSF を作る米国の団体 Center for Open Science。[REF-01](../reference/REF-01_Glossary.md)）が OSF（GRDM の土台になった研究共有ソフト。[REF-01](../reference/REF-01_Glossary.md)）を廃止しても AI エージェントで除去を続けることです。「セキュリティの門」（導入が必ず通る検問所）は、これを測れるようにする道具です（[SPEC-03](../spec/03_security_gate.md)）。
 
 出発点はゼロから遠い所にあります。コア 6 本が使う「ベースイメージ」（コンテナの土台になる、出来合いの OS と言語の層）は、すべて「サポート終了」（EOL。作り手が安全上の修正を出さなくなった状態）です。
 
@@ -111,7 +111,7 @@ base_images_2026_11[9]{service,base,eol_status}:
   elasticsearch,"6.3.1",EOL
 ```
 
-この構成を Trivy（イメージを読んで既知の穴を並べるスキャナ）で初めてスキャンすると数百件の CVE（既知の穴一つに付けられた公開の番号）が出て、そのうち数十件が HIGH か CRITICAL で、大半は M4 予定の Python 3.13 移植と M5 予定のミドルウェア集約なしには直せません。門が M1 でゼロを求めれば、導入は一度も完了せず、[SPEC-04](../spec/04_acceptance_tests.md) の受入試験を測る動く基準環境も得られません。逆に、警告だけの門では誰にも直す理由がなく、最終ゴールには永遠に届きません。
+この構成を Trivy（イメージを読んで既知の穴を並べるスキャナ。[REF-01](../reference/REF-01_Glossary.md)）で初めてスキャンすると数百件の CVE（既知の穴一つに付けられた公開の番号。[REF-01](../reference/REF-01_Glossary.md)）が出て、そのうち数十件が HIGH か CRITICAL で、大半は M4 予定の Python 3.13 移植と M5 予定のミドルウェア集約なしには直せません。門が M1 でゼロを求めれば、導入は一度も完了せず、[SPEC-04](../spec/04_acceptance_tests.md) の受入試験を測る動く基準環境も得られません。逆に、警告だけの門では誰にも直す理由がなく、最終ゴールには永遠に届きません。
 
 ### 2. 検討した選択肢
 

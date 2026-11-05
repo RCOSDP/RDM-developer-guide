@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the installer, the security gate and the acceptance tests had to be written down as rules before any code, otherwise each implementer would fill the gaps differently. ／ インストーラー、セキュリティの門、受入試験は、コードより先に規則として書いておかないと、実装する人ごとに隙間の埋め方が変わると分かった。
 - Normative for: [SPEC-00 Overview](./00_overview.md) through [SPEC-06 Documentation Conventions](./06_documentation_conventions.md).
 - Related: [../README.md](../README.md) · [policy/](../policy/README.md) · [decisions/](../decisions/README.md) · [reference/REF-01_Glossary.md](./../reference/REF-01_Glossary.md)
@@ -37,7 +37,7 @@ A *specification* is a rule book that implementers must follow. This folder cont
 2. Follow [SPEC-06 documentation conventions](./06_documentation_conventions.md).
 3. Link to related policies (POL-NN) and decisions (ADR-NN).
 4. Create a decision record if the specification records a choice.
-5. The owner approves; QAE (the QA engineer role) writes specifications for new features.
+5. The owner approves; QAE (the role that checks that the work is correct; see [REF-01](../reference/REF-01_Glossary.md)) writes specifications for new features.
 
 ### 3. How specifications relate to other documents
 
@@ -75,7 +75,7 @@ flowchart TD
 2. [SPEC-06 文書規約](./06_documentation_conventions.md)に従う。
 3. 関連する方針（POL-NN）と決定（ADR-NN）へリンクする。
 4. 仕様が選択を記録する場合は決定の記録を作成する。
-5. 所有者が承認；QAE（QA担当）が新機能の仕様を書く。
+5. 所有者が承認；QAE（QA担当。成果が正しいか検査する役割。[REF-01](../reference/REF-01_Glossary.md)）が新機能の仕様を書く。
 
 ### 3. 仕様が他の文書とどう関係するか
 

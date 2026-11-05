@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** writing the stance down first showed that "public documentation, private code" is not a detail but the rule every other document depends on. ／ 立場を先に書いてみると、「文書は公開、コードは非公開」が細部ではなく他の全文書の前提だと分かった。
 - Normative for: [POL-01 Position](./POL-01_Developer_Environment_2027_Position.md) and future policy documents.
 - Related: [../README.md](../README.md) · [../spec/](../spec/) · [decisions/](../decisions/) · [reference/REF-01_Glossary.md](./../reference/REF-01_Glossary.md)
@@ -49,7 +49,7 @@ flowchart TD
 1. Name the file `POL-NN_<Title>.md` (two-digit number).
 2. Follow [SPEC-06 documentation conventions](../spec/06_documentation_conventions.md).
 3. Link to other documents that depend on this policy.
-4. The owner approves; AID (the AI developer role) writes the implementation spec.
+4. The owner approves; AID (the role that writes code and documents to the specification; see [REF-01](../reference/REF-01_Glossary.md)) writes the implementation spec.
 
 ---
 
@@ -90,7 +90,7 @@ flowchart TD
 1. ファイル名を `POL-NN_<題>.md`（2 桁の番号）にする。
 2. [SPEC-06 文書規約](../spec/06_documentation_conventions.md)に従う。
 3. この方針に依存する他の文書へリンクする。
-4. 所有者が承認；AID（AI開発担当者）が実装仕様を書く。
+4. 所有者が承認；AID（AI開発担当者。仕様どおりにコードと文書を書く役割。[REF-01](../reference/REF-01_Glossary.md)）が実装仕様を書く。
 
 ---
 

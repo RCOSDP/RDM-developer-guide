@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.3 — 2026-11-05. **Learned:** the first rendered configuration showed that a single internal network cannot publish ports, so the baseline needs two networks (`grdm` internal, `grdm-edge` for publishing) and an explicit, recorded egress choice; the red-team preflight must prove isolation with a reachable canary rather than infer it from a failed lookup (review r1 of PR #21). ／ 最初に描画した構成で、内部ネットワーク一つではポートを公開できないと分かった。基本対策は二つのネットワーク（内部の `grdm` と公開用の `grdm-edge`）と、記録された明示的な egress の選択を要する。レッドチームの事前確認は、失敗した名前解決から推測せず、到達できるカナリアで隔離を証明する（PR #21 レビュー r1）。
   0.2 — 2026-11-05. **Learned:** a scanner that runs inside a container must address its targets by Compose service name, because loopback inside that container is the scanner itself; and a promised scanner must say what it scans at each milestone. ／ コンテナの中で動くスキャナーは相手を Compose のサービス名で指さなければならない。そのコンテナの中のループバックはスキャナー自身だからだ。また約束したスキャナーは節目ごとに何を検査するかを明記する必要があると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the gate must be written as a schedule, not a single threshold, because every current base image is end-of-life and a zero gate on day one would stop the first install before anything could be measured. ／ 現行のベースイメージがすべてサポート終了のため、門を一つの基準値でなく「節目ごとの予定表」として書かないと、初日の導入が何も測れないまま止まると分かった。
@@ -21,7 +21,7 @@
 
 ### 1. Scope
 
-This specification defines the *security gate* (a checkpoint that an install must pass before it is called good) of the GRDM developer environment 2027. It covers what we protect, the baseline controls that apply from milestone M1, the scanners, the allow-list, the staged thresholds up to M5, the AI red team, the evidence format, and the exit codes. The decision to stage the gate instead of enforcing zero from the start is recorded in [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md). Who may fix, review, and merge is recorded in [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md).
+This specification defines the *security gate* (a checkpoint that an install must pass before it is called good) of the GRDM developer environment 2027. It covers what we protect, the baseline controls that apply from milestone M1, the scanners, the allow-list (the short list of known problems we have looked at and accept for now; see [REF-01](../reference/REF-01_Glossary.md)), the staged thresholds up to M5, the AI red team, the evidence format, and the exit codes. The decision to stage the gate instead of enforcing zero from the start is recorded in [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md). Who may fix, review, and merge is recorded in [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md).
 
 **Glossary notes.** A *vulnerability* is a known weak spot in a program that someone could use to break in. A *CVE* (Common Vulnerabilities and Exposures) is the public ID number given to one vulnerability, like `CVE-2026-12345`. *Severity* is how bad it is: CRITICAL, HIGH, MEDIUM, LOW. A *milestone* (M1 to M5) is one of the five planned stages of this project, defined in [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md).
 
@@ -57,12 +57,12 @@ These controls are not negotiable and have no allow-list. `grdm-dev health --net
 
 - Every secret (a password or key that only the system should know) is generated at install time by `grdm-dev secrets init` from the operating system's random source.
 - Secrets are written to `runtime/.env` ([SPEC-02 §3](02_installer_cli.md#english)) with file mode `0600` (only the owner can read and write). `runtime/` is listed in `.gitignore`; the secret scanner in §3.5 confirms the file never enters a commit.
-- No default passwords. Upstream (the original repositories our copies come from) `docker-compose.yml` files ship with values such as `postgres`/`postgres` and `changeme`; the installer replaces every one of them and fails if one is still present.
+- No default passwords. Upstream (the original repositories our copies come from; see [REF-01](../reference/REF-01_Glossary.md)) `docker-compose.yml` files ship with values such as `postgres`/`postgres` and `changeme`; the installer replaces every one of them and fails if one is still present.
 - Reports and logs never print a secret. `grdm-dev report` masks any value that matches a key in `runtime/.env` before writing.
 
 #### 3.2 Network
 
-- Services talk to each other only on the Compose network `grdm`, which is declared `internal: true` (a private virtual network inside Docker with no route to the host's interfaces, the LAN, or the Internet), so a compromised container cannot call home from it. See [ADR-02](../decisions/ADR-02_Network_Model.md).
+- Services talk to each other only on the Compose network `grdm`, which is declared `internal: true` (a private virtual network inside Docker with no route to the host's interfaces, the LAN, or the Internet), so a compromised container (a box that holds one program and everything it needs, so it runs the same anywhere; see [REF-01](../reference/REF-01_Glossary.md)) cannot call home from it. See [ADR-02](../decisions/ADR-02_Network_Model.md).
 - Docker cannot publish a port from an internal network, so the services a browser must reach (`web`, `api`, `admin`, `wb`, `mfr`, `fakecas`, `ember_osf_web`) are additionally attached to a second, ordinary bridge network `grdm-edge`. Ports are published from it on `127.0.0.1` only; no other service joins it by default.
 - Egress (outbound traffic to the Internet) is therefore not available to the remaining services. A developer who needs it, for example to reach an external storage provider while developing an add-on, attaches named services with `grdm-dev compose render --egress <service>[,<service>...]`. The choice is recorded in `runtime/.env` as `GRDM_EGRESS_SERVICES`, shown in the compose and install reports, and read by `grdm-dev scan --baseline`; `--egress none` clears it. Egress granted this way is a recorded developer choice, not a baseline violation; an undeclared service on `grdm-edge` is a violation (`BASE-NETWORK`), and a grant that names a service which is not actually attached is also a finding (`BASE-EGRESS-STALE`): the record and the running configuration must agree.
 - `grdm-dev health --network` enumerates the project's own bindings (`docker compose ps`, `docker inspect`) and the host's listening sockets and fails if any address is not `127.0.0.1`, including a listener on a project port whose owning process is not visible.
@@ -71,7 +71,7 @@ These controls are not negotiable and have no allow-list. `grdm-dev health --net
 
 #### 3.3 Container hardening
 
-- Every service container (a box that holds one program and everything it needs) runs as a non-root user. Where an upstream image runs as root, the generated Compose sets `user:` to a fixed UID/GID and the installer creates writable volumes for the few paths that need it.
+- Every service runs as a non-root user. Where an upstream image (the recipe and ingredients a container is made from; see [REF-01](../reference/REF-01_Glossary.md)) runs as root, the generated Compose sets `user:` to a fixed UID/GID and the installer creates writable volumes for the few paths that need it.
 - Root filesystem is read-only (`read_only: true`) where the service tolerates it; writable paths are explicit `tmpfs` or named volumes. Exceptions are listed per service in `manifest/hardening.json` with a reason.
 - `privileged: true` is forbidden. `cap_drop: [ALL]` is the default; a service that needs a capability adds it back by name with a reason.
 - Every service has `mem_limit`, `cpus`, and `pids_limit`. `grdm-dev compose render` ([SPEC-02 §3](02_installer_cli.md#english)) writes them, scaled from the memory that `doctor` detected.
@@ -83,7 +83,7 @@ These controls are not negotiable and have no allow-list. `grdm-dev health --net
 
 #### 3.5 Secret scanning in CI
 
-Because this repository is public, every pull request and every push to `develop` runs a secret scanner in CI (continuous integration: automatic checks on every change) (`gitleaks` or an equivalent that detects private keys, tokens, and passwords in the diff and in history). One finding fails the workflow. The same scanner runs locally in `grdm-dev scan --secrets`. False positives are suppressed by a rule in `.gitleaks.toml` with a reason, never by deleting the finding from the report.
+Because this repository is public, every pull request and every push to `develop` runs a secret scanner (`gitleaks` or an equivalent that detects private keys, tokens, and passwords in the diff and in history). One finding fails the workflow. The same scanner runs locally in `grdm-dev scan --secrets`. False positives are suppressed by a rule in `.gitleaks.toml` with a reason, never by deleting the finding from the report.
 
 ### 4. Scanning
 
@@ -92,17 +92,17 @@ Because this repository is public, every pull request and every push to `develop
 #### 4.1 SBOM and CVE: Trivy (required), Grype (optional second opinion)
 
 - An *SBOM* (software bill of materials: the complete list of every library inside an image or project) is generated by Trivy for every image in the Compose project and for every lockfile (`requirements*.txt`, `poetry.lock`, `package-lock.json`, `yarn.lock`, `build.gradle`) in the integration repositories.
-- Trivy then matches the SBOM against its CVE database. Output is JSON (canonical) plus a TOON (a compact text form of JSON) excerpt in the report.
+- Trivy then matches the SBOM against its CVE database. Output is JSON (canonical) plus a TOON (a compact text form of JSON; see [REF-01](../reference/REF-01_Glossary.md)) excerpt in the report.
 - Grype may run on the same SBOM as a second opinion. Grype findings are informational and never change the gate result unless the owner promotes one to the allow-list process.
-- **M1 scope.** At M1 no image exists yet (`grdm-dev build` arrives with M2), so the Trivy job in `security.yml` scans the repository file system only, in report-only mode: it writes its findings to the job log and never fails the PR (pull request). Image (the recipe and ingredients a container is made from) and lockfile scanning of the integration repositories starts with the first build.
+- **M1 scope.** At M1 no image exists yet (`grdm-dev build` arrives with M2), so the Trivy job in `security.yml` scans the repository file system only, in report-only mode: it writes its findings to the job log and never fails the PR (pull request: a proposed change waiting for someone to review and accept it; see [REF-01](../reference/REF-01_Glossary.md)). Image and lockfile scanning of the integration repositories starts with the first build.
 
 #### 4.2 Static analysis: Semgrep and CodeQL
 
-*Static analysis* reads source code without running it and flags dangerous patterns (for example, building an SQL query from user text). Semgrep (a tool that reads source code looking for dangerous patterns) runs locally and in CI on every PR with the `p/default`, `p/python`, `p/javascript`, and `p/docker-compose` rule packs. CodeQL runs in the private `-dev2027` repositories on `develop` nightly. Findings of severity ERROR count as HIGH in the gate; WARNING counts as MEDIUM.
+*Static analysis* reads source code without running it and flags dangerous patterns (for example, building an SQL query from user text). Semgrep (a tool that reads source code looking for dangerous patterns; see [REF-01](../reference/REF-01_Glossary.md)) runs locally and in CI on every PR with the `p/default`, `p/python`, `p/javascript`, and `p/docker-compose` rule packs. CodeQL runs in the private `-dev2027` repositories on `develop` nightly. Findings of severity ERROR count as HIGH in the gate; WARNING counts as MEDIUM.
 
 #### 4.3 Dynamic scan: OWASP ZAP baseline
 
-A *dynamic scan* pokes the running web application like a browser would. `grdm-dev scan --dynamic` starts OWASP ZAP (a tool that pokes at a running website the way an attacker would) in a container attached to the Compose internal network ([ADR-02 §3](../decisions/ADR-02_Network_Model.md#english)) and runs the baseline scan against the Compose service names and container ports: `http://web:5000` (web), `http://admin:8001` (admin), and `http://ember_osf_web:4200` (ember). It never targets `127.0.0.1`: inside the ZAP container, loopback is ZAP itself, not a service and not the host. The container ports are the ports the services listen on inside the network; their numbers equal the default host ports in the ports table of [SPEC-02 §4](02_installer_cli.md#2-en-ports), but that table defines *host* ports, which browsers, acceptance tests, and `grdm-dev health --network` use. When `compose render` remaps a host port on collision and records it as `GRDM_PORT_<SERVICE>` in `runtime/.env` ([SPEC-02 §4](02_installer_cli.md#2-en-ports)), host-side checks read the new number from there and the ZAP targets do not change. ZAP risk High maps to HIGH, Medium to MEDIUM. The scan runs only after `grdm-dev health` reports all services healthy: a full `grdm-dev scan` skips the dynamic part and notes it in the report, while an explicit `scan --dynamic` exits 52.
+A *dynamic scan* pokes the running web application like a browser would. `grdm-dev scan --dynamic` starts OWASP ZAP (a tool that pokes at a running website the way an attacker would; see [REF-01](../reference/REF-01_Glossary.md)) in a container attached to the Compose internal network ([ADR-02 §3](../decisions/ADR-02_Network_Model.md#english)) and runs the baseline scan against the Compose service names and container ports: `http://web:5000` (web), `http://admin:8001` (admin), and `http://ember_osf_web:4200` (ember). It never targets `127.0.0.1`: inside the ZAP container, loopback is ZAP itself, not a service and not the host. The container ports are the ports the services listen on inside the network; their numbers equal the default host ports in the ports table of [SPEC-02 §4](02_installer_cli.md#2-en-ports), but that table defines *host* ports, which browsers, acceptance tests, and `grdm-dev health --network` use. When `compose render` remaps a host port on collision and records it as `GRDM_PORT_<SERVICE>` in `runtime/.env` ([SPEC-02 §4](02_installer_cli.md#2-en-ports)), host-side checks read the new number from there and the ZAP targets do not change. ZAP risk High maps to HIGH, Medium to MEDIUM. The scan runs only after `grdm-dev health` reports all services healthy: a full `grdm-dev scan` skips the dynamic part and notes it in the report, while an explicit `scan --dynamic` exits 52.
 
 #### 4.4 Dependency update bots
 
@@ -238,7 +238,7 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 ### 9. Checks
 
 - `python3 -m unittest discover -s installer/tests` covers: secret file mode, default-password detection, listening-address check, allow-list field validation, count comparison, severity mapping, and secret masking in reports.
-- CI workflow `security.yml` runs gitleaks, Semgrep, and Trivy on every PR; at M1 Trivy is report-only over the repository file system because no image exists yet (§4.1). The arm64 (the CPU type of Apple Silicon) self-hosted runner runs the full `grdm-dev scan` nightly on `develop` once the installer exists (M2).
+- CI workflow `security.yml` runs gitleaks, Semgrep, and Trivy on every PR; at M1 Trivy is report-only over the repository file system because no image exists yet (§4.1). The arm64 (one of the two kinds of computer chip we support, the one in recent Macs; see [REF-01](../reference/REF-01_Glossary.md)) self-hosted runner runs the full `grdm-dev scan` nightly on `develop` once the installer exists (M2).
 
 ---
 
@@ -249,7 +249,7 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 
 ### 1. 範囲
 
-この仕様は、GRDM 開発環境 2027 版の「セキュリティの門」（導入が合格と呼ばれる前に必ず通る検問所）を定めます。守るもの、節目 M1 から適用する基本対策、スキャナー、許容リスト、M5 までの段階的な基準、AI レッドチーム、証跡の形式、終了コードを扱います。最初からゼロを求めず段階化する決定は [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) に、誰が修正・レビュー・マージするかは [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md) にあります。
+この仕様は、GRDM 開発環境 2027 版の「セキュリティの門」（導入が合格と呼ばれる前に必ず通る検問所）を定めます。守るもの、節目 M1 から適用する基本対策、スキャナー、許容リスト（見た上で今は受け入れる、既知の問題の短い一覧。[REF-01](../reference/REF-01_Glossary.md)）、M5 までの段階的な基準、AI レッドチーム、証跡の形式、終了コードを扱います。最初からゼロを求めず段階化する決定は [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) に、誰が修正・レビュー・マージするかは [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md) にあります。
 
 **用語注。** 「脆弱性」は、プログラムの中の、誰かが侵入に使えると分かっている弱い所です。「CVE」（Common Vulnerabilities and Exposures）は、一つの脆弱性に付く公開の番号で、`CVE-2026-12345` のように書きます。「深刻度」はどれほど危ないかで、CRITICAL・HIGH・MEDIUM・LOW の四段階です。「節目」（M1〜M5）は計画の五つの段階で、[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) に定義があります。
 
@@ -285,12 +285,12 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 
 - すべての秘密（システムだけが知っていてよいパスワードや鍵）は、導入時に `grdm-dev secrets init` が OS の乱数源から生成する。
 - 秘密は `runtime/.env`（[SPEC-02 §3](02_installer_cli.md#japanese)）に、ファイルモード `0600`（所有者だけが読み書きできる）で書く。`runtime/` は `.gitignore` に載せ、§3.5 の秘密スキャンがこのファイルがコミットに入らないことを確かめる。
-- 既定のパスワードを使わない。上流（写しの元のリポジトリ）の `docker-compose.yml` には `postgres`/`postgres` や `changeme` のような値が残っているが、インストーラーがすべて置き換え、残っていれば失敗する。
+- 既定のパスワードを使わない。上流（写しの元のリポジトリ。[REF-01](../reference/REF-01_Glossary.md)）の `docker-compose.yml` には `postgres`/`postgres` や `changeme` のような値が残っているが、インストーラーがすべて置き換え、残っていれば失敗する。
 - 報告とログに秘密を書かない。`grdm-dev report` は書き出す前に `runtime/.env` の値と一致する文字列を伏せ字にする。
 
 #### 3.2 ネットワーク
 
-- サービス同士は Compose ネットワーク `grdm` だけで通信する。`grdm` は `internal: true` で宣言し（Docker の中だけにある私設の仮想ネットワークで、ホストのインターフェース・LAN・インターネットへの経路を持たない）、侵入されたコンテナもここからは外へ通信できない。詳しくは [ADR-02](../decisions/ADR-02_Network_Model.md)。
+- サービス同士は Compose ネットワーク `grdm` だけで通信する。`grdm` は `internal: true` で宣言し（Docker の中だけにある私設の仮想ネットワークで、ホストのインターフェース・LAN・インターネットへの経路を持たない）、侵入されたコンテナ（一つのプログラムと必要なものを一箱に入れ、どこでも同じように動かす箱。[REF-01](../reference/REF-01_Glossary.md)）もここからは外へ通信できない。詳しくは [ADR-02](../decisions/ADR-02_Network_Model.md)。
 - Docker は内部ネットワークからポートを公開できないため、ブラウザが届く必要のあるサービス（`web`、`api`、`admin`、`wb`、`mfr`、`fakecas`、`ember_osf_web`）は、もう一つの通常の bridge ネットワーク `grdm-edge` にも接続する。公開はそこから `127.0.0.1` のみに行い、既定ではほかのサービスは接続しない。
 - したがって、それ以外のサービスには外向き通信（egress。インターネットへ出る通信）がない。必要な開発者（例: アドオン開発で外部ストレージへ接続する）は `grdm-dev compose render --egress <service>[,<service>...]` で名指ししたサービスを `grdm-edge` に接続する。選択は `runtime/.env` の `GRDM_EGRESS_SERVICES` に記録され、compose と install の報告に表示され、`grdm-dev scan --baseline` が読む。`--egress none` で解除する。この方法で与えた egress は記録された開発者の選択であり基本対策違反ではない。宣言なしに `grdm-edge` にいるサービスは違反（`BASE-NETWORK`）であり、許可に名前があるのに実際には接続していないサービスも所見（`BASE-EGRESS-STALE`）とする。記録と動いている構成は一致していなければならない。
 - `grdm-dev health --network` はプロジェクト自身の公開（`docker compose ps`、`docker inspect`）とホストの待ち受けソケットを列挙し、`127.0.0.1` 以外のアドレスが一つでもあれば失敗する。所有プロセスが見えないプロジェクトポート上の待ち受けも失敗とする。
@@ -299,7 +299,7 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 
 #### 3.3 コンテナの堅牢化
 
-- 全サービスのコンテナ（一つのプログラムと必要なものを入れた箱）を非 root ユーザーで動かす。上流イメージが root で動く場合、生成する Compose に固定の UID/GID を `user:` で指定し、書き込みが必要な少数のパスにはインストーラーがボリュームを用意する。
+- 全サービスを非 root ユーザーで動かす。上流イメージ（コンテナの元になるレシピと材料。[REF-01](../reference/REF-01_Glossary.md)）が root で動く場合、生成する Compose に固定の UID/GID を `user:` で指定し、書き込みが必要な少数のパスにはインストーラーがボリュームを用意する。
 - ルートファイルシステムは、サービスが耐えられる限り読み取り専用（`read_only: true`）にし、書き込み先は明示的な `tmpfs` か名前付きボリュームにする。例外はサービスごとに `manifest/hardening.json` へ理由付きで記す。
 - `privileged: true` は禁止。`cap_drop: [ALL]` を既定にし、必要な権限だけを名前と理由を書いて戻す。
 - 全サービスに `mem_limit`、`cpus`、`pids_limit` を付ける。`grdm-dev compose render`（[SPEC-02 §3](02_installer_cli.md#japanese)）が、`doctor` が検出したメモリに応じて値を決めて書く。
@@ -311,7 +311,7 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 
 #### 3.5 CI での秘密スキャン
 
-このリポジトリは公開のため、すべての PR（プルリクエスト）と `develop` への push で、CI（continuous integration。変更ごとに自動で走る検査）の中で秘密スキャナー（`gitleaks` か同等品。差分と履歴の中の秘密鍵・トークン・パスワードを検出する）を動かす。一件の検出でワークフローは失敗する。同じスキャナーをローカルでは `grdm-dev scan --secrets` が動かす。誤検出は `.gitleaks.toml` のルールに理由を書いて抑え、報告から消して対処しない。
+このリポジトリは公開のため、すべての PR（プルリクエスト。誰かが見て受け入れるのを待っている変更の提案。[REF-01](../reference/REF-01_Glossary.md)）と `develop` への push で、CI（continuous integration。変更ごとに自動で走る検査。[REF-01](../reference/REF-01_Glossary.md)）の中で秘密スキャナー（`gitleaks` か同等品。差分と履歴の中の秘密鍵・トークン・パスワードを検出する）を動かす。一件の検出でワークフローは失敗する。同じスキャナーをローカルでは `grdm-dev scan --secrets` が動かす。誤検出は `.gitleaks.toml` のルールに理由を書いて抑え、報告から消して対処しない。
 
 ### 4. スキャン
 
@@ -320,17 +320,17 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 #### 4.1 SBOM と CVE: Trivy（必須）、Grype（任意の第二意見）
 
 - 「SBOM」（ソフトウェア部品表。イメージやプロジェクトの中にあるライブラリの完全な一覧）を、Compose プロジェクトの全イメージと、統合リポジトリの全ロックファイル（`requirements*.txt`、`poetry.lock`、`package-lock.json`、`yarn.lock`、`build.gradle`）について Trivy が作る。
-- Trivy は SBOM を CVE データベースと照合する。出力は JSON（正本）と、報告内の TOON（JSON を短く書いた文字の形）抄録。
+- Trivy は SBOM を CVE データベースと照合する。出力は JSON（正本）と、報告内の TOON（JSON を短く書いた文字の形。[REF-01](../reference/REF-01_Glossary.md)）抄録。
 - Grype は同じ SBOM に対し第二意見として動かしてよい。Grype の検出は参考情報で、所有者が許容リストの手続きに乗せるまで門の結果を変えない。
-- **M1 の範囲。** M1 ではイメージがまだ存在しない（`grdm-dev build` は M2 から）ので、`security.yml` の Trivy ジョブはリポジトリのファイルシステムだけを報告のみの方式で検査する。検出はジョブのログに書き、PR を不合格にはしない。統合リポジトリのイメージ（コンテナの元になるレシピと材料）とロックファイルの検査は最初のビルドから始める。
+- **M1 の範囲。** M1 ではイメージがまだ存在しない（`grdm-dev build` は M2 から）ので、`security.yml` の Trivy ジョブはリポジトリのファイルシステムだけを報告のみの方式で検査する。検出はジョブのログに書き、PR を不合格にはしない。統合リポジトリのイメージとロックファイルの検査は最初のビルドから始める。
 
 #### 4.2 静的解析: Semgrep と CodeQL
 
-「静的解析」はソースコードを動かさずに読み、危ない書き方（たとえば利用者の入力文字から SQL を組み立てる）を見つけます。Semgrep（ソースコードを読んで危ない書き方を探す道具）はローカルと CI で全 PR に対し `p/default`、`p/python`、`p/javascript`、`p/docker-compose` のルール集で動かします。CodeQL は非公開の `-dev2027` リポジトリの `develop` で毎晩動かします。深刻度 ERROR は門では HIGH、WARNING は MEDIUM として数えます。
+「静的解析」はソースコードを動かさずに読み、危ない書き方（たとえば利用者の入力文字から SQL を組み立てる）を見つけます。Semgrep（ソースコードを読んで危ない書き方を探す道具。[REF-01](../reference/REF-01_Glossary.md)）はローカルと CI で全 PR に対し `p/default`、`p/python`、`p/javascript`、`p/docker-compose` のルール集で動かします。CodeQL は非公開の `-dev2027` リポジトリの `develop` で毎晩動かします。深刻度 ERROR は門では HIGH、WARNING は MEDIUM として数えます。
 
 #### 4.3 動的スキャン: OWASP ZAP ベースライン
 
-「動的スキャン」は、動いている Web アプリをブラウザのように突いて調べます。`grdm-dev scan --dynamic` は Compose の内部ネットワークにつないだコンテナで OWASP ZAP（動いている Web サイトを攻撃者のやり方でつつく道具）を起動し（[ADR-02 §3](../decisions/ADR-02_Network_Model.md#japanese)）、Compose のサービス名とコンテナ側ポート、すなわち `http://web:5000`（web）、`http://admin:8001`（admin）、`http://ember_osf_web:4200`（ember）に対してベースラインスキャンを行います。`127.0.0.1` を対象にすることはありません。ZAP のコンテナの中では、ループバックはサービスでもホストでもなく ZAP 自身だからです。コンテナ側ポートはサービスがネットワークの中で待ち受けるポートで、番号は [SPEC-02 §4](02_installer_cli.md#2-ja-ports) のポート表の既定のホスト側ポートと同じですが、その表が定めるのは「ホスト側」のポートで、ブラウザ・受入試験・`grdm-dev health --network` が使います。`compose render` が衝突でホスト側ポートを付け替えて `runtime/.env` に `GRDM_PORT_<SERVICE>` として記録したとき（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）、ホスト側の確認はそこから新しい番号を読み、ZAP の対象は変わりません。ZAP のリスク High は HIGH、Medium は MEDIUM に対応させます。`grdm-dev health` が全サービス健全と報告した後にだけ動かします。`grdm-dev scan` 全体では動的部分を省略して報告に記し、`scan --dynamic` を明示したときは終了 52 で終わります。
+「動的スキャン」は、動いている Web アプリをブラウザのように突いて調べます。`grdm-dev scan --dynamic` は Compose の内部ネットワークにつないだコンテナで OWASP ZAP（動いている Web サイトを攻撃者のやり方でつつく道具。[REF-01](../reference/REF-01_Glossary.md)）を起動し（[ADR-02 §3](../decisions/ADR-02_Network_Model.md#japanese)）、Compose のサービス名とコンテナ側ポート、すなわち `http://web:5000`（web）、`http://admin:8001`（admin）、`http://ember_osf_web:4200`（ember）に対してベースラインスキャンを行います。`127.0.0.1` を対象にすることはありません。ZAP のコンテナの中では、ループバックはサービスでもホストでもなく ZAP 自身だからです。コンテナ側ポートはサービスがネットワークの中で待ち受けるポートで、番号は [SPEC-02 §4](02_installer_cli.md#2-ja-ports) のポート表の既定のホスト側ポートと同じですが、その表が定めるのは「ホスト側」のポートで、ブラウザ・受入試験・`grdm-dev health --network` が使います。`compose render` が衝突でホスト側ポートを付け替えて `runtime/.env` に `GRDM_PORT_<SERVICE>` として記録したとき（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）、ホスト側の確認はそこから新しい番号を読み、ZAP の対象は変わりません。ZAP のリスク High は HIGH、Medium は MEDIUM に対応させます。`grdm-dev health` が全サービス健全と報告した後にだけ動かします。`grdm-dev scan` 全体では動的部分を省略して報告に記し、`scan --dynamic` を明示したときは終了 52 で終わります。
 
 #### 4.4 依存更新ボット
 
@@ -466,7 +466,7 @@ scan:
 ### 9. 検査
 
 - `python3 -m unittest discover -s installer/tests` が、秘密ファイルのモード、既定パスワードの検出、待ち受けアドレスの確認、許容リストの欄の検証、件数比較、深刻度の対応、報告での秘密の伏せ字を検査する。
-- CI の `security.yml` は全 PR で gitleaks・Semgrep・Trivy を動かす。M1 ではイメージがまだないため、Trivy はリポジトリのファイルシステムに対する報告のみ（§4.1）。arm64（Apple Silicon の CPU の種類）のセルフホストランナーは、インストーラーができてから（M2）`develop` で毎晩 `grdm-dev scan` の全体を動かす。
+- CI の `security.yml` は全 PR で gitleaks・Semgrep・Trivy を動かす。M1 ではイメージがまだないため、Trivy はリポジトリのファイルシステムに対する報告のみ（§4.1）。arm64（対応する二種類のチップのうち、最近の Mac に使われている方。[REF-01](../reference/REF-01_Glossary.md)）のセルフホストランナーは、インストーラーができてから（M2）`develop` で毎晩 `grdm-dev scan` の全体を動かす。
 
 ---
 

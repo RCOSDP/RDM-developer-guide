@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.5 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note sits at the first occurrence in prose, so first-use notes were added in both halves (SPEC-06 §3). ／ 用語注は本文の初出の位置に置かなければ読者に届かないと分かったため、英和両方の初出に用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.5 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** an operational failure that only a module docstring describes is invisible to the shell wrapper and to the Japanese message table, so every new failure cause of a subcommand needs its own row in `messages.tsv` and in this table before the code may return it (PR #23 review r1, U4: `upstream` returned 1 with no canonical entry). ／ モジュールの docstring にしか書かれていない運用上の失敗は、シェルの包み紙にも日本語の文言表にも見えない。サブコマンドの新しい失敗原因は、コードがその番号を返す前に `messages.tsv` とこの表に行を持たなければならないと分かった（PR #23 レビュー r1、U4: `upstream` が正本に無い 1 を返していた）。
   0.3 — 2026-11-05. **Learned:** `secrets rotate` had to become a coordinated database-password change plus container recreation, because `restart` keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ `restart` は旧い環境を保つため、捕られた資格情報が有効なまま残る。`secrets rotate` は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
   0.2 — 2026-11-05. **Learned:** a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。
@@ -22,9 +22,9 @@
 
 ### 1. Scope and goal
 
-The installer turns a fresh checkout of this repository into a running GakuNin RDM (GakuNin is Japan's academic network for logging in with a university account) developer environment with one command, on the hosts listed in [§8](#2-en-hosts). It never needs `sudo` (a way to run a command as the computer's administrator), never changes network settings on the host, and can be run again at any time without harm. Everything it creates lives under `runtime/`, which is ignored by Git.
+The installer turns a fresh checkout of this repository into a running GakuNin RDM (GakuNin is Japan's academic network for logging in with a university account; see [REF-01](../reference/REF-01_Glossary.md)) developer environment with one command, on the hosts listed in [§8](#2-en-hosts). It never needs `sudo` (a way to run a command as the computer's administrator), never changes network settings on the host, and can be run again at any time without harm. Everything it creates lives under `runtime/`, which is ignored by Git.
 
-**Glossary notes.** An *installer* is a program that prepares other programs so they can run. A *CLI* (command line interface) is a program you drive by typing commands. A *container* is a box that holds one program and everything it needs, so it runs the same on any computer. *Docker* (the tool that builds images and runs containers) and its companion *Docker Compose* (see [REF-01](../reference/REF-01_Glossary.md)) run them; Compose is the tool that starts many containers together from one description file. A *manifest* is the list that says exactly which version of each source repository we use ([SPEC-01](01_manifest.md)).
+**Glossary notes.** An *installer* is a program that prepares other programs so they can run. A *CLI* (command line interface) is a program you drive by typing commands. A *container* is a box that holds one program and everything it needs, so it runs the same on any computer. *Docker* (the tool that builds images and runs containers; see [REF-01](../reference/REF-01_Glossary.md)) and its companion *Docker Compose* (see [REF-01](../reference/REF-01_Glossary.md)) run them; Compose is the tool that starts many containers together from one description file. A *manifest* is the list that says exactly which version of each source repository we use ([SPEC-01](01_manifest.md)).
 
 ### 2. Two entry points
 
@@ -66,9 +66,9 @@ flowchart TD
 
 `grdm-dev` is the package `installer/grdm_dev/`, exposed as a console script. Rules:
 
-- **Standard library first.** The command itself has no third-party dependency. The manifest is JSON (read with `json`), the host is read with `platform`, `shutil`, `socket`, and `subprocess`, and the generated Compose file is written as JSON, which Docker Compose accepts because JSON is valid YAML (a plain-text data format that uses indentation). PyYAML is therefore *not* required.
+- **Standard library first.** The command itself has no third-party dependency. The manifest is JSON (read with `json`), the host is read with `platform`, `shutil`, `socket`, and `subprocess`, and the generated Compose file is written as JSON, which Docker Compose accepts because JSON is valid YAML (a plain-text data format that uses indentation; see [REF-01](../reference/REF-01_Glossary.md)). PyYAML is therefore *not* required.
 - **Optional extra `accept`.** `pip install -e "installer[accept]"` adds `pytest`, `pytest-playwright`, and `playwright`. Only `grdm-dev accept` imports them ([SPEC-04](04_acceptance_tests.md)).
-- **External tools** are called as subprocesses and checked by `doctor`: `docker` (27 or newer) with the Compose plugin (v2 or newer) and buildx (Docker's helper that builds one image for several kinds of computer), `trivy`, `gitleaks`, and `semgrep` for `scan`, the OWASP ZAP (a tool that pokes at a running website the way an attacker would) container image for `scan --dynamic`, and `mkdocs` for `docs`. A missing scanner makes `scan` exit 51 ([SPEC-03 §8](03_security_gate.md#english)).
+- **External tools** are called as subprocesses and checked by `doctor`: `docker` (27 or newer) with the Compose plugin (v2 or newer) and buildx (Docker's helper that builds one image for several kinds of computer; see [REF-01](../reference/REF-01_Glossary.md)), `trivy`, `gitleaks`, and `semgrep` for `scan`, the OWASP ZAP (a tool that pokes at a running website the way an attacker would; see [REF-01](../reference/REF-01_Glossary.md)) container image for `scan --dynamic`, and `mkdocs` for `docs`. A missing scanner makes `scan` exit 51 ([SPEC-03 §8](03_security_gate.md#english)).
 - Every subcommand supports `--json`, which prints the same report as machine-readable JSON instead of TOON (a compact text form of JSON, see [SPEC-06 §4](06_documentation_conventions.md#english)).
 
 ### 3. Subcommands
@@ -156,7 +156,7 @@ Numbers are never reused for a new meaning; a new cause gets a new number. The c
 - **Idempotent.** Running any subcommand twice gives the same result. `secrets init` keeps existing secrets, `compose render` overwrites only the generated file, `build` uses the buildx cache, `up` is a no-op for healthy services.
 - **No secrets in Git.** `runtime/` is in `.gitignore`. `docs check` and the CI secret scan fail if a file under `runtime/` or a value that looks like a secret is committed.
 - **No host network changes.** The loopback alias `192.168.168.167` from the old guide is not created; `compose render` rewrites the upstream `local.py` and `.docker-compose.*.env` settings to use service names inside the Compose network and `127.0.0.1` for the browser ([ADR-02](../decisions/ADR-02_Network_Model.md)).
-- **No `-private` code here.** The installer clones the integration repositories by name and SHA (the fingerprint of one commit) from the manifest at run time; this public repository holds no code from them ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)).
+- **No `-private` code here.** The installer clones the integration repositories by name and SHA (the fingerprint of one commit; see [REF-01](../reference/REF-01_Glossary.md)) from the manifest at run time; this public repository holds no code from them ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)).
 
 <a id="2-en-hosts"></a>
 ### 8. Supported hosts
@@ -204,7 +204,7 @@ layout:
 
 ### 10. Tests
 
-`python3 -m unittest discover -s installer/tests` must pass on every PR (pull request: a proposed change waiting for review). Each module has a `test_<module>.py` that covers at least one success case and one rejection case, and every rejection case asserts the exit code from [§6](#english). Docker is never required by unit tests: `host.py` and `build.py` take an injectable runner so tests pass fake `docker` output. Integration and acceptance tiers are defined in [SPEC-04](04_acceptance_tests.md).
+`python3 -m unittest discover -s installer/tests` must pass on every PR (pull request: a proposed change waiting for review; see [REF-01](../reference/REF-01_Glossary.md)). Each module has a `test_<module>.py` that covers at least one success case and one rejection case, and every rejection case asserts the exit code from [§6](#english). Docker is never required by unit tests: `host.py` and `build.py` take an injectable runner so tests pass fake `docker` output. Integration and acceptance tiers are defined in [SPEC-04](04_acceptance_tests.md).
 
 ---
 
@@ -215,9 +215,9 @@ layout:
 
 ### 1. 範囲と目的
 
-インストーラーは、このリポジトリを取り出した直後の状態から、[§8](#2-ja-hosts) に挙げたホストで、コマンド一つで GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク）の開発環境を動かすものです。`sudo`（コンピュータの管理者としてコマンドを動かす仕組み）を使わず、ホストのネットワーク設定を変えず、何度やり直しても壊れません。作られるものはすべて `runtime/` の下にあり、Git は無視します。
+インストーラーは、このリポジトリを取り出した直後の状態から、[§8](#2-ja-hosts) に挙げたホストで、コマンド一つで GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）の開発環境を動かすものです。`sudo`（コンピュータの管理者としてコマンドを動かす仕組み）を使わず、ホストのネットワーク設定を変えず、何度やり直しても壊れません。作られるものはすべて `runtime/` の下にあり、Git は無視します。
 
-**用語注。** 「インストーラー」は、ほかのプログラムが動くように準備するプログラムです。「CLI」（コマンドラインインターフェース）は、文字でコマンドを打って使うプログラムです。「コンテナ」は、一つのプログラムと必要なものを一箱に入れ、どのコンピュータでも同じように動かすための箱です。「Docker」（イメージを作りコンテナを動かす道具）とその相棒の「Docker Compose」（[REF-01](../reference/REF-01_Glossary.md)）がコンテナを動かします。Compose は一枚の設定ファイルから多くのコンテナをまとめて起動する道具です。「manifest」は、どのソースリポジトリのどの版を使うかを正確に書いた一覧です（[SPEC-01](01_manifest.md)）。
+**用語注。** 「インストーラー」は、ほかのプログラムが動くように準備するプログラムです。「CLI」（コマンドラインインターフェース）は、文字でコマンドを打って使うプログラムです。「コンテナ」は、一つのプログラムと必要なものを一箱に入れ、どのコンピュータでも同じように動かすための箱です。「Docker」（イメージを作りコンテナを動かす道具。[REF-01](../reference/REF-01_Glossary.md)）とその相棒の「Docker Compose」（[REF-01](../reference/REF-01_Glossary.md)）がコンテナを動かします。Compose は一枚の設定ファイルから多くのコンテナをまとめて起動する道具です。「manifest」は、どのソースリポジトリのどの版を使うかを正確に書いた一覧です（[SPEC-01](01_manifest.md)）。
 
 ### 2. 二つの入口
 
@@ -259,9 +259,9 @@ flowchart TD
 
 `grdm-dev` はパッケージ `installer/grdm_dev/` を、コンソールスクリプトとして公開したものです。規則は次のとおりです。
 
-- **標準ライブラリ優先。** コマンド本体は外部ライブラリに依存しません。manifest は JSON（`json` で読む）、ホストは `platform`・`shutil`・`socket`・`subprocess` で読み、生成する Compose ファイルは JSON で書き出します。JSON は YAML（字下げでデータを書く文字の形）として正しいので Docker Compose がそのまま読めます。したがって PyYAML は要りません。
+- **標準ライブラリ優先。** コマンド本体は外部ライブラリに依存しません。manifest は JSON（`json` で読む）、ホストは `platform`・`shutil`・`socket`・`subprocess` で読み、生成する Compose ファイルは JSON で書き出します。JSON は YAML（字下げでデータを書く文字の形。[REF-01](../reference/REF-01_Glossary.md)）として正しいので Docker Compose がそのまま読めます。したがって PyYAML は要りません。
 - **任意の追加 `accept`。** `pip install -e "installer[accept]"` で `pytest`・`pytest-playwright`・`playwright` が入ります。これらを読み込むのは `grdm-dev accept` だけです（[SPEC-04](04_acceptance_tests.md)）。
-- **外部の道具** はサブプロセスとして呼び、`doctor` が有無を確かめます。`docker`（27 以上）と Compose プラグイン（v2 以上）・buildx（一つのイメージを何種類かの計算機向けに作る Docker の助手）、`scan` 用の `trivy`・`gitleaks`・`semgrep`、`scan --dynamic` 用の OWASP ZAP（動いている Web サイトを攻撃者のやり方でつつく道具）のコンテナイメージ、`docs` 用の `mkdocs` です。スキャナーが無いと `scan` は終了 51 で終わります（[SPEC-03 §8](03_security_gate.md#japanese)）。
+- **外部の道具** はサブプロセスとして呼び、`doctor` が有無を確かめます。`docker`（27 以上）と Compose プラグイン（v2 以上）・buildx（一つのイメージを何種類かの計算機向けに作る Docker の助手。[REF-01](../reference/REF-01_Glossary.md)）、`scan` 用の `trivy`・`gitleaks`・`semgrep`、`scan --dynamic` 用の OWASP ZAP（動いている Web サイトを攻撃者のやり方でつつく道具。[REF-01](../reference/REF-01_Glossary.md)）のコンテナイメージ、`docs` 用の `mkdocs` です。スキャナーが無いと `scan` は終了 51 で終わります（[SPEC-03 §8](03_security_gate.md#japanese)）。
 - すべてのサブコマンドは `--json` を受け付け、TOON（JSON を短く書いた文字形式。[SPEC-06 §4](06_documentation_conventions.md#japanese)）の代わりに機械が読む JSON で同じ報告を出します。
 
 ### 3. サブコマンド
@@ -349,7 +349,7 @@ exit_codes[14]{code,meaning}:
 - **何度でも同じ結果。** どのサブコマンドも二度実行して同じ結果になる。`secrets init` は既存の秘密を残し、`compose render` は生成ファイルだけを上書きし、`build` は buildx のキャッシュを使い、`up` は健康なサービスには何もしない。
 - **秘密を Git に入れない。** `runtime/` は `.gitignore` に入れる。`runtime/` の下のファイルや秘密に見える値がコミットされると、`docs check` と CI の秘密スキャンが不合格にする。
 - **ホストのネットワークを変えない。** 旧手引きのループバック別名 `192.168.168.167` は作らない。`compose render` が上流の `local.py` と `.docker-compose.*.env` の設定を、Compose ネットワーク内ではサービス名、ブラウザ向けには `127.0.0.1` を使うよう書き換える（[ADR-02](../decisions/ADR-02_Network_Model.md)）。
-- **`-private` のコードを置かない。** インストーラーは実行時に manifest の名前と SHA（コミット一つの指紋）で統合リポジトリを取得する。この公開リポジトリにはそれらのコードを置かない（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）。
+- **`-private` のコードを置かない。** インストーラーは実行時に manifest の名前と SHA（コミット一つの指紋。[REF-01](../reference/REF-01_Glossary.md)）で統合リポジトリを取得する。この公開リポジトリにはそれらのコードを置かない（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）。
 
 <a id="2-ja-hosts"></a>
 ### 8. 対応ホスト
@@ -397,7 +397,7 @@ layout:
 
 ### 10. 試験
 
-`python3 -m unittest discover -s installer/tests` はすべての PR（プルリクエスト。レビュー待ちの変更の提案）で合格していなければなりません。各モジュールに `test_<モジュール>.py` を置き、成功ケースと拒否ケースを少なくとも一つずつ含め、拒否ケースでは [§6](#japanese) の終了コードを assert します。単体試験は Docker を要求しません。`host.py` と `build.py` は実行器を差し替えられる作りにし、試験では偽の `docker` の出力を渡します。統合と受入の段は [SPEC-04](04_acceptance_tests.md) で定めます。
+`python3 -m unittest discover -s installer/tests` はすべての PR（プルリクエスト。レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）で合格していなければなりません。各モジュールに `test_<モジュール>.py` を置き、成功ケースと拒否ケースを少なくとも一つずつ含め、拒否ケースでは [§6](#japanese) の終了コードを assert します。単体試験は Docker を要求しません。`host.py` と `build.py` は実行器を差し替えられる作りにし、試験では偽の `docker` の出力を渡します。統合と受入の段は [SPEC-04](04_acceptance_tests.md) で定めます。
 
 ---
 

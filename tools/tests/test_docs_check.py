@@ -179,6 +179,17 @@ class DocsCheckTests(unittest.TestCase):
         rel = self.repo.write("docs/spec/a.md", text)
         self.assertEqual(len(self.repo.check(rel, terms=["Upstream"]).warnings), 1)
 
+    def test_review_record_still_fails_other_checks(self):
+        # the exemption covers the glossary warning only: anchors, Jump, Version and links still fail
+        broken = HEADER.replace('<a id="japanese"></a>\n', "").replace("- Version / 版: 0.1 — 2026-11-05\n", "")
+        rel = self.repo.write("docs/reviews/2026-11-06_PR99_r2.md", broken + "\nSee [gone](missing.md).\n")
+        result = self.repo.check(rel, terms=["Upstream"])
+        self.assertEqual(result.warnings, [])
+        joined = "\n".join(result.errors)
+        self.assertIn('<a id="japanese">', joined)
+        self.assertIn("Version", joined)
+        self.assertIn("missing.md", joined)
+
     def test_glossary_terms_loaded_from_ref01(self):
         self.repo.write(
             "docs/reference/REF-01_Glossary.md",
