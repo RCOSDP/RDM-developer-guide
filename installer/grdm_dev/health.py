@@ -43,7 +43,9 @@ def default_runner(argv: list[str]) -> tuple[int, str]:
 def default_prober(url: str) -> tuple[bool, str]:
     """HTTP GET; any response below 500 counts as reachable (login redirects are fine)."""
     try:
-        with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT) as resp:  # noqa: S310 - loopback only
+        if not url.startswith("http://127.0.0.1:"):  # ADR-02: health probes talk to loopback only
+            return False, "refused: non-loopback URL"
+        with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return resp.status < 500, f"HTTP {resp.status}"
     except urllib.error.HTTPError as exc:
         return exc.code < 500, f"HTTP {exc.code}"

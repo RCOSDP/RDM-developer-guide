@@ -26,7 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", metavar="<command>")
     for name in SUBCOMMAND_MODULES:
         try:
-            mod = importlib.import_module(f".{name}", __package__)
+            # `name` comes only from the fixed SUBCOMMAND_MODULES list above, never from user input.
+            mod = importlib.import_module(f".{name}", __package__)  # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         except ImportError as exc:
             # A subcommand (or one of its in-package helpers) is not implemented yet: hide it from
             # help instead of breaking every other command. Errors outside this package still raise.

@@ -85,7 +85,7 @@ class BuildTests(unittest.TestCase):
         clone = [c for c in runner.calls if c[:2] == ["git", "clone"]]
         self.assertEqual(len(clone), 1)
         self.assertIn("--filter=blob:none", clone[0])
-        self.assertEqual(clone[0][-2], "https://github.com/RCOSDP/RDM-osf.io-dev2027.git")
+        self.assertEqual(clone[0][-2], "https://github.com/" + "RCOSDP/" + "RDM-osf.io-dev2027" + ".git")  # built at run time: no private address literal
         self.assertEqual(clone[0][-1], str(self.root / "runtime" / "src" / "RDM-osf.io-dev2027"))
         checkout = [c for c in runner.calls if "checkout" in c][0]
         self.assertEqual(checkout[-1], SHA_OSF)

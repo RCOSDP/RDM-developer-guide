@@ -6,3 +6,8 @@ runtime/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Python packaging artifacts
+installer/build/
+installer/*.egg-info/
+*.egg-info/

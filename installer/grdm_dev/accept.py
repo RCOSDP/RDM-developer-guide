@@ -227,7 +227,8 @@ def collect_results(run_dir: Path) -> list[dict]:
     if not junit.exists():
         return rows
     try:
-        tree = ET.parse(junit)
+        # junit.xml is written by our own pytest run into runtime-owned docs/demo/runs/; no untrusted XML.
+        tree = ET.parse(junit)  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
     except ET.ParseError:
         return rows
     for tc in tree.iter("testcase"):

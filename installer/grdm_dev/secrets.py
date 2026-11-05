@@ -124,7 +124,7 @@ def read_env(path: Path) -> dict[str, str]:
 def write_env(path: Path, values: dict[str, str]) -> None:
     """Write the file atomically with mode 0600 inside a 0700 directory."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
+    os.chmod(path.parent, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- owner-only (0700) is the intended restriction
     body = HEADER + "".join(f"{k}={v}\n" for k, v in values.items())
     tmp = path.with_name(path.name + ".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
