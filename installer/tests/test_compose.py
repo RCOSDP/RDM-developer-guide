@@ -923,7 +923,7 @@ class VolumeDirOwnershipTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             vol = pathlib.Path(td) / "wiki_static"
             vol.mkdir()
-            os.chmod(vol, 0o700)  # pretend another uid set its own mode after chown
+            os.chmod(vol, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture simulating a mode set by another uid after chown
             with mock.patch("grdm_dev.compose.os.chmod", side_effect=PermissionError("Operation not permitted")) as chmod:
                 compose._ensure_volume_dir(vol)  # existing: must not even try
                 chmod.assert_not_called()
