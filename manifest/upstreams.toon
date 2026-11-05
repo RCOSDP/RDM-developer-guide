@@ -83,7 +83,8 @@ components[20]:
     role: subsystem
     integration_repo: RDM-Shibboleth-SP-dev2027
     profile: full
-    upstreams[1]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+    upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-Shibboleth-SP,main,public,upstream/public-main,merged,7f1125bb2f5bccdce1b1fc55d1dcff602bc7d38a,2026-11-05
       RDM-Shibboleth-SP-main-private,main,private,upstream/private-main,merged,218b07f4143834278e5289a2c95ee8fe6ff01cf1,2026-11-05
     adopted_prs[0]:
   - id: rdmcp

@@ -673,6 +673,15 @@
         {
           "branch": "main",
           "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-Shibboleth-SP",
+          "sha": "7f1125bb2f5bccdce1b1fc55d1dcff602bc7d38a",
+          "status": "merged",
+          "tracking_branch": "upstream/public-main"
+        },
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
           "kind": "private",
           "repo": "RDM-Shibboleth-SP-main-private",
           "sha": "218b07f4143834278e5289a2c95ee8fe6ff01cf1",

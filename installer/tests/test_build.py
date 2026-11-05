@@ -249,6 +249,18 @@ class BuildTests(unittest.TestCase):
         rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
         self.assertEqual(rows["waterbutler"]["status"], "pull-failed")
 
+    def test_prebuilt_with_push_is_pulled_but_never_pushed(self):
+        """Review r4: --push must not re-publish a third-party prebuilt image to ghcr.io."""
+        self._with_prebuilt_waterbutler()
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, push=True, component="waterbutler"), exit_codes.OK)
+        self.assertFalse([c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]])
+        self.assertFalse(any("ghcr.io" in a for c in runner.calls for a in c))
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["waterbutler"]["status"], "prebuilt-not-pushed")
+        self.assertIs(rows["waterbutler"]["pushed"], False)
+
     def test_prebuilt_multi_platform_pulls_each_and_fails_on_any(self):
         """Review r3 R3-01: with --platform a,b every platform is pulled; a missing one fails with 30."""
         self._with_prebuilt_waterbutler()

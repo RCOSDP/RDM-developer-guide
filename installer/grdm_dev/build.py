@@ -212,6 +212,10 @@ def run(ctx: Context, args, runner=None) -> int:
         prebuilt = comp.get("prebuilt_image")
         if prebuilt:
             sys.stderr.write(f"[grdm-dev] build: {cid} uses prebuilt_image {prebuilt} (not built from {repo}; see manifest note)\n")
+            if push:
+                # A prebuilt image is someone else's artefact: it is never re-published under
+                # ghcr.io/rcosdp. It is still pulled for local use and reported as not pushed (review r4).
+                sys.stderr.write(f"[grdm-dev] build: {cid} is prebuilt; --push does not re-publish third-party images\n")
             # One pull per requested platform: a digest names a single manifest, so a platform the
             # image does not provide must fail visibly instead of being reported as pulled (review r3).
             results = []
@@ -220,7 +224,8 @@ def run(ctx: Context, args, runner=None) -> int:
                 results.append((plat or "host", rc))
             bad = [f"{plat}: exit {rc}" for plat, rc in results if rc != 0]
             rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms),
-                         "status": "prebuilt" if not bad else "pull-failed", "image": str(prebuilt),
+                         "status": ("pull-failed" if bad else ("prebuilt-not-pushed" if push else "prebuilt")),
+                         "image": str(prebuilt), "pushed": False,
                          "pulled": ",".join(plat for plat, rc in results if rc == 0),
                          "note": comp.get("note") or ""})
             if bad:
