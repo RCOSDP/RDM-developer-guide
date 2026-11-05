@@ -1,13 +1,14 @@
 # Decision Records / 決定の記録
 
-> **Summary:** Documents explaining why we chose one way and not another: integration repository placement, network model, staged security gate, AI autonomy and roles. Each record captures the context, options considered, and final decision.
-> **概要:** なぜその道を選び、ほかを選ばなかったかを説明する文書：統合リポジトリの置き場、ネットワーク方式、セキュリティ門の段階化、AI の自律度と役割。各記録は文脈、検討した選択肢、最終決定を捉えます。
+> **Summary:** Documents explaining why we chose one way and not another: integration repository placement, network model, staged security gate, AI autonomy and roles, the test IdP, and the wiki-frontend overlay. Each record captures the context, options considered, and final decision.
+> **概要:** なぜその道を選び、ほかを選ばなかったかを説明する文書：統合リポジトリの置き場、ネットワーク方式、セキュリティ門の段階化、AI の自律度と役割、テスト IdP、wiki-frontend のオーバーレイ。各記録は文脈、検討した選択肢、最終決定を捉えます。
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-06. **Learned:** a test fixture that logs people in is an architecture choice like any other service, so it needs its own record (ADR-05) rather than a note in a template. ／ 人をログインさせる試験用の部品も他のサービスと同じ設計上の選択であり、テンプレートの注記ではなく独自の記録（ADR-05）が要ると分かった。
+- Version / 版: 0.3 — 2026-11-06. **Learned:** a repository that cannot be built alone because its Dockerfile belongs to another tree is an architecture decision (overlay, not service) and needs its own record (ADR-06). ／ Dockerfile が別の木に属していて単独で組めないリポジトリは、サービスでなくオーバーレイという設計上の決定であり、独自の記録（ADR-06）が要ると分かった。
+  0.2 — 2026-11-06. **Learned:** a test fixture that logs people in is an architecture choice like any other service, so it needs its own record (ADR-05) rather than a note in a template. ／ 人をログインさせる試験用の部品も他のサービスと同じ設計上の選択であり、テンプレートの注記ではなく独自の記録（ADR-05）が要ると分かった。
   0.1 — 2026-11-05. **Learned:** writing decisions as records turned subjective choices into objective, reviewable documents that explain the reasoning behind each rule. ／ 決定を記録として残すことで、主観的な選択を客観的でレビュー可能な文書にし、各ルールの背後にある推論を説明できるようになったと分かった。
-- Normative for: [ADR-01 Integration Repository Placement](./ADR-01_Integration_Repository_Placement.md) through [ADR-05 Test IdP for Shibboleth](./ADR-05_Test_IdP_for_Shibboleth.md).
+- Normative for: [ADR-01 Integration Repository Placement](./ADR-01_Integration_Repository_Placement.md) through [ADR-06 Wiki Frontend Overlay](./ADR-06_Wiki_Frontend_Overlay.md).
 - Related: [../README.md](../README.md) · [policy/](../policy/README.md) · [spec/](../spec/README.md) · [reference/REF-01_Glossary.md](./../reference/REF-01_Glossary.md)
 
 ---
@@ -28,14 +29,15 @@ A *decision record* (ADR) explains why we chose one way and not another. This fo
 | ADR-03 | [ADR-03_Staged_Security_Gate.md](./ADR-03_Staged_Security_Gate.md) | Gate starts as report-only at M1, becomes zero CRITICAL/HIGH plus red team pass at M5. |
 | ADR-04 | [ADR-04_AI_Autonomy_and_Roles.md](./ADR-04_AI_Autonomy_and_Roles.md) | AI detects, fixes, reviews, tests; humans merge and publish. |
 | ADR-05 | [ADR-05_Test_IdP_for_Shibboleth.md](./ADR-05_Test_IdP_for_Shibboleth.md) | Bundled test IdP for `--auth shibboleth`: our own SimpleSAMLphp image on `php:8.3-apache`, mock attributes prefixed `mock-`. |
+| ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend is an overlay of osf.io (`overlay_of`): one osf.io image built from the merged tree, tagged `<osf_sha12>-<wiki_sha12>`; no `wiki` service. |
 
 Future decision records may cover:
 
 | Topic | Description |
 |---|---|
-| ADR-06 | Repository branching strategy |
-| ADR-07 | Tool version policy (Docker, Python, Node.js) |
-| ADR-08 | Open source license compatibility |
+| ADR-07 | Repository branching strategy |
+| ADR-08 | Tool version policy (Docker, Python, Node.js) |
+| ADR-09 | Open source license compatibility |
 
 ### 2. Creating a new decision record
 
@@ -72,14 +74,15 @@ flowchart TD
 | ADR-03 | [ADR-03_Staged_Security_Gate.md](./ADR-03_Staged_Security_Gate.md) | 門は M1 では報告のみ、M5 で CRITICAL/HIGH ゼロ＋レッドチーム合格へ。 |
 | ADR-04 | [ADR-04_AI_Autonomy_and_Roles.md](./ADR-04_AI_Autonomy_and_Roles.md) | AI は検出・修正・レビュー・試験；人はマージと公開。 |
 | ADR-05 | [ADR-05_Test_IdP_for_Shibboleth.md](./ADR-05_Test_IdP_for_Shibboleth.md) | `--auth shibboleth` 用の同梱テスト IdP：`php:8.3-apache` 上の自前 SimpleSAMLphp イメージ、`mock-` 接頭辞の模擬属性。 |
+| ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend は osf.io のオーバーレイ（`overlay_of`）：重ねた木から osf.io のイメージを一つ組み、タグは `<osf の sha12>-<wiki の sha12>`。サービス `wiki` は無い。 |
 
 今後の決定記録として以下が考えられます：
 
 | トピック | 説明 |
 |---|---|
-| ADR-06 | リポジトリのブランチ戦略 |
-| ADR-07 | 道具版方針（Docker、Python、Node.js） |
-| ADR-08 | オープンソースライセンスの互換性 |
+| ADR-07 | リポジトリのブランチ戦略 |
+| ADR-08 | 道具版方針（Docker、Python、Node.js） |
+| ADR-09 | オープンソースライセンスの互換性 |
 
 ### 2. 新しい決定記録をつくるには
 

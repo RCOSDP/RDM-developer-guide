@@ -305,6 +305,159 @@ class PrebuiltImageTests(unittest.TestCase):
         self.assertEqual(mc.check_manifest_files(REPO_ROOT / "manifest" / "upstreams.json", REPO_ROOT / "manifest" / "upstreams.toon"), [])
 
 
+def overlay_manifest() -> dict:
+    """valid_manifest() plus a wiki-frontend overlay of osf.io (SPEC-01 §3 overlay_of, ADR-06)."""
+    m = valid_manifest()
+    m["components"].append({
+        "id": "wiki-frontend",
+        "role": "core",
+        "services": [],
+        "overlay_of": "osf.io",
+        "integration_repo": "RDM-wiki-frontend-dev2027",
+        "integration_branch": "develop",
+        "upstreams": [
+            {"repo": "RDM-wiki-frontend", "branch": "develop", "kind": "public",
+             "tracking_branch": "upstream/public-develop", "status": "merged",
+             "sha": SHA_B, "fetched_at": "2026-11-05"},
+        ],
+        "adopted_prs": [],
+        "candidate_prs": [],
+        "base_image": "node:21-alpine",
+        "base_image_digest": None,
+        "target_image": {"M4": "node LTS alpine, non-root", "M5": None},
+        "profile": "minimum",
+        "platforms": ["linux/arm64", "linux/amd64"],
+        "note": "overlay of osf.io: the Dockerfile COPYs osf.io paths",
+    })
+    return m
+
+
+class OverlayTests(unittest.TestCase):
+    """MC-14: overlay_of names a buildable base; the overlay has no services and shares the base's profile."""
+
+    def overlay(self, m: dict) -> dict:
+        return next(c for c in m["components"] if c["id"] == "wiki-frontend")
+
+    def test_valid_overlay_passes_and_empty_services_are_allowed_for_it(self):
+        self.assertEqual(mc.validate_manifest(overlay_manifest(), today=TODAY), [])
+
+    def test_empty_services_without_overlay_of_stay_mc03(self):
+        m = overlay_manifest()
+        del self.overlay(m)["overlay_of"]
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-03"})
+        self.assertTrue(any("only an overlay" in e for e in errors), errors)
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = None
+        self.assertEqual(codes(mc.validate_manifest(m, today=TODAY)), {"MC-03"})
+
+    def test_overlay_with_services_is_rejected(self):
+        m = overlay_manifest()
+        self.overlay(m)["services"] = ["wiki"]
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("services must be empty for an overlay" in e for e in errors), errors)
+
+    def test_overlay_of_self_unknown_infra_and_overlay_of_overlay_are_rejected(self):
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = "wiki-frontend"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("itself" in e for e in errors), errors)
+
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = "nope"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("unknown component 'nope'" in e for e in errors), errors)
+
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = "postgres"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("not infra" in e for e in errors), errors)
+
+        m = overlay_manifest()
+        second = copy.deepcopy(self.overlay(m))
+        second["id"] = "wiki-theme"
+        second["integration_repo"] = "RDM-wiki-theme-dev2027"
+        second["overlay_of"] = "wiki-frontend"
+        second["upstreams"] = []
+        m["components"].append(second)
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("overlay of overlay" in e for e in errors), errors)
+
+    def test_two_overlays_of_one_base_are_rejected(self):
+        m = overlay_manifest()
+        second = copy.deepcopy(self.overlay(m))
+        second["id"] = "wiki-theme"
+        second["integration_repo"] = "RDM-wiki-theme-dev2027"
+        second["upstreams"] = []
+        m["components"].append(second)
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("more than one overlay" in e for e in errors), errors)
+
+    def test_prebuilt_base_or_prebuilt_overlay_or_build_platform_on_overlay_are_rejected(self):
+        m = overlay_manifest()
+        m["components"][0]["prebuilt_image"] = "niicloudoperation/rdm-osf@" + PREBUILT_DIGEST
+        m["components"][0]["note"] = "why"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("base 'osf.io' has prebuilt_image" in e for e in errors), errors)
+
+        m = overlay_manifest()
+        self.overlay(m)["prebuilt_image"] = "niicloudoperation/rdm-wiki@" + PREBUILT_DIGEST
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("must not have prebuilt_image" in e for e in errors), errors)
+
+        m = overlay_manifest()
+        self.overlay(m)["build_platform"] = "linux/amd64"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("build_platform" in e for e in errors), errors)
+
+    def test_overlay_profile_must_equal_the_base_profile(self):
+        m = overlay_manifest()
+        self.overlay(m)["profile"] = "core"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-14"})
+        self.assertTrue(any("profile 'core' must equal the base's 'minimum'" in e for e in errors), errors)
+
+    def test_infra_overlay_is_rejected(self):
+        m = overlay_manifest()
+        o = self.overlay(m)
+        o["role"] = "infra"; o["integration_repo"] = None; o["integration_branch"] = None; o["upstreams"] = []
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertIn("MC-14", codes(errors))
+        self.assertTrue(any("must not be infra" in e for e in errors), errors)
+
+    def test_wrong_type_is_a_structure_finding(self):
+        m = overlay_manifest()
+        self.overlay(m)["overlay_of"] = ["osf.io"]
+        self.assertEqual(mc.validate_manifest(m, today=TODAY),
+                         ["MC-14: components[2].overlay_of: expected string or null, got list"])
+
+    def test_overlay_of_is_not_part_of_the_toon_projection(self):
+        proj = mc.project_manifest(overlay_manifest())
+        self.assertNotIn("overlay_of", proj["components"][2])
+        self.assertNotIn("services", proj["components"][2])
+
+    def test_real_manifest_wiki_frontend_is_an_overlay_of_osf_io(self):
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        comps = {c["id"]: c for c in data["components"]}
+        wiki = comps["wiki-frontend"]
+        self.assertEqual(wiki["overlay_of"], "osf.io")
+        self.assertEqual(wiki["services"], [])
+        self.assertEqual(wiki["profile"], comps["osf.io"]["profile"])
+        self.assertNotIn("prebuilt_image", comps["osf.io"])
+        self.assertRegex(wiki["integration_sha"], r"^[0-9a-f]{40}$")
+        self.assertIn("ADR-06", wiki["note"])
+        self.assertEqual(mc.check_manifest_files(REPO_ROOT / "manifest" / "upstreams.json", REPO_ROOT / "manifest" / "upstreams.toon"), [])
+
+
 class StructureValidationTests(unittest.TestCase):
     """R2-02: types are checked before any set membership or projection; a type
     problem is a finding (MC id + JSON path), never an exception."""

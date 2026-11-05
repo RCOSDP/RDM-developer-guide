@@ -11,7 +11,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
 MINIMUM = {"web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
-CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki", "mongo",
+# `wiki` is no service: wiki-frontend is an overlay inside the osf.io image (SPEC-01 §3 overlay_of, ADR-06).
+CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}
 FULL_FAKECAS = CORE | {"rdmcp", "aipf_mcp_data_grdm", "oasys"}
 FULL_SHIBBOLETH = (FULL_FAKECAS - {"fakecas"}) | {"shibboleth_sp", "test_idp"}
@@ -140,6 +141,7 @@ class ServicesForProfileTests(unittest.TestCase):
         self.assertEqual(web.build.repo, "RDM-osf.io-dev2027")
         self.assertEqual(web.build.branch, "develop")
         self.assertEqual(web.image, f"grdm-dev/osf.io:{web.build.sha12}")
+        self.assertEqual(web.build.sha12, f"{self.man.component('osf.io').sha12}-{self.man.component('wiki-frontend').sha12}")
         self.assertEqual(services["admin"].profile, "core")
         pg = services["postgres"]
         self.assertIsNone(pg.build)
@@ -176,7 +178,8 @@ class PrebuiltImageTests(unittest.TestCase):
         self.assertTrue(svc.is_prebuilt)
         self.assertFalse(svc.is_built)
         self.assertEqual(svc.origin, "prebuilt")
-        self.assertEqual(services["web"].origin, "built")
+        self.assertEqual(services["wb"].origin, "built")
+        self.assertEqual(services["web"].origin, "overlay")  # osf.io carries the wiki-frontend overlay
         self.assertEqual(services["postgres"].origin, "pinned")
 
     def test_image_tags_do_not_override_a_prebuilt_reference(self):
@@ -206,6 +209,81 @@ class PrebuiltImageTests(unittest.TestCase):
                     c["note"] = None
         errors = manifest.validate(Context(root=temp_root_with_manifest(bad)))
         self.assertTrue(any("MC-06" in e and "note" in e for e in errors), errors)
+
+
+class OverlayTests(unittest.TestCase):
+    """SPEC-01 §3 `overlay_of` (ADR-06): wiki-frontend is copied over the osf.io checkout; one image, no wiki service."""
+
+    def setUp(self):
+        self.man = manifest.load(Context(root=REPO_ROOT))
+
+    def test_real_manifest_wiki_frontend_is_an_overlay_of_osf_io(self):
+        wiki = self.man.component("wiki-frontend")
+        self.assertTrue(wiki.is_overlay)
+        self.assertEqual(wiki.overlay_of, "osf.io")
+        self.assertEqual(wiki.services, [])
+        self.assertEqual(wiki.integration_repo, "RDM-wiki-frontend-dev2027")
+        self.assertRegex(wiki.sha12, r"^[0-9a-f]{12}$")  # keeps its own pinned commit
+        self.assertEqual(wiki.profile, self.man.component("osf.io").profile)
+        self.assertIs(self.man.overlay_for("osf.io"), wiki)
+        self.assertIsNone(self.man.overlay_for("waterbutler"))
+        self.assertFalse(self.man.component("osf.io").is_overlay)
+        self.assertNotIn("wiki", self.man.service_names)
+        self.assertEqual(manifest.validate(Context(root=REPO_ROOT)), [])
+
+    def test_base_services_use_the_combined_tag_and_origin_overlay(self):
+        osf, wiki = self.man.component("osf.io"), self.man.component("wiki-frontend")
+        tag = manifest.overlay_tag(osf.sha12, wiki.sha12)
+        self.assertEqual(tag, f"{osf.sha12}-{wiki.sha12}")
+        for profile in ("minimum", "core", "full"):
+            services = {s.name: s for s in manifest.services_for_profile(self.man, profile)}
+            self.assertFalse(any(s.component == "wiki-frontend" for s in services.values()), profile)
+            for name in ("web", "api") + (("admin", "worker") if profile != "minimum" else ()):
+                svc = services[name]
+                self.assertEqual(svc.image, f"grdm-dev/osf.io:{tag}", name)
+                self.assertEqual(svc.origin, "overlay", name)
+                self.assertTrue(svc.is_built)
+                self.assertTrue(svc.is_overlay_build)
+                self.assertEqual(svc.build.overlay, "wiki-frontend")
+                self.assertEqual(svc.build.overlay_repo, "RDM-wiki-frontend-dev2027")
+                self.assertEqual(svc.build.overlay_sha12, wiki.sha12)
+                self.assertEqual(svc.build.sha, osf.build_sha)
+        self.assertEqual(services["wb"].origin, "built")
+        self.assertIsNone(services["wb"].build.overlay)
+
+    def test_build_report_tag_overrides_the_combined_tag(self):
+        services = {s.name: s for s in manifest.services_for_profile(self.man, "minimum", image_tags={"osf.io": "aaaaaaaaaaaa-bbbbbbbbbbbb"})}
+        self.assertEqual(services["web"].image, "grdm-dev/osf.io:aaaaaaaaaaaa-bbbbbbbbbbbb")
+        self.assertEqual(services["web"].origin, "overlay")
+
+    def test_overlay_tag_falls_back_to_develop(self):
+        self.assertEqual(manifest.overlay_tag(None, "b" * 12), "develop-" + "b" * 12)
+        self.assertEqual(manifest.overlay_tag("a" * 12, None), "a" * 12 + "-develop")
+
+    def test_removing_the_overlay_restores_the_plain_osf_io_image(self):
+        def strip(data):
+            data["components"] = [c for c in data["components"] if c["id"] != "wiki-frontend"]
+        man = manifest.load(Context(root=temp_root_with_manifest(strip)))
+        self.assertIsNone(man.overlay_for("osf.io"))
+        web = {s.name: s for s in manifest.services_for_profile(man, "minimum")}["web"]
+        self.assertEqual(web.image, f"grdm-dev/osf.io:{man.component('osf.io').sha12}")
+        self.assertEqual(web.origin, "built")
+
+    def test_overlay_with_services_is_rejected_by_validate(self):
+        def bad(data):
+            for c in data["components"]:
+                if c["id"] == "wiki-frontend":
+                    c["services"] = ["wiki"]
+        errors = manifest.validate(Context(root=temp_root_with_manifest(bad)))
+        self.assertTrue(any("MC-14" in e and "services must be empty" in e for e in errors), errors)
+
+    def test_overlay_of_unknown_base_is_rejected_by_validate(self):
+        def bad(data):
+            for c in data["components"]:
+                if c["id"] == "wiki-frontend":
+                    c["overlay_of"] = "nope"
+        errors = manifest.validate(Context(root=temp_root_with_manifest(bad)))
+        self.assertTrue(any("MC-14" in e and "unknown component" in e for e in errors), errors)
 
 
 if __name__ == "__main__":

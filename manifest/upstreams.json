@@ -532,16 +532,15 @@
       "integration_branch": "develop",
       "integration_sha": "203d32fab60aad8d78e9b743987519252f99b817",
       "integration_repo": "RDM-wiki-frontend-dev2027",
-      "note": null,
+      "note": "overlay_of osf.io (ADR-06): the Dockerfile is a derivative of osf.io's and COPYs osf.io paths (addons/*, admin/, website/) that this repository does not contain, so it cannot be built alone (real install run 4). Its files are copied over the osf.io checkout and the osf.io image is built from this Dockerfile (wiki editor bundled with webpack 5); it has no Compose service. profile equals the base's (minimum) because the overlay is inside every osf.io image.",
+      "overlay_of": "osf.io",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
-      "profile": "core",
+      "profile": "minimum",
       "role": "core",
-      "services": [
-        "wiki"
-      ],
+      "services": [],
       "target_image": {
         "M4": "node LTS alpine, non-root",
         "M5": null

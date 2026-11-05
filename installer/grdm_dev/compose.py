@@ -31,8 +31,11 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
-  (sha12 from the build report when present), `base_image[@digest]` for infra, and the
-  `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
+  (sha12 from the build report when present), `grdm-dev/<base>:<base_sha12>-<overlay_sha12>` for a
+  base component that carries an overlay (SPEC-01 §3 `overlay_of`, ADR-06: osf.io's web, api, admin
+  and worker run the image built with the wiki-frontend overlay; the report row says `origin:
+  overlay` and the overlay component itself has no service), `base_image[@digest]` for infra, and
+  the `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
   ember-osf-web until M4). A prebuilt service gets `platform:` from `build_platform` like any
   other, and the report row says `origin: prebuilt`; `scan` sees it as one more compose image;
 * named volumes are local bind volumes under runtime/volumes/<name>;
@@ -694,7 +697,8 @@ def update_dotenv(path: Path, updates: dict[str, str]) -> bool:
 
 
 def built_image_tags(ctx: Context) -> dict[str, str]:
-    """component id -> sha12 from the latest build report, when one exists."""
+    """component id -> image tag from the latest build report, when one exists: the row's
+    `image_tag` (`<base_sha12>-<overlay_sha12>` for a base built with an overlay) or its sha12."""
     path = ctx.reports_dir / "build_latest.json"
     if not path.exists():
         return {}
@@ -703,7 +707,7 @@ def built_image_tags(ctx: Context) -> dict[str, str]:
     except (OSError, ValueError):
         return {}
     return {
-        row["component"]: row["sha12"]
+        row["component"]: row.get("image_tag") or row["sha12"]
         for row in data.get("components", [])
         if row.get("sha12") and row.get("status") in ("built", "pushed")
     }

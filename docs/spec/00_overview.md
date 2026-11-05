@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。
+- Version / 版: 0.3 — 2026-11-06. **Learned:** a component can be a repository without being a service: wiki-frontend is an overlay applied to the osf.io tree before the osf.io image is built, so the inventory must show an empty services column and the base's profile for it ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ 部品はサービスでなくてもリポジトリでありうると分かった。wiki-frontend は osf.io のイメージを組む前に osf.io の木へ重ねるオーバーレイなので、一覧ではサービス列を空にし、profile をベースと同じにする（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
+  0.2 — 2026-11-05. **Learned:** the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** eleven upstream repositories and three tracking branches per component cannot be held in anyone's head, so the map, the manifest, and the roles had to be written down before the first integration repository was created. ／ 上流 11 本と部品ごとの追跡ブランチ 3 本は頭の中では管理できないので、最初の統合リポジトリを作る前に、地図・マニフェスト・役割分担を文書にする必要があると分かった。
 - Normative for: the shape of the whole environment. Every other specification (`01`–`06`) refines one part of this page.
 - Related: [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration repository placement](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged security gate](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-04 AI autonomy and roles](../decisions/ADR-04_AI_Autonomy_and_Roles.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-05 Upstream tracking](05_upstream_tracking.md) · [SPEC-06 Documentation conventions](06_documentation_conventions.md) · [docs/README.md](../README.md)
@@ -84,7 +85,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,wiki,RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,"(none: overlay of osf.io)",RDM-wiki-frontend-dev2027,minimum
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
@@ -246,7 +247,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,wiki,RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,"(none: overlay of osf.io)",RDM-wiki-frontend-dev2027,minimum
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core

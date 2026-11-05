@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.5 — 2026-11-05. **Learned:** the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned `prebuilt_image` fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた `note` を伴うダイジェスト固定の `prebuilt_image` が部品ごとに要る。
+- Version / 版: 0.6 — 2026-11-06. **Learned:** the fourth real install on Apple Silicon showed that a repository with a Dockerfile is not necessarily a component with an image: the wiki-frontend Dockerfile COPYs osf.io paths that only the osf.io tree has, so the manifest needs `overlay_of` to say "applied on top of that component", the overlay has no services, and the base image tag must carry both commits (`<base_sha12>-<overlay_sha12>`, MC-14, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ Apple Silicon での第 4 回実導入で、Dockerfile があるリポジトリが必ずイメージを持つ部品とは限らないと分かった。wiki-frontend の Dockerfile は osf.io の木にしか無いパスを COPY する。だから manifest には「あの部品の上に重ねる」と書く `overlay_of` が要り、オーバーレイはサービスを持たず、ベースのイメージのタグは両コミット（`<ベース sha12>-<オーバーレイ sha12>`）を持たねばならない（MC-14、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
+  0.5 — 2026-11-05. **Learned:** the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned `prebuilt_image` fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた `note` を伴うダイジェスト固定の `prebuilt_image` が部品ごとに要る。
   0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
   0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
   0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
@@ -46,12 +47,13 @@ The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO
 |---|---|---|
 | `id` | string | Short name, same as in [SPEC-00 §2](00_overview.md#2-component-map). Unique. |
 | `role` | `core` \| `infra` \| `subsystem` | What kind of component. COS repositories are not components; they appear as `upstreams[]` entries with `kind: cos`. |
-| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`). Never empty. |
+| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`). Never empty, except for an overlay (`overlay_of` set), where it must be empty. |
 | `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
 | `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
 | `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
 | `build_platform` | string or absent | Platform used to build and run this component's image, for example `linux/amd64`. Absent means the host platform. `grdm-dev build --platform` overrides it. Components whose EOL base has no arm64 wheels (modular-file-renderer, ember-osf-web, cas-overlay until M4) set `linux/amd64`; Compose then runs them under emulation. Must be `null` or absent for `infra`. |
 | `prebuilt_image` | string or absent | A registry image reference pinned by digest (`name@sha256:<64 hex>`, for example `niicloudoperation/rdm-ember-osf-web@sha256:…`) that is run **instead of** building from the integration repository. Allowed only together with a `note` that says why the build is impossible and until which milestone the fallback stays; never a URL or a private-repository reference; not allowed for `infra`. `grdm-dev build` records the component as `prebuilt`, pulls the reference and does not clone or build; `compose render` writes it as `image:` (with `platform:` from `build_platform`); `scan` treats it like any other compose image. **A prebuilt image bypasses the "build from pinned source" guarantee of this specification: nobody can show which commits are inside it.** It is a temporary measure for M2 and must be removed by M4. Current use: `ember-osf-web`, whose Dockerfile base `quay.io/centerforopenscience/ember-base` is a Docker image manifest v2 schema 1 image that current Docker refuses to pull. |
+| `overlay_of` | string or absent | Names the *base* component whose checkout is the build context. The overlay is not built on its own and has no image: after both checkouts are synced at their pinned commits, the overlay's files are copied over a copy of the base checkout (`.git` of both left out; the overlay's version wins where both have a file) in `runtime/src/_overlay/<overlay id>/`, and the base image is built from that directory with the **overlay's** Dockerfile. The resulting image **replaces the base component's image** and is tagged with both commits: `grdm-dev/<base id>:<base_sha12>-<overlay_sha12>` (with `--push`, `ghcr.io/rcosdp/<base id>:<same tag>`); the base is never built without its overlay. `services[]` **must be empty** for an overlay (its services are the base's), and its `profile` must equal the base's. The base must exist, must not be `infra`, must not be an overlay itself and must not have `prebuilt_image`; the overlay must not be `infra` and must not have `prebuilt_image` or `build_platform`; one overlay per base (MC-14). `plan` and `compose render` show the base's services with origin `overlay`. Current use: `wiki-frontend` is an overlay of `osf.io` ([ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)): its Dockerfile is osf.io's with a newer Node base and webpack 5, and its tree holds only the wiki editor files. |
 | `upstreams[]` | list | Each: `repo` (name), `branch`, `kind` (`public` \| `private` \| `cos`), `tracking_branch` (named by rule 7), `status` (`merged` \| `reference` \| `candidate`), `sha` (40 lowercase hex), `fetched_at` (ISO date). Empty for `infra`. |
 | `adopted_prs[]` | list | Each: `repo`, `number`, `title`, `reason`, `status` (`adopted`). PRs applied on top of the merged upstreams. |
 | `candidate_prs[]` | list | Same shape; `status` is `candidate` or `rejected`. Not built. |
@@ -119,10 +121,10 @@ grdm-dev manifest check
 Checks, in order:
 
 ```toon
-checks[13]{id,rule,severity}:
+checks[14]{id,rule,severity}:
   MC-01,"upstreams.json parses as JSON and matches schema_version 1",error
   MC-02,"every component id is unique and matches ^[A-Za-z0-9_.-]+$",error
-  MC-03,"role is one of core|infra|subsystem; services is a non-empty list",error
+  MC-03,"role is one of core|infra|subsystem; services is a non-empty list (empty only for an overlay, MC-14)",error
   MC-04,"integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$ or is null for infra",error
   MC-05,"integration_branch is develop, or null for infra",error
   MC-06,"every sha matches ^[0-9a-f]{40}$; base_image_digest is null or sha256:<64 hex>; fetched_at is an ISO date not in the future; prebuilt_image, when present, is name@sha256:<64 hex>, has a non-empty note, is not a URL or private-repository reference, and is not on infra",error
@@ -133,6 +135,7 @@ checks[13]{id,rule,severity}:
   MC-11,"upstreams.toon equals the output of grdm-dev manifest toon",error
   MC-12,"with --remote: each integration_repo has develop plus every tracking_branch listed, and each sha is reachable from its tracking_branch",error
   MC-13,"every tracking_branch follows rule 7 (upstream/<kind>[-<tag>]-<branch with / replaced by ->)",error
+  MC-14,"overlay_of, when present, names an existing component that is not infra, not an overlay and not prebuilt; the overlay is not infra, has no prebuilt_image or build_platform, has empty services and the base's profile; one overlay per base",error
 ```
 
 `--remote` needs network and credentials and is run in the private `-dev2027` CI, not in this public repository's CI. The documentation check in [SPEC-06 §8](06_documentation_conventions.md#8-checks) reuses MC-11 for TOON blocks quoted in documents.
@@ -178,12 +181,13 @@ checks[13]{id,rule,severity}:
 |---|---|---|
 | `id` | 文字列 | 短い名前。[SPEC-00 §2](00_overview.md#2-部品の地図) と同じ。重複しない。 |
 | `role` | `core` \| `infra` \| `subsystem` | 部品の種類。COS のリポジトリは部品ではなく、`kind: cos` の `upstreams[]` 要素として現れる。 |
-| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`）。空にしない。 |
+| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`）。空にしない。ただしオーバーレイ（`overlay_of` あり）では必ず空。 |
 | `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
 | `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
 | `integration_sha` | 文字列（40 桁の 16 進）または `null` | このマニフェストが固定する統合ブランチ `develop` の先端のコミット。`grdm-dev build` と `compose render` はこの値をイメージのタグに使う。厳密再構築 PR のマージ前は `null` でよいが、M2 の受入では必須。 |
 | `build_platform` | 文字列または省略 | この部品のイメージを組んで動かすプラットフォーム。例: `linux/amd64`。省略時はホストと同じ。`grdm-dev build --platform` が優先する。EOL ベースで arm64 の wheel がない部品（M4 までの modular-file-renderer・ember-osf-web・cas-overlay）は `linux/amd64` を指定し、Compose はエミュレーションで動かす。`infra` では `null` か省略。 |
 | `prebuilt_image` | 文字列または省略 | 統合リポジトリから組む **代わりに** 動かす、ダイジェストで固定したレジストリのイメージ参照（`name@sha256:<16 進 64 文字>`。例: `niicloudoperation/rdm-ember-osf-web@sha256:…`）。なぜ組めないか、どの節目までこの代替を続けるかを書いた `note` と一緒にしか書けない。URL や非公開リポジトリの参照は不可。`infra` には使えない。`grdm-dev build` はその部品を `prebuilt` として記録し、参照を pull するだけで clone も build もしない。`compose render` はそれを `image:` に書き（`platform:` は `build_platform` から）、`scan` はほかの Compose イメージと同じに扱う。**事前ビルド済みイメージは、この仕様の「固定した元から組む」保証を外す。中にどのコミットが入っているかを誰も示せない。** M2 のための一時措置であり、M4 までに必ず外す。現在の使用: `ember-osf-web`。その Dockerfile のベース `quay.io/centerforopenscience/ember-base` は Docker image manifest v2 schema 1 のイメージで、現行の Docker は pull を拒否する。 |
+| `overlay_of` | 文字列または省略 | ビルドの文脈（context）となる checkout を持つ「ベース」部品の名前。オーバーレイは単独では組まず、自分のイメージを持たない。両 checkout を固定コミットで同期した後、`runtime/src/_overlay/<オーバーレイ id>/` にベース checkout の写し（両方の `.git` は除く）を作り、その上にオーバーレイのファイルを重ね（両方にあるファイルはオーバーレイ側が勝つ）、その場所から **オーバーレイ側の** Dockerfile でベースのイメージを組む。できたイメージは **ベース部品のイメージを置き換え**、両コミットをタグに持つ: `grdm-dev/<ベース id>:<ベース sha12>-<オーバーレイ sha12>`（`--push` では `ghcr.io/rcosdp/<ベース id>:<同じタグ>`）。ベースをオーバーレイ無しで組むことはない。オーバーレイの `services[]` は **必ず空**（サービスはベースのもの）で、`profile` はベースと同じ。ベースは存在し、`infra` でなく、オーバーレイでなく、`prebuilt_image` を持たない。オーバーレイは `infra` でなく、`prebuilt_image` と `build_platform` を持たない。ベース一つにオーバーレイは一つ（MC-14）。`plan` と `compose render` はベースのサービスを origin `overlay` で示す。現在の使用: `wiki-frontend` は `osf.io` のオーバーレイ（[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。その Dockerfile は osf.io のものに新しい Node ベースと webpack 5 を入れた写しで、木には Wiki エディタのファイルしか無い。 |
 | `upstreams[]` | 配列 | 各要素: `repo`（名前）、`branch`、`kind`（`public` \| `private` \| `cos`）、`tracking_branch`（規則 7 で命名）、`status`（`merged` \| `reference` \| `candidate`）、`sha`（小文字 16 進 40 文字）、`fetched_at`（ISO 日付）。`infra` は空。 |
 | `adopted_prs[]` | 配列 | 各要素: `repo`、`number`、`title`、`reason`、`status`（`adopted`）。上流をマージした上に適用する PR。 |
 | `candidate_prs[]` | 配列 | 同じ形。`status` は `candidate` か `rejected`。組まない。 |
@@ -251,10 +255,10 @@ grdm-dev manifest check
 検査は次の順で行います。
 
 ```toon
-checks[13]{id,rule,severity}:
+checks[14]{id,rule,severity}:
   MC-01,"upstreams.json が JSON として読め、schema_version 1 の形に合う",error
   MC-02,"部品の id が重複せず ^[A-Za-z0-9_.-]+$ に合う",error
-  MC-03,"role が core|infra|subsystem のいずれか。services が空でない配列",error
+  MC-03,"role が core|infra|subsystem のいずれか。services が空でない配列（空はオーバーレイだけ。MC-14）",error
   MC-04,"integration_repo が ^RDM-[A-Za-z0-9_.-]+-dev2027$ に合う。infra は null",error
   MC-05,"integration_branch が develop。infra は null",error
   MC-06,"sha が ^[0-9a-f]{40}$ に合う。base_image_digest は null か sha256:<16 進 64 文字>。fetched_at が未来でない ISO 日付。prebuilt_image があるときは name@sha256:<16 進 64 文字> で、空でない note を伴い、URL や非公開リポジトリの参照でなく、infra に無い",error
@@ -265,6 +269,7 @@ checks[13]{id,rule,severity}:
   MC-11,"upstreams.toon が grdm-dev manifest toon の出力と一致",error
   MC-12,"--remote 付き: 各 integration_repo が develop と列挙した全 tracking_branch を持ち、各 sha がその tracking_branch から到達できる",error
   MC-13,"すべての tracking_branch が規則 7（upstream/<kind>[-<tag>]-<branch の / を - に置換>）に合う",error
+  MC-14,"overlay_of があるときは、存在して infra でもオーバーレイでも prebuilt でもない部品を指す。オーバーレイ自身は infra でなく、prebuilt_image も build_platform も持たず、services が空でベースと同じ profile。ベース一つにオーバーレイは一つ",error
 ```
 
 `--remote` はネットワークと認証情報が要るので、公開であるこのリポジトリの CI ではなく、非公開の `-dev2027` 側の CI で実行します。[SPEC-06 §8](06_documentation_conventions.md#8-検査) の文書検査は、文書内に引用した TOON ブロックに MC-11 を使い回します。

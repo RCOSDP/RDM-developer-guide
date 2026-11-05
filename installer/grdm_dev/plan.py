@@ -3,7 +3,9 @@
 Touches no Docker. Resolves the profile (flag > runtime/.env GRDM_PROFILE > core), validates the
 manifest (exit 20 on any SPEC-01 finding), and prints a TOON report: profile, platform, services
 with image and build origin (integration repository name + sha12; `prebuilt <reference>` for a
-component whose manifest `prebuilt_image` bypasses the build, SPEC-01 §3), published ports (SPEC-02 §4
+component whose manifest `prebuilt_image` bypasses the build, SPEC-01 §3; `<base repo>@<sha12> +
+<overlay repo>@<sha12> (overlay of <base>)` with origin `overlay` for the services of a base
+component that carries an `overlay_of` component, ADR-06), published ports (SPEC-02 §4
 table, honoring GRDM_PORT_<SERVICE> overrides in runtime/.env), and named volumes.
 
 The helpers here (`read_dotenv`, `resolve_profile`, `published_ports`, `detect_platform`) are
@@ -149,6 +151,10 @@ def volumes_of(services: list[_manifest.Service]) -> list[str]:
 def _build_from(svc: _manifest.Service) -> str:
     if svc.is_prebuilt:
         return f"prebuilt {svc.prebuilt_image}"
+    if svc.build and svc.build.overlay:
+        base_sha12 = (svc.build.sha or "")[:12] or "develop"
+        return (f"{svc.build.repo}@{base_sha12} + {svc.build.overlay_repo}@{svc.build.overlay_sha12 or 'develop'}"
+                f" (overlay of {svc.component}: {svc.build.overlay})")
     if svc.build and svc.build.sha12:
         return f"{svc.build.repo}@{svc.build.sha12}"
     return svc.build.repo if svc.build else "pinned image"

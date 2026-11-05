@@ -58,7 +58,7 @@ components[20]:
   - id: wiki-frontend
     role: core
     integration_repo: RDM-wiki-frontend-dev2027
-    profile: core
+    profile: minimum
     upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
       RDM-wiki-frontend,develop,public,upstream/public-develop,merged,203d32fab60aad8d78e9b743987519252f99b817,2026-11-05
       RDM-wiki-frontend-develop-private,develop,private,upstream/private-develop,merged,203d32fab60aad8d78e9b743987519252f99b817,2026-11-05
