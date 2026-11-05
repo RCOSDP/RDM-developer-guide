@@ -223,6 +223,88 @@ class ValidateManifestTests(unittest.TestCase):
         self.assertIn("MC-02", codes(mc.validate_manifest(data, today=TODAY)))
 
 
+PREBUILT_DIGEST = "sha256:" + "a" * 64
+PREBUILT_REF = "niicloudoperation/rdm-ember-osf-web@" + PREBUILT_DIGEST
+
+
+def prebuilt_manifest(ref=PREBUILT_REF, note="schema-1 base image refused by Docker; remove at M4") -> dict:
+    m = valid_manifest()
+    m["components"][0]["prebuilt_image"] = ref
+    m["components"][0]["note"] = note
+    return m
+
+
+class PrebuiltImageTests(unittest.TestCase):
+    """SPEC-01 §3 `prebuilt_image`: digest-pinned, with a note, never a private URL, not on infra (MC-06)."""
+
+    def test_digest_pinned_reference_with_note_passes(self):
+        self.assertEqual(mc.validate_manifest(prebuilt_manifest(), today=TODAY), [])
+
+    def test_null_and_absent_pass(self):
+        m = valid_manifest()
+        m["components"][0]["prebuilt_image"] = None
+        self.assertEqual(mc.validate_manifest(m, today=TODAY), [])
+        self.assertEqual(mc.validate_manifest(valid_manifest(), today=TODAY), [])
+
+    def test_registry_host_port_and_tag_before_digest_pass(self):
+        m = prebuilt_manifest(ref="registry.example:5000/team/rdm-ember-osf-web:latest@" + PREBUILT_DIGEST)
+        self.assertEqual(mc.validate_manifest(m, today=TODAY), [])
+
+    def test_tag_only_or_short_digest_fails(self):
+        for ref in ("niicloudoperation/rdm-ember-osf-web:latest", "niicloudoperation/rdm-ember-osf-web@sha256:" + "a" * 63,
+                    "niicloudoperation/rdm-ember-osf-web@sha1:" + "a" * 64, "niicloudoperation/rdm-ember-osf-web@" + "a" * 64, ""):
+            errors = mc.validate_manifest(prebuilt_manifest(ref=ref), today=TODAY)
+            self.assertEqual(codes(errors), {"MC-06"}, ref)
+            self.assertTrue(any("name@sha256:<64 hex>" in e for e in errors), errors)
+
+    def test_missing_or_blank_note_fails(self):
+        for note in (None, "", "   "):
+            errors = mc.validate_manifest(prebuilt_manifest(note=note), today=TODAY)
+            self.assertEqual(codes(errors), {"MC-06"}, repr(note))
+            self.assertTrue(any("requires a non-empty note" in e for e in errors), errors)
+
+    def test_url_forms_fail(self):
+        for ref in (private_address("https", "RDM-ember-osf-web" + DEV2027) + "@" + PREBUILT_DIGEST,
+                    private_address("scp", "RDM-ember-osf-web" + PRIVATE),
+                    "https://registry.example/x@" + PREBUILT_DIGEST):
+            errors = mc.validate_manifest(prebuilt_manifest(ref=ref), today=TODAY)
+            self.assertIn("MC-06", codes(errors), ref)
+            self.assertTrue(any("private-repository reference" in e for e in errors), errors)
+
+    def test_private_repository_name_in_a_registry_path_fails(self):
+        for ref in ("ghcr.io/rcosdp/rdm-osf.io" + DEV2027.lower() + "@" + PREBUILT_DIGEST,
+                    "ghcr.io/rcosdp/rdm-ember-osf-web-master" + PRIVATE + "@" + PREBUILT_DIGEST):
+            errors = mc.validate_manifest(prebuilt_manifest(ref=ref), today=TODAY)
+            self.assertEqual(codes(errors), {"MC-06"}, ref)
+            self.assertTrue(any("private-repository reference" in e for e in errors), errors)
+
+    def test_infra_component_cannot_be_prebuilt(self):
+        m = valid_manifest()
+        m["components"][1]["prebuilt_image"] = "postgres@" + PREBUILT_DIGEST
+        m["components"][1]["note"] = "why"
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(codes(errors), {"MC-06"})
+        self.assertTrue(any("not allowed for infra" in e for e in errors), errors)
+
+    def test_wrong_type_is_a_structure_finding(self):
+        m = prebuilt_manifest()
+        m["components"][0]["prebuilt_image"] = 5
+        errors = mc.validate_manifest(m, today=TODAY)
+        self.assertEqual(errors, ["MC-06: components[0].prebuilt_image: expected string or null, got integer"])
+
+    def test_prebuilt_image_is_not_part_of_the_toon_projection(self):
+        """The TOON excerpt lists ids, roles, repos, profiles, upstreams and adopted PRs only (SPEC-01 §2)."""
+        self.assertEqual(mc.compare_toon(prebuilt_manifest(), mc.parse_toon(VALID_TOON)), [])
+
+    def test_real_manifest_ember_osf_web_is_prebuilt_by_digest_with_note(self):
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
+        self.assertRegex(ember["prebuilt_image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
+        self.assertIn("M4", ember["note"])
+        self.assertEqual(ember["build_platform"], "linux/amd64")  # the pinned digest is the linux/amd64 manifest
+        self.assertEqual(mc.check_manifest_files(REPO_ROOT / "manifest" / "upstreams.json", REPO_ROOT / "manifest" / "upstreams.toon"), [])
+
+
 class StructureValidationTests(unittest.TestCase):
     """R2-02: types are checked before any set membership or projection; a type
     problem is a finding (MC id + JSON path), never an exception."""

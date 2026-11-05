@@ -927,6 +927,27 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../demo/20_core_install_mac_studio/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DEMO-20 Core Install on Mac Studio / Mac Studio でのコア導入記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
     
@@ -940,10 +961,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -954,8 +975,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             Runs
           </label>
@@ -2072,6 +2093,69 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r3 / REV（担当レビュワ）M1 文書骨格 PR 再レビュー r3
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r1 / インストーラーレビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2628,7 +2712,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the alias existed only so that one address worked both inside containers and in the browser; once services talk by Compose service name and the browser talks to <code>127.0.0.1</code>, no shared address is needed and the <code>sudo</code> step disappears with it. ／ 別名は「一つのアドレスがコンテナの中でもブラウザでも通る」ためだけに存在していた。サービス間が Compose のサービス名で、ブラウザが <code>127.0.0.1</code> で話せば共通アドレスは不要になり、<code>sudo</code> の手順も一緒に消えると分かった。</li>
+<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> Docker cannot publish ports from an internal network, so "one internal network" became two networks with an explicit egress switch (PR #21 review r1, finding 8). ／ Docker は内部ネットワークからポートを公開できないため、「内部ネットワーク一つ」は二つのネットワークと明示的な egress の切替になった（PR #21 レビュー r1、指摘 8）。
+  0.1 — 2026-11-05. <strong>Learned:</strong> the alias existed only so that one address worked both inside containers and in the browser; once services talk by Compose service name and the browser talks to <code>127.0.0.1</code>, no shared address is needed and the <code>sudo</code> step disappears with it. ／ 別名は「一つのアドレスがコンテナの中でもブラウザでも通る」ためだけに存在していた。サービス間が Compose のサービス名で、ブラウザが <code>127.0.0.1</code> で話せば共通アドレスは不要になり、<code>sudo</code> の手順も一緒に消えると分かった。</li>
 <li>Status: Accepted by the owner, 2026-11-05 (plan-interview).</li>
 <li>Records a decision for: <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 §5</a> · <a href="../../spec/02_installer_cli/">SPEC-02 Installer CLI</a> · <a href="../../spec/03_security_gate/">SPEC-03 Security Gate</a></li>
 <li>Related: <a href="../../">docs/README.md</a> · <a href="../../spec/00_overview/">SPEC-00 Overview</a> · <a href="../../spec/04_acceptance_tests/">SPEC-04 Acceptance Tests</a> · <a href="../ADR-01_Integration_Repository_Placement/">ADR-01</a> · <a href="../ADR-03_Staged_Security_Gate/">ADR-03</a> · <a href="../../reference/REF-01_Glossary/">REF-01 Glossary</a> · legacy guide <code>docs/guides/environment/README.md</code> (moved from <code>Environment.md</code>)</li>
@@ -2663,7 +2748,7 @@
 </ul>
 <h3 id="3-decision">3. Decision<a class="headerlink" href="#3-decision" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Service-to-service traffic uses the Compose internal network.</strong> Every service addresses another by its Compose service name (<code>web</code>, <code>api</code>, <code>wb</code>, <code>mfr</code>, <code>fakecas</code>, <code>cas</code>, <code>postgres</code>, <code>elasticsearch</code>, <code>rabbitmq</code>, <code>redis</code>, <code>mongo</code>). Docker's built-in DNS (the phone book that turns a name into an address) resolves them. No fixed IP addresses.</li>
+<li><strong>Service-to-service traffic uses the internal Compose network <code>grdm</code> (<code>internal: true</code>).</strong> Every service addresses another by its Compose service name (<code>web</code>, <code>api</code>, <code>wb</code>, <code>mfr</code>, <code>fakecas</code>, <code>cas</code>, <code>postgres</code>, <code>elasticsearch</code>, <code>rabbitmq</code>, <code>redis</code>, <code>mongo</code>); Docker's built-in DNS resolves them, no fixed IP addresses. An internal network has no egress. Browser-facing services are additionally attached to the plain bridge <code>grdm-edge</code>, from which their ports are published on <code>127.0.0.1</code> (decision 2). A service that needs the Internet is attached to <code>grdm-edge</code> explicitly with <code>compose render --egress</code>, recorded in <code>runtime/.env</code> (<code>GRDM_EGRESS_SERVICES</code>); the default grants none.</li>
 <li><strong>Browser-facing traffic is published on <code>127.0.0.1</code> only.</strong> The generated Compose file writes <code>127.0.0.1:&lt;host-port&gt;:&lt;container-port&gt;</code>, never <code>0.0.0.0</code> or a bare port. The default host ports are defined once, in the ports table of <a href="../../spec/02_installer_cli/#2-en-ports">SPEC-02 §4</a> (<code>5000</code> web, <code>8000</code> api, <code>8001</code> admin, <code>7777</code> wb, <code>7778</code> mfr, <code>8080</code> fakecas, <code>4200</code> ember). The installer checks each port is free and remaps on collision (macOS AirPlay on <code>5000</code> is the known case), recording the mapping in <code>runtime/.env</code> and the install report.</li>
 <li><strong>Settings that differ from upstream documents are rewritten by the installer</strong>, not by hand:</li>
 <li><code>website/settings/local.py</code> and <code>api/base/settings/local.py</code>: <code>DOMAIN</code>, <code>API_DOMAIN</code>, <code>WATERBUTLER_URL</code>, <code>MFR_SERVER_URL</code>, <code>CAS_SERVER_URL</code> and similar — the <em>internal</em> URLs use service names, the <em>external</em> (browser) URLs use <code>http://127.0.0.1:&lt;port&gt;/</code>;</li>
@@ -2692,7 +2777,12 @@
   end</code></pre>
 <h3 id="4-consequences">4. Consequences<a class="headerlink" href="#4-consequences" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Good:</strong> no <code>sudo</code>, nothing survives a reboot that must be redone, nothing is reachable from the LAN, the same Compose file works on macOS, Ubuntu and WSL2, and CI can run it unmodified.</li>
+<li>
+<p><strong>Exposure to be aware of.</strong> The seven browser-facing services (<code>web</code>, <code>api</code>, <code>admin</code>, <code>wb</code>, <code>mfr</code>, <code>fakecas</code>, <code>ember_osf_web</code>) sit on the ordinary bridge <code>grdm-edge</code> so that their ports can be published; on that network they also have outbound access to the Internet. All other services have no egress by default. Add-on development against external providers from a non-publishing service requires <code>compose render --egress &lt;service&gt;</code>; every grant, implicit or explicit, is visible to the security gate.</p>
+</li>
+<li>
+<p><strong>Good:</strong> no <code>sudo</code>, nothing survives a reboot that must be redone, nothing is reachable from the LAN, the same Compose file works on macOS, Ubuntu and WSL2, and CI can run it unmodified.</p>
+</li>
 <li><strong>Good:</strong> fewer moving parts for the security gate — the "listening address" check in <a href="../../spec/03_security_gate/">SPEC-03</a> becomes a one-line rule.</li>
 <li><strong>Cost — divergence from upstream documents.</strong> <code>README-docker-compose.md</code> in the public cores still describes the alias. Every place where our settings differ is explained in the environment guide at <code>docs/guides/environment/README.md</code>, with a table "upstream says / we do / why". Developers who copy commands from upstream must read that table first.</li>
 <li><strong>Cost — redirects and absolute URLs.</strong> OSF builds absolute URLs from <code>DOMAIN</code> and <code>API_DOMAIN</code>; if a service receives an internal name and echoes it to the browser, the browser cannot resolve it. The installer therefore separates internal and external URL settings, and the acceptance tests include a redirect-chain check (login via fakecas, file download via wb, preview via mfr).</li>
@@ -2729,7 +2819,7 @@
 </ul>
 <h3 id="3-決定">3. 決定<a class="headerlink" href="#3-決定" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>サービス間の通信は Compose の内部ネットワークを使う。</strong> 各サービスは相手を Compose のサービス名（<code>web</code>、<code>api</code>、<code>wb</code>、<code>mfr</code>、<code>fakecas</code>、<code>cas</code>、<code>postgres</code>、<code>elasticsearch</code>、<code>rabbitmq</code>、<code>redis</code>、<code>mongo</code>）で呼びます。Docker 内蔵の DNS（名前をアドレスに変える電話帳）が解決します。固定 IP アドレスは使いません。</li>
+<li><strong>サービス間通信は内部 Compose ネットワーク <code>grdm</code>（<code>internal: true</code>）を使う。</strong> 各サービスは相手を Compose のサービス名（<code>web</code>、<code>api</code>、<code>wb</code>、<code>mfr</code>、<code>fakecas</code>、<code>cas</code>、<code>postgres</code>、<code>elasticsearch</code>、<code>rabbitmq</code>、<code>redis</code>、<code>mongo</code>）で呼び、Docker 内蔵の DNS（名前をアドレスに変える電話帳）が解決する。固定 IP は使わない。内部ネットワークには外向き通信がない。ブラウザ向けサービスは通常の bridge <code>grdm-edge</code> にも接続し、そこから <code>127.0.0.1</code> にポートを公開する（決定 2）。インターネットが必要なサービスは <code>compose render --egress</code> で明示的に <code>grdm-edge</code> へ接続し、<code>runtime/.env</code>（<code>GRDM_EGRESS_SERVICES</code>）に記録する。既定では何も与えない。</li>
 <li><strong>ブラウザ向けの公開は <code>127.0.0.1</code> だけ。</strong> 生成する Compose ファイルには <code>127.0.0.1:&lt;ホスト側ポート&gt;:&lt;コンテナ側ポート&gt;</code> と書き、<code>0.0.0.0</code> やポート番号だけの書き方はしません。既定のホスト側ポートは <a href="../../spec/02_installer_cli/#2-ja-ports">SPEC-02 §4</a> のポート表で一度だけ定めます（<code>5000</code> web、<code>8000</code> api、<code>8001</code> admin、<code>7777</code> wb、<code>7778</code> mfr、<code>8080</code> fakecas、<code>4200</code> ember）。インストーラーは各ポートの空きを確かめ、衝突時（macOS の AirPlay と <code>5000</code> が既知）は付け替えて <code>runtime/.env</code> と導入報告書に記録します。</li>
 <li><strong>上流文書と異なる設定は、手ではなくインストーラーが書き換える。</strong></li>
 <li><code>website/settings/local.py</code> と <code>api/base/settings/local.py</code>: <code>DOMAIN</code>、<code>API_DOMAIN</code>、<code>WATERBUTLER_URL</code>、<code>MFR_SERVER_URL</code>、<code>CAS_SERVER_URL</code> およびその類。「内部」の URL はサービス名、「外部」（ブラウザ）の URL は <code>http://127.0.0.1:&lt;ポート&gt;/</code>。</li>
@@ -2758,7 +2848,12 @@
   end</code></pre>
 <h3 id="4-結果">4. 結果<a class="headerlink" href="#4-結果" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>良い点:</strong> <code>sudo</code> が不要。再起動後にやり直す手順がない。LAN から届くものがない。同じ Compose ファイルが macOS・Ubuntu・WSL2 で動き、CI でもそのまま動く。</li>
+<li>
+<p><strong>知っておくべき露出。</strong> ブラウザ向けの 7 サービス（<code>web</code>、<code>api</code>、<code>admin</code>、<code>wb</code>、<code>mfr</code>、<code>fakecas</code>、<code>ember_osf_web</code>）はポートを公開するために通常の bridge <code>grdm-edge</code> にいて、その網ではインターネットへの外向き通信もできる。それ以外のサービスには既定で外向き通信がない。公開しないサービスから外部プロバイダへ向かうアドオン開発には <code>compose render --egress &lt;service&gt;</code> が要り、暗黙・明示を問わずすべての付与はセキュリティの門から見える。</p>
+</li>
+<li>
+<p><strong>良い点:</strong> <code>sudo</code> が不要。再起動後にやり直す手順がない。LAN から届くものがない。同じ Compose ファイルが macOS・Ubuntu・WSL2 で動き、CI でもそのまま動く。</p>
+</li>
 <li><strong>良い点:</strong> セキュリティ門の部品が減る。<a href="../../spec/03_security_gate/">SPEC-03</a> の「待ち受けアドレス」の検査が一行の規則になる。</li>
 <li><strong>コスト — 上流文書との差。</strong> 公開コアの <code>README-docker-compose.md</code> は今も別名を説明しています。私たちの設定が異なる箇所はすべて <code>docs/guides/environment/README.md</code> の環境手引きで、「上流はこう／私たちはこう／理由」の表にして説明します。上流からコマンドを写す開発者は、まずその表を読みます。</li>
 <li><strong>コスト — 転送と絶対 URL。</strong> OSF は <code>DOMAIN</code> と <code>API_DOMAIN</code> から絶対 URL を作ります。サービスが内部名を受け取ってブラウザへそのまま返すと、ブラウザは解決できません。そのためインストーラーは内部用と外部用の URL 設定を分け、受入試験に転送連鎖の確認（fakecas でのログイン、wb でのダウンロード、mfr でのプレビュー）を含めます。</li>

@@ -1,0 +1,23 @@
+{
+  "service": "rdmcp",
+  "component": "rdmcp",
+  "container_port": 8100,
+  "expose": [
+    8100
+  ],
+  "environment": {
+    "OSF_API_URL": "http://api:8000/v2/",
+    "HOME": "/tmp"
+  },
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "1000:1000",
+  "depends_on": [
+    "api"
+  ],
+  "weight": 1,
+  "mem_min_mb": 256,
+  "pids_limit": 512,
+  "note": "Port provisional."
+}

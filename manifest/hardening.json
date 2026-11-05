@@ -1,0 +1,127 @@
+{
+  "controls": {
+    "cap_add": "cap_drop: [ALL] stays; the listed capabilities are added back by name",
+    "read_only": "root filesystem stays writable (read_only: false)",
+    "user": "the image's own entrypoint keeps running as root and drops privileges itself; no user: line is written"
+  },
+  "exceptions": [
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "FOWNER",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "cap_add"
+      ],
+      "reason": "The official postgres entrypoint starts as root, fixes ownership of the data directory (bind-mounted under runtime/volumes/), runs the init scripts, then drops to the postgres user with gosu. A fixed user: breaks first start on Linux hosts where the bind mount is owned by the developer.",
+      "review": "2027-01-31",
+      "service": "postgres",
+      "target": "M5 (postgres:15 with a pre-created data volume)"
+    },
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "read_only",
+        "cap_add"
+      ],
+      "reason": "elasticsearch:2 (end of life) starts as root, chowns its data directory and writes logs and plugin state under /usr/share/elasticsearch before dropping to the elasticsearch user.",
+      "review": "2027-01-31",
+      "service": "elasticsearch",
+      "target": "M5 (removed with ES8)"
+    },
+    {
+      "controls": [
+        "read_only"
+      ],
+      "reason": "elasticsearch 6.3.1 runs as uid 1000 but rewrites config/ and logs/ inside the image at start-up.",
+      "review": "2027-01-31",
+      "service": "elasticsearch6",
+      "target": "M5 (elasticsearch:8)"
+    },
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "FOWNER",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "read_only",
+        "cap_add"
+      ],
+      "reason": "mongo:3.4 generates its TLS certificate under /etc/ssl at start-up, chowns it and the data directory, then drops to mongodb with gosu (same sequence as the upstream compose file, with CN=mongo instead of the loopback alias).",
+      "review": "2027-01-31",
+      "service": "mongo",
+      "target": "M5 (removed)"
+    },
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "read_only",
+        "cap_add"
+      ],
+      "reason": "The rabbitmq image writes its generated configuration and cookie under /etc/rabbitmq and /var/lib/rabbitmq as root before dropping to the rabbitmq user.",
+      "review": "2027-01-31",
+      "service": "rabbitmq",
+      "target": "M5 (current stable with RABBITMQ_CONFIG_FILE on a volume)"
+    },
+    {
+      "controls": [
+        "user",
+        "read_only"
+      ],
+      "reason": "centerforopenscience/unoconv runs LibreOffice as root and writes its profile and lock files inside the image; the shared /tmp volume is needed to exchange files with mfr.",
+      "review": "2027-01-31",
+      "service": "unoconv",
+      "target": "M4 (unoserver, mfr PR #9)"
+    },
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "NET_BIND_SERVICE",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "read_only",
+        "cap_add"
+      ],
+      "reason": "Apache httpd and shibd on the CentOS-based image start as root and bind ports 80/443.",
+      "review": "2027-01-31",
+      "service": "shibboleth_sp",
+      "target": "M4 (maintained base, non-root where possible)"
+    },
+    {
+      "controls": [
+        "user",
+        "read_only"
+      ],
+      "reason": "Bundled test IdP (Java) writes its configuration at first start and runs as root in the current image.",
+      "review": "2027-01-31",
+      "service": "test_idp",
+      "target": "M4"
+    }
+  ],
+  "note": "Per-service exceptions to SPEC-03 §3.3 (non-root user, read-only root, cap_drop ALL). Every entry names the controls it relaxes, why, and when it is reviewed. privileged: true and no-new-privileges are never relaxed.",
+  "schema_version": 1
+}

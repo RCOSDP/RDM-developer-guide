@@ -1,0 +1,25 @@
+{
+  "service": "oasys",
+  "component": "OASys",
+  "container_port": 3100,
+  "expose": [
+    3100
+  ],
+  "environment": {
+    "NODE_ENV": "development",
+    "PORT": "3100",
+    "OSF_URL": "http://127.0.0.1:{{HOST_PORT:web}}",
+    "HOME": "/tmp"
+  },
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "1000:1000",
+  "depends_on": [
+    "web"
+  ],
+  "weight": 2,
+  "mem_min_mb": 512,
+  "pids_limit": 512,
+  "note": "Port provisional."
+}

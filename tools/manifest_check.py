@@ -15,9 +15,13 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-02  component id unique and matches ^[A-Za-z0-9_.-]+$
   MC-03  role in core|infra|subsystem; services is a non-empty list of strings
   MC-04  integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$, or null for infra
-  MC-05  integration_branch == "develop", or null for infra
+  MC-05  integration_branch == "develop", or null for infra; integration_sha 40-hex or null (null for infra)
   MC-06  every upstreams[].sha is ^[0-9a-f]{40}$; base_image_digest is null or
-         sha256:<64 hex>; fetched_at is an ISO date not in the future
+         sha256:<64 hex>; fetched_at is an ISO date not in the future;
+         prebuilt_image (optional) is a registry reference pinned by @sha256:<64 hex>,
+         only on a non-infra component, only together with a non-empty note, and
+         never a private-repository URL (it bypasses the build-from-pinned-source
+         guarantee and must be removed by M4)
   MC-07  no string value anywhere contains http, git@, github.com, or a token-like string
   MC-08  the same (repo, branch) pair has one sha across all components
   MC-09  adopted_prs status == adopted; candidate_prs status in candidate|rejected;
@@ -91,6 +95,8 @@ RE_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
 RE_SHA = re.compile(r"^[0-9a-f]{40}$")
 RE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 RE_INTEGRATION_REPO = re.compile(r"^RDM-[A-Za-z0-9_.-]+-dev2027$")
+# prebuilt_image: <registry/>name[:tag]@sha256:<64 hex>; lower-case path components, optional port.
+RE_PREBUILT_IMAGE = re.compile(r"^[a-z0-9][a-z0-9._-]*(?::[0-9]+)?(?:/[a-z0-9][a-z0-9._-]*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?@sha256:[0-9a-f]{64}$")
 RE_REPO_NAME = re.compile(r"^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?$")
 
 UPSTREAM_FIELDS = ("repo", "branch", "kind", "tracking_branch", "status", "sha", "fetched_at")
@@ -137,6 +143,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "services": ("MC-03", "list[str]"),
     "integration_repo": ("MC-04", "str|null"),
     "integration_branch": ("MC-05", "str|null"),
+    "integration_sha": ("MC-05", "str|null"),
     "upstreams": ("MC-01", "list[obj]"),
     "adopted_prs": ("MC-09", "list[obj]"),
     "candidate_prs": ("MC-09", "list[obj]"),
@@ -145,6 +152,8 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "target_image": ("MC-01", "str|null-map"),
     "profile": ("MC-10", "str"),
     "platforms": ("MC-10", "list[str]"),
+    "build_platform": ("MC-10", "str|null"),
+    "prebuilt_image": ("MC-06", "str|null"),
     "note": ("MC-01", "str|null"),
 }
 STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {
@@ -390,6 +399,11 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
                 errors.append(f"MC-05: {label}: integration_branch must be null for infra (got {branch!r})")
         elif branch != "develop":
             errors.append(f"MC-05: {label}: integration_branch must be 'develop' (got {branch!r})")
+        isha = comp.get("integration_sha")
+        if isha is not None and not re.fullmatch(r"[0-9a-f]{40}", isha):
+            errors.append(f"MC-05: {label}: integration_sha must be 40 lowercase hex or null (got {isha!r})")
+        if comp.get("integration_repo") is None and isha is not None:
+            errors.append(f"MC-05: {label}: integration_sha must be null for infra")
 
         # MC-06 base_image_digest
         digest = comp.get("base_image_digest")
@@ -397,6 +411,7 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
             errors.append(f"MC-06: {label}: base_image_digest must be null or sha256:<64 hex> (got {digest!r})")
         if not isinstance(comp.get("base_image"), str) or not comp.get("base_image"):
             errors.append(f"MC-01: {label}: base_image must be a non-empty string")
+        errors.extend(check_prebuilt_image(comp, label))
         target = comp.get("target_image")
         if not isinstance(target, dict) or set(target.keys()) != {"M4", "M5"}:
             errors.append(f"MC-01: {label}: target_image must be an object with exactly the keys M4 and M5")
@@ -493,6 +508,33 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
 
     # MC-07
     errors.extend(f"MC-07: {e}" for e in find_forbidden_strings(data))
+    return errors
+
+
+def check_prebuilt_image(comp: dict[str, Any], label: str) -> list[str]:
+    """MC-06 for the optional `prebuilt_image` (SPEC-01 §3).
+
+    A prebuilt image replaces building the component from its integration repository, so it
+    bypasses the build-from-pinned-source guarantee. It is tolerated only when (a) it is pinned
+    by an `@sha256:<64 hex>` digest, (b) the component carries a non-empty `note` saying why and
+    until which milestone, (c) it is not a URL and not a private-repository address, and (d) the
+    component is not `infra` (infra already runs `base_image[@base_image_digest]`)."""
+    if "prebuilt_image" not in comp or comp.get("prebuilt_image") is None:
+        return []
+    value = comp.get("prebuilt_image")
+    errors: list[str] = []
+    if not isinstance(value, str) or not RE_PREBUILT_IMAGE.match(value):
+        errors.append(f"MC-06: {label}: prebuilt_image must be a registry reference pinned as name@sha256:<64 hex> (got {value!r})")
+    if isinstance(value, str):
+        low = value.lower()
+        if "://" in low or "git@" in low or "github.com" in low or RE_PRIVATE_URL.search(value) \
+                or any(seg.endswith(("-private", "-dev2027")) for seg in re.split(r"[/@:]", low)):
+            errors.append(f"MC-06: {label}: prebuilt_image must not be a URL or a private-repository reference (public registry image only)")
+    note = comp.get("note")
+    if not isinstance(note, str) or not note.strip():
+        errors.append(f"MC-06: {label}: prebuilt_image requires a non-empty note explaining why the build is bypassed and until which milestone")
+    if comp.get("role") == "infra":
+        errors.append(f"MC-06: {label}: prebuilt_image is not allowed for infra (use base_image and base_image_digest)")
     return errors
 
 

@@ -1,0 +1,28 @@
+{
+  "service": "redis",
+  "component": "redis",
+  "expose": [
+    6379
+  ],
+  "command": [
+    "redis-server",
+    "--save",
+    "60",
+    "1",
+    "--appendonly",
+    "no"
+  ],
+  "volumes": [
+    {
+      "volume": "redis_data",
+      "target": "/data"
+    }
+  ],
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "999:999",
+  "weight": 1,
+  "mem_min_mb": 128,
+  "pids_limit": 256
+}

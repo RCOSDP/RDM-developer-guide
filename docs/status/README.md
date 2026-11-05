@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。
+- Version / 版: 0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
+  0.2 — 2026-11-05. **Learned:** the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** without a single source of truth, it was unclear whether M1 completion meant "docs written" or "PR merged"; the board's explicit rules resolve ambiguity. ／ 単一の正本がなければ、M1 完了が「文書を書いた」か「PR をマージした」か分からず、ボードの明示的な規則で曖昧さを解消すると分かった。
 - Normative for: [status/upstream/](upstream/README.md) and all milestone progress tracking.
 - Related: [../README.md](../README.md) · [demo/](../demo/README.md) · [spec/00_overview.md#5-milestone-ladder](./../spec/00_overview.md#english)
@@ -21,8 +22,8 @@
 
 | Milestone | Goal | Security gate | Status |
 |---|---|---|---|
-| M1 | Docs skeleton, manifest, dev2027 repos exist; reviewed PRs merged to develop | Report + allow-list | **In progress** |
-| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | Planned |
+| M1 | Docs skeleton, manifest, dev2027 repos exist; reviewed PRs merged to develop | Report + allow-list | ✅ **Done** (PR #19 merged 2026-11-05) |
+| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: PR #21 (installer) Codex r5 pass, awaiting owner merge; real install runs 1–3 recorded in DEMO-20 |
 | M3 | 5 subsystems start; one success + one rejection case each | Report + allow-list (fewer entries than M2) | Planned |
 | M4 | Waterbutler, mfr, osf.io on Python 3.13 | Stop on HIGH or above; first AI red-team run | Planned |
 | M5 | ES2 and mongo removed; ES8 + postgres 15 or later; distributable abroad | Zero CRITICAL/HIGH; zero open AI red-team paths | Planned |
@@ -34,7 +35,7 @@
 | docs skeleton (READMEs for all folders) | ✅ Written |
 | manifest/upstreams.json | ✅ Created |
 | dev2027 integration repos (11) | ✅ Created |
-| Integration PR osf.io #1 | 🔄 Open |
+| dev2027 strict reconstruction PRs (8 repos, ADR-01 §5; osf.io #1 closed as superseded by #2) | 🔄 Open, Codex Astra review in progress |
 | MkDocs site build (`site/`, strict build passes) | ✅ Built |
 | Guides migration to `docs/guides/` (pointers kept at old paths) | ✅ Done |
 | Codex Astra review of RDM-osf.io-dev2027 PR #1 | 🔄 r1/r2 done: request changes. R1 fixed; R2 awaits the owner's decision on ADR-01 §5; R3 is the owner's call |
@@ -62,8 +63,8 @@ This board is the **single source of truth** for milestone progress:
 
 | 節目 | ゴール | セキュリティ門 | ステータス |
 |---|---|---|---|
-| M1 | docs の骨格・manifest・dev2027 リポジトリ群がある。レビュー済み PR が develop にマージ | 報告＋許容リスト | **進行中** |
-| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | 計画中 |
+| M1 | docs の骨格・manifest・dev2027 リポジトリ群がある。レビュー済み PR が develop にマージ | 報告＋許容リスト | ✅ **完了**（PR #19 を 2026-11-05 にマージ） |
+| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: PR #21（インストーラー）は Codex r5 合格、所有者マージ待ち。実機導入 1〜3 回目は DEMO-20 に記録 |
 | M3 | サブシステム 5 本が起動。各 1 本の正常系＋拒否ケース | 報告＋許容リスト（M2 より件数を減らす） | 計画中 |
 | M4 | waterbutler・mfr・osf.io を Python 3.13 へ | HIGH 以上で停止。AI レッドチーム初回 | 計画中 |
 | M5 | ES2・mongo 廃止。ES8＋postgres 15 以降。海外配布可 | CRITICAL/HIGH ゼロ。AI レッドチームの未解決経路ゼロ | 計画中 |
@@ -75,7 +76,7 @@ This board is the **single source of truth** for milestone progress:
 | docs の骨格（全フォルダの README） | ✅ 作成済み |
 | manifest/upstreams.json | ✅ 作成 |
 | dev2027 統合リポジトリ（11） | ✅ 作成 |
-| 統合 PR RDM-osf.io-dev2027 #1 | 🔄 作成済み（レビュー対応中） |
+| dev2027 の厳密再構築 PR（8 リポジトリ、ADR-01 §5。osf.io #1 は #2 に置き換えて閉鎖） | 🔄 作成済み、Codex Astra レビュー中 |
 | MkDocs サイトのビルド（`site/`、strict ビルド合格） | ✅ 生成済み |
 | ガイドの `docs/guides/` への移植（旧パスに誘導を残す） | ✅ 完了 |
 | Codex Astra による RDM-osf.io-dev2027 PR #1 のレビュー | 🔄 r1/r2 完了: request changes。R1 修正済み、R2 は ADR-01 §5 の所有者判断待ち、R3 は所有者判断 |

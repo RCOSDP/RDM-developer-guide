@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grdm-dev"
+version = "0.1.0"
+description = "GakuNin RDM developer environment 2027: one-command installer (SPEC-02)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[project.optional-dependencies]
+# playwright>=1.48 provides BrowserContext.route_web_socket, which the loopback guard requires (fails closed without it).
+accept = ["pytest>=8", "pytest-playwright>=0.6", "playwright>=1.48"]
+docs = ["mkdocs==1.6.1", "mkdocs-material==9.5.37", "pymdown-extensions==10.12"]
+
+[project.scripts]
+grdm-dev = "grdm_dev.cli:main"
+
+[tool.setuptools]
+# The acceptance suite ships inside the wheel (SPEC-04 §1 keeps it at installer/acceptance/ in the
+# checkout); grdm_dev.accept resolves it from the installed package first, the checkout second.
+packages = ["grdm_dev", "acceptance"]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+grdm_dev = "grdm_dev"
+acceptance = "acceptance"
+
+[tool.setuptools.package-data]
+grdm_dev = ["messages.tsv", "templates/*.json"]
+acceptance = ["pytest.ini", "README.md"]

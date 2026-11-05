@@ -1,0 +1,17 @@
+{
+  "service": "test_idp",
+  "component": "Shibboleth-SP",
+  "container_port": 8443,
+  "expose": [
+    8443
+  ],
+  "tmpfs": [
+    "/tmp",
+    "/run",
+    "/var/run"
+  ],
+  "weight": 1,
+  "mem_min_mb": 256,
+  "pids_limit": 512,
+  "note": "Bundled test IdP for acceptance; runs as root until the image is rebuilt (hardening.json)."
+}

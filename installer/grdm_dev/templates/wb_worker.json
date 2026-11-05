@@ -1,0 +1,38 @@
+{
+  "service": "wb_worker",
+  "component": "waterbutler",
+  "command": [
+    "invoke",
+    "celery"
+  ],
+  "environment": {
+    "PYTHONUNBUFFERED": "1",
+    "SERVER_CONFIG_HMAC_SECRET": "${WATERBUTLER_HMAC_SECRET:-${WATERBUTLER_JWT_SECRET}}",
+    "OSF_AUTH_CONFIG_JWE_SALT": "${WATERBUTLER_JWE_SALT}",
+    "OSF_AUTH_CONFIG_JWE_SECRET": "${WATERBUTLER_JWE_SECRET}",
+    "OSF_AUTH_CONFIG_JWT_SECRET": "${WATERBUTLER_JWT_SECRET}",
+    "OSFSTORAGE_PROVIDER_CONFIG_HMAC_SECRET": "${OSFSTORAGE_HMAC_SECRET:-${WATERBUTLER_JWT_SECRET}}",
+    "TASKS_CONFIG_BROKER_URL": "amqp://grdm:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672//"
+  },
+  "depends_on": [
+    "wb",
+    "rabbitmq"
+  ],
+  "weight": 2,
+  "env_files": [
+    "wb.env"
+  ],
+  "volumes": [
+    {
+      "volume": "osfstoragecache",
+      "target": "/code/website/osfstoragecache"
+    },
+    {
+      "volume": "wb_tmp",
+      "target": "/tmp"
+    }
+  ],
+  "user": "1000:1000",
+  "mem_min_mb": 256,
+  "pids_limit": 512
+}

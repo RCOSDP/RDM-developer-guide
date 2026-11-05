@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05. **Learned:** the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。
+- Version / 版: 0.2 — 2026-11-05. **Learned:** traces are raw and may hold secrets, so the public evidence folder keeps only screenshots and masked text (PR #21 review r2). ／ トレースは生で秘密を含み得るため、公開の証跡フォルダにはスクリーンショットとマスク済みの文字だけを置く（PR #21 レビュー r2）。
+  0.1 — 2026-11-05. **Learned:** the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。
 - Normative source: [SPEC-04 Acceptance Tests](../../spec/04_acceptance_tests.md)
 - Related: [docs/demo/README.md](../README.md) · [docs/status/README.md](../../status/README.md)
 
@@ -25,7 +26,7 @@ Every run of the acceptance tests (automated browser tests that check the enviro
 | `results.toon` | Human- and AI-readable summary (TOON: a compact text form of JSON) |
 | `results.json` | The same data for machines (canonical) |
 | `junit.xml` | Test results in the format CI tools read |
-| `screenshots/`, `trace/` | Only when a test failed: what the browser saw |
+| `screenshots/` | Only when a test failed: what the browser saw. Browser traces are not kept here; with `--trace` they go to `runtime/reports/quarantine/<run_id>/`, which is private and git-ignored |
 
 Records are written by `grdm-dev accept`; do not edit them by hand. No secrets are ever written here.
 
@@ -49,7 +50,7 @@ No runs yet. The first records are expected at milestone M2 (core services on Ma
 | `results.toon` | 人と AI が読む要約（TOON: JSON を短い文字で表した形） |
 | `results.json` | 機械が読む同じデータ（正本） |
 | `junit.xml` | CI の道具が読む形式の試験結果 |
-| `screenshots/`, `trace/` | 試験が失敗したときだけ: ブラウザが見ていた画面 |
+| `screenshots/` | 試験が失敗したときだけ: ブラウザが見ていた画面。ブラウザのトレースはここには置かない。`--trace` のときは `runtime/reports/quarantine/<run_id>/`（非公開、git 管理外）へ |
 
 記録は `grdm-dev accept` が書きます。手で編集しないでください。秘密情報はここに書かれません。
 

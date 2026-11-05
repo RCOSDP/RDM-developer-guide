@@ -1,0 +1,5 @@
+{
+  "milestone": "M1",
+  "gate": "report-only",
+  "note": "Current milestone, owner-maintained (SPEC-03 §5.2, ADR-03). gate: report-only (M1), count-not-growing (M2, M3), fail-high (M4), zero-critical-high (M5)."
+}

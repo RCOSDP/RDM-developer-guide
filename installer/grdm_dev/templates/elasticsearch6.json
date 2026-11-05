@@ -1,0 +1,25 @@
+{
+  "service": "elasticsearch6",
+  "component": "elasticsearch6",
+  "expose": [
+    9200
+  ],
+  "environment": {
+    "discovery.type": "single-node",
+    "ES_JAVA_OPTS": "-Xms512m -Xmx512m",
+    "xpack.security.enabled": "false"
+  },
+  "volumes": [
+    {
+      "volume": "elasticsearch6_data",
+      "target": "/usr/share/elasticsearch/data"
+    }
+  ],
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "1000:1000",
+  "weight": 3,
+  "mem_min_mb": 1024,
+  "pids_limit": 1024
+}
