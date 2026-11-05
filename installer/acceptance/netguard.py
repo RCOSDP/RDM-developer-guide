@@ -6,6 +6,8 @@ wrapper around Playwright's APIRequestContext.
 """
 from __future__ import annotations
 
+import json
+
 from urllib.parse import urljoin, urlsplit
 
 LOOPBACK_HOST = "127.0.0.1"
@@ -99,3 +101,24 @@ def redirect_follow_up(verb: str, status: int, kwargs: dict) -> tuple[str, dict]
     if status in METHOD_PRESERVING_STATUSES:
         return verb, dict(kwargs)
     return "get", {k: v for k, v in kwargs.items() if k not in BODY_KWARGS}
+
+
+def transport_status_must_be(status: int, body: str, expected: int) -> None:
+    """SPEC-04 §5 S2 rejection contract: the *transport* HTTP status is `expected`.
+
+    `status` is the HTTP status line; `body` the response text. A 200 whose JSON-RPC error embeds the
+    expected code (`error.data.http_status`) is still a failure: it would let the client believe the
+    request succeeded. Kept free of pytest/playwright so installer/tests can unit-test it.
+    """
+    if status == 200:
+        embedded = None
+        try:
+            err = json.loads(body).get("error") or {}
+            embedded = (err.get("data") or {}).get("http_status")
+        except (ValueError, AttributeError):
+            pass
+        if embedded is not None:
+            raise AssertionError(f"HTTP 200 carrying an embedded http_status {embedded}: SPEC-04 §5 requires transport HTTP {expected}")
+    if status != expected:
+        raise AssertionError(f"expected transport HTTP {expected}, got {status} (404 is not acceptable)" if expected == 403
+                             else f"expected transport HTTP {expected}, got {status}")

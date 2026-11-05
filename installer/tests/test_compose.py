@@ -643,11 +643,7 @@ class ComposeRenderTests(unittest.TestCase):
     def test_s2_rejection_requires_transport_status_not_embedded_json_status(self):
         """SPEC-04 §5 S2: 401 without a token and 403 for user_b are HTTP status lines; 200 + embedded 403 fails (review I3)."""
         src = (REPO_ROOT / "installer" / "acceptance" / "test_s2_rdmcp.py").read_text(encoding="utf-8")
-        tree = ast.parse(src)
-        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "transport_status_must_be")
-        ns: dict = {"json": json}
-        exec(compile(ast.Module(body=[fn], type_ignores=[]), "test_s2_rdmcp.py", "exec"), ns)
-        check = ns["transport_status_must_be"]
+        from acceptance.netguard import transport_status_must_be as check
         check(403, '{"jsonrpc":"2.0","id":3,"error":{"code":-32001,"message":"forbidden"}}', 403)
         check(401, "", 401)
         with self.assertRaisesRegex(AssertionError, "HTTP 200 carrying an embedded http_status 403"):

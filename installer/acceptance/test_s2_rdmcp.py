@@ -49,25 +49,7 @@ def _rpc(client, url: str, method: str, params: dict | None = None, token: str |
     return client.post(url, data=json.dumps(body), headers=headers)
 
 
-def transport_status_must_be(status: int, body: str, expected: int) -> None:
-    """SPEC-04 §5 S2 rejection contract: the *transport* HTTP status is `expected`.
-
-    `status` is the HTTP status line; `body` the response text. A 200 whose JSON-RPC error embeds the
-    expected code (`error.data.http_status`) is still a failure: it would let the client believe the
-    request succeeded. Kept free of pytest/playwright so installer/tests can unit-test it.
-    """
-    if status == 200:
-        embedded = None
-        try:
-            err = json.loads(body).get("error") or {}
-            embedded = (err.get("data") or {}).get("http_status")
-        except (ValueError, AttributeError):
-            pass
-        if embedded is not None:
-            raise AssertionError(f"HTTP 200 carrying an embedded http_status {embedded}: SPEC-04 §5 requires transport HTTP {expected}")
-    if status != expected:
-        raise AssertionError(f"expected transport HTTP {expected}, got {status} (404 is not acceptable)" if expected == 403
-                             else f"expected transport HTTP {expected}, got {status}")
+from acceptance.netguard import transport_status_must_be  # pure helper, unit-tested without pytest
 
 
 def _result(resp) -> dict:
