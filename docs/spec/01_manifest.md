@@ -23,7 +23,7 @@
 
 ### 1. What the manifest is
 
-A *manifest* is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment ([SPEC-00 §2](00_overview.md#2-component-map)), which *upstream* repositories (the original places we copy code from) are combined, at which *SHA* (the 40-character fingerprint of one commit), and which pull requests (*PRs*, proposed changes waiting to be merged) we add on top.
+A *manifest* is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment ([SPEC-00 §2](00_overview.md#2-component-map)), which *upstream* repositories (the original places we copy code from) are combined, at which *SHA* (the 40-character fingerprint of one commit), and which pull requests (*PRs*, proposed changes waiting to be merged; see [REF-01](../reference/REF-01_Glossary.md)) we add on top.
 
 The installer reads the manifest and nothing else to decide what to build. If a fact is not in the manifest, the installer does not know it.
 
