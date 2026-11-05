@@ -23,6 +23,16 @@ case that made this fallback necessary. The build SHA is the integration
 commit when the manifest carries one (`integration_sha`, optional, written by the weekly
 integration PR), else the first merged upstream in SPEC-01 rule 3 order (public, then private).
 The clone URL is composed at run time from the bare repository name; it is never stored here.
+
+Overlays (SPEC-01 §3 `overlay_of`, ADR-06): a component whose manifest entry names a base component
+(`wiki-frontend` → `osf.io`) cannot be built from its own checkout: its Dockerfile COPYs paths of the
+base tree (real install run 4 on Mac Studio). Its image is built from a merged context (base checkout
++ overlay files) with the overlay's Dockerfile and is a *bundle builder*, not a runtime: the
+wiki-frontend Dockerfile skips the Python steps and only runs `yarn run webpack-prod`. It is tagged
+with both commits, `grdm-dev/<overlay id>:<base_sha12>-<overlay_sha12>` (`overlay_tag`), and its
+services are one-shot (`templates/<service>.json` has `one_shot: true`, e.g. `wiki_assets`, which
+copies the webpack output into the named volume `wiki_static` and exits). The base component keeps
+its own image and tag. `Service.origin` is `overlay` for the overlay's services.
 """
 from __future__ import annotations
 
@@ -93,6 +103,7 @@ class Component:
     platforms: list[str]
     note: str | None
     prebuilt_image: str | None = None
+    overlay_of: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     # dict compatibility for modules written against the raw JSON
@@ -106,6 +117,13 @@ class Component:
     def is_prebuilt(self) -> bool:
         """True when `prebuilt_image` replaces the build from the integration repository (SPEC-01 §3)."""
         return bool(self.prebuilt_image)
+
+    @property
+    def is_overlay(self) -> bool:
+        """True when `overlay_of` names a base component: this checkout is copied over a copy of the
+        base checkout and the image is built from that merged context with this component's Dockerfile
+        (SPEC-01 §3, ADR-06). Its services are one-shot bundle copiers."""
+        return bool(self.overlay_of)
 
     @property
     def is_built(self) -> bool:
@@ -165,9 +183,22 @@ class Manifest:
                 return c
         raise KeyError(service)
 
+    def overlay_for(self, base_id: str) -> Component | None:
+        """The overlay component applied on top of `base_id`, or None (SPEC-01 §3 `overlay_of`)."""
+        for c in self.components:
+            if c.overlay_of == base_id:
+                return c
+        return None
+
     @property
     def service_names(self) -> list[str]:
         return [s for c in self.components for s in c.services]
+
+
+def overlay_tag(base_sha12: str | None, overlay_sha12: str | None) -> str:
+    """Image tag of an overlay component: `<base_sha12>-<overlay_sha12>` (SPEC-01 §3), both commits
+    the image was built from. Either half falls back to `develop` when the manifest pins no SHA."""
+    return f"{base_sha12 or 'develop'}-{overlay_sha12 or 'develop'}"
 
 
 @dataclass(frozen=True)
@@ -175,7 +206,10 @@ class BuildInfo:
     repo: str          # integration repository name, e.g. RDM-osf.io-dev2027 (name only, SPEC-01 rule 5)
     branch: str        # always develop
     sha: str | None    # 40-hex commit the image is built from, when the manifest knows it
-    sha12: str | None
+    sha12: str | None  # the image tag: the sha12, or `<base_sha12>-<overlay_sha12>` for an overlay component
+    overlay_of: str | None = None   # base component id whose checkout is the build context (SPEC-01 §3)
+    base_repo: str | None = None    # the base's integration repository name
+    base_sha12: str | None = None   # the base's pinned sha12
 
 
 @dataclass
@@ -198,9 +232,24 @@ class Service:
         return bool(self.prebuilt_image)
 
     @property
+    def is_overlay_build(self) -> bool:
+        """The image is built from the base checkout with this component's files copied over it (SPEC-01 §3)."""
+        return self.build is not None and bool(self.build.overlay_of)
+
+    @property
+    def is_one_shot(self) -> bool:
+        """The container runs to completion and exits (template `one_shot: true`, Compose `restart: "no"`)."""
+        return bool(self.template.get("one_shot"))
+
+    @property
     def origin(self) -> str:
-        """`built` (from the integration repository), `prebuilt` (registry image by digest) or `pinned` (infra)."""
-        return "prebuilt" if self.is_prebuilt else "built" if self.is_built else "pinned"
+        """`built` (from the integration repository), `overlay` (merged base + overlay context, bundle
+        builder), `prebuilt` (registry image by digest) or `pinned` (infra)."""
+        if self.is_prebuilt:
+            return "prebuilt"
+        if self.is_overlay_build:
+            return "overlay"
+        return "built" if self.is_built else "pinned"
 
 
 # --------------------------------------------------------------------------- loading
@@ -240,6 +289,7 @@ def parse(data: dict[str, Any], path: Path | None = None) -> Manifest:
                     platforms=list(c.get("platforms", [])),
                     note=c.get("note"),
                     prebuilt_image=c.get("prebuilt_image") or None,
+                    overlay_of=c.get("overlay_of") or None,
                     raw=c,
                 )
             )
@@ -348,7 +398,12 @@ def services_for_profile(
 
     `auth` is `fakecas` (default) or `shibboleth`; the latter is only meaningful for `full`, where it
     removes `fakecas` and adds `shibboleth_sp` and `test_idp`. `image_tags` maps component id to the
-    sha12 actually built (from the build report) and overrides the manifest-derived tag.
+    image tag actually built (from the build report: the sha12, or `<base>-<overlay>` for a base
+    component with an overlay) and overrides the manifest-derived tag.
+
+    An overlay component (`overlay_of`) yields its own services, which must be one-shot (template
+    `one_shot: true`; MC-14 otherwise); their image is `grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>`
+    and their origin is `overlay`. The base component's services are unaffected.
     """
     if profile not in PROFILE_RANK:
         raise ValueError(f"unknown profile {profile!r}; expected one of {', '.join(PROFILES)}")
@@ -359,8 +414,11 @@ def services_for_profile(
     use_shib = profile == "full" and auth == AUTH_SHIBBOLETH
     out: list[Service] = []
     for comp in manifest.components:
+        base = manifest.component(comp.overlay_of) if comp.is_overlay else None
         for name in comp.services:
             tpl = templates.get(name)
+            if base is not None and not (tpl or {}).get("one_shot"):
+                raise ManifestError([f"MC-14: service {name!r} of overlay {comp.id} must be one-shot (template one_shot: true); an overlay image is a bundle builder, not a runtime"])
             if PROFILE_RANK[service_profile(comp, tpl)] > rank:
                 continue
             if name in SHIBBOLETH_SERVICES and not use_shib:
@@ -369,8 +427,14 @@ def services_for_profile(
                 continue
             build = None
             if comp.is_built:  # false for a prebuilt component: no BuildInfo, build-report tags do not apply
-                sha12 = (image_tags or {}).get(comp.id) or comp.sha12
-                build = BuildInfo(repo=comp.integration_repo or "", branch=comp.integration_branch or "develop", sha=comp.build_sha, sha12=sha12)
+                manifest_tag = overlay_tag(base.sha12, comp.sha12) if base else comp.sha12
+                sha12 = (image_tags or {}).get(comp.id) or manifest_tag
+                build = BuildInfo(
+                    repo=comp.integration_repo or "", branch=comp.integration_branch or "develop", sha=comp.build_sha, sha12=sha12,
+                    overlay_of=base.id if base else None,
+                    base_repo=base.integration_repo if base else None,
+                    base_sha12=base.sha12 if base else None,
+                )
             else:
                 sha12 = None
             out.append(

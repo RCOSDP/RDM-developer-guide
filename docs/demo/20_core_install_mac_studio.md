@@ -5,8 +5,10 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.5 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything; and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything. ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
-- Version / 版: 0.3 — 2026-11-06. **Learned:** CPU emulation can turn an EOL build into a silent hang rather than an error, so hung builds need an operator timeout and a prebuilt fallback until modernization. ／ CPU エミュレーションは EOL のビルドをエラーではなく無言のハングに変えうる。近代化までは、ハングしたビルドに操作者の打ち切りと配布済みイメージの代替が要る。
+  0.3 — 2026-11-06. **Learned:** CPU emulation can turn an EOL build into a silent hang rather than an error, so hung builds need an operator timeout and a prebuilt fallback until modernization. ／ CPU エミュレーションは EOL のビルドをエラーではなく無言のハングに変えうる。近代化までは、ハングしたビルドに操作者の打ち切りと配布済みイメージの代替が要る。
   0.2 — 2026-11-05. **Learned:** emulation solves missing arm64 wheels but not a base image that current Docker refuses outright; that needs a prebuilt fallback until the Dockerfile is modernized. ／ エミュレーションは arm64 の wheel 不足を解くが、現行 Docker が取得そのものを拒むベースイメージには効かない。Dockerfile を近代化するまでは配布済みイメージの代替が要る。
   0.1 — 2026-11-05. **Learned:** the first real run proved the stop-at-first-failure design and exposed that an EOL Python 3.5 image cannot be built for arm64, which the specifications had only predicted. ／ 最初の実行で「最初の失敗で止まる」設計が働くことと、EOL の Python 3.5 イメージは arm64 で組めないこと（仕様では予測だった）が実証された。
 - Normative source: [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md)
@@ -106,6 +108,36 @@ What this proves:
 
 Decision taken: cas-overlay also uses a digest-pinned `prebuilt_image` (the distribution image's `linux/amd64` manifest) until M4 modernizes its Dockerfile; recorded in the manifest note. Run 4 will be recorded below.
 
+### Run 4 — 2026-11-06, develop after PR #28 (cas-overlay prebuilt)
+
+Same host. Changes since run 3: cas-overlay uses a digest-pinned `prebuilt_image`.
+
+```toon
+run4:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 30 (image build failed)
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,30,failed
+  images[6]{component,platform,status,note}:
+    osf.io,linux/arm64,built,cached
+    waterbutler,linux/arm64,built,cached
+    modular-file-renderer,linux/amd64,built,cached
+    ember-osf-web,linux/amd64,prebuilt,cached pull
+    cas-overlay,linux/amd64,prebuilt,"digest-pinned distribution image pulled"
+    wiki-frontend,linux/arm64,build-failed,"Dockerfile COPYs addons/*/requirements.txt, admin/yarn.lock, website/... that exist only in the osf.io tree"
+```
+
+What this proves:
+
+- The cas-overlay fallback works; every remaining failure now comes from how a component is *shaped*, not from CPU or base-image age.
+- wiki-frontend is not a standalone service: its repository holds only `website/static`, `addons/wiki`, webpack 5 configs and a Dockerfile derived from osf.io's. It is an overlay to be applied on the osf.io source tree and it produces a webpack bundle, not a runtime image.
+
+Decision taken: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md). The manifest marks wiki-frontend as `overlay_of: osf.io`; `build` creates a merged context (osf.io checkout + overlay files) and builds a bundle-builder image; `compose render` adds a one-shot `wiki_assets` service that copies the bundle into a named volume mounted read-only by the osf.io services. The osf.io image itself stays built from its own Dockerfile. Run 5 will be recorded below.
+
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
 ---
@@ -201,6 +233,36 @@ run3:
 - EOL の Java 8 / Maven 3.3 を CPU エミュレーションで組むのはこのホストでは現実的でなく、失敗ではなくハングした。「最初の失敗で止まる」規則は守られた（終了 30、何も起動していない）。
 
 決めたこと: cas-overlay も M4 で Dockerfile を近代化するまで、配布イメージの `linux/amd64` マニフェストをダイジェスト固定の `prebuilt_image` として使う。manifest の note に記録。第 4 回は下へ追記する。
+
+### 第 4 回 — 2026-11-06、PR #28 マージ後の develop（cas-overlay は prebuilt）
+
+同じホスト。第 3 回からの変更: cas-overlay はダイジェスト固定の `prebuilt_image`。
+
+```toon
+run4:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 30（イメージのビルド失敗）"
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,30,failed
+  images[6]{component,platform,status,note}:
+    osf.io,linux/arm64,built,キャッシュ
+    waterbutler,linux/arm64,built,キャッシュ
+    modular-file-renderer,linux/amd64,built,キャッシュ
+    ember-osf-web,linux/amd64,prebuilt,取得済みキャッシュ
+    cas-overlay,linux/amd64,prebuilt,"ダイジェスト固定の配布イメージを取得"
+    wiki-frontend,linux/arm64,build-failed,"Dockerfile が osf.io の木にしかない addons/*/requirements.txt、admin/yarn.lock、website/… を COPY する"
+```
+
+これで分かったこと:
+
+- cas-overlay の代替は働く。残る失敗はすべて部品の「形」に由来し、CPU やベースイメージの古さではない。
+- wiki-frontend は独立したサービスではない。リポジトリには `website/static`、`addons/wiki`、webpack 5 の設定、osf.io 派生の Dockerfile しかなく、osf.io のソースツリーに重ねて webpack の束を作るオーバーレイである。実行用イメージは作らない。
+
+決めたこと: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)。manifest で wiki-frontend を `overlay_of: osf.io` とし、`build` は重ねたコンテキスト（osf.io のチェックアウト＋オーバーレイ）から束を作るイメージを組み、`compose render` は一回限りの `wiki_assets` サービスを加えて束を名前付きボリュームへ写し、osf.io のサービスが読み取り専用でマウントする。osf.io のイメージ自体は従来どおり自分の Dockerfile で組む。第 5 回は下へ追記する。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 

@@ -296,5 +296,229 @@ class BuildTests(unittest.TestCase):
         self.assertIn(build.host_platform(), ("linux/arm64", "linux/amd64") + (f"linux/{build._platform.machine().lower()}",))
 
 
+# ---- overlay_of (SPEC-01 §3, ADR-06): wiki-frontend is built from the osf.io checkout + its files; its own image, both SHAs in the tag
+
+SHA_WIKI = "203d32fab60aad8d78e9b743987519252f99b817"
+OVERLAY_MANIFEST = {
+    "schema_version": 1,
+    "generated_at": "2026-11-06",
+    "components": [
+        comp("osf.io", "core", "minimum", "RDM-osf.io-dev2027", ["web", "api"], integration_sha=SHA_OSF),
+        comp("waterbutler", "core", "core", "RDM-waterbutler-dev2027", ["wb"], upstreams=[UPSTREAM_WB]),
+        comp("wiki-frontend", "core", "core", "RDM-wiki-frontend-dev2027", ["wiki_assets"], integration_sha=SHA_WIKI, overlay_of="osf.io"),
+        comp("postgres", "infra", "minimum", None, ["postgres"]),
+    ],
+}
+
+# What the two checkouts contain after a fake clone (relative path -> content). The real layout: the
+# wiki-frontend checkout has only addons/wiki, website/static, package.json, yarn.lock, the two
+# webpack configs, a Dockerfile derived from osf.io's and a README (real install run 4).
+BASE_FILES = {
+    "Dockerfile": "FROM node:12-alpine3.9\n",
+    "package.json": '{"webpack": "3.8.1"}\n',
+    "addons/s3/requirements.txt": "boto3\n",
+    "addons/wiki/static/old.js": "// webpack 3 bundle entry\n",
+    "admin/yarn.lock": "# admin\n",
+    "website/static/js/pages/base-page.js": "// base\n",
+}
+OVERLAY_FILES = {
+    "Dockerfile": "FROM node:21-alpine\n",
+    "package.json": '{"webpack": "^5.93.0"}\n',
+    "addons/wiki/static/wikiPageMilkdown.js": "// milkdown\n",
+    "website/static/js/wikiTree.js": "// tree\n",
+    "README.md": "This is RDM wiki code for bundle with webpack5\n",
+}
+
+
+class OverlayRunner(FakeRunner):
+    """A fake clone also writes the checkout's files, so the overlay context assembly is observable."""
+
+    def __init__(self, fail_git_for=None, fail_build_for=None):
+        super().__init__(fail_git_for=fail_git_for, fail_build_for=fail_build_for)
+
+    def __call__(self, argv):
+        if argv[0] == "git" and argv[1] == "clone":
+            repo = argv[-2].rsplit("/", 1)[-1].removesuffix(".git")
+            if repo == self.fail_git_for:
+                self.calls.append(argv)
+                return 128, "fatal: repository not found"
+            dest = Path(argv[-1])
+            files = OVERLAY_FILES if "wiki" in repo else BASE_FILES
+            for rel, text in files.items():
+                (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+                (dest / rel).write_text(text)
+            (dest / ".git").mkdir(parents=True, exist_ok=True)
+            (dest / ".git" / "HEAD").write_text("ref: refs/heads/develop\n")
+            self.calls.append(argv)
+            return 0, ""
+        if argv[0] == "git" and argv[-2] == "rev-parse":
+            self.calls.append(argv)
+            return 0, (SHA_WIKI if "wiki" in argv[2] else SHA_OSF if "osf.io" in argv[2] else SHA_WB) + "\n"
+        return super().__call__(argv)
+
+
+class OverlayBuildTests(unittest.TestCase):
+    TAG = f"{SHA_OSF[:12]}-{SHA_WIKI[:12]}"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "manifest").mkdir()
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(OVERLAY_MANIFEST))
+        self.out, self.err = io.StringIO(), io.StringIO()
+        self.src = self.root / "runtime" / "src"
+        self.context = self.src / "_overlay" / "wiki-frontend"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_cmd(self, ctx, runner, **kw):
+        args = argparse.Namespace(platform=kw.pop("platform", None), push=kw.pop("push", False), component=kw.pop("component", None))
+        with redirect_stdout(self.out), redirect_stderr(self.err):
+            return build.run(ctx, args, runner=runner)
+
+    def rows(self):
+        return {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+
+    def bx(self, runner):
+        return [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]]
+
+    def test_overlay_is_built_from_the_merged_context_with_its_dockerfile_and_both_shas_in_the_tag(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = OverlayRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, platform="linux/arm64"), exit_codes.OK, self.err.getvalue())
+        clones = [c[-2].rsplit("/", 1)[-1] for c in runner.calls if c[:2] == ["git", "clone"]]
+        self.assertEqual(clones, ["RDM-osf.io-dev2027.git", "RDM-waterbutler-dev2027.git", "RDM-wiki-frontend-dev2027.git"])  # the base is synced once
+        checkouts = {c[2].rsplit("/", 1)[-1]: c[-1] for c in runner.calls if "checkout" in c}
+        self.assertEqual(checkouts["RDM-wiki-frontend-dev2027"], SHA_WIKI)
+        self.assertEqual(checkouts["RDM-osf.io-dev2027"], SHA_OSF)
+        bx = {c[c.index("-t") + 1].split("/")[1].split(":")[0]: c for c in self.bx(runner)}
+        self.assertEqual(set(bx), {"osf.io", "waterbutler", "wiki-frontend"})  # three images: the base is built normally too
+        self.assertEqual(bx["osf.io"], [
+            "docker", "buildx", "build", "--platform", "linux/arm64",
+            "--load", "-t", f"grdm-dev/osf.io:{SHA_OSF[:12]}",
+            "--label", "org.gakunin-rdm.component=osf.io", "--label", f"org.gakunin-rdm.sha={SHA_OSF[:12]}",
+            str(self.src / "RDM-osf.io-dev2027"),
+        ])
+        self.assertEqual(bx["wiki-frontend"], [
+            "docker", "buildx", "build", "--platform", "linux/arm64",
+            "--load", "-t", f"grdm-dev/wiki-frontend:{self.TAG}",
+            "--label", "org.gakunin-rdm.component=wiki-frontend", "--label", f"org.gakunin-rdm.sha={self.TAG}",
+            "--label", "org.gakunin-rdm.overlay-of=osf.io", "--label", f"org.gakunin-rdm.base-sha={SHA_OSF[:12]}",
+            "-f", str(self.context / "Dockerfile"),
+            str(self.context),
+        ])
+        # the assembled context: base tree + overlay files on top, overlay wins on conflicts, no .git
+        self.assertEqual((self.context / "Dockerfile").read_text(), OVERLAY_FILES["Dockerfile"])
+        self.assertEqual((self.context / "package.json").read_text(), OVERLAY_FILES["package.json"])
+        self.assertEqual((self.context / "addons/s3/requirements.txt").read_text(), BASE_FILES["addons/s3/requirements.txt"])  # base only
+        self.assertEqual((self.context / "admin/yarn.lock").read_text(), BASE_FILES["admin/yarn.lock"])
+        self.assertTrue((self.context / "addons/wiki/static/old.js").exists())  # base file next to the overlay's
+        self.assertEqual((self.context / "addons/wiki/static/wikiPageMilkdown.js").read_text(), OVERLAY_FILES["addons/wiki/static/wikiPageMilkdown.js"])
+        self.assertEqual((self.context / "README.md").read_text(), OVERLAY_FILES["README.md"])
+        self.assertFalse((self.context / ".git").exists())
+        # the checkouts themselves are untouched
+        self.assertEqual((self.src / "RDM-osf.io-dev2027" / "Dockerfile").read_text(), BASE_FILES["Dockerfile"])
+        self.assertTrue((self.src / "RDM-osf.io-dev2027" / ".git").exists())
+        self.assertTrue((self.src / "RDM-wiki-frontend-dev2027" / ".git").exists())
+        rows = self.rows()
+        self.assertEqual(list(rows), ["osf.io", "waterbutler", "wiki-frontend"])
+        osf = rows["osf.io"]
+        self.assertEqual((osf["status"], osf["sha12"], osf["image_tag"], osf["image"]), ("built", SHA_OSF[:12], SHA_OSF[:12], f"grdm-dev/osf.io:{SHA_OSF[:12]}"))
+        self.assertNotIn("overlay_of", osf)
+        row = rows["wiki-frontend"]
+        self.assertEqual(row["status"], "built")
+        self.assertEqual(row["sha12"], SHA_WIKI[:12])
+        self.assertEqual(row["image_tag"], self.TAG)
+        self.assertEqual(row["image"], f"grdm-dev/wiki-frontend:{self.TAG}")
+        self.assertEqual(row["overlay_of"], "osf.io")
+        self.assertEqual(row["base_repo"], "RDM-osf.io-dev2027")
+        self.assertEqual(row["base_sha12"], SHA_OSF[:12])
+        self.assertEqual(row["context"], str(self.context))
+        self.assertIn("overlay of osf.io", self.err.getvalue())
+
+    def test_compose_reads_both_tags_from_the_build_report(self):
+        from grdm_dev import compose
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, OverlayRunner()), exit_codes.OK)
+        self.assertEqual(compose.built_image_tags(ctx), {"osf.io": SHA_OSF[:12], "waterbutler": SHA_WB[:12], "wiki-frontend": self.TAG})
+
+    def test_component_flag_naming_the_overlay_syncs_its_base_but_builds_only_the_overlay(self):
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = OverlayRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, component="wiki-frontend", platform="linux/arm64"), exit_codes.OK)
+        clones = sorted(c[-2].rsplit("/", 1)[-1] for c in runner.calls if c[:2] == ["git", "clone"])
+        self.assertEqual(clones, ["RDM-osf.io-dev2027.git", "RDM-wiki-frontend-dev2027.git"])
+        bx = self.bx(runner)
+        self.assertEqual(len(bx), 1)
+        self.assertIn(f"grdm-dev/wiki-frontend:{self.TAG}", bx[0])
+        self.assertFalse(any("grdm-dev/osf.io" in a for a in bx[0]))
+        self.assertEqual(list(self.rows()), ["wiki-frontend"])
+
+    def test_minimum_profile_does_not_build_the_overlay(self):
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = OverlayRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK)
+        self.assertEqual(len(self.bx(runner)), 1)  # osf.io only (wiki-frontend is core)
+        self.assertFalse(self.context.exists())
+
+    def test_push_uses_the_combined_tag_under_ghcr(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = OverlayRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, platform="linux/arm64,linux/amd64", push=True, component="wiki-frontend"), exit_codes.OK)
+        bx = self.bx(runner)[0]
+        self.assertEqual(bx[bx.index("-t") + 1], f"ghcr.io/rcosdp/wiki-frontend:{self.TAG}")
+        self.assertEqual(bx.count("-t"), 1)
+        self.assertFalse(any(a.startswith("grdm-dev/") for a in bx))
+        self.assertEqual(self.rows()["wiki-frontend"]["image"], f"ghcr.io/rcosdp/wiki-frontend:{self.TAG}")
+
+    def test_rerun_recreates_the_context_and_drops_stale_files(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, OverlayRunner()), exit_codes.OK)
+        (self.context / "stale.txt").write_text("left over from an older overlay commit\n")
+        runner = OverlayRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK)
+        self.assertFalse([c for c in runner.calls if c[:2] == ["git", "clone"]])  # every checkout is fetched, not cloned
+        self.assertEqual(len([c for c in runner.calls if "fetch" in c]), 3)  # osf.io once, waterbutler, wiki-frontend
+        self.assertFalse((self.context / "stale.txt").exists())
+        self.assertEqual((self.context / "Dockerfile").read_text(), OVERLAY_FILES["Dockerfile"])
+
+    def test_base_clone_failure_while_building_the_overlay_alone_is_30(self):
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = OverlayRunner(fail_git_for="RDM-osf.io-dev2027")
+        self.assertEqual(self.run_cmd(ctx, runner, component="wiki-frontend"), exit_codes.BUILD_FAILED)
+        self.assertFalse(self.bx(runner))
+        self.assertIn("wiki-frontend", self.err.getvalue())
+        self.assertIn("base of overlay", self.err.getvalue())
+        row = self.rows()["wiki-frontend"]
+        self.assertEqual(row["status"], "source-failed")
+        self.assertEqual(row["overlay_of"], "osf.io")
+        self.assertFalse(self.context.exists())
+
+    def test_overlay_build_failure_is_30_and_names_the_overlay_and_its_base(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = OverlayRunner(fail_build_for="wiki-frontend")
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.BUILD_FAILED)
+        self.assertIn("component wiki-frontend", self.err.getvalue())
+        self.assertIn("(overlay of osf.io)", self.err.getvalue())
+        rows = self.rows()
+        self.assertEqual(rows["osf.io"]["status"], "built")  # the base image is unaffected
+        self.assertEqual(rows["wiki-frontend"]["status"], "build-failed")
+
+    def test_assemble_overlay_context_directly(self):
+        base, overlay, target = self.root / "base", self.root / "overlay", self.root / "ctx"
+        for rel, text in BASE_FILES.items():
+            (base / rel).parent.mkdir(parents=True, exist_ok=True); (base / rel).write_text(text)
+        for rel, text in OVERLAY_FILES.items():
+            (overlay / rel).parent.mkdir(parents=True, exist_ok=True); (overlay / rel).write_text(text)
+        (base / ".git").mkdir(); (base / ".git" / "config").write_text("x")
+        (overlay / ".git").mkdir(); (overlay / ".git" / "config").write_text("y")
+        self.assertEqual(build.assemble_overlay_context(target, base, overlay), target)
+        names = sorted(str(p.relative_to(target)) for p in target.rglob("*") if p.is_file())
+        self.assertEqual(names, sorted(set(BASE_FILES) | set(OVERLAY_FILES)))
+        self.assertEqual((target / "Dockerfile").read_text(), OVERLAY_FILES["Dockerfile"])
+        self.assertEqual(build.overlay_context_dir(self.root / "runtime", "wiki-frontend"), self.root / "runtime" / "src" / "_overlay" / "wiki-frontend")
+
+
 if __name__ == "__main__":
     unittest.main()

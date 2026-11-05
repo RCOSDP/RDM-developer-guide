@@ -37,6 +37,11 @@
       "config": "osf/api_local.py",
       "target": "/code/api/base/settings/local.py",
       "ro": true
+    },
+    {
+      "volume": "wiki_static",
+      "target": "/code/website/static/public/js/wiki",
+      "ro": true
     }
   ],
   "tmpfs": [
@@ -46,7 +51,11 @@
   "depends_on": [
     "postgres",
     "rabbitmq",
-    "elasticsearch"
+    "elasticsearch",
+    {
+      "service": "wiki_assets",
+      "condition": "service_completed_successfully"
+    }
   ],
   "weight": 2,
   "mem_min_mb": 512,

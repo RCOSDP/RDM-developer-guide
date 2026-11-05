@@ -33,6 +33,11 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
          every upstream field, every adopted PR (repo, number, status), top-level fields,
          and all counts). A missing or stale TOON fails.
   MC-13  tracking_branch follows rule 7: upstream/<kind>[-<tag>]-<branch with / -> ->
+  MC-14  overlay_of (optional, string|null) names another component that exists, is
+         not infra, is not itself an overlay and is not prebuilt; the overlay itself is
+         not infra and not prebuilt; at most one overlay per base (SPEC-01 §3, ADR-06:
+         wiki-frontend is an overlay of osf.io whose image is a bundle builder run by the
+         one-shot service wiki_assets; the installer checks the one-shot template)
   MC-12  (--remote) is NOT implemented here; it runs in the private -dev2027 CI.
 
 Type validation runs first (validate_structure): every scalar and container is
@@ -154,6 +159,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "platforms": ("MC-10", "list[str]"),
     "build_platform": ("MC-10", "str|null"),
     "prebuilt_image": ("MC-06", "str|null"),
+    "overlay_of": ("MC-14", "str|null"),
     "note": ("MC-01", "str|null"),
 }
 STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {
@@ -330,7 +336,7 @@ def validate_structure(data: Any) -> list[str]:
 
 def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
     """Return a list of findings (empty == valid) for the parsed JSON manifest.
-    Implements MC-01..MC-10 and MC-13. Type validation (validate_structure) runs
+    Implements MC-01..MC-10, MC-13 and MC-14. Type validation (validate_structure) runs
     first; when it finds anything, only those findings are returned and the
     value-level checks are not attempted on ill-typed data."""
     today = today or _dt.date.today()
@@ -500,6 +506,9 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
         elif role == "core" and set(platforms) != PLATFORMS:
             errors.append(f"MC-10: {label}: core components must list both platforms (got {platforms!r})")
 
+    # MC-14
+    errors.extend(check_overlays(components))
+
     # MC-08
     for (urepo, ubranch), shas in sorted(sha_by_repo_branch.items()):
         if len(shas) > 1:
@@ -535,6 +544,61 @@ def check_prebuilt_image(comp: dict[str, Any], label: str) -> list[str]:
         errors.append(f"MC-06: {label}: prebuilt_image requires a non-empty note explaining why the build is bypassed and until which milestone")
     if comp.get("role") == "infra":
         errors.append(f"MC-06: {label}: prebuilt_image is not allowed for infra (use base_image and base_image_digest)")
+    return errors
+
+
+def is_overlay(comp: dict[str, Any]) -> bool:
+    return isinstance(comp.get("overlay_of"), str) and bool(comp.get("overlay_of"))
+
+
+def check_overlays(components: list[Any]) -> list[str]:
+    """MC-14 for the optional `overlay_of` (SPEC-01 §3, ADR-06).
+
+    An overlay component's image is built from a merged context (the base component's checkout with
+    the overlay's files copied over it) with the overlay's Dockerfile and tagged
+    `<base_sha12>-<overlay_sha12>`; its services are one-shot bundle copiers (the installer checks
+    the `one_shot` template flag). For that to be well defined the base must exist, be buildable
+    from source (not infra, not prebuilt) and not be an overlay itself; the overlay must be
+    buildable too (not infra, not prebuilt); and a base takes at most one overlay (the copy order
+    of two would be arbitrary)."""
+    errors: list[str] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for comp in components:
+        if isinstance(comp, dict) and isinstance(comp.get("id"), str):
+            by_id.setdefault(comp["id"], comp)
+    overlays_of: dict[str, list[str]] = {}
+    for comp in components:
+        if not isinstance(comp, dict):
+            continue
+        cid = comp.get("id")
+        label = f"component '{cid}'" if isinstance(cid, str) and cid else "component"
+        if comp.get("overlay_of") == "":
+            errors.append(f"MC-14: {label}: overlay_of must be a component id or null, not an empty string")
+            continue
+        if not is_overlay(comp):
+            continue
+        target = comp["overlay_of"]
+        if target == cid:
+            errors.append(f"MC-14: {label}: overlay_of must not name the component itself")
+            continue
+        base = by_id.get(target)
+        if base is None:
+            errors.append(f"MC-14: {label}: overlay_of names unknown component {target!r}")
+            continue
+        overlays_of.setdefault(target, []).append(str(cid))
+        if base.get("role") == "infra":
+            errors.append(f"MC-14: {label}: overlay_of must name a buildable component, not infra ({target!r})")
+        if is_overlay(base):
+            errors.append(f"MC-14: {label}: overlay_of {target!r} is itself an overlay (overlay of overlay is not allowed)")
+        if base.get("prebuilt_image"):
+            errors.append(f"MC-14: {label}: base {target!r} has prebuilt_image; an overlay needs a base built from source")
+        if comp.get("role") == "infra":
+            errors.append(f"MC-14: {label}: an overlay must not be infra")
+        if comp.get("prebuilt_image"):
+            errors.append(f"MC-14: {label}: an overlay must not have prebuilt_image (its image is built from the merged context)")
+    for target, ids in sorted(overlays_of.items()):
+        if len(ids) > 1:
+            errors.append(f"MC-14: component '{target}' has more than one overlay ({', '.join(sorted(ids))}); at most one is allowed")
     return errors
 
 

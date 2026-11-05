@@ -3,6 +3,7 @@ import ast
 import io
 import json
 import os
+import pathlib
 import re
 import shutil
 import stat
@@ -94,7 +95,8 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 20)  # core profile (SPEC-02 §4)
+        self.assertEqual(len(services), 21)  # core profile (SPEC-02 §4), wiki_static_init + wiki_assets (one-shots, ADR-06) included
+        self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
             # grdm (internal) everywhere; grdm-edge only where a 127.0.0.1 port is published
@@ -315,6 +317,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(rows["ember_osf_web"]["origin"], "prebuilt")
         self.assertEqual(rows["ember_osf_web"]["image"], ember["prebuilt_image"])
         self.assertEqual(rows["web"]["origin"], "built")
+        self.assertEqual(rows["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(rows["postgres"]["origin"], "pinned")
         self.assertFalse(any(v["image"].startswith("grdm-dev/ember-osf-web") for v in doc["services"].values()))
 
@@ -386,7 +389,7 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 24)
+        self.assertEqual(len(doc["services"]), 25)
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -687,6 +690,199 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertTrue(doc["services"]["wb"]["image"].startswith("grdm-dev/waterbutler:"))
         self.assertNotEqual(doc["services"]["wb"]["image"], "grdm-dev/waterbutler:000000000000")
 
+    def test_overlay_one_shot_copies_the_bundle_into_a_volume_that_osf_services_mount_read_only(self):
+        """SPEC-01 §3 overlay_of (ADR-06): wiki_assets runs grdm-dev/wiki-frontend:<osf12>-<wiki12> once, fills `wiki_static`,
+        and web/api/admin/worker mount it read-only at the bundle's output subpath and wait for it to complete."""
+        root = make_root()
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        comps = {c["id"]: c for c in data["components"]}
+        osf12, wiki12 = comps["osf.io"]["integration_sha"][:12], comps["wiki-frontend"]["integration_sha"][:12]
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertNotIn("wiki", doc["services"])
+        wa = doc["services"]["wiki_assets"]
+        self.assertEqual(wa["image"], f"grdm-dev/wiki-frontend:{osf12}-{wiki12}")
+        self.assertEqual(wa["restart"], "no")  # one-shot: runs to completion
+        self.assertEqual(wa["command"][:2], ["sh", "-c"])
+        self.assertIn("cp -R", wa["command"][2])  # no ownership preservation (cp -a as uid 1000 would fail on root-owned metadata)
+        self.assertNotIn("cp -a", wa["command"][2])
+        self.assertIn("/code/website/static/public/js", wa["command"][2])  # webpack output.path of the wiki-frontend config
+        self.assertIn("webpack-assets.json", wa["command"][2])
+        self.assertIn("wiki-edit-page.js", wa["command"][2])  # unhashed alias next to wiki-edit-page.<chunkhash>.js
+        self.assertIn("exit 1", wa["command"][2])  # a missing bundle is a failure, not an empty success
+        self.assertNotIn("-delete", wa["command"][2])  # copy first, prune after: never an empty directory for running consumers
+        # R1-01: the shell variables reach the container shell; Compose must not interpolate them
+        self.assertIn("$$src", wa["command"][2])
+        self.assertIn("$$dst", wa["command"][2])
+        self.assertNotRegex(wa["command"][2], r"(?<!\$)\$(?!\$)")  # every `$` is doubled
+        self.assertEqual(wa["depends_on"], {"wiki_static_init": {"condition": "service_completed_successfully"}})
+        self.assertEqual(wa["volumes"], ["wiki_static:/wiki_static"])
+        # R1-02: a fresh bind volume is host-owned; the init one-shot chowns it with CAP_CHOWN only, then exits
+        init = doc["services"]["wiki_static_init"]
+        self.assertEqual(init["image"], wa["image"])
+        self.assertEqual(init["restart"], "no")
+        self.assertNotIn("user", init)  # runs as root under a documented hardening exception
+        self.assertEqual(init["cap_drop"], ["ALL"])
+        self.assertEqual(init["cap_add"], ["CHOWN"])
+        self.assertIs(init["read_only"], True)
+        self.assertIn("no-new-privileges:true", init["security_opt"])
+        self.assertIn("chown 1000:1000 /wiki_static", init["command"][2])
+        # R2-01/R3: the container never chmods (CAP_CHOWN only cannot chmod a dir owned by another uid);
+        # the host-side volume directory mode is set by compose render instead.
+        cmd = init["command"][2]
+        self.assertNotIn("chmod", cmd)
+        self.assertIn("chown 1000:1000 /wiki_static", cmd)
+        vol_dir = root / "runtime" / "volumes" / "wiki_static"
+        if vol_dir.exists():
+            self.assertEqual(oct(vol_dir.stat().st_mode & 0o777), "0o755")
+        self.assertEqual(init["volumes"], ["wiki_static:/wiki_static"])
+        self.assertEqual(init["labels"]["org.gakunin-rdm.hardening-exception"], "cap_add,user")
+        self.assertNotIn("depends_on", init)
+        self.assertEqual(wa["user"], "1000:1000")  # baseline controls apply to the one-shot like any service
+        self.assertEqual(wa["cap_drop"], ["ALL"])
+        self.assertIs(wa["read_only"], True)
+        self.assertIn("no-new-privileges:true", wa["security_opt"])
+        self.assertNotIn("ports", wa)
+        self.assertEqual(wa["networks"], ["grdm"])
+        self.assertEqual(wa["labels"]["org.gakunin-rdm.component"], "wiki-frontend")
+        for name in ("web", "api", "admin", "worker"):
+            svc = doc["services"][name]
+            self.assertEqual(svc["image"], f"grdm-dev/osf.io:{osf12}", name)  # the base keeps its own image
+            self.assertIn("wiki_static:/code/website/static/public/js/wiki:ro", svc["volumes"], name)
+            self.assertIsInstance(svc["depends_on"], dict, name)  # Compose long form because of the condition
+            self.assertEqual(svc["depends_on"]["wiki_assets"], {"condition": "service_completed_successfully"}, name)
+            self.assertEqual(svc["depends_on"]["postgres"], {"condition": "service_started"}, name)
+        self.assertIn("wiki_static", doc["volumes"])
+        self.assertTrue((root / "runtime" / "volumes" / "wiki_static").is_dir())
+        rows = {r["service"]: r for r in json.loads(out)["services"]}
+        self.assertEqual(rows["wiki_assets"]["origin"], "overlay")
+        self.assertEqual(rows["web"]["origin"], "built")
+        # the build report's image_tag (what `grdm-dev build` actually tagged) wins over the manifest-derived tag
+        reports = root / "runtime" / "reports"
+        reports.mkdir(parents=True, exist_ok=True)
+        (reports / "build_latest.json").write_text(json.dumps({"components": [
+            {"component": "osf.io", "sha12": "feedfacecafe", "image_tag": "feedfacecafe", "status": "built"},
+            {"component": "wiki-frontend", "sha12": "0123456789ab", "image_tag": "feedfacecafe-0123456789ab", "status": "built",
+             "overlay_of": "osf.io", "base_sha12": "feedfacecafe"},
+        ]}), encoding="utf-8")
+        rc, _, _, _ = render(root)
+        self.assertEqual(rc, 0)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertEqual(doc["services"]["wiki_assets"]["image"], "grdm-dev/wiki-frontend:feedfacecafe-0123456789ab")
+        self.assertEqual(doc["services"]["web"]["image"], "grdm-dev/osf.io:feedfacecafe")
+
+    def test_rendered_file_survives_compose_interpolation_with_the_full_env(self):
+        """PR #30 review r1 R1-01: Compose interpolates `$VAR`/`${VAR}` in every string before the container shell runs.
+        A minimal re-implementation of that pass over the rendered JSON (with every key `secrets init` writes) must
+        resolve every reference and leave the one-shot's shell variables intact."""
+        from grdm_dev import secrets as _secrets
+        env = {k: "x" * 48 for k in _secrets.SECRET_KEYS}
+        root = make_root("".join(f"{k}={v}\n" for k, v in env.items()))
+        rc, _, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        unresolved: list[str] = []
+
+        def interpolate(text: str, where: str) -> str:
+            # `$$` -> `$`; `${NAME}`, `${NAME:-default}` (default may nest), `$NAME`; anything else is an error
+            out, i = [], 0
+            while i < len(text):
+                c = text[i]
+                if c != "$":
+                    out.append(c); i += 1; continue
+                if text.startswith("$$", i):
+                    out.append("$"); i += 2; continue
+                if text.startswith("${", i):
+                    depth, j = 0, i
+                    while j < len(text):
+                        if text[j] == "{": depth += 1
+                        elif text[j] == "}":
+                            depth -= 1
+                            if depth == 0: break
+                        j += 1
+                    body = text[i + 2:j]
+                    name, sep, default = re.match(r"([A-Za-z_][A-Za-z0-9_]*)(:?[-?+])?(.*)", body, re.S).groups()
+                    if name in env and env[name]:
+                        out.append(env[name])
+                    elif sep in (":-", "-"):
+                        out.append(interpolate(default, where))
+                    else:
+                        unresolved.append(f"{where}: ${{{name}}}")
+                    i = j + 1; continue
+                m = re.match(r"\$([A-Za-z_][A-Za-z0-9_]*)", text[i:])
+                if m:
+                    name = m.group(1)
+                    if name in env: out.append(env[name])
+                    else: unresolved.append(f"{where}: ${name}")
+                    i += m.end(); continue
+                unresolved.append(f"{where}: bare $"); out.append(c); i += 1
+            return "".join(out)
+
+        def walk(node, where):
+            if isinstance(node, str):
+                return interpolate(node, where)
+            if isinstance(node, list):
+                return [walk(v, f"{where}[{i}]") for i, v in enumerate(node)]
+            if isinstance(node, dict):
+                return {k: walk(v, f"{where}.{k}") for k, v in node.items()}
+            return node
+
+        resolved = walk(doc, "$")
+        self.assertEqual(unresolved, [])  # review r1 reproduced `ls "" >/dev/null; find "" ...` from $src/$dst/$f
+        cmd = resolved["services"]["wiki_assets"]["command"][2]
+        self.assertIn("src=/code/website/static/public/js", cmd)
+        self.assertIn('cp -R "$src"/. "$dst"/', cmd)
+        self.assertIn('"$dst"/wiki-edit-page.js', cmd)
+        self.assertNotIn('""', cmd)
+        self.assertEqual(resolved["services"]["web"]["environment"]["SECRET_KEY"], env["DJANGO_SECRET_KEY"])
+        self.assertEqual(resolved["services"]["wb"]["environment"]["SERVER_CONFIG_HMAC_SECRET"], env["WATERBUTLER_HMAC_SECRET"])
+
+    @unittest.skipUnless(shutil.which("docker"), "docker CLI not installed")
+    def test_docker_compose_config_accepts_the_rendered_file(self):
+        """Read-only: `docker compose config` parses and interpolates the rendered file without touching the daemon's state."""
+        import subprocess
+        from grdm_dev import secrets as _secrets
+        root = make_root("".join(f"{k}={'x' * 48}\n" for k in _secrets.SECRET_KEYS))  # every key secrets init writes
+        rc, _, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        try:
+            proc = subprocess.run(["docker", "compose", "-f", str(root / "runtime" / "docker-compose.yml"), "--project-directory",
+                                   str(root / "runtime"), "config", "--format", "json"],
+                                  capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired) as exc:  # pragma: no cover - environment dependent
+            self.skipTest(f"docker compose config unavailable: {exc}")
+        if proc.returncode != 0 and "compose" in proc.stderr and "is not a docker command" in proc.stderr:  # pragma: no cover
+            self.skipTest("docker compose plugin missing")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("variable is not set", proc.stderr)  # the warning review r1 reproduced for $src/$dst/$f
+        parsed = json.loads(proc.stdout)
+        cmd = parsed["services"]["wiki_assets"]["command"]
+        self.assertIn('cp -R "$$src"/. "$$dst"/', cmd[2])  # `config` prints a round-trippable file, so `$$` stays escaped
+        self.assertNotIn('""', cmd[2])  # review r1 saw `ls "" >/dev/null; find "" ...` here
+        self.assertEqual(parsed["services"]["web"]["depends_on"]["wiki_assets"]["condition"], "service_completed_successfully")
+        self.assertEqual(parsed["services"]["wiki_static_init"]["cap_add"], ["CHOWN"])
+
+    def test_minimum_profile_keeps_the_short_depends_on_form_without_wiki_assets(self):
+        root = make_root()
+        rc, _, err, _ = render(root, profile="minimum")
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertNotIn("wiki_assets", doc["services"])
+        self.assertNotIn("wiki_static_init", doc["services"])
+        self.assertEqual(doc["services"]["web"]["depends_on"], ["postgres", "rabbitmq", "elasticsearch"])  # list form, dropped dependency
+
+    def test_escape_compose_dollar(self):
+        self.assertEqual(compose.escape_compose_dollar('ls "$src"; echo ${X} $$'), 'ls "$$src"; echo $${X} $$$$')
+        self.assertEqual(compose.escape_compose_dollar("plain"), "plain")
+
+    def test_render_depends_on_forms(self):
+        self.assertEqual(compose.render_depends_on(["a", "b"], {"a", "b"}), ["a", "b"])
+        self.assertEqual(compose.render_depends_on(["a", {"service": "c", "condition": "service_completed_successfully"}], {"a"}), ["a"])
+        self.assertEqual(compose.render_depends_on(["a", {"service": "c", "condition": "service_completed_successfully"}], {"a", "c"}),
+                         {"a": {"condition": "service_started"}, "c": {"condition": "service_completed_successfully"}})
+        self.assertEqual(compose.render_depends_on([], {"a"}), [])
+
     def test_hardening_file_is_well_formed(self):
         data = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))
         self.assertEqual(data["schema_version"], 1)
@@ -714,3 +910,31 @@ class ComposeRenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VolumeDirOwnershipTests(unittest.TestCase):
+    """PR #30 r4: re-rendering after an init container chowned the bind directory must not fail."""
+
+    def test_existing_volume_dir_is_left_alone_even_if_chmod_would_be_denied(self):
+        import tempfile
+        from unittest import mock
+        from grdm_dev import compose
+
+        with tempfile.TemporaryDirectory() as td:
+            vol = pathlib.Path(td) / "wiki_static"
+            vol.mkdir()
+            os.chmod(vol, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture simulating a mode set by another uid after chown
+            with mock.patch("grdm_dev.compose.os.chmod", side_effect=PermissionError("Operation not permitted")) as chmod:
+                compose._ensure_volume_dir(vol)  # existing: must not even try
+                chmod.assert_not_called()
+            self.assertEqual(oct(vol.stat().st_mode & 0o777), "0o700")
+
+    def test_fresh_volume_dir_gets_0755(self):
+        import tempfile
+        from grdm_dev import compose
+
+        with tempfile.TemporaryDirectory() as td:
+            vol = pathlib.Path(td) / "wiki_static"
+            compose._ensure_volume_dir(vol)
+            self.assertTrue(vol.is_dir())
+            self.assertEqual(oct(vol.stat().st_mode & 0o777), "0o755")

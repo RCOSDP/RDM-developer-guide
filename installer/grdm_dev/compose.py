@@ -31,8 +31,13 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
-  (sha12 from the build report when present), `base_image[@digest]` for infra, and the
-  `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
+  (sha12 from the build report when present), `grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>` for
+  an overlay component (SPEC-01 §3 `overlay_of`, ADR-06: `wiki_assets` runs the wiki-frontend bundle
+  builder once, copies `/code/website/static/public/js/` into the named volume `wiki_static` and
+  exits — `restart: "no"`; web/api/admin/worker mount that volume read-only at
+  `/code/website/static/public/js/wiki/` and depend on it with `condition:
+  service_completed_successfully`; the report row says `origin: overlay`), `base_image[@digest]` for infra, and
+  the `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
   ember-osf-web until M4). A prebuilt service gets `platform:` from `build_platform` like any
   other, and the report row says `origin: prebuilt`; `scan` sees it as one more compose image;
 * named volumes are local bind volumes under runtime/volumes/<name>;
@@ -41,8 +46,13 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
 
 Template schema (templates/<service>.json): service, component, profile?, container_port?,
 host_port?, expose?, command?, environment?, env_files?, volumes? ([{volume|config|config_dir,
-target, ro?}]), tmpfs?, user?, depends_on?, weight, mem_min_mb, pids_limit, note?. Strings may use
-`{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`.
+target, ro?}]), tmpfs?, user?, depends_on? (service names, or {service, condition} for the Compose
+long form, e.g. `service_completed_successfully` on a one-shot), restart?, one_shot? (a container
+that runs to completion: rendered with `restart: "no"`, and `health` accepts `exited` with code 0),
+weight, mem_min_mb, pids_limit, note?. Strings may use
+`{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`. `command` strings are written for the
+container shell: every `$` in them is escaped to `$$` on output, so Compose does not interpolate
+them; `environment` values are the only place where `${KEY}` means a value from runtime/.env.
 
 Upstream settings are rewritten under runtime/config/ (ADR-02 §3.3): osf/local.py, osf/api_local.py,
 osf.env, wb.env, mfr.env, sharejs.env, postgres-init/10-cas.sql, cas/cas.properties. Internal URLs use
@@ -90,19 +100,12 @@ PORT_SEARCH_RANGE = 100
 FORBIDDEN_ADDRESS = "192.168.168.167"  # the old loopback alias; must never appear (ADR-02)
 
 # Keys that compose output references; all are written by `grdm-dev secrets init` (secrets.py).
-REQUIRED_SECRETS: tuple[str, ...] = (
-    "POSTGRES_PASSWORD",
-    "DJANGO_SECRET_KEY",
-    "API_SECRET_KEY",
-    "SESSION_COOKIE_SECRET",
-    "RABBITMQ_DEFAULT_PASS",
-    "WATERBUTLER_JWE_SECRET",
-    "WATERBUTLER_JWE_SALT",
-    "WATERBUTLER_JWT_SECRET",
-    "MFR_SERVER_SECRET",
-    "SHAREJS_SECRET",
-    "Y_WEBSOCKET_JWT_SECRET",
-)
+# Every secret that `secrets init` generates must be present before rendering, so the generated
+# Compose file never references an unset variable (Compose would warn and substitute "").
+# The list is the single source of truth in secrets.py; we copy it to avoid drift (REV r1 of PR #30).
+from .secrets import SECRET_KEYS as _SECRET_KEYS  # noqa: E402
+
+REQUIRED_SECRETS: tuple[str, ...] = tuple(_SECRET_KEYS)
 
 PortChecker = Callable[[int], bool]
 
@@ -314,6 +317,32 @@ def _mount(entry: dict[str, Any]) -> str:
     raise ValueError(f"unknown volume entry {entry!r}")
 
 
+def escape_compose_dollar(text: str) -> str:
+    """`$` -> `$$` so Compose leaves the string for the container shell (a template never means host interpolation in a command)."""
+    return text.replace("$", "$$")
+
+
+def render_depends_on(entries: list[Any], in_profile: set[str]) -> list[str] | dict[str, dict[str, str]]:
+    """Template `depends_on`: strings, or `{service, condition}` objects (Compose long form).
+
+    Services outside the profile are dropped. The short list form is kept when no remaining entry
+    carries a condition, so existing files do not change; otherwise every entry is written in the
+    long form (`condition: service_started` for plain names)."""
+    kept: list[tuple[str, str | None]] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            name, cond = str(entry.get("service", "")), entry.get("condition")
+        else:
+            name, cond = str(entry), None
+        if name in in_profile:
+            kept.append((name, cond))
+    if not kept:
+        return []
+    if all(cond is None for _, cond in kept):
+        return [name for name, _ in kept]
+    return {name: {"condition": cond or "service_started"} for name, cond in kept}
+
+
 def render_service(
     svc: _manifest.Service,
     *,
@@ -336,7 +365,10 @@ def render_service(
     if plat and plat != "unknown":
         out["platform"] = plat
     if "command" in tpl:
-        out["command"] = tpl["command"]
+        # Compose interpolates `$VAR`/`${VAR}` in every string of the file before the container's shell
+        # sees it (review PR #30 R1-01: `$src` became ""). Commands are written for the container shell,
+        # so every `$` is escaped to `$$`; only `environment` values keep Compose interpolation (`${KEY}`).
+        out["command"] = [escape_compose_dollar(c) for c in tpl["command"]]
     if "user" not in relaxed:
         out["user"] = tpl.get("user", "1000:1000")
     out["read_only"] = "read_only" not in relaxed
@@ -359,13 +391,13 @@ def render_service(
         expose.insert(0, str(tpl["container_port"]))
     if expose:
         out["expose"] = expose
-    deps = [d for d in tpl.get("depends_on", []) if d in in_profile]
+    deps = render_depends_on(tpl.get("depends_on", []), in_profile)
     if deps:
         out["depends_on"] = deps
     # grdm (internal) for every service; grdm-edge only where a port is published or egress was granted.
     on_edge = svc.name in published or svc.name in egress
     out["networks"] = [NETWORK, EDGE_NETWORK] if on_edge else [NETWORK]
-    out["restart"] = tpl.get("restart", "unless-stopped")
+    out["restart"] = "no" if tpl.get("one_shot") else tpl.get("restart", "unless-stopped")
     out["init"] = True
     out.update(resources)
     out["labels"] = {
@@ -694,7 +726,8 @@ def update_dotenv(path: Path, updates: dict[str, str]) -> bool:
 
 
 def built_image_tags(ctx: Context) -> dict[str, str]:
-    """component id -> sha12 from the latest build report, when one exists."""
+    """component id -> image tag from the latest build report, when one exists: the row's
+    `image_tag` (`<base_sha12>-<overlay_sha12>` for an overlay component) or its sha12."""
     path = ctx.reports_dir / "build_latest.json"
     if not path.exists():
         return {}
@@ -703,7 +736,7 @@ def built_image_tags(ctx: Context) -> dict[str, str]:
     except (OSError, ValueError):
         return {}
     return {
-        row["component"]: row["sha12"]
+        row["component"]: row.get("image_tag") or row["sha12"]
         for row in data.get("components", [])
         if row.get("sha12") and row.get("status") in ("built", "pushed")
     }
@@ -723,6 +756,23 @@ def detect_memory_gib() -> float | None:
 
 # --------------------------------------------------------------------------- entry point
 
+
+
+def _ensure_volume_dir(vol_dir: Path) -> None:
+    """Create a host-side bind volume directory with mode 0755 the first time only.
+
+    Containers only ever chown the directory (CAP_CHOWN works for any owner); the mode is set here
+    while the host user still owns the fresh directory. After an init container has handed the
+    directory to another uid (e.g. 1000 on a Linux host whose user is not 1000), the host user can
+    no longer chmod it, so an existing directory is left untouched (PR #30 reviews r3/r4).
+    """
+    if vol_dir.exists():
+        return
+    vol_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(vol_dir, 0o755)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- world-readable directory for a bind volume; no secrets live here
+    except PermissionError:
+        pass  # created by someone else between exists() and here; leave the owner's mode alone
 
 def run(
     ctx: Context,
@@ -823,7 +873,7 @@ def run(
         if _write_if_changed(ctx.runtime / CONFIG_DIR / rel, text):
             written.append(f"{CONFIG_DIR}/{rel}")
     for name in compose["volumes"]:
-        (ctx.runtime / VOLUMES_DIR / name).mkdir(parents=True, exist_ok=True)
+        _ensure_volume_dir(ctx.runtime / VOLUMES_DIR / name)
     env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress)}
     env_updates.update({port_key(name): str(port) for name, port in published.items()})
     if update_dotenv(dotenv, env_updates):

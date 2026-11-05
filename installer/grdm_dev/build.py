@@ -34,18 +34,39 @@ pull is exit 30 like a failed build. The manifest checker only admits the field 
 (why, and until which milestone); ember-osf-web uses it because its Dockerfile's base image is a
 schema-1 manifest that current Docker refuses, until M4 modernizes the Dockerfile.
 
+Overlay (SPEC-01 §3 `overlay_of`, ADR-06): a component whose manifest entry names a base component
+(wiki-frontend → osf.io) cannot be built from its own checkout. Real install run 4 on Mac Studio
+showed why: the wiki-frontend Dockerfile is a derivative of osf.io's and COPYs `./addons/*`,
+`./admin/...`, `./website/...` that only the osf.io tree contains, so the build fails with "not
+found" on the first such COPY. So the base checkout is synced too (once per run), and
+`runtime/src/_overlay/<overlay id>/` is recreated as a copy of the base checkout (without `.git`)
+with the overlay's files copied over it (without `.git`; the overlay's version wins), and
+`docker buildx build` runs with that directory as context and `-f <context>/Dockerfile` (the
+overlay's Dockerfile, which the copy placed there). The image belongs to the OVERLAY component and
+is tagged with both commits:
+
+    grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>    (local; `--push`: ghcr.io/rcosdp/<overlay>:<same>)
+
+It is a bundle-builder image (the wiki-frontend Dockerfile skips Python and collectstatic and only
+runs `yarn run webpack-prod`), run by a one-shot Compose service (`wiki_assets`) that copies
+`/code/website/static/public/js/` into the named volume `wiki_static`. The base component is built
+normally with its own Dockerfile and tag. The overlay's build report row carries `overlay_of`,
+`base_repo`, `base_sha12` and `image_tag` (the combined tag), which `compose render` reads.
+
 Runner: `runner(argv) -> (returncode, stdout)`; the default streams the child's output lines to
 stderr while collecting them, so a long build stays visible. Tests inject a fake.
 """
 from __future__ import annotations
 
 import platform as _platform
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from . import exit_codes, report
 from .context import Context
+from .manifest import overlay_tag
 
 GITHUB_ORG = "RCOSDP"
 REGISTRY = "ghcr.io/rcosdp"
@@ -111,6 +132,28 @@ def buildable_components(components: list[dict], profile: str, only: str | None 
     return out
 
 
+def overlay_context_dir(runtime: Path, overlay_id: str) -> Path:
+    return runtime / "src" / "_overlay" / overlay_id
+
+
+def _ignore_git(_dir: str, names: list[str]) -> set[str]:
+    return {n for n in names if n == ".git"}
+
+
+def assemble_overlay_context(target: Path, base_dir: Path, overlay_dir: Path) -> Path:
+    """Recreate `target` as a copy of the base checkout with the overlay checkout copied over it.
+
+    `.git` of either checkout is left out. The directory is removed first so a file deleted from
+    the overlay since the last run does not survive; a path the overlay also provides (Dockerfile,
+    package.json, webpack configs, addons/wiki/static) is the overlay's version."""
+    if target.exists():
+        shutil.rmtree(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(base_dir, target, symlinks=True, ignore=_ignore_git)
+    shutil.copytree(overlay_dir, target, symlinks=True, ignore=_ignore_git, dirs_exist_ok=True)
+    return target
+
+
 def image_name(component_id: str) -> str:
     return component_id.lower()
 
@@ -143,14 +186,23 @@ def registry_tag(component_id: str, sha12: str) -> str:
     return f"{REGISTRY}/{image_name(component_id)}:{sha12}"
 
 
-def buildx_argv(component_id: str, context_dir: Path, sha12: str, platforms: list[str], push: bool) -> list[str]:
-    """`--push` carries only the fully qualified GHCR tag; `--load` carries only the local tag."""
+def buildx_argv(component_id: str, context_dir: Path, sha12: str, platforms: list[str], push: bool,
+                overlay: tuple[str, str] | None = None, dockerfile: Path | None = None) -> list[str]:
+    """`--push` carries only the fully qualified GHCR tag; `--load` carries only the local tag.
+
+    `sha12` is the tag (for an overlay component: `<base_sha12>-<overlay_sha12>`); `overlay` is
+    `(base component id, base sha12)` and adds two labels; `dockerfile` adds `-f` (the overlay's
+    Dockerfile inside the assembled context)."""
     argv = ["docker", "buildx", "build", "--platform", ",".join(platforms)]
     if push:
         argv += ["--push", "-t", registry_tag(component_id, sha12)]
     else:
         argv += ["--load", "-t", local_tag(component_id, sha12)]
     argv += ["--label", f"org.gakunin-rdm.component={component_id}", "--label", f"org.gakunin-rdm.sha={sha12}"]
+    if overlay:
+        argv += ["--label", f"org.gakunin-rdm.overlay-of={overlay[0]}", "--label", f"org.gakunin-rdm.base-sha={overlay[1]}"]
+    if dockerfile is not None:
+        argv += ["-f", str(dockerfile)]
     argv.append(str(context_dir))
     return argv
 
@@ -200,6 +252,17 @@ def run(ctx: Context, args, runner=None) -> int:
     selected = buildable_components(components, profile, only)
     if only is not None and not selected:
         return report.error(ctx, exit_codes.USAGE, f"unknown or non-buildable component: {only}")
+    by_id = {c["id"]: c for c in components}
+    synced: dict[str, str] = {}  # integration repo -> resolved sha (a base is synced once per run)
+
+    def sync(c) -> tuple[int, str]:
+        r = c["integration_repo"]
+        if r in synced:
+            return 0, synced[r]
+        rc_, sha_, _log = sync_source(r, ctx.runtime / "src" / r, pinned_ref(c), runner)
+        if rc_ == 0 and sha_:
+            synced[r] = sha_
+        return rc_, sha_
 
     rows: list[dict] = []
     failed: str | None = None
@@ -232,18 +295,47 @@ def run(ctx: Context, args, runner=None) -> int:
                 failed, detail = cid, "docker pull of prebuilt_image failed for " + "; ".join(bad)
                 break
             continue
-        rc, sha, log = sync_source(repo, dest, pinned_ref(comp), runner)
+        rc, sha = sync(comp)
         if rc != 0 or not sha:
             rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms), "status": "source-failed"})
             failed, detail = cid, f"could not fetch {repo} at {pinned_ref(comp)}"
             break
         sha12 = sha[:12]
-        rc, out = runner(buildx_argv(cid, dest, sha12, platforms, push))
+        tag = sha12
+        context_dir = dest
+        dockerfile = None
+        overlay_arg = None
+        extra: dict = {}
+        base_id = comp.get("overlay_of")
+        if base_id:
+            base = by_id[base_id]  # MC-14 guarantees it exists and is buildable
+            brepo = base["integration_repo"]
+            bdest = ctx.runtime / "src" / brepo
+            sys.stderr.write(f"[grdm-dev] build: {cid} is an overlay of {base_id}: context = {brepo} + {repo} files, Dockerfile of {repo} (SPEC-01 overlay_of)\n")
+            brc, bsha = sync(base)
+            if brc != 0 or not bsha:
+                rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": "source-failed",
+                             "overlay_of": base_id, "base_repo": brepo, "base_sha12": ""})
+                failed, detail = cid, f"could not fetch {brepo} at {pinned_ref(base)} (base of overlay {cid})"
+                break
+            bsha12 = bsha[:12]
+            tag = overlay_tag(bsha12, sha12)
+            try:
+                context_dir = assemble_overlay_context(overlay_context_dir(ctx.runtime, cid), bdest, dest)
+            except OSError as exc:
+                rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": "source-failed",
+                             "overlay_of": base_id, "base_repo": brepo, "base_sha12": bsha12})
+                failed, detail = cid, f"could not assemble the overlay context from {brepo} + {repo}: {exc}"
+                break
+            dockerfile = context_dir / "Dockerfile"
+            overlay_arg = (base_id, bsha12)
+            extra = {"overlay_of": base_id, "base_repo": brepo, "base_sha12": bsha12, "context": str(context_dir)}
+        rc, out = runner(buildx_argv(cid, context_dir, tag, platforms, push, overlay=overlay_arg, dockerfile=dockerfile))
         status = "pushed" if (rc == 0 and push) else "built" if rc == 0 else "build-failed"
-        rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": status,
-                     "image": registry_tag(cid, sha12) if push else local_tag(cid, sha12)})
+        rows.append({"component": cid, "repo": repo, "sha12": sha12, "image_tag": tag, "platforms": ",".join(platforms), "status": status,
+                     "image": registry_tag(cid, tag) if push else local_tag(cid, tag), **extra})
         if rc != 0:
-            failed, detail = cid, f"docker buildx build exited {rc}"
+            failed, detail = cid, f"docker buildx build exited {rc}" + (f" (overlay of {base_id})" if base_id else "")
             break
 
     data = {"profile": profile, "platform_override": override or "(per component)", "push": push, "components": rows, "failed": failed}

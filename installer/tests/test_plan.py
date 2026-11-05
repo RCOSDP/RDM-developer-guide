@@ -52,7 +52,9 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(ports[name]["source"], "default")
         services = {r["service"]: r for r in data["services"]}
         self.assertIn("y_websocket", services)
+        self.assertNotIn("wiki", services)  # no wiki server: the editor bundle comes from the one-shot wiki_assets (ADR-06)
         self.assertTrue(services["web"]["build_from"].startswith("RDM-osf.io-dev2027@"))
+        self.assertTrue(services["wb"]["build_from"].startswith("RDM-waterbutler-dev2027@"))
         self.assertEqual(services["postgres"]["build_from"], "pinned image")
         self.assertTrue(any(i.startswith("grdm-dev/waterbutler:") for i in data["images_to_build"]))
         self.assertIn("postgres_data", data["volumes"])
@@ -108,6 +110,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(ember["build_from"], "prebuilt " + ember["image"])
         self.assertEqual(ember["origin"], "prebuilt")
         self.assertEqual(services["web"]["origin"], "built")
+        self.assertEqual(services["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(services["postgres"]["origin"], "pinned")
         self.assertIn(ember["image"], data["prebuilt_images"])  # other components (e.g. cas-overlay) may be prebuilt too
         self.assertFalse(any("ember-osf-web" in i for i in data["images_to_build"]))
@@ -124,6 +127,31 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
         self.assertTrue(ember["build_from"].startswith("RDM-ember-osf-web-dev2027@"))
         self.assertFalse(any("ember-osf-web" in i for i in data["prebuilt_images"]))  # ember is built again; others may stay prebuilt
+
+    def test_overlay_service_shows_both_commits_and_its_own_image(self):
+        """SPEC-01 §3 overlay_of (ADR-06): wiki_assets runs grdm-dev/wiki-frontend:<osf12>-<wiki12>; osf.io keeps its tag."""
+        rc, out, _ = run_plan(make_root())
+        self.assertEqual(rc, exit_codes.OK)
+        data = json.loads(out)
+        manifest_data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        comps = {c["id"]: c for c in manifest_data["components"]}
+        osf12, wiki12 = comps["osf.io"]["integration_sha"][:12], comps["wiki-frontend"]["integration_sha"][:12]
+        services = {r["service"]: r for r in data["services"]}
+        wiki = services["wiki_assets"]
+        self.assertEqual(wiki["component"], "wiki-frontend")
+        self.assertEqual(wiki["image"], f"grdm-dev/wiki-frontend:{osf12}-{wiki12}")
+        self.assertEqual(wiki["origin"], "overlay")
+        self.assertEqual(wiki["build_from"], f"RDM-wiki-frontend-dev2027@{wiki12} over RDM-osf.io-dev2027@{osf12} (overlay of osf.io)")
+        self.assertEqual(wiki["profile"], "core")
+        for name in ("web", "api", "admin", "worker"):
+            self.assertEqual(services[name]["image"], f"grdm-dev/osf.io:{osf12}", name)
+            self.assertEqual(services[name]["origin"], "built", name)
+        self.assertIn(f"grdm-dev/wiki-frontend:{osf12}-{wiki12}", data["images_to_build"])
+        self.assertIn(f"grdm-dev/osf.io:{osf12}", data["images_to_build"])
+        self.assertIn("wiki_static", data["volumes"])
+        self.assertNotIn("wiki_assets", {r["service"] for r in data["ports"]})  # internal, no port
+        rc, out, _ = run_plan(make_root(), profile="minimum")
+        self.assertNotIn("wiki_assets", {r["service"] for r in json.loads(out)["services"]})
 
     def test_read_dotenv_and_resolve_profile(self):
         root = make_root("# comment\nGRDM_PROFILE='full'\nX=\"1\"\n\nbad line\n")
