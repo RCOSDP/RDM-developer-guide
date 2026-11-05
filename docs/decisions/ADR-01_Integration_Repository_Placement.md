@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
+- Version / 版: 0.4 — 2026-11-05. **Learned:** a strict public-first reconstruction needs the public upstream recorded in the manifest; Shibboleth-SP had a public upstream that was mirrored but not recorded (review SR-02). ／ 公開が先の厳密再構築には、公開上流が manifest に記録されている必要がある。Shibboleth-SP はミラーされていたのに記録がなかった（レビュー SR-02）。
+  0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
   0.2 — 2026-11-05. **Learned:** the first construction of a `-dev2027` repository cannot literally replay "public → private → adopted PRs", so the rule needs a stated bootstrap interpretation; it is proposed in §5 and awaits the owner. ／ `-dev2027` の初回構築では「公開 → private → 採用 PR」を文字どおり再現できないため、初回構築の解釈を明文化する必要があると分かった。§5 に提案し所有者の承認を待つ。
   0.1 — 2026-11-05. **Learned:** GitHub refuses a fork inside the same organization, so "fork and integrate" had to become "new repository with history pushed", and that in turn made the no-force-push and no-delete rules the only way to keep the pushed history trustworthy. ／ GitHub は同じ組織内へのフォークを許さないため「フォークして統合」は「履歴を push した新規リポジトリ」になり、その結果 force push 禁止と削除禁止が、push した履歴を信じられるものに保つ唯一の手段だと分かった。
 - Status: Accepted by the owner, 2026-11-05 (plan-interview).
@@ -27,7 +28,7 @@ We must combine, without contradiction, three groups of code kept in GitHub *rep
 
 - six public cores: `RDM-osf.io`, `RDM-waterbutler`, `RDM-modular-file-renderer`, `RDM-ember-osf-web`, `RDM-cas-overlay`, `RDM-wiki-frontend`;
 - six `-private` security-verified versions, each of which already contains the history of its public core (so it is a superset, not a rival);
-- five private subsystems: y-websocket, OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm.
+- five private subsystems: y-websocket, OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm. Two of them also have a public upstream that the manifest records and the integration repository tracks as `upstream/public-<branch>`: y-websocket (RDM-y-websocket, `master`) and Shibboleth-SP (RDM-Shibboleth-SP, `main`). OASys, rdmcp and aipf_mcp_data_grdm are private-only, so their first construction starts from the `-private` tip (review SR-02, 2026-11-05).
 
 Three constraints shaped the choice:
 
@@ -117,7 +118,7 @@ GitHub の「リポジトリ」（変更を全部覚えているフォルダ）�
 
 - 公開コア 6 本: `RDM-osf.io`、`RDM-waterbutler`、`RDM-modular-file-renderer`、`RDM-ember-osf-web`、`RDM-cas-overlay`、`RDM-wiki-frontend`。
 - `-private` のセキュリティ検証版 6 本。いずれも対応する公開コアの履歴を含んでいる（つまり対立ではなく上位互換）。
-- 非公開サブシステム 5 本: y-websocket、OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。
+- 非公開サブシステム 5 本: y-websocket、OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。このうち 2 本には公開の上流もあり、manifest に記録して統合リポジトリで `upstream/public-<branch>` として追跡する: y-websocket（RDM-y-websocket、`master`）と Shibboleth-SP（RDM-Shibboleth-SP、`main`）。OASys、rdmcp、aipf_mcp_data_grdm は private のみで、初回構築は `-private` の先端から始める（レビュー SR-02、2026-11-05）。
 
 選択を決めた制約は三つです。
 
