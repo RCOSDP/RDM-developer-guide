@@ -35,7 +35,7 @@
 | docs skeleton (READMEs for all folders) | ✅ Written |
 | manifest/upstreams.json | ✅ Created |
 | dev2027 integration repos (11) | ✅ Created |
-| dev2027 strict reconstruction PRs (8 repos, ADR-01 §5; osf.io #1 closed as superseded by #2) | 🔄 Open, Codex Astra review in progress |
+| dev2027 strict reconstruction PRs (7 merged 2026-11-06; wiki-frontend had identical tips, no PR) | ✅ Merged; `integration_sha` pinned in the manifest |
 | MkDocs site build (`site/`, strict build passes) | ✅ Built |
 | Guides migration to `docs/guides/` (pointers kept at old paths) | ✅ Done |
 | Codex Astra review of RDM-osf.io-dev2027 PR #1 | 🔄 r1/r2 done: request changes. R1 fixed; R2 awaits the owner's decision on ADR-01 §5; R3 is the owner's call |
@@ -76,7 +76,7 @@ This board is the **single source of truth** for milestone progress:
 | docs の骨格（全フォルダの README） | ✅ 作成済み |
 | manifest/upstreams.json | ✅ 作成 |
 | dev2027 統合リポジトリ（11） | ✅ 作成 |
-| dev2027 の厳密再構築 PR（8 リポジトリ、ADR-01 §5。osf.io #1 は #2 に置き換えて閉鎖） | 🔄 作成済み、Codex Astra レビュー中 |
+| dev2027 の厳密再構築 PR（7 本を 2026-11-06 にマージ。wiki-frontend は先端同一で PR なし） | ✅ マージ済み。manifest に `integration_sha` を固定 |
 | MkDocs サイトのビルド（`site/`、strict ビルド合格） | ✅ 生成済み |
 | ガイドの `docs/guides/` への移植（旧パスに誘導を残す） | ✅ 完了 |
 | Codex Astra による RDM-osf.io-dev2027 PR #1 のレビュー | 🔄 r1/r2 完了: request changes。R1 修正済み、R2 は ADR-01 §5 の所有者判断待ち、R3 は所有者判断 |
