@@ -1,0 +1,282 @@
+# SPEC-01 Upstream Manifest / 上流マニフェスト
+
+> **Summary:** The manifest is the single source of truth for what the installer builds: every component, its upstream repositories pinned to exact commits, the pull requests we adopt, the base and target images, and the profiles and platforms. This page defines its schema, its rules, and the checks that `grdm-dev manifest check` runs.
+> **概要:** マニフェストは「インストーラーが何を組むか」の唯一の正本です。全部品、固定したコミットの上流、採用する PR、現行と目標のイメージ、プロファイルと対応アーキテクチャを持ちます。この文書はその形、規則、`grdm-dev manifest check` の検査項目を定めます。
+
+**Jump:** [English](#english) · [日本語](#japanese)
+
+- Version / 版: 0.1 — 2026-11-05. **Learned:** the public osf.io `develop` (2026-11-05) is already newer than its `-private` twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の `develop`（2026-11-05）は `-private`（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。
+- Normative for: `manifest/upstreams.json` (canonical), `manifest/upstreams.toon` (excerpt), `manifest/README.md`, the `manifest` subcommand of `grdm-dev` ([SPEC-02](02_installer_cli.md)), and every document that quotes the manifest.
+- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-05 Upstream tracking](05_upstream_tracking.md) · [SPEC-06 Documentation conventions](06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration repository placement](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-03 Staged security gate](../decisions/ADR-03_Staged_Security_Gate.md) · [docs/README.md](../README.md)
+
+---
+
+<a id="english"></a>
+## English
+
+[→ 日本語版へ](#japanese)
+
+### 1. What the manifest is
+
+A *manifest* is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment ([SPEC-00 §2](00_overview.md#2-component-map)), which *upstream* repositories (the original places we copy code from) are combined, at which *SHA* (the 40-character fingerprint of one commit), and which pull requests (*PRs*, proposed changes waiting to be merged) we add on top.
+
+The installer reads the manifest and nothing else to decide what to build. If a fact is not in the manifest, the installer does not know it.
+
+### 2. Files
+
+| File | Role |
+|---|---|
+| `manifest/upstreams.json` | **Canonical.** The only file machines trust. JSON, UTF-8, two-space indent, keys sorted. |
+| `manifest/upstreams.toon` | **Excerpt** in TOON (a compact text form of JSON that people read easily; [SPEC-06 §4](06_documentation_conventions.md#4-diagrams-and-data)). Generated from the JSON by `grdm-dev manifest toon`. Must always equal the JSON. |
+| `manifest/README.md` | Explains the two files for readers, bilingual. |
+
+The excerpt contains the top-level fields and, for every component, `id`, `role`, `integration_repo`, `profile`, every field of `upstreams[]`, and `adopted_prs[]` reduced to `repo`, `number`, `status`. It omits `candidate_prs`, images, services, and platforms. Other files under `manifest/` (`allowlist.json`, `allowlist.baseline.json`, `milestone.json`, `hardening.json`, `redteam-targets.json`) are defined by [SPEC-03](03_security_gate.md); their file list is in [SPEC-02 §9](02_installer_cli.md#english).
+
+> **Warning:** This repository is public. The manifest contains **repository names and SHAs only**. It never contains URLs to private repositories, access tokens, or code fragments from `-private` repositories. The CI secret scan fails the PR if it finds any.
+
+### 3. Schema
+
+The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO date), an optional `note` (free text), and `components[]`. Infrastructure images (databases, queues, `fakecas`) are components with `role: infra`. Each component has:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | Short name, same as in [SPEC-00 §2](00_overview.md#2-component-map). Unique. |
+| `role` | `core` \| `infra` \| `subsystem` | What kind of component. COS repositories are not components; they appear as `upstreams[]` entries with `kind: cos`. |
+| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`). Never empty. |
+| `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
+| `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
+| `upstreams[]` | list | Each: `repo` (name), `branch`, `kind` (`public` \| `private` \| `cos`), `tracking_branch` (named by rule 7), `status` (`merged` \| `reference` \| `candidate`), `sha` (40 lowercase hex), `fetched_at` (ISO date). Empty for `infra`. |
+| `adopted_prs[]` | list | Each: `repo`, `number`, `title`, `reason`, `status` (`adopted`). PRs applied on top of the merged upstreams. |
+| `candidate_prs[]` | list | Same shape; `status` is `candidate` or `rejected`. Not built. |
+| `base_image` | string | The image the component builds from today (for example `python:3.6-slim`). For `infra`, the image that is run. |
+| `base_image_digest` | string or `null` | The `sha256:` digest of `base_image` once pinned ([SPEC-03 §3.4](03_security_gate.md#english)); `null` until then. |
+| `target_image` | object | Keys `M4` and `M5`, each the image planned at that milestone (a *milestone* is a checkpoint; [SPEC-00 §5](00_overview.md#5-milestone-ladder)), or `null` when nothing changes at that milestone. |
+| `profile` | `minimum` \| `core` \| `full` | The smallest installer profile that includes the component ([SPEC-02 §4](02_installer_cli.md#english)). |
+| `platforms[]` | list | Subset of `linux/arm64`, `linux/amd64`. |
+| `note` | string or `null` | Optional free text (for example "mutually exclusive with fakecas"). |
+
+Example for one component, in TOON:
+
+```toon
+schema_version: 1
+generated_at: 2026-11-05
+note: "Names and SHAs only."
+components[1]:
+  - id: waterbutler
+    role: core
+    services[2]: wb,wb_worker
+    integration_repo: RDM-waterbutler-dev2027
+    integration_branch: develop
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-waterbutler,develop,public,upstream/public-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      RDM-waterbutler-develop-private,develop,private,upstream/private-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      CenterForOpenScience/waterbutler,develop,cos,upstream/cos-develop,reference,0000000000000000000000000000000000000000,2026-11-05
+    adopted_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,101,"Python 3.13, dependency update, multi-stage image (WIP)","vulnerability remediation (M4)",adopted
+    candidate_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,93,"S3 SigV4",feature,candidate
+    base_image: python:3.6-slim-buster
+    base_image_digest: null
+    target_image:
+      M4: "python:3.13-slim multi-stage, non-root"
+      M5: null
+    profile: core
+    platforms[2]: linux/arm64,linux/amd64
+    note: null
+```
+
+The all-zero SHAs above are placeholders for the example only; a real manifest never contains them.
+
+### 4. Rules
+
+1. **SHAs are pinned.** Every `upstreams[].sha` is a real 40-character commit that exists on the named branch at `fetched_at`. Branch names alone are never enough.
+2. **A change to the manifest is a PR.** Nobody edits `upstreams.json` on `develop` directly. The weekly integration PR ([SPEC-05 §3](05_upstream_tracking.md#3-weekly-integration-pr)) is the normal way SHAs move. Adopting or rejecting a PR is also a manifest PR, with the `reason` filled in.
+3. **Integration order is fixed:** merge the `public` upstream with `status: merged`, then the `private` one, then apply `adopted_prs` in list order. A component that has no `public` upstream (the private subsystems) starts from its `private` upstream. The `cos` upstream (`status: reference`) is never merged; it is compared.
+4. **"Consistent" (矛盾なく) means all of the following:**
+   - No two components reference two different SHAs of the same upstream repository and branch.
+   - Every `adopted_prs[]` entry applies cleanly (no conflict) on the integration branch built from the pinned upstreams.
+   - `upstreams.toon` is byte-for-byte what `grdm-dev manifest toon` produces from `upstreams.json`.
+   - Every `integration_repo` named exists and has the branch `develop` plus one tracking branch per `upstreams[]` entry, named exactly as its `tracking_branch`.
+5. **Names only.** `repo` and `integration_repo` are bare names (`RDM-osf.io-dev2027`). A value starting with `http`, `git@`, or containing `github.com` is invalid.
+6. **Undecided upstreams are listed with `status: candidate`.** They are mirrored to their tracking branch but not merged. Example: `RDM-osf.io-private` (branch `fix/sec-test`, tracking branch `upstream/private-sec-test-fix-sec-test`) is a candidate until the owner decides (plan §7).
+7. **Tracking branches are named by one rule:** `upstream/<kind>-<branch>`, where `<branch>` is the upstream branch name with every `/` replaced by `-`. When one component lists two upstreams of the same `kind`, the second inserts a short tag after the kind: `upstream/<kind>-<tag>-<branch>`. Examples: `RDM-ember-osf-web` (`master`) → `upstream/public-master`; `RDM-ember-osf-web-master-private` → `upstream/private-master`; `RDM-OASys-main-private` → `upstream/private-main`; `CenterForOpenScience/osf.io` → `upstream/cos-develop`; `RDM-osf.io-private` (`fix/sec-test`) → `upstream/private-sec-test-fix-sec-test`. The same rule is stated in [SPEC-05 §1](05_upstream_tracking.md#english) and [ADR-01 §3](../decisions/ADR-01_Integration_Repository_Placement.md#english).
+
+### 5. Validation: `grdm-dev manifest check`
+
+Run from the repository root. Exit code `0` means pass; any failure prints one line per finding and exits `20` (manifest invalid, [SPEC-02 §6](02_installer_cli.md#english)).
+
+```sh
+grdm-dev manifest check
+```
+
+Checks, in order:
+
+```toon
+checks[13]{id,rule,severity}:
+  MC-01,"upstreams.json parses as JSON and matches schema_version 1",error
+  MC-02,"every component id is unique and matches ^[A-Za-z0-9_.-]+$",error
+  MC-03,"role is one of core|infra|subsystem; services is a non-empty list",error
+  MC-04,"integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$ or is null for infra",error
+  MC-05,"integration_branch is develop, or null for infra",error
+  MC-06,"every sha matches ^[0-9a-f]{40}$; base_image_digest is null or sha256:<64 hex>; fetched_at is an ISO date not in the future",error
+  MC-07,"no value anywhere contains http, git@, github.com, or a token-like string",error
+  MC-08,"the same (repo, branch) pair has one sha across all components",error
+  MC-09,"adopted_prs status is adopted; candidate_prs status is candidate|rejected; upstreams status is merged|reference|candidate and cos upstreams are reference; number is a positive integer",error
+  MC-10,"profile and platforms use only the allowed values; core components list both platforms",error
+  MC-11,"upstreams.toon equals the output of grdm-dev manifest toon",error
+  MC-12,"with --remote: each integration_repo has develop plus every tracking_branch listed, and each sha is reachable from its tracking_branch",error
+  MC-13,"every tracking_branch follows rule 7 (upstream/<kind>[-<tag>]-<branch with / replaced by ->)",error
+```
+
+`--remote` needs network and credentials and is run in the private `-dev2027` CI, not in this public repository's CI. The documentation check in [SPEC-06 §8](06_documentation_conventions.md#8-checks) reuses MC-11 for TOON blocks quoted in documents.
+
+### 6. Who changes it
+
+| Change | Opened by | Reviewed by | Merged by |
+|---|---|---|---|
+| Weekly SHA advance | AID agent (weekly job, [SPEC-05](05_upstream_tracking.md)) | REV (Codex Astra), check by QAE (Claude Code Fable) | Owner |
+| Adopt / reject a PR | AID or QAE, with `reason` | REV | Owner |
+| Change `target_image` | QAE, referencing the milestone plan | REV | Owner |
+
+---
+
+<a id="japanese"></a>
+## 日本語
+
+[→ To English](#english)
+
+### 1. マニフェストとは
+
+「マニフェスト」は荷物の明細書です。箱に何が入るかを正確に書きます。私たちのマニフェストは、環境の全部品（[SPEC-00 §2](00_overview.md#2-部品の地図)）について、どの上流（コードを写してくる元のリポジトリ）を、どの SHA（一つのコミットを指す 40 文字の指紋）で重ね、どの PR（プルリクエスト。マージを待っている変更の提案）をその上に足すかを書きます。
+
+インストーラーは何を組むかをマニフェストだけから決めます。マニフェストに無いことは、インストーラーは知りません。
+
+### 2. ファイル
+
+| ファイル | 役割 |
+|---|---|
+| `manifest/upstreams.json` | **正本。** 機械が信じる唯一のファイル。JSON、UTF-8、字下げ 2 つ、キーは並べ替え済み。 |
+| `manifest/upstreams.toon` | TOON（JSON を人が読みやすい短い文字形式にしたもの。[SPEC-06 §4](06_documentation_conventions.md#4-図とデータ)）の **抄録**。`grdm-dev manifest toon` が JSON から生成する。常に JSON と一致していなければならない。 |
+| `manifest/README.md` | 二つのファイルを読者向けに二言語で説明する。 |
+
+抄録には、最上位の項目と、各部品の `id`・`role`・`integration_repo`・`profile`、`upstreams[]` の全項目、そして `repo`・`number`・`status` に絞った `adopted_prs[]` を載せます。`candidate_prs`、イメージ、サービス、platform は載せません。`manifest/` の下のほかのファイル（`allowlist.json`、`allowlist.baseline.json`、`milestone.json`、`hardening.json`、`redteam-targets.json`）は [SPEC-03](03_security_gate.md) が定め、一覧は [SPEC-02 §9](02_installer_cli.md#japanese) にあります。
+
+> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI の秘密スキャンが見つけたら PR は不合格です。
+
+### 3. 形（スキーマ）
+
+最上位は `schema_version`（整数。今は `1`）、`generated_at`（ISO 日付）、任意の `note`（自由記述）、`components[]` です。基盤のイメージ（データベース、キュー、`fakecas`）も `role: infra` の部品として載せます。各部品は次を持ちます。
+
+| 項目 | 型 | 意味 |
+|---|---|---|
+| `id` | 文字列 | 短い名前。[SPEC-00 §2](00_overview.md#2-部品の地図) と同じ。重複しない。 |
+| `role` | `core` \| `infra` \| `subsystem` | 部品の種類。COS のリポジトリは部品ではなく、`kind: cos` の `upstreams[]` 要素として現れる。 |
+| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`）。空にしない。 |
+| `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
+| `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
+| `upstreams[]` | 配列 | 各要素: `repo`（名前）、`branch`、`kind`（`public` \| `private` \| `cos`）、`tracking_branch`（規則 7 で命名）、`status`（`merged` \| `reference` \| `candidate`）、`sha`（小文字 16 進 40 文字）、`fetched_at`（ISO 日付）。`infra` は空。 |
+| `adopted_prs[]` | 配列 | 各要素: `repo`、`number`、`title`、`reason`、`status`（`adopted`）。上流をマージした上に適用する PR。 |
+| `candidate_prs[]` | 配列 | 同じ形。`status` は `candidate` か `rejected`。組まない。 |
+| `base_image` | 文字列 | その部品が今日組む元のイメージ（例 `python:3.6-slim`）。`infra` では実行するイメージ。 |
+| `base_image_digest` | 文字列または `null` | `base_image` を固定したときの `sha256:` ダイジェスト（[SPEC-03 §3.4](03_security_gate.md#japanese)）。固定するまでは `null`。 |
+| `target_image` | オブジェクト | キー `M4` と `M5`。各節目（合否の試験がある関門。[SPEC-00 §5](00_overview.md#5-節目のはしご)）で予定するイメージ。その節目で変えないなら `null`。 |
+| `profile` | `minimum` \| `core` \| `full` | その部品を含む最小のインストーラープロファイル（[SPEC-02 §4](02_installer_cli.md#japanese)）。 |
+| `platforms[]` | 配列 | `linux/arm64`、`linux/amd64` の部分集合。 |
+| `note` | 文字列または `null` | 任意の自由記述（例:「fakecas と排他」）。 |
+
+一部品の例を TOON で示します。
+
+```toon
+schema_version: 1
+generated_at: 2026-11-05
+note: "Names and SHAs only."
+components[1]:
+  - id: waterbutler
+    role: core
+    services[2]: wb,wb_worker
+    integration_repo: RDM-waterbutler-dev2027
+    integration_branch: develop
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-waterbutler,develop,public,upstream/public-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      RDM-waterbutler-develop-private,develop,private,upstream/private-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      CenterForOpenScience/waterbutler,develop,cos,upstream/cos-develop,reference,0000000000000000000000000000000000000000,2026-11-05
+    adopted_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,101,"Python 3.13, dependency update, multi-stage image (WIP)","vulnerability remediation (M4)",adopted
+    candidate_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,93,"S3 SigV4",feature,candidate
+    base_image: python:3.6-slim-buster
+    base_image_digest: null
+    target_image:
+      M4: "python:3.13-slim multi-stage, non-root"
+      M5: null
+    profile: core
+    platforms[2]: linux/arm64,linux/amd64
+    note: null
+```
+
+上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。
+
+### 4. 規則
+
+1. **SHA を固定する。** すべての `upstreams[].sha` は、`fetched_at` の時点でそのブランチに実在する 40 文字のコミットです。ブランチ名だけでは足りません。
+2. **マニフェストの変更は PR で行う。** `develop` 上の `upstreams.json` を直接編集する人はいません。SHA が進む通常の経路は週次の統合 PR（[SPEC-05 §3](05_upstream_tracking.md#3-週次の統合-pr)）です。PR の採用・却下もマニフェストの PR で、`reason` を書きます。
+3. **統合の順番は固定:** `status: merged` の `public` の上流をマージ、次に `private` の上流をマージ、最後に `adopted_prs` を並び順に適用。`public` の上流がない部品（非公開サブシステム）は `private` の上流から始めます。`cos` の上流（`status: reference`）はマージせず、比較だけに使います。
+4. **「矛盾なく」とは次のすべてを満たすこと:**
+   - 同じ上流リポジトリの同じブランチについて、二つの部品が異なる SHA を参照していない。
+   - すべての `adopted_prs[]` が、固定した上流から組んだ統合ブランチにきれいに（衝突なく）当たる。
+   - `upstreams.toon` が、`grdm-dev manifest toon` が `upstreams.json` から出す結果と 1 バイトも違わない。
+   - 名前を書いた `integration_repo` がすべて存在し、`develop` と、`upstreams[]` の各要素につき一本の追跡ブランチ（名前はその `tracking_branch` と完全に同じ）を持つ。
+5. **名前だけを書く。** `repo` と `integration_repo` は裸の名前（`RDM-osf.io-dev2027`）です。`http` や `git@` で始まる値、`github.com` を含む値は不正です。
+6. **決まっていない上流は `status: candidate` で載せる。** 追跡ブランチにはミラーするが、マージはしない。例: `RDM-osf.io-private`（ブランチ `fix/sec-test`、追跡ブランチ `upstream/private-sec-test-fix-sec-test`）は所有者が決めるまで候補です（計画書 §7）。
+7. **追跡ブランチの名前は一つの規則で決める:** `upstream/<kind>-<branch>`。`<branch>` は上流のブランチ名の `/` をすべて `-` に置き換えたもの。一つの部品に同じ `kind` の上流が二つあるときは、二つ目は kind の後ろに短いタグを挟む: `upstream/<kind>-<tag>-<branch>`。例: `RDM-ember-osf-web`（`master`）→ `upstream/public-master`、`RDM-ember-osf-web-master-private` → `upstream/private-master`、`RDM-OASys-main-private` → `upstream/private-main`、`CenterForOpenScience/osf.io` → `upstream/cos-develop`、`RDM-osf.io-private`（`fix/sec-test`）→ `upstream/private-sec-test-fix-sec-test`。同じ規則を [SPEC-05 §1](05_upstream_tracking.md#japanese) と [ADR-01 §3](../decisions/ADR-01_Integration_Repository_Placement.md#japanese) にも書いています。
+
+### 5. 検査: `grdm-dev manifest check`
+
+リポジトリのルートで実行します。終了コード `0` が合格。不合格なら指摘ごとに一行出して `20`（manifest が不正。[SPEC-02 §6](02_installer_cli.md#japanese)）で終わります。
+
+```sh
+grdm-dev manifest check
+```
+
+検査は次の順で行います。
+
+```toon
+checks[13]{id,rule,severity}:
+  MC-01,"upstreams.json が JSON として読め、schema_version 1 の形に合う",error
+  MC-02,"部品の id が重複せず ^[A-Za-z0-9_.-]+$ に合う",error
+  MC-03,"role が core|infra|subsystem のいずれか。services が空でない配列",error
+  MC-04,"integration_repo が ^RDM-[A-Za-z0-9_.-]+-dev2027$ に合う。infra は null",error
+  MC-05,"integration_branch が develop。infra は null",error
+  MC-06,"sha が ^[0-9a-f]{40}$ に合う。base_image_digest は null か sha256:<16 進 64 文字>。fetched_at が未来でない ISO 日付",error
+  MC-07,"どの値にも http、git@、github.com、トークンらしい文字列が含まれない",error
+  MC-08,"同じ (repo, branch) の組は全部品で一つの sha",error
+  MC-09,"adopted_prs の status は adopted。candidate_prs は candidate|rejected。upstreams の status は merged|reference|candidate で cos は reference。number は正の整数",error
+  MC-10,"profile と platforms が許された値だけ。core の部品は両 platform を持つ",error
+  MC-11,"upstreams.toon が grdm-dev manifest toon の出力と一致",error
+  MC-12,"--remote 付き: 各 integration_repo が develop と列挙した全 tracking_branch を持ち、各 sha がその tracking_branch から到達できる",error
+  MC-13,"すべての tracking_branch が規則 7（upstream/<kind>[-<tag>]-<branch の / を - に置換>）に合う",error
+```
+
+`--remote` はネットワークと認証情報が要るので、公開であるこのリポジトリの CI ではなく、非公開の `-dev2027` 側の CI で実行します。[SPEC-06 §8](06_documentation_conventions.md#8-検査) の文書検査は、文書内に引用した TOON ブロックに MC-11 を使い回します。
+
+### 6. 誰が変えるか
+
+| 変更 | 起票 | レビュー | マージ |
+|---|---|---|---|
+| 週次の SHA 前進 | AID エージェント（週次ジョブ。[SPEC-05](05_upstream_tracking.md)） | REV（Codex Astra）。検査は QAE（Claude Code Fable） | 所有者 |
+| PR の採用・却下 | AID または QAE。`reason` 付き | REV | 所有者 |
+| `target_image` の変更 | QAE。節目の計画を参照 | REV | 所有者 |
+
+---
+
+## Glossary / 用語
+
+| Term | English note | 日本語注 |
+|---|---|---|
+| Manifest | A packing list that says exactly what goes into the build. | ビルドに何が入るかを正確に書いた明細書。 |
+| Upstream | The original repository we copy code from. | コードを写してくる元のリポジトリ。 |
+| SHA | The 40-character fingerprint that names one commit. | 一つのコミットを指す 40 文字の指紋。 |
+| Pull request (PR) | A proposed change waiting to be reviewed and merged. | レビューとマージを待つ変更の提案。 |
+| Schema | The agreed shape of a data file: which fields, which types. | データファイルの決まった形。どの項目がどの型か。 |
+| Profile | A named set of components the installer starts together. | インストーラーがまとめて起動する部品の組に付けた名前。 |
+| Token | A secret string that proves who you are to a computer. | コンピュータに「自分は誰か」を示す秘密の文字列。 |

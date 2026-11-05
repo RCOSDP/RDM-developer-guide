@@ -1,0 +1,407 @@
+# SPEC-02 Installer CLI / インストーラー CLI
+
+> **Summary:** The contract of the two entry points that install the GakuNin RDM developer environment: the thin bootstrap `installer/install.sh` and the Python command `grdm-dev` with its subcommands, profiles, flags, exit codes, and directory layout.
+> **概要:** GakuNin RDM 開発環境を導入する二つの入口、薄い起動スクリプト `installer/install.sh` と Python コマンド `grdm-dev` の契約。サブコマンド、プロファイル、フラグ、終了コード、ディレクトリ構成を定める。
+
+**Jump:** [English](#english) · [日本語](#japanese)
+
+- Version / 版: 0.1 — 2026-11-05. **Learned:** keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with `unittest`. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を `unittest` で試験できないと分かった。
+- Normative for: `installer/install.sh`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
+- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-04 Acceptance Tests](04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
+
+---
+
+<a id="english"></a>
+## English
+
+[→ 日本語版へ](#japanese)
+
+### 1. Scope and goal
+
+The installer turns a fresh checkout of this repository into a running GakuNin RDM developer environment with one command, on the hosts listed in [§8](#2-en-hosts). It never needs `sudo` (a way to run a command as the computer's administrator), never changes network settings on the host, and can be run again at any time without harm. Everything it creates lives under `runtime/`, which is ignored by Git.
+
+**Glossary notes.** An *installer* is a program that prepares other programs so they can run. A *CLI* (command line interface) is a program you drive by typing commands. A *container* is a box that holds one program and everything it needs, so it runs the same on any computer. *Docker Compose* is the tool that starts many containers together from one description file. A *manifest* is the list that says exactly which version of each source repository we use ([SPEC-01](01_manifest.md)).
+
+### 2. Two entry points
+
+#### 2.1 `installer/install.sh` — thin bootstrap
+
+`install.sh` does four things and nothing else:
+
+1. Runs with the `bash` that ships with macOS (version 3.2), so it uses no feature newer than that: no associative arrays, no `mapfile`, no `${var,,}`.
+2. Finds `python3` and checks that it is 3.11 or newer. If not, it prints how to install one for the detected OS and exits with code 10.
+3. Creates a *virtual environment* (a private folder of Python and its libraries, separate from the system) at `.venv/` and installs the `installer/` package into it with `pip install -e installer`.
+4. Hands every argument to `.venv/bin/grdm-dev install "$@"` and exits with that command's exit code.
+
+OS differences are not written in `install.sh`. They live in `installer/grdm_dev/host.py`. User-facing messages come from `installer/grdm_dev/messages.tsv` (one line per code, English and Japanese columns) so that the script and the Python command say the same thing.
+
+```mermaid
+flowchart TD
+  A[./installer/install.sh --yes] --> B{python3 >= 3.11?}
+  B -- no --> X10[exit 10: how to install Python]
+  B -- yes --> C[create .venv/ and pip install -e installer]
+  C --> D[grdm-dev doctor]
+  D -- unsupported host --> X10b[exit 10]
+  D -- Docker missing --> X11[exit 11]
+  D --> E[grdm-dev plan]
+  E -- manifest invalid --> X20[exit 20]
+  E --> F[grdm-dev secrets init]
+  F --> G[grdm-dev compose render]
+  G --> H[grdm-dev build]
+  H -- failed --> X30[exit 30]
+  H --> I[grdm-dev up]
+  I --> J[grdm-dev health --network]
+  J -- failed --> X40[exit 40]
+  J --> K[grdm-dev scan]
+  K -- gate failed --> X50[exit 50]
+  K --> L[grdm-dev report]
+  L --> Z[exit 0 and print URL http://127.0.0.1:5000]
+```
+
+#### 2.2 `grdm-dev` — the Python command
+
+`grdm-dev` is the package `installer/grdm_dev/`, exposed as a console script. Rules:
+
+- **Standard library first.** The command itself has no third-party dependency. The manifest is JSON (read with `json`), the host is read with `platform`, `shutil`, `socket`, and `subprocess`, and the generated Compose file is written as JSON, which Docker Compose accepts because JSON is valid YAML. PyYAML is therefore *not* required.
+- **Optional extra `accept`.** `pip install -e "installer[accept]"` adds `pytest`, `pytest-playwright`, and `playwright`. Only `grdm-dev accept` imports them ([SPEC-04](04_acceptance_tests.md)).
+- **External tools** are called as subprocesses and checked by `doctor`: `docker` (27 or newer) with the Compose plugin (v2 or newer) and buildx, `trivy`, `gitleaks`, and `semgrep` for `scan`, the OWASP ZAP container image for `scan --dynamic`, and `mkdocs` for `docs`. A missing scanner makes `scan` exit 51 ([SPEC-03 §8](03_security_gate.md#english)).
+- Every subcommand supports `--json`, which prints the same report as machine-readable JSON instead of TOON (a compact text form of JSON, see [SPEC-06 §4](06_documentation_conventions.md#english)).
+
+### 3. Subcommands
+
+| Subcommand | Contract | Touches Docker |
+|---|---|---|
+| `doctor` | Detects OS (macOS, Ubuntu, WSL2), CPU (`arm64`, `amd64`), memory, free disk, Docker ≥ 27, Compose plugin (v2 or newer), buildx. Prints a TOON report. Exit 10 if the host is unsupported, 11 if Docker is missing or not running. | read-only |
+| `plan` | Resolves manifest + profile and prints which images would be built and which services started, with the published ports ([§4](#2-en-ports)). Changes nothing. Exit 20 if the manifest fails [SPEC-01](01_manifest.md) checks. | no |
+| `secrets init` / `secrets rotate` | `init` writes random secrets (database passwords, Django secret key, CAS keys) into `runtime/.env` with file mode `0600`. Never writes a default or example password. Refuses to overwrite an existing file unless `--force`. `rotate` regenerates every secret and restarts the services that use them; used after a red-team capture ([SPEC-03 §6](03_security_gate.md#english)). | no / yes |
+| `compose render` | Writes `runtime/docker-compose.yml` from manifest + profile: one internal network, ports published only on `127.0.0.1` ([§4](#2-en-ports)), non-root `user:` for every service, `read_only`, `cap_drop`, and resource limits (`mem_limit`, `cpus`, `pids_limit`) scaled from the memory `doctor` detected, with per-service exceptions from `manifest/hardening.json` ([SPEC-03 §3.3](03_security_gate.md#english)), `platform:` chosen from `doctor`, named volumes mapped under `runtime/volumes/`. Follows [ADR-02](../decisions/ADR-02_Network_Model.md). | no |
+| `build` | Builds images with `docker buildx` for `linux/arm64,linux/amd64`. Default is local load of the host platform only; `--push` pushes the multi-arch manifest to `ghcr.io/rcosdp/<name>` (private). Exit 30 on failure. | yes |
+| `up` / `down` / `reset` | `up` starts the profile and waits for health; `down` stops containers and keeps volumes; `reset` stops and deletes `runtime/volumes/` after a confirmation (skipped by `--yes`). | yes |
+| `health` | Checks every service's health endpoint. With `--network`, also lists listening sockets on the host and fails (exit 40) if any container port is bound to a non-loopback address. | read-only |
+| `scan` | Runs the whole security gate of [SPEC-03](03_security_gate.md): baseline controls, Trivy SBOM (software bill of materials: the list of all parts inside an image) and CVE list, gitleaks, Semgrep, and OWASP ZAP; writes `runtime/reports/scan_<date>.json` plus TOON, and diffs findings against `manifest/allowlist.json` and `manifest/allowlist.baseline.json` for the milestone in `manifest/milestone.json`. Gate per [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md): M1–M3 report only, M4 exit 50 on HIGH, M5 exit 50 on CRITICAL or HIGH. Flags `--baseline`, `--secrets`, `--dynamic` run one part only. Exit 51 if a scanner cannot run, 52 if `--dynamic` was asked for while services are unhealthy. | read-only |
+| `redteam preflight` | Verifies, before an AI red-team run, that the red-team Compose project has no egress and that only the containers named in `manifest/redteam-targets.json` are reachable. Exit 53 if either check fails. See [SPEC-03 §6](03_security_gate.md#english). | read-only |
+| `accept` | Runs the Playwright Python acceptance suite in the same `.venv/`. `--only <scenario>` runs one scenario; `--seed` creates the disposable test users. Exit 60 on any failing test. See [SPEC-04](04_acceptance_tests.md). | read-only |
+| `upstream mirror` / `upstream integrate` | Runs the daily mirror or the weekly integration of [SPEC-05](05_upstream_tracking.md) by hand. Needs Git credentials for the private `-dev2027` repositories; never run in this repository's CI. | no (Git only) |
+| `manifest check` / `manifest toon` | `check` validates `manifest/upstreams.json` ([SPEC-01 §5](01_manifest.md#english)) and verifies that every TOON excerpt in `docs/` and `manifest/upstreams.toon` agree with it. Exit 20 on mismatch. `toon` prints the excerpt that `upstreams.toon` must equal. | no |
+| `docs build` / `docs check` | `build` runs MkDocs into `site/`. `check` enforces [SPEC-06 §8](06_documentation_conventions.md#english): anchors, Jump line, relative links, TOON consistency, Version line. | no |
+| `report` | Bundles the latest reports of `doctor`, `plan`, `health`, `scan`, and `accept` into `runtime/reports/<timestamp>.toon` and `.json`. | no |
+| `install` | The sequence shown in the flowchart. Stops at the first non-zero step. | yes |
+
+<a id="2-en-ports"></a>
+### 4. Profiles and published ports
+
+```toon
+profiles[3]{name,services,note}:
+  minimum,"web api postgres elasticsearch rabbitmq fakecas",smallest set that shows a login and a project page
+  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis",the six core repositories with their infrastructure
+  full,"core + y_websocket rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",everything; shibboleth_sp replaces fakecas
+```
+
+Service names follow the upstream `docker-compose.yml` of RDM-osf.io so that existing guides keep working, and they are the `services[]` values of the manifest ([SPEC-01 §3](01_manifest.md#english)). The `shibboleth` Compose profile and the `fakecas` service are mutually exclusive: `compose render --profile full --auth shibboleth` removes `fakecas` and adds `shibboleth_sp` and `test_idp`; the default for `full` is `fakecas`.
+
+**Published ports.** This table is the only place where default host ports are defined; [ADR-02](../decisions/ADR-02_Network_Model.md), [SPEC-03](03_security_gate.md), and [REF-01](../reference/REF-01_Glossary.md) point here. Every port is published on `127.0.0.1` only.
+
+```toon
+ports[7]{service,host_port,profile,url}:
+  web,5000,minimum,http://127.0.0.1:5000
+  api,8000,minimum,http://127.0.0.1:8000
+  admin,8001,core,http://127.0.0.1:8001
+  wb,7777,core,http://127.0.0.1:7777
+  mfr,7778,core,http://127.0.0.1:7778
+  fakecas,8080,minimum,http://127.0.0.1:8080
+  ember_osf_web,4200,core,http://127.0.0.1:4200
+```
+
+All other services (`wiki`, `cas`, `y_websocket`, the subsystems, `test_idp`, databases and queues) are reached only inside the Compose network; when one of them needs a browser-facing port, `compose render` assigns it and `plan` prints it. `compose render` writes every chosen host port to `runtime/.env` as `GRDM_PORT_<SERVICE>` (upper case), which the acceptance tests read ([SPEC-04 §1](04_acceptance_tests.md#english)). If a default port is already in use (macOS AirPlay on `5000` is the known case), `compose render` takes the next free port and records the change in the install report; exit 12 is returned only when no free port is found.
+
+### 5. Flags
+
+| Flag | Meaning |
+|---|---|
+| `--yes` | Answer every question with its default. Required when no terminal is attached. |
+| `--profile minimum\|core\|full` | Default `core`. Saved in `runtime/.env` as `GRDM_PROFILE` and reused on later runs. |
+| `--platform linux/arm64,linux/amd64` | Override the platforms for `build`. Default: host platform only. |
+| `--no-open` | Do not open the browser after `up`. |
+| `--json` | Print reports as JSON instead of TOON. |
+
+### 6. Exit codes
+
+```toon
+exit_codes[13]{code,meaning}:
+  0,success
+  2,usage error: unknown flag or bad value
+  10,host unsupported: OS, CPU, memory, or Python too old
+  11,Docker missing, not running, or Compose / buildx plugin absent
+  12,a required port on 127.0.0.1 is in use and no free alternative was found
+  20,manifest invalid or TOON excerpt disagrees with JSON
+  30,image build failed
+  40,health check failed, or a port listens on a non-loopback address
+  50,security scan gate failed for the current milestone
+  51,scanner could not run: tool missing or vulnerability database download failed
+  52,services not healthy, so scan --dynamic could not run
+  53,red-team preflight failed: egress reachable or a target outside redteam-targets.json
+  60,acceptance test failed
+```
+
+Numbers are never reused for a new meaning; a new cause gets a new number. The canonical table is `installer/grdm_dev/messages.tsv`, and this TOON block must agree with it (`manifest check` verifies). Codes 50–53 are described in detail in [SPEC-03 §8](03_security_gate.md#english).
+
+### 7. Behavior rules
+
+- **Non-interactive.** When `stdin` is not a terminal and `--yes` is absent, every question is answered "no" and the command exits 2 with a hint to add `--yes`.
+- **Idempotent.** Running any subcommand twice gives the same result. `secrets init` keeps existing secrets, `compose render` overwrites only the generated file, `build` uses the buildx cache, `up` is a no-op for healthy services.
+- **No secrets in Git.** `runtime/` is in `.gitignore`. `docs check` and the CI secret scan fail if a file under `runtime/` or a value that looks like a secret is committed.
+- **No host network changes.** The loopback alias `192.168.168.167` from the old guide is not created; `compose render` rewrites the upstream `local.py` and `.docker-compose.*.env` settings to use service names inside the Compose network and `127.0.0.1` for the browser ([ADR-02](../decisions/ADR-02_Network_Model.md)).
+- **No `-private` code here.** The installer clones the integration repositories by name and SHA from the manifest at run time; this public repository holds no code from them ([POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)).
+
+<a id="2-en-hosts"></a>
+### 8. Supported hosts
+
+| Host | CPU | Support |
+|---|---|---|
+| macOS 14 or newer with Docker Desktop | arm64 | official (M2 acceptance runs here) |
+| Ubuntu 24.04 with Docker Engine | amd64, arm64 | official |
+| Windows 11 with WSL2 (Ubuntu 24.04) and Docker Desktop | amd64 | required to work; checked in CI as build-only |
+| Other Linux, macOS on Intel | any | best-effort; `doctor` warns and continues |
+
+### 9. Directory layout
+
+```toon
+layout:
+  installer/install.sh: bash 3.2 bootstrap
+  installer/pyproject.toml: package metadata, console script grdm-dev, extra accept
+  installer/grdm_dev/:
+    cli.py: argument parsing, subcommand dispatch, exit codes
+    host.py: OS, CPU, memory, disk, Docker detection
+    manifest.py: load and validate manifest/upstreams.json, TOON comparison
+    secrets.py: random secret generation, runtime/.env with mode 0600
+    compose.py: render runtime/docker-compose.yml from manifest and profile
+    build.py: buildx wrapper, platform list, optional push
+    health.py: service health and loopback-only check
+    scan.py: baseline controls, Trivy SBOM and CVE, gitleaks, Semgrep, ZAP, allow-list diff, staged gate (SPEC-03)
+    redteam.py: red-team preflight (SPEC-03 §6)
+    upstream.py: mirror and integrate (SPEC-05)
+    accept.py: run pytest-playwright in the same venv
+    docs.py: MkDocs build and SPEC-06 checks
+    report.py: bundle TOON and JSON reports
+    messages.tsv: exit code, English message, Japanese message
+  installer/tests/: unittest, files named test_*.py
+  installer/acceptance/: Playwright Python, see SPEC-04
+  manifest/:
+    upstreams.json: canonical manifest (SPEC-01)
+    upstreams.toon: excerpt generated by grdm-dev manifest toon (SPEC-01)
+    allowlist.json: accepted findings (SPEC-03 §5.1)
+    allowlist.baseline.json: allow-list count at the last milestone exit, owner-maintained (SPEC-03 §5.1)
+    milestone.json: current milestone, owner-maintained (SPEC-03 §5.2)
+    hardening.json: per-service exceptions to read-only root and cap_drop, with reasons (SPEC-03 §3.3)
+    redteam-targets.json: container names the AI red team may touch (SPEC-03 §6)
+  runtime/: generated, git-ignored (.env, docker-compose.yml, volumes/, reports/)
+```
+
+### 10. Tests
+
+`python3 -m unittest discover -s installer/tests` must pass on every PR. Each module has a `test_<module>.py` that covers at least one success case and one rejection case, and every rejection case asserts the exit code from [§6](#english). Docker is never required by unit tests: `host.py` and `build.py` take an injectable runner so tests pass fake `docker` output. Integration and acceptance tiers are defined in [SPEC-04](04_acceptance_tests.md).
+
+---
+
+<a id="japanese"></a>
+## 日本語
+
+[→ To English](#english)
+
+### 1. 範囲と目的
+
+インストーラーは、このリポジトリを取り出した直後の状態から、[§8](#2-ja-hosts) に挙げたホストで、コマンド一つで GakuNin RDM の開発環境を動かすものです。`sudo`（コンピュータの管理者としてコマンドを動かす仕組み）を使わず、ホストのネットワーク設定を変えず、何度やり直しても壊れません。作られるものはすべて `runtime/` の下にあり、Git は無視します。
+
+**用語注。** 「インストーラー」は、ほかのプログラムが動くように準備するプログラムです。「CLI」（コマンドラインインターフェース）は、文字でコマンドを打って使うプログラムです。「コンテナ」は、一つのプログラムと必要なものを一箱に入れ、どのコンピュータでも同じように動かすための箱です。「Docker Compose」は、一枚の設定ファイルから多くのコンテナをまとめて起動する道具です。「manifest」は、どのソースリポジトリのどの版を使うかを正確に書いた一覧です（[SPEC-01](01_manifest.md)）。
+
+### 2. 二つの入口
+
+#### 2.1 `installer/install.sh` — 薄い起動スクリプト
+
+`install.sh` がすることは次の四つだけです。
+
+1. macOS 標準の `bash`（版 3.2）で動く。そのため連想配列、`mapfile`、`${var,,}` のような新しい機能は使わない。
+2. `python3` を探し、3.11 以上かを確かめる。足りなければ、判定した OS に合わせた導入方法を表示して終了コード 10 で終わる。
+3. 「仮想環境」（システムとは別の、Python とライブラリだけの私用フォルダ）を `.venv/` に作り、`pip install -e installer` で `installer/` パッケージを入れる。
+4. 引数をすべて `.venv/bin/grdm-dev install "$@"` に渡し、その終了コードで終わる。
+
+OS の違いは `install.sh` には書きません。`installer/grdm_dev/host.py` に閉じ込めます。利用者向けの文言は `installer/grdm_dev/messages.tsv`（コードごとに一行、英語と日本語の列）から出し、スクリプトと Python コマンドが同じ言葉を話すようにします。
+
+```mermaid
+flowchart TD
+  A[./installer/install.sh --yes] --> B{python3 は 3.11 以上?}
+  B -- いいえ --> X10[終了 10: Python の導入方法を表示]
+  B -- はい --> C[.venv/ を作り pip install -e installer]
+  C --> D[grdm-dev doctor]
+  D -- 対象外のホスト --> X10b[終了 10]
+  D -- Docker が無い --> X11[終了 11]
+  D --> E[grdm-dev plan]
+  E -- manifest 不正 --> X20[終了 20]
+  E --> F[grdm-dev secrets init]
+  F --> G[grdm-dev compose render]
+  G --> H[grdm-dev build]
+  H -- 失敗 --> X30[終了 30]
+  H --> I[grdm-dev up]
+  I --> J[grdm-dev health --network]
+  J -- 失敗 --> X40[終了 40]
+  J --> K[grdm-dev scan]
+  K -- 門で不合格 --> X50[終了 50]
+  K --> L[grdm-dev report]
+  L --> Z[終了 0。URL http://127.0.0.1:5000 を表示]
+```
+
+#### 2.2 `grdm-dev` — Python コマンド
+
+`grdm-dev` はパッケージ `installer/grdm_dev/` を、コンソールスクリプトとして公開したものです。規則は次のとおりです。
+
+- **標準ライブラリ優先。** コマンド本体は外部ライブラリに依存しません。manifest は JSON（`json` で読む）、ホストは `platform`・`shutil`・`socket`・`subprocess` で読み、生成する Compose ファイルは JSON で書き出します。JSON は YAML として正しいので Docker Compose がそのまま読めます。したがって PyYAML は要りません。
+- **任意の追加 `accept`。** `pip install -e "installer[accept]"` で `pytest`・`pytest-playwright`・`playwright` が入ります。これらを読み込むのは `grdm-dev accept` だけです（[SPEC-04](04_acceptance_tests.md)）。
+- **外部の道具** はサブプロセスとして呼び、`doctor` が有無を確かめます。`docker`（27 以上）と Compose プラグイン（v2 以上）・buildx、`scan` 用の `trivy`・`gitleaks`・`semgrep`、`scan --dynamic` 用の OWASP ZAP のコンテナイメージ、`docs` 用の `mkdocs` です。スキャナーが無いと `scan` は終了 51 で終わります（[SPEC-03 §8](03_security_gate.md#japanese)）。
+- すべてのサブコマンドは `--json` を受け付け、TOON（JSON を短く書いた文字形式。[SPEC-06 §4](06_documentation_conventions.md#japanese)）の代わりに機械が読む JSON で同じ報告を出します。
+
+### 3. サブコマンド
+
+| サブコマンド | 契約 | Docker に触れるか |
+|---|---|---|
+| `doctor` | OS（macOS・Ubuntu・WSL2）、CPU（`arm64`・`amd64`）、メモリ、空き容量、Docker 27 以上、Compose プラグイン（v2 以上）、buildx を判定し TOON で報告する。対象外のホストは終了 10、Docker が無い・動いていないときは 11。 | 読むだけ |
+| `plan` | manifest とプロファイルを解決し、どのイメージを作りどのサービスを起こすか、公開ポート（[§4](#2-ja-ports)）とともに表示する。何も変えない。manifest が [SPEC-01](01_manifest.md) の検査に落ちれば終了 20。 | 触れない |
+| `secrets init` / `secrets rotate` | `init` は乱数の秘密（DB パスワード、Django の秘密鍵、CAS の鍵）を `runtime/.env` にモード `0600` で書く。既定値や例のパスワードは決して書かない。既存ファイルは `--force` がなければ上書きしない。`rotate` は全秘密を作り直し、それを使うサービスを再起動する。レッドチームに秘密を取られた後に使う（[SPEC-03 §6](03_security_gate.md#japanese)）。 | 触れない / 触れる |
+| `compose render` | manifest とプロファイルから `runtime/docker-compose.yml` を書く。内部ネットワーク一つ、ポートは `127.0.0.1` にだけ公開（[§4](#2-ja-ports)）、全サービスに非 root の `user:`、`read_only`・`cap_drop`・資源制限（`mem_limit`・`cpus`・`pids_limit`。`doctor` が検出したメモリに応じて決める）、サービスごとの例外は `manifest/hardening.json` から（[SPEC-03 §3.3](03_security_gate.md#japanese)）、`platform:` は `doctor` の結果から選ぶ、名前付きボリュームは `runtime/volumes/` の下。[ADR-02](../decisions/ADR-02_Network_Model.md) に従う。 | 触れない |
+| `build` | `docker buildx` で `linux/arm64,linux/amd64` のイメージを作る。既定はホストの platform だけをローカルに読み込む。`--push` で multi-arch の manifest を `ghcr.io/rcosdp/<name>`（非公開）へ送る。失敗は終了 30。 | 触れる |
+| `up` / `down` / `reset` | `up` はプロファイルを起動し健康になるまで待つ。`down` はコンテナを止めボリュームを残す。`reset` は止めたうえで確認の後に `runtime/volumes/` を消す（`--yes` で確認を省く）。 | 触れる |
+| `health` | 各サービスの健康確認用の URL を調べる。`--network` を付けると、ホストで待ち受けているソケットも一覧し、コンテナのポートがループバック以外の番地に結び付いていれば終了 40。 | 読むだけ |
+| `scan` | [SPEC-03](03_security_gate.md) のセキュリティ門を全部動かす。基本対策、Trivy の SBOM（ソフトウェア部品表。イメージに入っている部品の一覧）と CVE の一覧、gitleaks、Semgrep、OWASP ZAP。`runtime/reports/scan_<日付>.json` と TOON を書き、`manifest/milestone.json` の節目に合わせて `manifest/allowlist.json` と `manifest/allowlist.baseline.json` と差分を取る。門は [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) どおり、M1〜M3 は報告のみ、M4 は HIGH で終了 50、M5 は CRITICAL か HIGH で終了 50。フラグ `--baseline`・`--secrets`・`--dynamic` は一部だけを動かす。スキャナーが動かなければ終了 51、サービスが健全でないのに `--dynamic` を求めたら終了 52。 | 読むだけ |
+| `redteam preflight` | AI レッドチームの実行前に、レッドチーム用の Compose プロジェクトに外向き通信がなく、`manifest/redteam-targets.json` に名前のあるコンテナだけに届くことを確かめる。どちらかが外れれば終了 53。詳細は [SPEC-03 §6](03_security_gate.md#japanese)。 | 読むだけ |
+| `accept` | Playwright Python の受入試験を同じ `.venv/` で実行する。`--only <シナリオ>` で一つだけ、`--seed` で使い捨ての試験利用者を作る。一件でも失敗すれば終了 60。詳細は [SPEC-04](04_acceptance_tests.md)。 | 読むだけ |
+| `upstream mirror` / `upstream integrate` | [SPEC-05](05_upstream_tracking.md) の日次ミラーと週次統合を手で動かす。非公開の `-dev2027` への Git 認証情報が要り、このリポジトリの CI では決して動かさない。 | 触れない（Git のみ） |
+| `manifest check` / `manifest toon` | `check` は `manifest/upstreams.json` を検証し（[SPEC-01 §5](01_manifest.md#japanese)）、`docs/` 内の TOON の抄録と `manifest/upstreams.toon` がそれと一致するか確かめる。不一致は終了 20。`toon` は `upstreams.toon` が一致すべき抄録を出力する。 | 触れない |
+| `docs build` / `docs check` | `build` は MkDocs で `site/` を作る。`check` は [SPEC-06 §8](06_documentation_conventions.md#japanese) のアンカー、Jump 行、相対リンク、TOON の一致、Version 行を検査する。 | 触れない |
+| `report` | `doctor`・`plan`・`health`・`scan`・`accept` の最新の報告を `runtime/reports/<時刻>.toon` と `.json` にまとめる。 | 触れない |
+| `install` | 流れ図の順に実行する。最初に 0 以外で終わった段で止まる。 | 触れる |
+
+<a id="2-ja-ports"></a>
+### 4. プロファイルと公開ポート
+
+```toon
+profiles[3]{name,services,note}:
+  minimum,"web api postgres elasticsearch rabbitmq fakecas",ログインとプロジェクト画面が見える最小の組
+  core,"minimum + admin worker wb wb_worker mfr unoconv ember_osf_web cas wiki mongo sharejs elasticsearch6 redis",コア 6 リポジトリと基盤
+  full,"core + y_websocket rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp",全部。shibboleth_sp は fakecas と入れ替わる
+```
+
+サービス名は RDM-osf.io 上流の `docker-compose.yml` に合わせ、既存の手引きがそのまま使えるようにします。これは manifest の `services[]` の値でもあります（[SPEC-01 §3](01_manifest.md#japanese)）。Compose プロファイル `shibboleth` とサービス `fakecas` は排他です。`compose render --profile full --auth shibboleth` は `fakecas` を外して `shibboleth_sp` と `test_idp` を足します。`full` の既定は `fakecas` です。
+
+**公開ポート。** 既定のホスト側ポートを定めるのはこの表だけです。[ADR-02](../decisions/ADR-02_Network_Model.md)、[SPEC-03](03_security_gate.md)、[REF-01](../reference/REF-01_Glossary.md) はここを指します。すべて `127.0.0.1` にだけ公開します。
+
+```toon
+ports[7]{service,host_port,profile,url}:
+  web,5000,minimum,http://127.0.0.1:5000
+  api,8000,minimum,http://127.0.0.1:8000
+  admin,8001,core,http://127.0.0.1:8001
+  wb,7777,core,http://127.0.0.1:7777
+  mfr,7778,core,http://127.0.0.1:7778
+  fakecas,8080,minimum,http://127.0.0.1:8080
+  ember_osf_web,4200,core,http://127.0.0.1:4200
+```
+
+ほかのサービス（`wiki`、`cas`、`y_websocket`、サブシステム、`test_idp`、データベースとキュー）には Compose ネットワークの中からだけ届きます。ブラウザ向けのポートが要るときは `compose render` が割り当て、`plan` が表示します。`compose render` は選んだホスト側ポートをすべて `runtime/.env` に `GRDM_PORT_<SERVICE>`（大文字）として書き、受入試験はそれを読みます（[SPEC-04 §1](04_acceptance_tests.md#japanese)）。既定のポートが使用中なら（macOS の AirPlay と `5000` が既知の例）、`compose render` は次の空きポートを取り、導入報告書に記録します。終了 12 は空きポートが見つからないときだけです。
+
+### 5. フラグ
+
+| フラグ | 意味 |
+|---|---|
+| `--yes` | すべての質問に既定で答える。端末がないときは必須。 |
+| `--profile minimum\|core\|full` | 既定は `core`。`runtime/.env` に `GRDM_PROFILE` として保存し、次回以降も使う。 |
+| `--platform linux/arm64,linux/amd64` | `build` の platform を上書きする。既定はホストの platform だけ。 |
+| `--no-open` | `up` の後にブラウザを開かない。 |
+| `--json` | 報告を TOON でなく JSON で出す。 |
+
+### 6. 終了コード
+
+```toon
+exit_codes[13]{code,meaning}:
+  0,成功
+  2,指定の誤り。不明なフラグや値の形の誤り
+  10,対象外のホスト。OS・CPU・メモリ、または Python が古い
+  11,Docker が無い・動いていない、または Compose / buildx プラグインが無い
+  12,必要なポートが 127.0.0.1 で使用中で、空きの代わりも見つからない
+  20,manifest が不正、または TOON の抄録が JSON と一致しない
+  30,イメージのビルドに失敗
+  40,健康確認に失敗、またはループバック以外の番地で待ち受けている
+  50,今の節目のセキュリティスキャンの門で不合格
+  51,スキャナーが動かない。道具が無い、または脆弱性データベースの取得に失敗
+  52,サービスが健全でなく scan --dynamic を実行できない
+  53,レッドチームの事前確認に失敗。外向き通信が可能、または redteam-targets.json 外の対象
+  60,受入試験に失敗
+```
+
+番号を別の意味に使い回しません。新しい原因には新しい番号を振ります。正本は `installer/grdm_dev/messages.tsv` で、この TOON ブロックはそれと一致していなければなりません（`manifest check` が確かめます）。50〜53 の詳細は [SPEC-03 §8](03_security_gate.md#japanese) にあります。
+
+### 7. 振る舞いの規則
+
+- **対話なしで動く。** `stdin` が端末でなく `--yes` もないとき、すべての質問は「いいえ」と扱い、`--yes` を付けるよう促して終了 2 で終わる。
+- **何度でも同じ結果。** どのサブコマンドも二度実行して同じ結果になる。`secrets init` は既存の秘密を残し、`compose render` は生成ファイルだけを上書きし、`build` は buildx のキャッシュを使い、`up` は健康なサービスには何もしない。
+- **秘密を Git に入れない。** `runtime/` は `.gitignore` に入れる。`runtime/` の下のファイルや秘密に見える値がコミットされると、`docs check` と CI の秘密スキャンが不合格にする。
+- **ホストのネットワークを変えない。** 旧手引きのループバック別名 `192.168.168.167` は作らない。`compose render` が上流の `local.py` と `.docker-compose.*.env` の設定を、Compose ネットワーク内ではサービス名、ブラウザ向けには `127.0.0.1` を使うよう書き換える（[ADR-02](../decisions/ADR-02_Network_Model.md)）。
+- **`-private` のコードを置かない。** インストーラーは実行時に manifest の名前と SHA で統合リポジトリを取得する。この公開リポジトリにはそれらのコードを置かない（[POL-01](../policy/POL-01_Developer_Environment_2027_Position.md)）。
+
+<a id="2-ja-hosts"></a>
+### 8. 対応ホスト
+
+| ホスト | CPU | 対応 |
+|---|---|---|
+| macOS 14 以上 と Docker Desktop | arm64 | 正式（M2 の受入はここで実行） |
+| Ubuntu 24.04 と Docker Engine | amd64・arm64 | 正式 |
+| Windows 11 の WSL2（Ubuntu 24.04）と Docker Desktop | amd64 | 動くことを必須とする。CI ではビルド確認のみ |
+| その他の Linux、Intel の macOS | 任意 | できる範囲で対応。`doctor` が警告して続行 |
+
+### 9. ディレクトリ構成
+
+```toon
+layout:
+  installer/install.sh: bash 3.2 の起動スクリプト
+  installer/pyproject.toml: パッケージ情報、コンソールスクリプト grdm-dev、追加 accept
+  installer/grdm_dev/:
+    cli.py: 引数の解釈、サブコマンドの振り分け、終了コード
+    host.py: OS・CPU・メモリ・ディスク・Docker の判定
+    manifest.py: manifest/upstreams.json の読み込みと検証、TOON との比較
+    secrets.py: 乱数の秘密の生成、モード 0600 の runtime/.env
+    compose.py: manifest とプロファイルから runtime/docker-compose.yml を生成
+    build.py: buildx の呼び出し、platform の一覧、任意の push
+    health.py: サービスの健康確認とループバック限定の確認
+    scan.py: 基本対策、Trivy の SBOM と CVE、gitleaks、Semgrep、ZAP、許容リストとの差分、段階的な門（SPEC-03）
+    redteam.py: レッドチームの事前確認（SPEC-03 §6）
+    upstream.py: ミラーと統合（SPEC-05）
+    accept.py: 同じ venv で pytest-playwright を実行
+    docs.py: MkDocs のビルドと SPEC-06 の検査
+    report.py: TOON と JSON の報告をまとめる
+    messages.tsv: 終了コード、英語の文言、日本語の文言
+  installer/tests/: unittest。ファイル名は test_*.py
+  installer/acceptance/: Playwright Python。SPEC-04 を参照
+  manifest/:
+    upstreams.json: manifest の正本（SPEC-01）
+    upstreams.toon: grdm-dev manifest toon が生成する抄録（SPEC-01）
+    allowlist.json: 許容する検出（SPEC-03 §5.1）
+    allowlist.baseline.json: 前の節目の終了時の許容リスト件数。所有者が保守（SPEC-03 §5.1）
+    milestone.json: 現在の節目。所有者が保守（SPEC-03 §5.2）
+    hardening.json: 読み取り専用ルートと cap_drop のサービスごとの例外と理由（SPEC-03 §3.3）
+    redteam-targets.json: AI レッドチームが触れてよいコンテナ名（SPEC-03 §6）
+  runtime/: 生成物。Git は無視（.env、docker-compose.yml、volumes/、reports/）
+```
+
+### 10. 試験
+
+`python3 -m unittest discover -s installer/tests` はすべての PR で合格していなければなりません。各モジュールに `test_<モジュール>.py` を置き、成功ケースと拒否ケースを少なくとも一つずつ含め、拒否ケースでは [§6](#japanese) の終了コードを assert します。単体試験は Docker を要求しません。`host.py` と `build.py` は実行器を差し替えられる作りにし、試験では偽の `docker` の出力を渡します。統合と受入の段は [SPEC-04](04_acceptance_tests.md) で定めます。
+
+---
+
+## Glossary / 用語
+
+| Term | English note | 日本語注 |
+|---|---|---|
+| Virtual environment (venv) | A private folder of Python and its libraries, separate from the system's. | システムとは別の、Python とライブラリだけの私用フォルダ。 |
+| buildx | The part of Docker that builds images for more than one kind of CPU at once. | 複数の種類の CPU 向けのイメージを一度に作る Docker の機能。 |
+| Loopback / 127.0.0.1 | The address that means "this same computer"; nothing outside can reach it. | 「この同じコンピュータ」を指す番地。外からは届かない。 |
+| SBOM | A list of every software part inside an image, like an ingredients label. | イメージに入っている部品の一覧。食品の原材料表示のようなもの。 |
+| CVE | A public record number for one known security weakness. | 一つの既知の弱点に付いた公開の番号。 |
+| Exit code | The number a program returns when it stops; 0 means success. | プログラムが終わるときに返す数。0 が成功。 |
