@@ -77,6 +77,7 @@ graph TD
 - [ADR-02 Network Model](docs/decisions/ADR-02_Network_Model.md) - Network model / ネットワークモデル
 - [ADR-03 Staged Security Gate](docs/decisions/ADR-03_Staged_Security_Gate.md) - Staged security gate / 階段式セキュリティゲート
 - [ADR-04 AI Autonomy and Roles](docs/decisions/ADR-04_AI_Autonomy_and_Roles.md) - AI autonomy and roles / AI 自律性と役割
+- [ADR-05 Test IdP for Shibboleth](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 
 #### References / 参考資料
 
@@ -170,6 +171,7 @@ graph TD
 - [ADR-02 ネットワークモデル](docs/decisions/ADR-02_Network_Model.md) - Network model / ネットワークモデル
 - [ADR-03 階段式セキュリティゲート](docs/decisions/ADR-03_Staged_Security_Gate.md) - Staged security gate / 階段式セキュリティゲート
 - [ADR-04 AI 自律性と役割](docs/decisions/ADR-04_AI_Autonomy_and_Roles.md) - AI autonomy and roles / AI 自律性と役割
+- [ADR-05 Shibboleth 用テスト IdP](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 
 #### 参考資料
 
