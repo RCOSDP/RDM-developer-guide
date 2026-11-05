@@ -1,0 +1,3126 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../ADR-03_Staged_Security_Gate/">
+      
+      
+        <link rel="next" href="../../demo/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.37">
+    
+    
+      
+        <title>ADR-04 AI Autonomy and Roles / AI の自律度と役割 - GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8c3ca2c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-04-ai-autonomy-and-roles--ai-の自律度と役割" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-header__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-04 AI Autonomy and Roles / AI の自律度と役割
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system theme"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system theme" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Documentation Index / 文書索引
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../assets/" class="md-tabs__link">
+          
+  
+  Assets
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../demo/" class="md-tabs__link">
+          
+  
+  Demo
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../handoff/" class="md-tabs__link">
+          
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../policy/" class="md-tabs__link">
+          
+  
+  Policy
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reviews/" class="md-tabs__link">
+          
+  
+  Reviews
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../spec/" class="md-tabs__link">
+          
+  
+  Spec
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../status/" class="md-tabs__link">
+          
+  
+  Status
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-nav__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Index / 文書索引
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Assets
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Assets
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../assets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Site Assets / サイト用の部品
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Decisions
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Decision Records / 決定の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ADR-01_Integration_Repository_Placement/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-01 Integration Repository Placement / 統合リポジトリの置き場
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ADR-02_Network_Model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-02 Network Model / ネットワーク方式
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ADR-03_Staged_Security_Gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-03 Staged Security Gate / セキュリティの門の段階化
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    ADR-04 AI Autonomy and Roles / AI の自律度と役割
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    ADR-04 AI Autonomy and Roles / AI の自律度と役割
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#english" class="md-nav__link">
+    <span class="md-ellipsis">
+      English
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="English">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Context
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-options-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Options considered
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Decision
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 Roles
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 Flow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-evidence-trail" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 Evidence trail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-forbidden-for-every-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 Forbidden for every agent
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Consequences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-open-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Open question
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#日本語" class="md-nav__link">
+    <span class="md-ellipsis">
+      日本語
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="日本語">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-背景" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. 背景
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-検討した選択肢" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. 検討した選択肢
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-決定" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. 決定
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. 決定">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-役割" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 役割
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-流れ" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 流れ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-証跡" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 証跡
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-すべてのエージェントに禁止すること" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 すべてのエージェントに禁止すること
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-結果" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. 結果
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-未決事項" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. 未決事項
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#glossary--用語" class="md-nav__link">
+    <span class="md-ellipsis">
+      Glossary / 用語
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Demo
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Demonstration Records / 実証記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Runs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            Runs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/runs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Acceptance Run Records / 受入実行の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guides / ガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Admin addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            Admin addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/admin-addon/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Addon Guide / 管理者アドオンガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/admin-addon/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    アドオンの機関管理機能の利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Api
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            Api
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Guide / API ユーガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/Decorators/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    View処理で使えるPythonデコレータ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIの利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ec2
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Ec2
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ec2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EC2 Development Environment / EC2 での開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ec2/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OSF evaluation on AWS EC2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Environment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            Environment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/environment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment / 環境設定と開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/environment/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    開発環境の準備
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Screen expansion
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            Screen expansion
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/screen-expansion/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Screen Expansion Addon / 画面拡張アドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/screen-expansion/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    画面拡張アドオンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Skeleton
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
+            <span class="md-nav__icon md-icon"></span>
+            Skeleton
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/skeleton/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Skeleton Addon / スケルトンアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/skeleton/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    スケルトンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Storage addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            Storage addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/storage-addon/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage Addon / ストレージアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/storage-addon/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ストレージアドオンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Handoff
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Handoff
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../handoff/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hand-off Records / 引継ぎ記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Policy
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Policy
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Policy / 方針
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policy/POL-01_Developer_Environment_2027_Position/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    POL-01 Position on the Developer Environment 2027 / 開発環境 2027 版の位置づけ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reference / 参考
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REF-01_Glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REF-01 Glossary / 用語集
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reviews
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Reviews
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Review Records / レビュー記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r2 / M1 文書骨格 PR 再レビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r1 / 公開 develop 統合レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r2 / 公開 develop 統合再レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Spec
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Spec
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specifications / 仕様
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/00_overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-00 Overview and Architecture / 全体像と構成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/01_manifest/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-01 Upstream Manifest / 上流マニフェスト
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/02_installer_cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-02 Installer CLI / インストーラー CLI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/03_security_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-03 Security Gate / セキュリティの門
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/04_acceptance_tests/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-04 Acceptance Tests / 受入試験
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/05_upstream_tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-05 Upstream Tracking / 上流追従
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec/06_documentation_conventions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-06 Documentation Conventions / 文書規約
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Status
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Status
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../status/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Status Board / 進捗ボード
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_11_2" id="__nav_11_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upstream
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11_2">
+            <span class="md-nav__icon md-icon"></span>
+            Upstream
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../status/upstream/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upstream Tracking Status / 上流追従状況
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#english" class="md-nav__link">
+    <span class="md-ellipsis">
+      English
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="English">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Context
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-options-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Options considered
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Decision
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 Roles
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 Flow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-evidence-trail" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 Evidence trail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-forbidden-for-every-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 Forbidden for every agent
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Consequences
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-open-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Open question
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#日本語" class="md-nav__link">
+    <span class="md-ellipsis">
+      日本語
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="日本語">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-背景" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. 背景
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-検討した選択肢" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. 検討した選択肢
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-決定" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. 決定
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. 決定">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-役割" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 役割
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-流れ" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 流れ
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-証跡" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 証跡
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-すべてのエージェントに禁止すること" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 すべてのエージェントに禁止すること
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-結果" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. 結果
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-未決事項" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. 未決事項
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#glossary--用語" class="md-nav__link">
+    <span class="md-ellipsis">
+      Glossary / 用語
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="adr-04-ai-autonomy-and-roles--ai-の自律度と役割">ADR-04 AI Autonomy and Roles / AI の自律度と役割<a class="headerlink" href="#adr-04-ai-autonomy-and-roles--ai-の自律度と役割" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Summary:</strong> AI agents detect vulnerabilities, write fix pull requests, review them, and run regression and acceptance tests on their own. Humans keep two actions: merge and publish. This record names who plays which role (AID, QAE, REV, owner), what the agents may never do, and the one question left open.
+<strong>概要:</strong> AI エージェントは脆弱性の検出、修正 PR の作成、レビュー、回帰・受入試験の実行までを自律的に行う。人に残すのはマージと公開の二つ。誰がどの役割（AID・QAE・REV・所有者）を担うか、エージェントが決してしてはならないこと、残した一つの未決事項を記す。</p>
+</blockquote>
+<p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
+<ul>
+<li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the line between "automatic" and "human" is easiest to defend when it sits on two concrete commands, merge and publish, rather than on a judgment such as "important changes". ／ 「自動」と「人」の境目は、「重要な変更」のような判断ではなく、マージと公開という二つの具体的な操作に置くと最も守りやすいと分かった。</li>
+<li>Status: Accepted (owner, 2026-11-05). Review date: after steady-state operation has run for one month (open question in §5).</li>
+<li>Related: <a href="../../spec/00_overview/">SPEC-00 Overview</a> · <a href="../../spec/02_installer_cli/">SPEC-02 Installer CLI</a> · <a href="../../spec/03_security_gate/">SPEC-03 Security Gate</a> · <a href="../../spec/04_acceptance_tests/">SPEC-04 Acceptance Tests</a> · <a href="../../spec/05_upstream_tracking/">SPEC-05 Upstream Tracking</a> · <a href="../../spec/06_documentation_conventions/">SPEC-06 Documentation Conventions</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../ADR-01_Integration_Repository_Placement/">ADR-01 Integration Repository Placement</a> · <a href="../ADR-02_Network_Model/">ADR-02 Network Model</a> · <a href="../ADR-03_Staged_Security_Gate/">ADR-03 Staged Security Gate</a> · <a href="../../">docs/README.md</a></li>
+</ul>
+<hr />
+<p><a id="english"></a></p>
+<h2 id="english">English<a class="headerlink" href="#english" title="Permanent link">&para;</a></h2>
+<p><a href="#japanese">→ 日本語版へ</a></p>
+<h3 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h3>
+<p>The owner's goal (<a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01</a>) is that GRDM keeps being provided even if COS discontinues OSF, through <em>continuous vulnerability remediation</em> (finding and fixing weak spots again and again, every day, not once) done by <em>AI agents</em> (programs that read, write, and test code on their own when given a task). The security gate of <a href="../../spec/03_security_gate/">SPEC-03</a> produces a daily list of findings; someone must turn each finding into a fix.</p>
+<p>At the same time, the development policy POL-05 of the GRDM core repository, which this repository inherits, draws two lines that must not move:</p>
+<ul>
+<li><strong>An author never accepts their own work.</strong> The one who wrote a change does not judge whether it passes.</li>
+<li><strong>Merge and publish are human actions.</strong> No agent commits to the main branch or publishes an image or a release.</li>
+</ul>
+<p>The question is how much of the path between "finding" and "merge" AI agents may walk alone.</p>
+<h3 id="2-options-considered">2. Options considered<a class="headerlink" href="#2-options-considered" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+<th>Why rejected / chosen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Detect only</td>
+<td>Agents scan and open issues; humans do everything else.</td>
+<td>Rejected. Does not scale to daily findings across eleven repositories. The owner would be the bottleneck, and the goal of continued provision without COS would not be met.</td>
+</tr>
+<tr>
+<td><strong>2. Detect → fix PR → review → automatic regression and acceptance; humans merge and publish (chosen)</strong></td>
+<td>Agents do all the work that produces evidence. Humans do the two actions that change what others receive.</td>
+<td>Chosen. Keeps both POL-05 lines intact. Author (AID), reviewer (REV), and judge (QAE) are three different agents, so no one accepts their own work. The owner sees a PR with review and test evidence attached and only decides.</td>
+</tr>
+<tr>
+<td>3. Auto-merge after review</td>
+<td>Same as 2, but the PR merges itself when review and tests pass.</td>
+<td>Rejected for now. Conflicts with POL-05 "merge by humans". A narrow exception for vulnerability-only fixes is kept as an open question (§5).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-decision">3. Decision<a class="headerlink" href="#3-decision" title="Permanent link">&para;</a></h3>
+<h4 id="31-roles">3.1 Roles<a class="headerlink" href="#31-roles" title="Permanent link">&para;</a></h4>
+<p>Role abbreviations follow the table in <code>AGENTS.md</code>. In records, write the abbreviation with the Japanese role name, for example <code>AID（AI開発担当者）</code>.</p>
+<pre class="toon"><code>roles[4]{abbr,ja_name,who,runs_on,does}:
+  AID,AI開発担当者,"Orca Open Code 2 workers","local LLM Qwen 3 Coder Next (model id lmstudio/qwen3-coder-next-mlx)","implement to spec, write fix PRs, propose allow-list entries"
+  QAE,QA担当,"Claude Code Fable","Claude Code session on Mac Studio","check implementations, run regression and acceptance (SPEC-04), judge pass/fail, write correction requests"
+  REV,担当レビュワ,"Codex Astra (model id gpt-6-astra)","Orca worker","independent review of every PR; record in docs/reviews/ and as a PR comment"
+  owner,所有者,"Yusuke Komiyama","human","merge, publish, exceptions, milestone changes, red-team approval"</code></pre>
+<p>The three agent roles are played by three different models on purpose, so that an error habit of one model is not shared by its reviewer or its judge.</p>
+<h4 id="32-flow">3.2 Flow<a class="headerlink" href="#32-flow" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart LR
+    S[grdm-dev scan&lt;br/&gt;daily finding] --&gt; A[AID&lt;br/&gt;fix PR on a branch]
+    A --&gt; R[REV&lt;br/&gt;review → docs/reviews/ + PR comment]
+    R -- changes requested --&gt; A
+    R -- approved --&gt; Q[QAE&lt;br/&gt;regression + acceptance&lt;br/&gt;SPEC-04]
+    Q -- fail → correction request --&gt; A
+    Q -- pass --&gt; O[Owner&lt;br/&gt;merge]
+    O --&gt; P[Owner&lt;br/&gt;publish image / release]</code></pre>
+<ul>
+<li>Every step up to and including QAE's judgment is automatic and may run without a human present.</li>
+<li>The owner merges with <code>gh pr merge</code> (Japanese subject) or declines. The owner publishes images to <code>ghcr.io/rcosdp</code> and tags releases.</li>
+<li><em>Subagents</em> (helper agents an agent starts to split its work) are unlimited in number. The role that started them is responsible for their output.</li>
+</ul>
+<h4 id="33-evidence-trail">3.3 Evidence trail<a class="headerlink" href="#33-evidence-trail" title="Permanent link">&para;</a></h4>
+<p>Every PR carries, before the owner sees it:</p>
+<ol>
+<li>The finding it fixes (CVE id or scan report path from <a href="../../spec/03_security_gate/">SPEC-03 §7</a>).</li>
+<li>REV's review record in <code>docs/reviews/YYYY-MM-DD_&lt;Title&gt;_rN.md</code> and the same text as a PR comment.</li>
+<li>QAE's test record: the <code>grdm-dev accept</code> and <code>grdm-dev scan</code> TOON excerpts, pass or fail, and the commit SHA tested.</li>
+<li>A Japanese commit subject with a scoped prefix (<code>fix(security):</code>).</li>
+</ol>
+<p>A PR without all four is not ready for the owner; QAE returns it to AID.</p>
+<h4 id="34-forbidden-for-every-agent">3.4 Forbidden for every agent<a class="headerlink" href="#34-forbidden-for-every-agent" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>git push --force</code> to any branch, ever.</li>
+<li>Deleting branches, tags, repositories, images, or data of any kind.</li>
+<li>Writing (push, PR creation, issue creation, comments) to any upstream repository: RCOSDP public cores, RCOSDP <code>-private</code> variants, or CenterForOpenScience. Agents write only to this repository and to the <code>-dev2027</code> repositories.</li>
+<li>Merging to <code>develop</code> or any protected branch; enabling auto-merge; changing branch protection.</li>
+<li>Publishing images, releases, or documentation sites.</li>
+<li>Copying <code>-private</code> code, secrets, or private repository URLs into this public repository (<a href="../ADR-01_Integration_Repository_Placement/">ADR-01</a>).</li>
+<li>Running red-team techniques against anything outside the isolated environment (<a href="../../spec/03_security_gate/">SPEC-03 §6</a>).</li>
+</ul>
+<h3 id="4-consequences">4. Consequences<a class="headerlink" href="#4-consequences" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Remediation keeps pace with daily scans without waiting for human working hours; the owner's work shrinks to reading evidence and clicking merge.</li>
+<li>Three different models in three roles raise the cost of a shared blind spot and satisfy "no self-acceptance" structurally.</li>
+<li>Local LLM workers (AID) have variable quality. The spec-first rule (specifications in <code>docs/spec/</code> are written before work is handed to AID) and the QAE check are the compensation. A PR that fails QAE twice is closed and restarted from the spec.</li>
+<li>Running three agent systems costs Mac Studio resources. Concurrency of Open Code 2 workers is an open item of <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01</a>.</li>
+<li>Review time from the owner is the only remaining latency. If it becomes the bottleneck for vulnerability fixes, §5 is revisited.</li>
+</ul>
+<h3 id="5-open-question">5. Open question<a class="headerlink" href="#5-open-question" title="Permanent link">&para;</a></h3>
+<p><strong>Should vulnerability-only fixes be allowed to auto-merge after REV approval and QAE pass?</strong> Arguments for: faster closure of HIGH findings in steady state. Arguments against: POL-05 keeps merge human; a wrong automatic merge in a security path is the most expensive kind of error. Decision deferred until steady-state operation has run for about one month and the owner has seen the real volume and quality of fix PRs. Until then, option 2 stands as written.</p>
+<hr />
+<p><a id="japanese"></a></p>
+<h2 id="日本語">日本語<a class="headerlink" href="#日本語" title="Permanent link">&para;</a></h2>
+<p><a href="#english">→ To English</a></p>
+<h3 id="1-背景">1. 背景<a class="headerlink" href="#1-背景" title="Permanent link">&para;</a></h3>
+<p>所有者のゴール（<a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01</a>）は、COS が OSF を廃止しても、「AI エージェント」（課題を与えると自分でコードを読み・書き・試すプログラム）による「継続的な脆弱性対応」（弱い所を一度でなく毎日くり返し見つけて直すこと）で GRDM の提供を続けることです。<a href="../../spec/03_security_gate/">SPEC-03</a> の門は毎日検出の一覧を出します。誰かがその一件一件を修正に変えなければなりません。</p>
+<p>一方で、このリポジトリが継承する GRDM コアの開発方針 POL-05 は、動かしてはならない二本の線を引いています。</p>
+<ul>
+<li><strong>作者は自分の成果を受け入れない。</strong> 変更を書いた者が合否を判定しない。</li>
+<li><strong>マージと公開は人の操作。</strong> どのエージェントも主ブランチにコミットせず、イメージやリリースを公開しない。</li>
+</ul>
+<p>問いは、「検出」から「マージ」までの道のどこまでを AI エージェントが一人で歩いてよいかです。</p>
+<h3 id="2-検討した選択肢">2. 検討した選択肢<a class="headerlink" href="#2-検討した選択肢" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>選択肢</th>
+<th>内容</th>
+<th>退けた・採った理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. 検出のみ</td>
+<td>エージェントはスキャンして issue を開き、残りは人が行う。</td>
+<td>退けた。11 本のリポジトリで毎日出る検出に追いつかない。所有者がボトルネックになり、COS なしで提供を続けるゴールに届かない。</td>
+</tr>
+<tr>
+<td><strong>2. 検出 → 修正 PR → レビュー → 回帰・受入の自動実行。マージと公開は人（採用）</strong></td>
+<td>証拠を作る仕事はすべてエージェントが行う。他者が受け取るものを変える二つの操作だけを人が行う。</td>
+<td>採用。POL-05 の二本の線をそのまま守れる。作者（AID）、レビュワ（REV）、判定者（QAE）が別々のエージェントなので、誰も自分の成果を受け入れない。所有者はレビューと試験の証拠が付いた PR を見て、決めるだけでよい。</td>
+</tr>
+<tr>
+<td>3. レビュー後に自動マージ</td>
+<td>2 と同じだが、レビューと試験に合格すると PR が自分でマージされる。</td>
+<td>今は退けた。POL-05 の「マージは人」と衝突する。脆弱性修正だけの狭い例外は未決事項として残す（§5）。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-決定">3. 決定<a class="headerlink" href="#3-決定" title="Permanent link">&para;</a></h3>
+<h4 id="31-役割">3.1 役割<a class="headerlink" href="#31-役割" title="Permanent link">&para;</a></h4>
+<p>役割の略称は <code>AGENTS.md</code> の対応表に従います。記録では <code>AID（AI開発担当者）</code> のように略称と日本語の役割名を併記します。</p>
+<pre class="toon"><code>roles[4]{abbr,ja_name,who,runs_on,does}:
+  AID,AI開発担当者,"Orca の Open Code 2 ワーカー","ローカル LLM Qwen 3 Coder Next（モデル ID lmstudio/qwen3-coder-next-mlx）","仕様どおりの実装、修正 PR の作成、許容リスト項目の提案"
+  QAE,QA担当,"Claude Code Fable","Mac Studio 上の Claude Code セッション","実装の検査、回帰・受入の実行（SPEC-04）、合否の判定、修正指示の作成"
+  REV,担当レビュワ,"Codex Astra（モデル ID gpt-6-astra）","Orca ワーカー","全 PR の独立レビュー。docs/reviews/ と PR コメントに記録"
+  owner,所有者,"込山悠介","人","マージ、公開、例外、節目の変更、レッドチームの承認"</code></pre>
+<p>三つのエージェントの役割を三つの異なるモデルに割り当てるのは意図的です。一つのモデルの間違いの癖を、そのレビュワや判定者が共有しないようにするためです。</p>
+<h4 id="32-流れ">3.2 流れ<a class="headerlink" href="#32-流れ" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>flowchart LR
+    S[grdm-dev scan&lt;br/&gt;日次の検出] --&gt; A[AID&lt;br/&gt;ブランチに修正 PR]
+    A --&gt; R[REV&lt;br/&gt;レビュー → docs/reviews/＋PR コメント]
+    R -- 修正要求 --&gt; A
+    R -- 承認 --&gt; Q[QAE&lt;br/&gt;回帰＋受入&lt;br/&gt;SPEC-04]
+    Q -- 不合格 → 修正指示 --&gt; A
+    Q -- 合格 --&gt; O[所有者&lt;br/&gt;マージ]
+    O --&gt; P[所有者&lt;br/&gt;イメージ・リリースの公開]</code></pre>
+<ul>
+<li>QAE の判定までのすべての段階は自動で、人がいなくても動いてよい。</li>
+<li>所有者は <code>gh pr merge</code>（日本語の件名）でマージするか、却下する。所有者が <code>ghcr.io/rcosdp</code> にイメージを公開し、リリースにタグを付ける。</li>
+<li>「サブエージェント」（エージェントが仕事を分けるために起こす補助のエージェント）の数に制限はない。起こした役割がその成果に責任を持つ。</li>
+</ul>
+<h4 id="33-証跡">3.3 証跡<a class="headerlink" href="#33-証跡" title="Permanent link">&para;</a></h4>
+<p>所有者が見る前に、すべての PR は次を持ちます。</p>
+<ol>
+<li>直す検出（CVE 番号か、<a href="../../spec/03_security_gate/">SPEC-03 §7</a> のスキャン報告のパス）。</li>
+<li>REV のレビュー記録 <code>docs/reviews/YYYY-MM-DD_&lt;題&gt;_rN.md</code> と、同じ文の PR コメント。</li>
+<li>QAE の試験記録: <code>grdm-dev accept</code> と <code>grdm-dev scan</code> の TOON 抄録、合否、試験したコミット SHA。</li>
+<li>接頭辞付きの日本語のコミット件名（<code>fix(security):</code>）。</li>
+</ol>
+<p>四つがそろわない PR は所有者に出す状態ではなく、QAE が AID へ戻します。</p>
+<h4 id="34-すべてのエージェントに禁止すること">3.4 すべてのエージェントに禁止すること<a class="headerlink" href="#34-すべてのエージェントに禁止すること" title="Permanent link">&para;</a></h4>
+<ul>
+<li>どのブランチへも、いつでも、<code>git push --force</code> をしない。</li>
+<li>ブランチ、タグ、リポジトリ、イメージ、あらゆるデータを削除しない。</li>
+<li>上流リポジトリ（RCOSDP の公開コア、RCOSDP の <code>-private</code> 版、CenterForOpenScience）へ書き込まない（push、PR 作成、issue 作成、コメント）。エージェントが書くのはこのリポジトリと <code>-dev2027</code> 群だけ。</li>
+<li><code>develop</code> や保護されたブランチへマージしない。自動マージを有効にしない。ブランチ保護を変えない。</li>
+<li>イメージ、リリース、文書サイトを公開しない。</li>
+<li><code>-private</code> のコード、秘密、非公開リポジトリの URL をこの公開リポジトリに写さない（<a href="../ADR-01_Integration_Repository_Placement/">ADR-01</a>）。</li>
+<li>隔離環境の外のどこにもレッドチームの手法を使わない（<a href="../../spec/03_security_gate/">SPEC-03 §6</a>）。</li>
+</ul>
+<h3 id="4-結果">4. 結果<a class="headerlink" href="#4-結果" title="Permanent link">&para;</a></h3>
+<ul>
+<li>修正が人の勤務時間を待たずに日次スキャンと同じ速さで進む。所有者の仕事は証拠を読んでマージを押すことに縮む。</li>
+<li>三つの役割に三つの異なるモデルを置くことで、共通の盲点が生まれにくくなり、「自己受入の禁止」が構造として満たされる。</li>
+<li>ローカル LLM のワーカー（AID）は品質がばらつく。仕様先行の決まり（<code>docs/spec/</code> の仕様を書いてから AID に渡す）と QAE の検査がその補いになる。QAE に二度落ちた PR は閉じ、仕様からやり直す。</li>
+<li>三つのエージェント体系を動かすと Mac Studio の資源を使う。Open Code 2 ワーカーの同時実行数は <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01</a> の未決事項。</li>
+<li>残る待ち時間は所有者のレビュー時間だけ。それが脆弱性修正のボトルネックになったら §5 を見直す。</li>
+</ul>
+<h3 id="5-未決事項">5. 未決事項<a class="headerlink" href="#5-未決事項" title="Permanent link">&para;</a></h3>
+<p><strong>脆弱性修正だけの PR に、REV 承認と QAE 合格の後の自動マージを認めるか。</strong> 賛成の理由: 恒常運用で HIGH の検出をより早く閉じられる。反対の理由: POL-05 はマージを人に残している。セキュリティの経路での誤った自動マージは最も高くつく種類の誤りである。恒常運用を約一か月回し、所有者が修正 PR の実際の量と質を見てから決める。それまでは選択肢 2 を書いたとおりに適用する。</p>
+<hr />
+<h2 id="glossary--用語">Glossary / 用語<a class="headerlink" href="#glossary--用語" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>English note</th>
+<th>日本語注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AI agent</td>
+<td>A program that reads, writes, and tests code on its own when given a task.</td>
+<td>課題を与えると自分でコードを読み・書き・試すプログラム。</td>
+</tr>
+<tr>
+<td>Subagent</td>
+<td>A helper agent that an agent starts to split its work.</td>
+<td>エージェントが仕事を分けるために起こす補助のエージェント。</td>
+</tr>
+<tr>
+<td>Pull request (PR)</td>
+<td>A proposed change that others can review before it joins the main code.</td>
+<td>主なコードに入る前に、他の人が確かめられる変更の提案。</td>
+</tr>
+<tr>
+<td>Merge</td>
+<td>Joining a reviewed change into the main branch.</td>
+<td>レビュー済みの変更を主ブランチに入れること。</td>
+</tr>
+<tr>
+<td>Publish</td>
+<td>Making an image, release, or site available to others.</td>
+<td>イメージ、リリース、サイトを他の人が使える状態にすること。</td>
+</tr>
+<tr>
+<td>Force push</td>
+<td>Overwriting shared history on a branch; it can erase other people's work.</td>
+<td>共有された履歴を上書きすること。他の人の作業を消すことがある。</td>
+</tr>
+<tr>
+<td>Self-acceptance</td>
+<td>An author judging that their own work passes.</td>
+<td>作者が自分の成果を合格と判定すること。</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.scrollspy", "content.code.copy"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d6f25eb3.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

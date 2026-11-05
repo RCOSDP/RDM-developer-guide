@@ -1,0 +1,27 @@
+{% load i18n %}
+<!-- Authorization -->
+<div id='myskeltonAddonScope' class="addon-settings scripted"
+     data-addon-short-name="{{ addon.addon_short_name }}"
+     data-addon-name="{{ addon.addon_full_name }}"
+     data-institution-id="{{ institution.id }}">
+  <h4 class="addon-title">
+    <img class="addon-icon" src="{{ addon.addon_icon_url }}">
+    <span data-bind="text:properName">{# addon.addon_full_name #}</span>
+  </h4>
+  <div>
+    <h5>{% trans "Admin Notes" %}</h5>
+    <div class="admin-notes-form">
+            <textarea class="form-control admin-notes-input"
+                      placeholder="{% trans 'Some notes for users by organization administrator...' %}"
+                      data-bind="value: adminNotes">
+            </textarea>
+      <button class="btn btn-success pull-right admin-notes-save"
+              data-bind="click: saveAdminNotes"
+      >{% trans "Save" %}</button>
+    </div>
+    <!-- Flashed Messages -->
+    <div class="help-block">
+      <p data-bind="html: message, attr: { class: messageClass }"></p>
+    </div>
+  </div>
+</div>

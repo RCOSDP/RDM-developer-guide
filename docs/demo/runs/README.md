@@ -1,0 +1,67 @@
+# Acceptance Run Records / 受入実行の記録
+
+> **Summary:** Each run of `grdm-dev accept` writes its evidence into a folder here, named by run id. Nothing is here yet; the first records arrive at milestone M2.
+> **概要:** `grdm-dev accept` を実行するたびに、その証跡が実行 ID 名のフォルダとしてここに書かれます。まだ記録はなく、最初の記録は節目 M2 で作られます。
+
+**Jump:** [English](#english) · [日本語](#japanese)
+
+- Version / 版: 0.1 — 2026-11-05. **Learned:** the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。
+- Normative source: [SPEC-04 Acceptance Tests](../../spec/04_acceptance_tests.md)
+- Related: [docs/demo/README.md](../README.md) · [docs/status/README.md](../../status/README.md)
+
+---
+
+<a id="english"></a>
+## English
+
+[→ 日本語版へ](#japanese)
+
+### What is stored here
+
+Every run of the acceptance tests (automated browser tests that check the environment works, see [SPEC-04](../../spec/04_acceptance_tests.md)) creates one folder `runs/<run_id>/` with:
+
+| File | Meaning |
+|---|---|
+| `results.toon` | Human- and AI-readable summary (TOON: a compact text form of JSON) |
+| `results.json` | The same data for machines (canonical) |
+| `junit.xml` | Test results in the format CI tools read |
+| `screenshots/`, `trace/` | Only when a test failed: what the browser saw |
+
+Records are written by `grdm-dev accept`; do not edit them by hand. No secrets are ever written here.
+
+### Current state
+
+No runs yet. The first records are expected at milestone M2 (core services on Mac Studio).
+
+---
+
+<a id="japanese"></a>
+## 日本語
+
+[→ To English](#english)
+
+### ここに置くもの
+
+受入試験（環境が動くことを確かめる自動のブラウザ試験。[SPEC-04](../../spec/04_acceptance_tests.md) 参照）を実行するたびに、`runs/<run_id>/` というフォルダが一つ作られ、次が入ります。
+
+| ファイル | 意味 |
+|---|---|
+| `results.toon` | 人と AI が読む要約（TOON: JSON を短い文字で表した形） |
+| `results.json` | 機械が読む同じデータ（正本） |
+| `junit.xml` | CI の道具が読む形式の試験結果 |
+| `screenshots/`, `trace/` | 試験が失敗したときだけ: ブラウザが見ていた画面 |
+
+記録は `grdm-dev accept` が書きます。手で編集しないでください。秘密情報はここに書かれません。
+
+### いまの状態
+
+まだ実行はありません。最初の記録は節目 M2（Mac Studio でコアを起動）で作られる見込みです。
+
+---
+
+## Glossary / 用語
+
+| Term | English note | 日本語注 |
+|---|---|---|
+| Run id | A short unique name for one test run, like a receipt number. | 一回の試験実行につける短い名前。レシート番号のようなもの。 |
+| JUnit XML | A standard file format that test tools use to report pass/fail. | 試験の道具が合否を報告するときの標準の形式。 |

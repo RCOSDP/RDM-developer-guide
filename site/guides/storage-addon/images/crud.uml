@@ -1,0 +1,23 @@
+# Build:
+# $ cat crud.uml | docker run --rm -i think/plantuml -tpng > crud.png
+@startuml
+
+actor User as user
+participant "OSF.io Addon" as osf
+participant "WaterButler Provider" as wb
+database "External Storage" as storage
+
+osf --> user : Cookie
+user -> wb : CRUD Request (+ Cookie)
+activate wb
+'wb -> osf : Request
+'activate osf
+'return Credentials and Settings
+osf --> wb : Credentials and Settings
+wb -> storage : CRUD Request
+activate storage
+return (Files)
+return (Files)
+
+
+@enduml

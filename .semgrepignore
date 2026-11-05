@@ -1,0 +1,17 @@
+# Semgrep ignore list (reasons are mandatory; see docs/spec/03_security_gate.md)
+# Generated output of MkDocs; its sources under docs/ are scanned instead.
+site/
+# Legacy sample code copied from the 2020-era guides (osf.io add-on examples).
+# Findings there (raw HTML in templates, exec in a sample) are recorded on the status board
+# and will be addressed when each guide is rewritten (M2/M3). The guides' README files stay scanned.
+docs/guides/*/addon/
+docs/guides/*/admin/
+docs/guides/*/admin_tests/
+docs/guides/*/config/
+docs/guides/*/osf/
+docs/guides/*/website/
+docs/guides/*/osf.io/
+docs/guides/*/ember-osf-web/
+docs/guides/*/images/
+docs/guides/*/docs/
+docs/guides/*/waterbutler/
