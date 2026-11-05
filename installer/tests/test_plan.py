@@ -109,7 +109,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(ember["origin"], "prebuilt")
         self.assertEqual(services["web"]["origin"], "built")
         self.assertEqual(services["postgres"]["origin"], "pinned")
-        self.assertEqual(data["prebuilt_images"], [ember["image"]])
+        self.assertIn(ember["image"], data["prebuilt_images"])  # other components (e.g. cas-overlay) may be prebuilt too
         self.assertFalse(any("ember-osf-web" in i for i in data["images_to_build"]))
 
     def test_without_prebuilt_image_ember_is_built_again(self):
@@ -123,7 +123,7 @@ class PlanTests(unittest.TestCase):
         ember = {r["service"]: r for r in data["services"]}["ember_osf_web"]
         self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
         self.assertTrue(ember["build_from"].startswith("RDM-ember-osf-web-dev2027@"))
-        self.assertEqual(data["prebuilt_images"], [])
+        self.assertFalse(any("ember-osf-web" in i for i in data["prebuilt_images"]))  # ember is built again; others may stay prebuilt
 
     def test_read_dotenv_and_resolve_profile(self):
         root = make_root("# comment\nGRDM_PROFILE='full'\nX=\"1\"\n\nbad line\n")
