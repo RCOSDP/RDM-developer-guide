@@ -6,7 +6,7 @@
   "command": [
     "sh",
     "-c",
-    "set -e; chown 1000:1000 /wiki_static; chmod 0755 /wiki_static; ls -ld /wiki_static"
+    "set -e; chmod 0755 /wiki_static; chown 1000:1000 /wiki_static; ls -ld /wiki_static"
   ],
   "volumes": [
     {
@@ -20,5 +20,5 @@
   "weight": 1,
   "mem_min_mb": 64,
   "pids_limit": 64,
-  "note": "One-shot (ADR-06, PR #30 review r1 R1-02): a fresh named volume is a bind directory under runtime/volumes/ created by the host user (mkdir, 0755), so the non-root copier wiki_assets (1000:1000) cannot write to it on a Linux host whose uid is not 1000. This container runs the same overlay image as root with cap_drop ALL and only CAP_CHOWN added back (manifest/hardening.json, controls user + cap_add), chowns the volume to 1000:1000 and exits; wiki_assets waits for it with service_completed_successfully. It never touches anything but the volume mount."
+  "note": "One-shot (ADR-06, PR #30 review r1 R1-02, r2 R2-01: chmod runs BEFORE chown because with only CAP_CHOWN a chmod on a directory root no longer owns needs CAP_FOWNER and fails with EPERM on Linux): a fresh named volume is a bind directory under runtime/volumes/ created by the host user (mkdir, 0755), so the non-root copier wiki_assets (1000:1000) cannot write to it on a Linux host whose uid is not 1000. This container runs the same overlay image as root with cap_drop ALL and only CAP_CHOWN added back (manifest/hardening.json, controls user + cap_add), chowns the volume to 1000:1000 and exits; wiki_assets waits for it with service_completed_successfully. It never touches anything but the volume mount."
 }

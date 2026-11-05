@@ -727,6 +727,9 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIs(init["read_only"], True)
         self.assertIn("no-new-privileges:true", init["security_opt"])
         self.assertIn("chown 1000:1000 /wiki_static", init["command"][2])
+        # R2-01: chmod must come before chown (CAP_CHOWN only; chmod after chown would need CAP_FOWNER)
+        cmd = init["command"][2]
+        self.assertLess(cmd.index("chmod 0755 /wiki_static"), cmd.index("chown 1000:1000 /wiki_static"))
         self.assertEqual(init["volumes"], ["wiki_static:/wiki_static"])
         self.assertEqual(init["labels"]["org.gakunin-rdm.hardening-exception"], "cap_add,user")
         self.assertNotIn("depends_on", init)
