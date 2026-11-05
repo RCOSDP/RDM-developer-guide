@@ -42,7 +42,7 @@ The Addon receives authentication credentials and settings from users, while the
 
 ### Legacy content
 
-The legacy storage addon instructions are kept verbatim in `README.legacy.md` for reference and will be rewritten per milestone.
+The legacy storage addon instructions are kept verbatim except the one `recaptchaSiteKey` placeholder in `README.legacy.md` for reference and will be rewritten per milestone.
 
 ### Latest changes
 
