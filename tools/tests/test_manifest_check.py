@@ -10,14 +10,34 @@ import copy
 import datetime as dt
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+TOOLS_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = TOOLS_DIR.parent
+sys.path.insert(0, str(TOOLS_DIR))
 
 import manifest_check as mc  # noqa: E402
+
+
+def private_address(form: str, repo: str) -> str:
+    """Build a prohibited private-repository address at run time, so that this test
+    source never contains one literally (the policy scan covers tools/tests/ too)."""
+    host = "github" + "." + "com"
+    if form == "https":
+        return "https://" + host + "/RCOSDP/" + repo
+    if form == "scp":
+        return "git@" + host + ":RCOSDP/" + repo + ".git"
+    if form == "ssh":
+        return "ssh://git@" + host + "/RCOSDP/" + repo + ".git"
+    raise ValueError(form)
+
+
+DEV2027 = "-dev" + "2027"
+PRIVATE = "-priv" + "ate"
 
 SHA_A = "a" * 40
 SHA_B = "b" * 40
@@ -203,6 +223,141 @@ class ValidateManifestTests(unittest.TestCase):
         self.assertIn("MC-02", codes(mc.validate_manifest(data, today=TODAY)))
 
 
+class StructureValidationTests(unittest.TestCase):
+    """R2-02: types are checked before any set membership or projection; a type
+    problem is a finding (MC id + JSON path), never an exception."""
+
+    def assert_structural(self, mutate, expected_code: str, expected_path: str):
+        data = valid_manifest()
+        mutate(data)
+        errors = mc.validate_structure(data)
+        self.assertTrue(errors, "expected a structural finding")
+        self.assertIn(expected_code, codes(errors))
+        self.assertTrue(any(expected_path in e for e in errors), errors)
+        # validate_manifest must return findings too, without raising
+        full = mc.validate_manifest(data, today=TODAY)
+        self.assertTrue(full)
+        self.assertTrue(any(expected_path in e for e in full), full)
+        return errors
+
+    def test_valid_manifest_is_well_formed(self):
+        self.assertEqual(mc.validate_structure(valid_manifest()), [])
+
+    def test_schema_version_true_is_rejected(self):
+        def m(d):
+            d["schema_version"] = True
+        errors = self.assert_structural(m, "MC-01", "$.schema_version")
+        self.assertIn("boolean", errors[0])
+
+    def test_schema_version_string_and_other_int_are_rejected(self):
+        def m(d):
+            d["schema_version"] = "1"
+        self.assert_structural(m, "MC-01", "$.schema_version")
+
+        def m2(d):
+            d["schema_version"] = 2
+        self.assert_structural(m2, "MC-01", "$.schema_version")
+
+    def test_target_image_value_true_is_rejected(self):
+        def m(d):
+            d["components"][0]["target_image"]["M4"] = True
+        self.assert_structural(m, "MC-01", "components[0].target_image.M4")
+
+    def test_target_image_null_and_string_values_pass(self):
+        data = valid_manifest()
+        data["components"][0]["target_image"] = {"M4": None, "M5": "x:1"}
+        self.assertEqual(mc.validate_structure(data), [])
+
+    def test_components_string_is_a_finding_not_attribute_error(self):
+        def m(d):
+            d["components"] = "bad"
+        errors = self.assert_structural(m, "MC-01", "$.components")
+        self.assertIn("got string", errors[0])
+        # no AttributeError from the projection either
+        data = valid_manifest()
+        data["components"] = "bad"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "upstreams.json").write_text(json.dumps(data), encoding="utf-8")
+            (root / "upstreams.toon").write_text(VALID_TOON, encoding="utf-8")
+            errors = mc.check_manifest_files(root / "upstreams.json", root / "upstreams.toon")
+        self.assertTrue(errors)
+        self.assertFalse(any(e.startswith("MC-11") for e in errors), "TOON parity must not run on ill-typed data")
+
+    def test_component_role_list_is_a_finding_not_type_error(self):
+        def m(d):
+            d["components"][0]["role"] = []
+        errors = self.assert_structural(m, "MC-03", "components[0].role")
+        self.assertIn("got list", errors[0])
+
+    def test_component_not_an_object(self):
+        def m(d):
+            d["components"].append(42)
+        self.assert_structural(m, "MC-01", "$.components[2]")
+
+    def test_string_fields_reject_booleans(self):
+        for field, code in (("id", "MC-02"), ("base_image", "MC-01"), ("profile", "MC-10"),
+                            ("integration_repo", "MC-04"), ("integration_branch", "MC-05"),
+                            ("base_image_digest", "MC-06")):
+            def m(d, field=field):
+                d["components"][0][field] = True
+            self.assert_structural(m, code, f"components[0].{field}")
+
+    def test_list_fields_reject_non_lists_and_wrong_items(self):
+        def m(d):
+            d["components"][0]["services"] = "web"
+        self.assert_structural(m, "MC-03", "components[0].services")
+
+        def m2(d):
+            d["components"][0]["services"] = ["web", False]
+        self.assert_structural(m2, "MC-03", "components[0].services[1]")
+
+        def m3(d):
+            d["components"][0]["platforms"] = [["linux/arm64"]]  # unhashable item: no TypeError
+        self.assert_structural(m3, "MC-10", "components[0].platforms[0]")
+
+        def m4(d):
+            d["components"][0]["upstreams"] = {"repo": "x"}
+        self.assert_structural(m4, "MC-01", "components[0].upstreams")
+
+    def test_upstream_entries_must_be_objects_with_string_fields(self):
+        def m(d):
+            d["components"][0]["upstreams"][0] = "RDM-osf.io"
+        self.assert_structural(m, "MC-01", "components[0].upstreams[0]")
+
+        def m2(d):
+            d["components"][0]["upstreams"][1]["sha"] = 12345
+        self.assert_structural(m2, "MC-06", "components[0].upstreams[1].sha")
+
+        def m3(d):
+            d["components"][0]["upstreams"][1]["kind"] = ["private"]
+        self.assert_structural(m3, "MC-09", "components[0].upstreams[1].kind")
+
+    def test_pr_entries_must_be_objects_with_int_number(self):
+        def m(d):
+            d["components"][0]["adopted_prs"][0] = 796
+        self.assert_structural(m, "MC-09", "components[0].adopted_prs[0]")
+
+        def m2(d):
+            d["components"][0]["adopted_prs"][0]["number"] = True
+        self.assert_structural(m2, "MC-09", "components[0].adopted_prs[0].number")
+
+        def m3(d):
+            d["components"][0]["candidate_prs"][0]["number"] = "93"
+        self.assert_structural(m3, "MC-09", "components[0].candidate_prs[0].number")
+
+        def m4(d):
+            d["components"][0]["candidate_prs"] = [None]
+        self.assert_structural(m4, "MC-09", "components[0].candidate_prs[0]")
+
+    def test_top_level_not_an_object(self):
+        for data in ([], "x", None, 1):
+            errors = mc.validate_structure(data)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("MC-01", codes(errors))
+            self.assertTrue(mc.validate_manifest(data, today=TODAY))
+
+
 class ToonParityTests(unittest.TestCase):
     def test_parse_toon_roundtrip(self):
         parsed = mc.parse_toon(VALID_TOON)
@@ -277,21 +432,94 @@ class PolicyScanTests(unittest.TestCase):
         for sample in (ghp, akia, key):
             self.assertTrue(mc.scan_text_for_policy(sample + "\n", "x.txt"), sample)
 
-    def test_exclusions(self):
-        self.assertTrue(mc.policy_excluded("site/index.html"))
-        self.assertTrue(mc.policy_excluded("docs/guides/api/README.legacy.md"))
-        self.assertTrue(mc.policy_excluded("docs/guides/api/osf/addon/x.py"))
-        self.assertFalse(mc.policy_excluded("docs/guides/api/README.md"))
-        self.assertFalse(mc.policy_excluded("manifest/README.md"))
+    def test_no_path_exemptions_remain(self):
+        # R2-01: the publication policy has no path-based exemption function any more.
+        self.assertFalse(hasattr(mc, "policy_excluded"))
+        self.assertFalse(hasattr(mc, "POLICY_EXCLUDED_PREFIXES"))
+        self.assertFalse(hasattr(mc, "POLICY_TEXT_SUFFIXES"))
 
     def test_run_policy_scan_on_file_list(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "a.md").write_text("git@github.com:RCOSDP/RDM-x" + "-dev2027" + ".git\n", encoding="utf-8")
+            (root / "a.md").write_text(private_address("scp", "RDM-x" + DEV2027) + "\n", encoding="utf-8")
             (root / "b.md").write_text("clean\n", encoding="utf-8")
             findings = mc.run_policy_scan(root, files=["a.md", "b.md"])
         self.assertEqual(len(findings), 1)
         self.assertTrue(findings[0].startswith("a.md:1:"))
+
+    def test_previously_excluded_locations_are_now_reported(self):
+        """R2-01 reproduction: the same prohibited address in site/, a *.legacy.md and
+        nested legacy sample code must each be reported (control: docs/README.md)."""
+        cases = {
+            "site/index.html": private_address("https", "RDM-osf.io" + DEV2027),
+            "site/search/search_index.json": private_address("https", "RDM-osf.io" + DEV2027),
+            "docs/guides/api/README.legacy.md": private_address("scp", "RDM-osf.io" + PRIVATE),
+            "docs/guides/api/addon/x.py": private_address("ssh", "RDM-osf.io-develop" + PRIVATE),
+            "docs/guides/api/osf/addon/deep/y.js": private_address("https", "RDM-x" + PRIVATE),
+            "docs/README.md": private_address("https", "RDM-osf.io" + DEV2027),
+            "Dockerfile": private_address("scp", "RDM-osf.io" + DEV2027),  # no suffix at all
+            "assets/data.unknownext": private_address("https", "RDM-osf.io" + DEV2027),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel, addr in cases.items():
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("<p>clean</p>\nsee " + addr + " here\n", encoding="utf-8")
+                findings = mc.run_policy_scan(root, files=[rel])
+                self.assertEqual(len(findings), 1, rel)
+                self.assertTrue(findings[0].startswith(f"{rel}:2:"), findings[0])
+                self.assertNotIn("github", findings[0].lower())  # address never echoed
+            # and all at once
+            result = mc.scan_policy(root, files=list(cases))
+            self.assertEqual(len(result.findings), len(cases))
+            self.assertEqual(sorted(result.scanned), sorted(cases))
+            self.assertEqual(result.skipped, [])
+
+    def test_token_in_site_and_legacy_files_is_reported(self):
+        ghp = "ghp" + "_" + "x" * 36
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel in ("site/js/app.js", "docs/guides/x/README.legacy.md"):
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("token = '" + ghp + "'\n", encoding="utf-8")
+                findings = mc.run_policy_scan(root, files=[rel])
+                self.assertEqual(len(findings), 1, rel)
+                self.assertNotIn(ghp, findings[0])
+
+    def test_binary_and_oversized_files_are_skipped_and_counted(self):
+        addr = private_address("https", "RDM-osf.io" + DEV2027)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "img.png").write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe" + addr.encode("utf-8"))
+            (root / "big.txt").write_text("x" * 100 + "\n" + addr + "\n", encoding="utf-8")
+            (root / "ok.txt").write_text(addr + "\n", encoding="utf-8")
+            (root / "latin1.txt").write_bytes("caf\xe9 ".encode("latin-1") + addr.encode("utf-8"))
+            result = mc.scan_policy(root, files=["img.png", "big.txt", "ok.txt", "latin1.txt", "missing.md"], max_bytes=80)
+        self.assertEqual(result.scanned, ["ok.txt"])
+        self.assertEqual(len(result.findings), 1)
+        self.assertEqual(result.skipped_binary, 2)
+        self.assertEqual(result.skipped_large, 1)
+        self.assertEqual(len(result.skipped), 3)
+        self.assertEqual(mc.POLICY_MAX_BYTES, 5 * 1024 * 1024)
+
+    def test_real_repository_tracked_set_is_fully_scanned(self):
+        """The real checkout: site/**, *.legacy.md and nested guide files are scanned."""
+        if not (REPO_ROOT / ".git").exists():
+            self.skipTest("not a git checkout")
+        result = mc.scan_policy(REPO_ROOT)
+        scanned = set(result.scanned)
+        tracked = set(mc.git_tracked_files(REPO_ROOT))
+        skipped = {p for p, _ in result.skipped}
+        present = {p for p in tracked if (REPO_ROOT / p).is_file()}
+        self.assertEqual(scanned | skipped, present)
+        self.assertTrue(any(p.startswith("site/") and p.endswith(".html") for p in scanned))
+        self.assertTrue(any(p.endswith(".legacy.md") for p in scanned))
+        self.assertTrue(any(p.startswith("docs/guides/") and p.count("/") >= 4 for p in scanned))
+        for p in skipped:
+            self.assertNotEqual(Path(p).suffix, ".md", p)  # no Markdown is ever skipped
+        self.assertEqual(result.findings, [])
 
 
 class CliTests(unittest.TestCase):
@@ -299,6 +527,80 @@ class CliTests(unittest.TestCase):
         self.assertEqual(mc.EXIT_MANIFEST, 20)
         self.assertEqual(mc.EXIT_POLICY, 1)
         self.assertIn("20", mc.__doc__)
+
+    def _run_cli(self, root: Path, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-I", str(TOOLS_DIR / "manifest_check.py"), "--root", str(root), *args],
+            capture_output=True, text=True, cwd=str(root),
+        )
+
+    def _write_manifest_copy(self, root: Path, mutate) -> None:
+        """Temporary copy of the real JSON (mutated) with the unchanged real TOON."""
+        (root / "manifest").mkdir(exist_ok=True)
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        mutate(data)
+        (root / "manifest" / "upstreams.json").write_text(json.dumps(data), encoding="utf-8")
+        (root / "manifest" / "upstreams.toon").write_text(
+            (REPO_ROOT / "manifest" / "upstreams.toon").read_text(encoding="utf-8"), encoding="utf-8")
+
+    def test_subprocess_exit_20_without_traceback_for_ill_typed_manifests(self):
+        """R2-02 review cases against copies of the real JSON + unchanged TOON."""
+        cases = [
+            ("schema_version true", lambda d: d.__setitem__("schema_version", True), "$.schema_version"),
+            ("target_image.M4 true", lambda d: d["components"][0]["target_image"].__setitem__("M4", True),
+             "components[0].target_image.M4"),
+            ("components string", lambda d: d.__setitem__("components", "bad"), "$.components"),
+            ("role list", lambda d: d["components"][0].__setitem__("role", []), "components[0].role"),
+            ("pr number bool", lambda d: d["components"][0]["adopted_prs"][0].__setitem__("number", True),
+             "adopted_prs[0].number"),
+            ("services bool item", lambda d: d["components"][0].__setitem__("services", [True]),
+             "components[0].services[0]"),
+            ("top level list", lambda d: None, None),
+        ]
+        for name, mutate, path in cases:
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                if path is None:
+                    (root / "manifest").mkdir()
+                    (root / "manifest" / "upstreams.json").write_text("[]", encoding="utf-8")
+                    (root / "manifest" / "upstreams.toon").write_text("schema_version: 1\n", encoding="utf-8")
+                else:
+                    self._write_manifest_copy(root, mutate)
+                proc = self._run_cli(root, "--manifest-only")
+                self.assertEqual(proc.returncode, 20, proc.stdout + proc.stderr)
+                self.assertNotIn("Traceback", proc.stderr)
+                self.assertNotIn("Error", proc.stderr.replace("Error:", ""))  # no AttributeError/TypeError
+                self.assertIn("MC-0", proc.stdout)
+                if path:
+                    self.assertIn(path, proc.stdout)
+                self.assertNotIn("MC-11", proc.stdout)  # TOON parity not attempted on ill-typed data
+
+    def test_subprocess_real_manifest_copy_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_manifest_copy(root, lambda d: None)
+            proc = self._run_cli(root, "--manifest-only")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_subprocess_manifest_errors_take_precedence_over_policy(self):
+        """Exit 20 beats exit 1 when both the manifest is invalid and a policy hit exists."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+            self._write_manifest_copy(root, lambda d: d.__setitem__("schema_version", True))
+            (root / "site").mkdir()
+            (root / "site" / "index.html").write_text(private_address("https", "RDM-x" + DEV2027) + "\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+            proc = self._run_cli(root)
+            self.assertEqual(proc.returncode, 20, proc.stdout + proc.stderr)
+            self.assertIn("site/index.html:1:", proc.stdout)
+            # valid manifest + same policy hit -> exit 1, address not echoed, skip count printed
+            self._write_manifest_copy(root, lambda d: None)
+            proc = self._run_cli(root)
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            self.assertIn("site/index.html:1:", proc.stdout)
+            self.assertNotIn("github", proc.stdout.lower())
+            self.assertIn("skipped", proc.stdout)
 
     def test_manifest_only_exit_20_on_missing_toon(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1895,6 +1895,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r2 / M1 文書骨格 PR 再レビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2751,7 +2772,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。</li>
+<li>Version / 版: 0.3 — 2026-11-05. <strong>Learned:</strong> the written description of a check drifts from the tool as soon as the tool improves, so §8 must be re-read against <code>tools/docs_check.py</code> on every change to either (review r2, R2-03). ／ 検査の説明は道具が良くなった瞬間に古くなるため、どちらかを変えるたびに §8 と <code>tools/docs_check.py</code> を突き合わせる必要があると分かった（レビュー r2、R2-03）。
+  0.2 — 2026-11-05. <strong>Learned:</strong> a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> a shared convention must exist before any other document, or the English/Japanese halves and glossary notes drift from the first page onward. ／ 他の文書より先に共通規約を置かないと、初めの一枚から英和の対応と用語注がずれると分かった。</li>
 <li>Normative for: every <code>*.md</code> under this repository, including <code>README.md</code> at every directory level.</li>
 <li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../">docs/README.md</a></li>
@@ -2857,7 +2879,7 @@
 <li>the <code>english</code> and <code>japanese</code> anchors;</li>
 <li>the Jump line;</li>
 <li>the Version line;</li>
-<li>relative links: the file part before any <code>#fragment</code> must exist (a link such as <code>absent-file.md#english</code> fails; the fragment itself is not verified);</li>
+<li>relative links: the file part before any <code>#fragment</code> must exist, and the fragment must resolve to an <code>&lt;a id&gt;</code> / <code>&lt;a name&gt;</code> anchor or a heading in the target file (same-file <code>#fragment</code> links are checked the same way);</li>
 <li>TOON SHA parity: when the line before a <code>```toon</code> block carries <code>&lt;!-- canonical: &lt;path&gt; --&gt;</code>, every 40-character SHA in the block must appear in that JSON file (§4);</li>
 <li>the glossary-note warning: a <code>REF-01</code> term used without a note on first occurrence is reported as a warning, not a failure.</li>
 </ul>
@@ -2963,7 +2985,7 @@
 <li><code>english</code> と <code>japanese</code> のアンカー。</li>
 <li>Jump 行。</li>
 <li>Version 行。</li>
-<li>相対リンク。<code>#フラグメント</code> より前のファイル部分が存在しなければならない（<code>absent-file.md#english</code> のようなリンクは不合格。フラグメント自体は確かめない）。</li>
+<li>相対リンク。<code>#フラグメント</code> より前のファイル部分が存在し、フラグメントが相手のファイルの <code>&lt;a id&gt;</code> / <code>&lt;a name&gt;</code> アンカーか見出しに解決しなければならない（同じファイル内の <code>#フラグメント</code> も同様に確かめる）。</li>
 <li>TOON の SHA 一致。<code>```toon</code> ブロックの直前の行に <code>&lt;!-- canonical: &lt;パス&gt; --&gt;</code> の宣言があるとき、ブロック内の 40 文字の SHA がすべてその JSON に現れること（§4）。</li>
 <li>用語注の警告。<code>REF-01</code> の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。</li>
 </ul>

@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。
+- Version / 版: 0.3 — 2026-11-05. **Learned:** the written description of a check drifts from the tool as soon as the tool improves, so §8 must be re-read against `tools/docs_check.py` on every change to either (review r2, R2-03). ／ 検査の説明は道具が良くなった瞬間に古くなるため、どちらかを変えるたびに §8 と `tools/docs_check.py` を突き合わせる必要があると分かった（レビュー r2、R2-03）。
+  0.2 — 2026-11-05. **Learned:** a convention is only as strong as the check that enforces it, so the convention must name what the checker does today, what it leaves out, and which legacy files are exempt. ／ 規約の強さは、それを守らせる検査の強さまでしかない。だから規約は、検査が今日何を見て何を見ないか、どの旧資料を例外にするかを名指しで書く必要があると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a shared convention must exist before any other document, or the English/Japanese halves and glossary notes drift from the first page onward. ／ 他の文書より先に共通規約を置かないと、初めの一枚から英和の対応と用語注がずれると分かった。
 - Normative for: every `*.md` under this repository, including `README.md` at every directory level.
 - Related: [SPEC-00 Overview](00_overview.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
@@ -93,7 +94,7 @@ The two halves say the same thing. The English half is the one translated into o
 - the `english` and `japanese` anchors;
 - the Jump line;
 - the Version line;
-- relative links: the file part before any `#fragment` must exist (a link such as `absent-file.md#english` fails; the fragment itself is not verified);
+- relative links: the file part before any `#fragment` must exist, and the fragment must resolve to an `<a id>` / `<a name>` anchor or a heading in the target file (same-file `#fragment` links are checked the same way);
 - TOON SHA parity: when the line before a ```` ```toon ```` block carries `<!-- canonical: <path> -->`, every 40-character SHA in the block must appear in that JSON file (§4);
 - the glossary-note warning: a `REF-01` term used without a note on first occurrence is reported as a warning, not a failure.
 
@@ -182,7 +183,7 @@ The two halves say the same thing. The English half is the one translated into o
 - `english` と `japanese` のアンカー。
 - Jump 行。
 - Version 行。
-- 相対リンク。`#フラグメント` より前のファイル部分が存在しなければならない（`absent-file.md#english` のようなリンクは不合格。フラグメント自体は確かめない）。
+- 相対リンク。`#フラグメント` より前のファイル部分が存在し、フラグメントが相手のファイルの `<a id>` / `<a name>` アンカーか見出しに解決しなければならない（同じファイル内の `#フラグメント` も同様に確かめる）。
 - TOON の SHA 一致。```` ```toon ```` ブロックの直前の行に `<!-- canonical: <パス> -->` の宣言があるとき、ブロック内の 40 文字の SHA がすべてその JSON に現れること（§4）。
 - 用語注の警告。`REF-01` の用語が初出で注なしに使われていれば警告として報告する（不合格ではない）。
 

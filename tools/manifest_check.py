@@ -31,6 +31,13 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-13  tracking_branch follows rule 7: upstream/<kind>[-<tag>]-<branch with / -> ->
   MC-12  (--remote) is NOT implemented here; it runs in the private -dev2027 CI.
 
+Type validation runs first (validate_structure): every scalar and container is
+checked against the SPEC-01 §3 types (ints are not bools, strings are not bools,
+lists are lists, objects are objects) before any set-membership test or TOON
+projection touches the data. A type problem is reported as a finding with the MC
+id and the JSON path (for example components[3].role) and the run exits 20; the
+TOON parity check (MC-11) runs only once the manifest is well formed.
+
 Policy scan (not an MC check; SPEC-01 rule 5, SPEC-06 §5): every git-tracked
 text file except site/, *.legacy.md and sample-code directories under
 docs/guides/<guide>/ is scanned for
@@ -38,6 +45,13 @@ docs/guides/<guide>/ is scanned for
     (https form and ssh form git@github.com:RCOSDP/...),
   - token-like strings: ghp_/gho_/ghu_/ghs_/ghr_, github_pat_, AKIA..., xox[abprs]-,
   - private key blocks: -----BEGIN ... PRIVATE KEY-----.
+
+The scan covers EVERY git-tracked file, including generated site/**, verbatim
+*.legacy.md guides and legacy sample code under docs/guides/<guide>/<subdir>/.
+There are no path exemptions (a formatting or Semgrep exception is not an
+exception to the publication policy). The only guard is technical: files that are
+not valid UTF-8 (binary) or larger than POLICY_MAX_BYTES are skipped and the
+number of skipped files is reported.
 
 Exit codes (aligned with SPEC-02 §6):
   0   all checks passed
@@ -105,10 +119,49 @@ RE_PRIVATE_URL = re.compile(
     r"(?i)(?:https?://|ssh://)?(?:git@)?github\.com[/:]RCOSDP/[A-Za-z0-9_.-]*?(?:-private|-dev2027)(?:\.git)?\b"
 )
 
-POLICY_EXCLUDED_PREFIXES = ("site/",)
-POLICY_TEXT_SUFFIXES = {
-    ".md", ".txt", ".json", ".toon", ".toml", ".yml", ".yaml", ".py", ".js", ".ts", ".html",
-    ".css", ".sh", ".cfg", ".ini", ".tsv", ".csv", ".xml", ".svg", ".mako", ".rst", "",
+# Policy scan guard (technical only, never a path exemption): files larger than this
+# or not decodable as UTF-8 are skipped and counted.
+POLICY_MAX_BYTES = 5 * 1024 * 1024
+
+# Structural (type) schema, SPEC-01 §3. Each entry: field -> (MC id, type spec).
+# Type specs: "int", "str", "str|null", "list[str]", "list[obj]", "obj", "str|null-map".
+STRUCT_TOP: dict[str, tuple[str, str]] = {
+    "schema_version": ("MC-01", "int"),
+    "generated_at": ("MC-01", "str"),
+    "note": ("MC-01", "str|null"),
+    "components": ("MC-01", "list[obj]"),
+}
+STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
+    "id": ("MC-02", "str"),
+    "role": ("MC-03", "str"),
+    "services": ("MC-03", "list[str]"),
+    "integration_repo": ("MC-04", "str|null"),
+    "integration_branch": ("MC-05", "str|null"),
+    "upstreams": ("MC-01", "list[obj]"),
+    "adopted_prs": ("MC-09", "list[obj]"),
+    "candidate_prs": ("MC-09", "list[obj]"),
+    "base_image": ("MC-01", "str"),
+    "base_image_digest": ("MC-06", "str|null"),
+    "target_image": ("MC-01", "str|null-map"),
+    "profile": ("MC-10", "str"),
+    "platforms": ("MC-10", "list[str]"),
+    "note": ("MC-01", "str|null"),
+}
+STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {
+    "repo": ("MC-01", "str"),
+    "branch": ("MC-01", "str"),
+    "kind": ("MC-09", "str"),
+    "tracking_branch": ("MC-13", "str"),
+    "status": ("MC-09", "str"),
+    "sha": ("MC-06", "str"),
+    "fetched_at": ("MC-06", "str"),
+}
+STRUCT_PR: dict[str, tuple[str, str]] = {
+    "repo": ("MC-01", "str"),
+    "number": ("MC-09", "int"),
+    "title": ("MC-01", "str"),
+    "reason": ("MC-01", "str"),
+    "status": ("MC-09", "str"),
 }
 
 
@@ -155,18 +208,133 @@ def tracking_branch_ok(tracking_branch: str, kind: str, branch: str, same_kind_c
     return False
 
 
+# --------------------------------------------------------------------------- type checks
+
+def _type_name(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def _is_int(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _is_str(v: Any) -> bool:
+    return isinstance(v, str)
+
+
+def _type_errors(value: Any, spec: str, path: str, mc: str) -> list[str]:
+    """Check one value against a type spec; return findings (never raises)."""
+    expected = {
+        "int": "integer", "str": "string", "str|null": "string or null",
+        "list[str]": "list of strings", "list[obj]": "list of objects", "obj": "object",
+        "str|null-map": "object whose values are string or null",
+    }[spec]
+
+    def bad(v: Any, p: str) -> str:
+        return f"{mc}: {p}: expected {expected}, got {_type_name(v)}"
+
+    if spec == "int":
+        return [] if _is_int(value) else [bad(value, path)]
+    if spec == "str":
+        return [] if _is_str(value) else [bad(value, path)]
+    if spec == "str|null":
+        return [] if value is None or _is_str(value) else [bad(value, path)]
+    if spec == "obj":
+        return [] if isinstance(value, dict) else [bad(value, path)]
+    if spec == "list[str]":
+        if not isinstance(value, list):
+            return [bad(value, path)]
+        return [f"{mc}: {path}[{i}]: expected string, got {_type_name(v)}"
+                for i, v in enumerate(value) if not _is_str(v)]
+    if spec == "list[obj]":
+        if not isinstance(value, list):
+            return [bad(value, path)]
+        return [f"{mc}: {path}[{i}]: expected object, got {_type_name(v)}"
+                for i, v in enumerate(value) if not isinstance(v, dict)]
+    if spec == "str|null-map":
+        if not isinstance(value, dict):
+            return [bad(value, path)]
+        return [f"{mc}: {path}.{k}: expected string or null, got {_type_name(v)}"
+                for k, v in value.items() if not (v is None or _is_str(v))]
+    raise AssertionError(spec)  # programming error, not a manifest error
+
+
+def _check_fields(obj: dict[str, Any], schema: dict[str, tuple[str, str]], path: str) -> list[str]:
+    errors: list[str] = []
+    for field, (mc, spec) in schema.items():
+        if field in obj:
+            errors.extend(_type_errors(obj[field], spec, f"{path}.{field}", mc))
+    return errors
+
+
+def validate_structure(data: Any) -> list[str]:
+    """Type validation of the parsed manifest against SPEC-01 §3 (R2-02).
+
+    Checks every present field's type (missing required fields are reported by
+    validate_manifest as MC-01) without any set-membership test, so an unhashable
+    or wrongly typed value can never raise. Returns findings with the MC id and
+    the JSON path, for example 'MC-03: components[3].role: expected string, got list'.
+    An empty list means the manifest is well formed and the semantic checks and
+    the TOON projection may safely run."""
+    if not isinstance(data, dict):
+        return [f"MC-01: $: expected object, got {_type_name(data)}"]
+    errors = _check_fields(data, STRUCT_TOP, "$")
+    if "schema_version" in data and _is_int(data["schema_version"]) and data["schema_version"] != 1:
+        errors.append(f"MC-01: $.schema_version: must be 1 (got {data['schema_version']!r})")
+    components = data.get("components")
+    if not isinstance(components, list):
+        return errors
+    for idx, comp in enumerate(components):
+        cpath = f"components[{idx}]"
+        if not isinstance(comp, dict):
+            continue  # already reported by the list[obj] check
+        errors.extend(_check_fields(comp, STRUCT_COMPONENT, cpath))
+        ups = comp.get("upstreams")
+        if isinstance(ups, list):
+            for uidx, up in enumerate(ups):
+                if isinstance(up, dict):
+                    errors.extend(_check_fields(up, STRUCT_UPSTREAM, f"{cpath}.upstreams[{uidx}]"))
+        for list_name in ("adopted_prs", "candidate_prs"):
+            prs = comp.get(list_name)
+            if isinstance(prs, list):
+                for pidx, pr in enumerate(prs):
+                    if isinstance(pr, dict):
+                        errors.extend(_check_fields(pr, STRUCT_PR, f"{cpath}.{list_name}[{pidx}]"))
+    return errors
+
+
 # --------------------------------------------------------------------------- JSON checks
 
 def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
     """Return a list of findings (empty == valid) for the parsed JSON manifest.
-    Implements MC-01..MC-10 and MC-13."""
+    Implements MC-01..MC-10 and MC-13. Type validation (validate_structure) runs
+    first; when it finds anything, only those findings are returned and the
+    value-level checks are not attempted on ill-typed data."""
     today = today or _dt.date.today()
     errors: list[str] = []
+
+    structural = validate_structure(data)
+    if structural:
+        return structural
 
     # MC-01
     if not isinstance(data, dict):
         return ["MC-01: top level must be a JSON object"]
-    if data.get("schema_version") != 1:
+    if not _is_int(data.get("schema_version")) or data.get("schema_version") != 1:
         errors.append(f"MC-01: schema_version must be the integer 1 (got {data.get('schema_version')!r})")
     if _is_iso_date(data.get("generated_at")) is None:
         errors.append(f"MC-01: generated_at must be an ISO date (got {data.get('generated_at')!r})")
@@ -232,6 +400,8 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
         target = comp.get("target_image")
         if not isinstance(target, dict) or set(target.keys()) != {"M4", "M5"}:
             errors.append(f"MC-01: {label}: target_image must be an object with exactly the keys M4 and M5")
+        elif not all(v is None or isinstance(v, str) for v in target.values()):
+            errors.append(f"MC-01: {label}: target_image values must be a string or null")
 
         # upstreams: MC-06, MC-08, MC-09, MC-13
         upstreams = comp.get("upstreams")
@@ -563,17 +733,21 @@ def validate_toon_parity(json_data: dict[str, Any], toon_path: Path) -> list[str
 
 # --------------------------------------------------------------------------- policy scan
 
-def policy_excluded(rel_path: str) -> bool:
-    """Files the policy scan skips: generated site/, verbatim legacy guides, and sample
-    code directories under docs/guides/<guide>/ (the guide README stays scanned)."""
-    if rel_path.startswith(POLICY_EXCLUDED_PREFIXES):
-        return True
-    if rel_path.endswith(".legacy.md"):
-        return True
-    parts = rel_path.split("/")
-    if len(parts) >= 5 and parts[0] == "docs" and parts[1] == "guides":
-        return True  # docs/guides/<guide>/<subdir>/... (sample code); the guide's own *.md stay scanned
-    return False
+class PolicyScanResult:
+    """Outcome of the repository policy scan."""
+
+    def __init__(self) -> None:
+        self.findings: list[str] = []
+        self.scanned: list[str] = []
+        self.skipped: list[tuple[str, str]] = []  # (path, reason)
+
+    @property
+    def skipped_binary(self) -> int:
+        return sum(1 for _, r in self.skipped if r == "not UTF-8 text")
+
+    @property
+    def skipped_large(self) -> int:
+        return sum(1 for _, r in self.skipped if r.startswith("larger than"))
 
 
 def scan_text_for_policy(text: str, rel_path: str) -> list[str]:
@@ -597,23 +771,38 @@ def git_tracked_files(root: Path) -> list[str]:
     return [p.decode("utf-8", "surrogateescape") for p in out.split(b"\0") if p]
 
 
-def run_policy_scan(root: Path, files: list[str] | None = None) -> list[str]:
-    findings: list[str] = []
+def scan_policy(root: Path, files: list[str] | None = None, max_bytes: int = POLICY_MAX_BYTES) -> PolicyScanResult:
+    """Scan every tracked file (or the given relative paths) for policy violations.
+
+    There are NO path exemptions: site/**, *.legacy.md and legacy sample code are
+    scanned like everything else (R2-01). The only guard is technical: a file that
+    is larger than max_bytes or is not valid UTF-8 is skipped and counted."""
+    result = PolicyScanResult()
     files = git_tracked_files(root) if files is None else files
     for rel in files:
-        if policy_excluded(rel):
-            continue
         path = root / rel
         if not path.is_file():
-            continue
-        if Path(rel).suffix.lower() not in POLICY_TEXT_SUFFIXES:
-            continue
+            continue  # deleted in the working tree, or a submodule entry
         try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue  # binary or unreadable: not a text policy target
-        findings.extend(scan_text_for_policy(text, rel))
-    return findings
+            size = path.stat().st_size
+            if size > max_bytes:
+                result.skipped.append((rel, f"larger than {max_bytes} bytes ({size})"))
+                continue
+            text = path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            result.skipped.append((rel, "not UTF-8 text"))
+            continue
+        except OSError as e:
+            result.skipped.append((rel, f"unreadable ({e.__class__.__name__})"))
+            continue
+        result.scanned.append(rel)
+        result.findings.extend(scan_text_for_policy(text, rel))
+    return result
+
+
+def run_policy_scan(root: Path, files: list[str] | None = None) -> list[str]:
+    """Findings only (compatibility wrapper around scan_policy)."""
+    return scan_policy(root, files).findings
 
 
 # --------------------------------------------------------------------------- CLI
@@ -626,7 +815,9 @@ def check_manifest_files(json_path: Path, toon_path: Path) -> list[str]:
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         return [f"MC-01: {json_path} is not valid JSON: {e}"]
     errors = validate_manifest(data)
-    if isinstance(data, dict):
+    # MC-11 projects the JSON; run it only once the manifest is well typed, so an
+    # ill-formed manifest yields findings and exit 20 instead of a traceback.
+    if not validate_structure(data):
         errors.extend(validate_toon_parity(data, toon_path))
     return errors
 
@@ -658,19 +849,26 @@ def main(argv: list[str] | None = None) -> int:
         if not json_path.exists():
             print(f"Error: {json_path} not found. Run from the repository root.", file=sys.stderr)
             return EXIT_MANIFEST
-        manifest_errors = check_manifest_files(json_path, toon_path)
+        try:
+            manifest_errors = check_manifest_files(json_path, toon_path)
+        except Exception as e:  # last resort: an invalid manifest must never end in a traceback
+            manifest_errors = [f"MC-01: manifest could not be validated: {e.__class__.__name__}: {e}"]
         print(f"\n[manifest] {MANIFEST_JSON} + {MANIFEST_TOON}: {len(manifest_errors)} finding(s)")
         for e in manifest_errors:
             print(f"  - {e}")
 
     if not args.manifest_only:
         try:
-            findings = run_policy_scan(root)
+            scan = scan_policy(root)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error: git ls-files failed ({e}); the policy scan needs a Git checkout.", file=sys.stderr)
             return EXIT_POLICY
-        policy_findings = findings
-        print(f"\n[policy] tracked text files: {len(policy_findings)} finding(s)")
+        policy_findings = scan.findings
+        print(
+            f"\n[policy] all tracked files, no path exemptions: {len(scan.scanned)} scanned, "
+            f"{len(scan.skipped)} skipped ({scan.skipped_binary} not UTF-8, {scan.skipped_large} over "
+            f"{POLICY_MAX_BYTES // (1024 * 1024)} MB), {len(policy_findings)} finding(s)"
+        )
         for f in policy_findings:
             print(f"  - {f}")
 
