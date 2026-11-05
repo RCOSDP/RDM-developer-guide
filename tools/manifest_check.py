@@ -14,7 +14,6 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-01  upstreams.json parses as JSON, schema_version == 1, generated_at is an ISO date
   MC-02  component id unique and matches ^[A-Za-z0-9_.-]+$
   MC-03  role in core|infra|subsystem; services is a non-empty list of strings
-         (empty only for an overlay component, see MC-14)
   MC-04  integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$, or null for infra
   MC-05  integration_branch == "develop", or null for infra; integration_sha 40-hex or null (null for infra)
   MC-06  every upstreams[].sha is ^[0-9a-f]{40}$; base_image_digest is null or
@@ -36,9 +35,9 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-13  tracking_branch follows rule 7: upstream/<kind>[-<tag>]-<branch with / -> ->
   MC-14  overlay_of (optional, string|null) names another component that exists, is
          not infra, is not itself an overlay and is not prebuilt; the overlay itself is
-         not infra, is not prebuilt, has no build_platform of its own, has an empty
-         services list and the same profile as its base; at most one overlay per base
-         (SPEC-01 §3, ADR-06: wiki-frontend is an overlay of osf.io)
+         not infra and not prebuilt; at most one overlay per base (SPEC-01 §3, ADR-06:
+         wiki-frontend is an overlay of osf.io whose image is a bundle builder run by the
+         one-shot service wiki_assets; the installer checks the one-shot template)
   MC-12  (--remote) is NOT implemented here; it runs in the private -dev2027 CI.
 
 Type validation runs first (validate_structure): every scalar and container is
@@ -388,10 +387,8 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
         if role not in ROLES:
             errors.append(f"MC-03: {label}: role must be one of {sorted(ROLES)} (got {role!r})")
         services = comp.get("services")
-        if not isinstance(services, list) or not all(isinstance(s, str) and s for s in services):
-            errors.append(f"MC-03: {label}: services must be a list of non-empty strings (got {services!r})")
-        elif not services and not is_overlay(comp):
-            errors.append(f"MC-03: {label}: services must be a non-empty list of strings (got {services!r}); only an overlay (overlay_of) may have none")
+        if not isinstance(services, list) or not services or not all(isinstance(s, str) and s for s in services):
+            errors.append(f"MC-03: {label}: services must be a non-empty list of strings (got {services!r})")
 
         # MC-04
         repo = comp.get("integration_repo")
@@ -557,13 +554,13 @@ def is_overlay(comp: dict[str, Any]) -> bool:
 def check_overlays(components: list[Any]) -> list[str]:
     """MC-14 for the optional `overlay_of` (SPEC-01 §3, ADR-06).
 
-    An overlay component has no image and no service of its own: its checkout is copied over the
-    base component's checkout and the base image is built from the overlay's Dockerfile, tagged
-    `<base_sha12>-<overlay_sha12>`. For that to be well defined the base must exist, be buildable
+    An overlay component's image is built from a merged context (the base component's checkout with
+    the overlay's files copied over it) with the overlay's Dockerfile and tagged
+    `<base_sha12>-<overlay_sha12>`; its services are one-shot bundle copiers (the installer checks
+    the `one_shot` template flag). For that to be well defined the base must exist, be buildable
     from source (not infra, not prebuilt) and not be an overlay itself; the overlay must be
-    buildable too (not infra, not prebuilt), must not pin a `build_platform` (the base's applies to
-    the one image), must list no services and must share the base's profile (it is inside every
-    base image); and a base takes at most one overlay (the copy order of two would be arbitrary)."""
+    buildable too (not infra, not prebuilt); and a base takes at most one overlay (the copy order
+    of two would be arbitrary)."""
     errors: list[str] = []
     by_id: dict[str, dict[str, Any]] = {}
     for comp in components:
@@ -593,14 +590,7 @@ def check_overlays(components: list[Any]) -> list[str]:
         if comp.get("role") == "infra":
             errors.append(f"MC-14: {label}: an overlay must not be infra")
         if comp.get("prebuilt_image"):
-            errors.append(f"MC-14: {label}: an overlay must not have prebuilt_image (it has no image of its own)")
-        if comp.get("build_platform"):
-            errors.append(f"MC-14: {label}: an overlay must not set build_platform (the base's applies to the one image)")
-        services = comp.get("services")
-        if isinstance(services, list) and services:
-            errors.append(f"MC-14: {label}: services must be empty for an overlay (got {services!r}); its services are the base's")
-        if comp.get("profile") != base.get("profile"):
-            errors.append(f"MC-14: {label}: profile {comp.get('profile')!r} must equal the base's {base.get('profile')!r} (the overlay is inside every base image)")
+            errors.append(f"MC-14: {label}: an overlay must not have prebuilt_image (its image is built from the merged context)")
     for target, ids in sorted(overlays_of.items()):
         if len(ids) > 1:
             errors.append(f"MC-14: component '{target}' has more than one overlay ({', '.join(sorted(ids))}); at most one is allowed")

@@ -5,7 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-06. **Learned:** a component can be a repository without being a service: wiki-frontend is an overlay applied to the osf.io tree before the osf.io image is built, so the inventory must show an empty services column and the base's profile for it ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ 部品はサービスでなくてもリポジトリでありうると分かった。wiki-frontend は osf.io のイメージを組む前に osf.io の木へ重ねるオーバーレイなので、一覧ではサービス列を空にし、profile をベースと同じにする（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
+- Version / 版: 0.3 — 2026-11-06. **Learned:** a component can be a repository whose image is only a build tool: wiki-frontend is an overlay built from the osf.io tree plus its files, and its single service `wiki_assets` runs once to copy the wiki editor bundle into a volume, so the inventory shows that service, not a `wiki` server ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ 部品のイメージがビルド道具にすぎないこともあると分かった。wiki-frontend は osf.io の木に自分のファイルを重ねて組むオーバーレイで、唯一のサービス `wiki_assets` は Wiki エディタの束をボリュームへ写すために一度だけ動く。一覧には `wiki` サーバでなくそのサービスを載せる（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
   0.2 — 2026-11-05. **Learned:** the profile of one component (y-websocket) is decided by the milestone that tests it (Wiki co-editing, M2), not by its role, so the overview must mirror SPEC-02 and the manifest. ／ 部品のプロファイルは役割でなく、それを試験する節目（Wiki 共同編集は M2）が決めるため、概要図と抄録は SPEC-02 と manifest に合わせ続けなければならないと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** eleven upstream repositories and three tracking branches per component cannot be held in anyone's head, so the map, the manifest, and the roles had to be written down before the first integration repository was created. ／ 上流 11 本と部品ごとの追跡ブランチ 3 本は頭の中では管理できないので、最初の統合リポジトリを作る前に、地図・マニフェスト・役割分担を文書にする必要があると分かった。
 - Normative for: the shape of the whole environment. Every other specification (`01`–`06`) refines one part of this page.
@@ -85,7 +85,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,"(none: overlay of osf.io)",RDM-wiki-frontend-dev2027,minimum
+  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
@@ -247,7 +247,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,"(none: overlay of osf.io)",RDM-wiki-frontend-dev2027,minimum
+  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core

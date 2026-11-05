@@ -94,7 +94,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 19)  # core profile (SPEC-02 §4); wiki-frontend is an overlay, not a service (ADR-06)
+        self.assertEqual(len(services), 20)  # core profile (SPEC-02 §4), wiki_assets (one-shot, ADR-06) included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -315,8 +315,8 @@ class ComposeRenderTests(unittest.TestCase):
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["ember_osf_web"]["origin"], "prebuilt")
         self.assertEqual(rows["ember_osf_web"]["image"], ember["prebuilt_image"])
-        self.assertEqual(rows["wb"]["origin"], "built")
-        self.assertEqual(rows["web"]["origin"], "overlay")  # osf.io carries the wiki-frontend overlay (ADR-06)
+        self.assertEqual(rows["web"]["origin"], "built")
+        self.assertEqual(rows["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(rows["postgres"]["origin"], "pinned")
         self.assertFalse(any(v["image"].startswith("grdm-dev/ember-osf-web") for v in doc["services"].values()))
 
@@ -388,7 +388,7 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 23)
+        self.assertEqual(len(doc["services"]), 24)
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -689,8 +689,9 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertTrue(doc["services"]["wb"]["image"].startswith("grdm-dev/waterbutler:"))
         self.assertNotEqual(doc["services"]["wb"]["image"], "grdm-dev/waterbutler:000000000000")
 
-    def test_overlay_base_services_use_the_combined_tag_from_manifest_and_build_report(self):
-        """SPEC-01 §3 overlay_of (ADR-06): web/api/admin/worker run grdm-dev/osf.io:<osf12>-<wiki12>; no wiki service."""
+    def test_overlay_one_shot_copies_the_bundle_into_a_volume_that_osf_services_mount_read_only(self):
+        """SPEC-01 §3 overlay_of (ADR-06): wiki_assets runs grdm-dev/wiki-frontend:<osf12>-<wiki12> once, fills `wiki_static`,
+        and web/api/admin/worker mount it read-only at the bundle's output subpath and wait for it to complete."""
         root = make_root()
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
         comps = {c["id"]: c for c in data["components"]}
@@ -699,23 +700,62 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertNotIn("wiki", doc["services"])
+        wa = doc["services"]["wiki_assets"]
+        self.assertEqual(wa["image"], f"grdm-dev/wiki-frontend:{osf12}-{wiki12}")
+        self.assertEqual(wa["restart"], "no")  # one-shot: runs to completion
+        self.assertEqual(wa["command"][:2], ["sh", "-c"])
+        self.assertIn("cp -a", wa["command"][2])
+        self.assertIn("/code/website/static/public/js", wa["command"][2])  # webpack output.path of the wiki-frontend config
+        self.assertIn("webpack-assets.json", wa["command"][2])
+        self.assertIn("wiki-edit-page.js", wa["command"][2])  # unhashed alias next to wiki-edit-page.<chunkhash>.js
+        self.assertEqual(wa["volumes"], ["wiki_static:/wiki_static"])
+        self.assertEqual(wa["user"], "1000:1000")  # baseline controls apply to the one-shot like any service
+        self.assertEqual(wa["cap_drop"], ["ALL"])
+        self.assertIs(wa["read_only"], True)
+        self.assertIn("no-new-privileges:true", wa["security_opt"])
+        self.assertNotIn("ports", wa)
+        self.assertEqual(wa["networks"], ["grdm"])
+        self.assertEqual(wa["labels"]["org.gakunin-rdm.component"], "wiki-frontend")
         for name in ("web", "api", "admin", "worker"):
-            self.assertEqual(doc["services"][name]["image"], f"grdm-dev/osf.io:{osf12}-{wiki12}", name)
+            svc = doc["services"][name]
+            self.assertEqual(svc["image"], f"grdm-dev/osf.io:{osf12}", name)  # the base keeps its own image
+            self.assertIn("wiki_static:/code/website/static/public/js/wiki:ro", svc["volumes"], name)
+            self.assertIsInstance(svc["depends_on"], dict, name)  # Compose long form because of the condition
+            self.assertEqual(svc["depends_on"]["wiki_assets"], {"condition": "service_completed_successfully"}, name)
+            self.assertEqual(svc["depends_on"]["postgres"], {"condition": "service_started"}, name)
+        self.assertIn("wiki_static", doc["volumes"])
+        self.assertTrue((root / "runtime" / "volumes" / "wiki_static").is_dir())
         rows = {r["service"]: r for r in json.loads(out)["services"]}
-        self.assertEqual(rows["web"]["origin"], "overlay")
-        self.assertFalse(any(v["image"].startswith("grdm-dev/wiki-frontend") for v in doc["services"].values()))
+        self.assertEqual(rows["wiki_assets"]["origin"], "overlay")
+        self.assertEqual(rows["web"]["origin"], "built")
         # the build report's image_tag (what `grdm-dev build` actually tagged) wins over the manifest-derived tag
         reports = root / "runtime" / "reports"
-        reports.mkdir(parents=True, exist_ok=True)  # the first render already wrote its report there
+        reports.mkdir(parents=True, exist_ok=True)
         (reports / "build_latest.json").write_text(json.dumps({"components": [
-            {"component": "osf.io", "sha12": "feedfacecafe", "image_tag": "feedfacecafe-0123456789ab", "status": "built",
-             "overlay": "wiki-frontend", "overlay_sha12": "0123456789ab"},
+            {"component": "osf.io", "sha12": "feedfacecafe", "image_tag": "feedfacecafe", "status": "built"},
+            {"component": "wiki-frontend", "sha12": "0123456789ab", "image_tag": "feedfacecafe-0123456789ab", "status": "built",
+             "overlay_of": "osf.io", "base_sha12": "feedfacecafe"},
         ]}), encoding="utf-8")
         rc, _, _, _ = render(root)
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(doc["services"]["web"]["image"], "grdm-dev/osf.io:feedfacecafe-0123456789ab")
-        self.assertEqual(doc["services"]["worker"]["image"], "grdm-dev/osf.io:feedfacecafe-0123456789ab")
+        self.assertEqual(doc["services"]["wiki_assets"]["image"], "grdm-dev/wiki-frontend:feedfacecafe-0123456789ab")
+        self.assertEqual(doc["services"]["web"]["image"], "grdm-dev/osf.io:feedfacecafe")
+
+    def test_minimum_profile_keeps_the_short_depends_on_form_without_wiki_assets(self):
+        root = make_root()
+        rc, _, err, _ = render(root, profile="minimum")
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertNotIn("wiki_assets", doc["services"])
+        self.assertEqual(doc["services"]["web"]["depends_on"], ["postgres", "rabbitmq", "elasticsearch"])  # list form, dropped dependency
+
+    def test_render_depends_on_forms(self):
+        self.assertEqual(compose.render_depends_on(["a", "b"], {"a", "b"}), ["a", "b"])
+        self.assertEqual(compose.render_depends_on(["a", {"service": "c", "condition": "service_completed_successfully"}], {"a"}), ["a"])
+        self.assertEqual(compose.render_depends_on(["a", {"service": "c", "condition": "service_completed_successfully"}], {"a", "c"}),
+                         {"a": {"condition": "service_started"}, "c": {"condition": "service_completed_successfully"}})
+        self.assertEqual(compose.render_depends_on([], {"a"}), [])
 
     def test_hardening_file_is_well_formed(self):
         data = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))

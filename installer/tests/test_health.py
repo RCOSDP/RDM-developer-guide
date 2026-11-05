@@ -122,6 +122,26 @@ class HealthTests(unittest.TestCase):
         self.assertIn("api", self.err.getvalue())
         self.assertIn("postgres", self.err.getvalue())
 
+    def test_one_shot_service_is_healthy_once_exited_0_and_unhealthy_otherwise(self):
+        """A `restart: "no"` service (wiki_assets, SPEC-01 overlay_of) runs to completion: `exited` with code 0 is ok."""
+        compose = json.loads(json.dumps(COMPOSE))
+        compose["services"]["wiki_assets"] = {"image": "grdm-dev/wiki-frontend:aaaaaaaaaaaa-bbbbbbbbbbbb", "restart": "no"}
+        (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps(compose))
+        done = dict(ps_row("wiki_assets"), State="exited", Health="", ExitCode=0)
+        rows = [ps_row(s) for s in ("web", "api", "postgres")] + [done]
+        self.assertEqual(self.run_cmd(False, make_runner(json.dumps(rows))), exit_codes.OK)
+        report = json.loads((self.root / "runtime" / "reports" / "health_latest.json").read_text())
+        wa = next(r for r in report["services"] if r["service"] == "wiki_assets")
+        self.assertEqual((wa["state"], wa["health"], wa["ok"]), ("exited", "completed", True))
+        # a failed one-shot (non-zero exit) or one still running is not healthy
+        for bad in (dict(done, ExitCode=1), dict(done, State="running", ExitCode=None)):
+            rows = [ps_row(s) for s in ("web", "api", "postgres")] + [bad]
+            self.assertEqual(self.run_cmd(False, make_runner(json.dumps(rows))), exit_codes.HEALTH_FAILED)
+            self.assertIn("wiki_assets", self.err.getvalue())
+        # an ordinary service that exited stays unhealthy
+        rows = [dict(ps_row("web"), State="exited", ExitCode=0), ps_row("api"), ps_row("postgres"), done]
+        self.assertEqual(self.run_cmd(False, make_runner(json.dumps(rows))), exit_codes.HEALTH_FAILED)
+
     def test_http_probe_failure_is_40(self):
         rc = self.run_cmd(False, make_runner(PS_OK), prober=lambda url: (False, "connection refused"))
         self.assertEqual(rc, exit_codes.HEALTH_FAILED)

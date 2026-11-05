@@ -43,6 +43,11 @@
     {
       "volume": "ember_osf_web_dist",
       "target": "/ember_osf_web"
+    },
+    {
+      "volume": "wiki_static",
+      "target": "/code/website/static/public/js/wiki",
+      "ro": true
     }
   ],
   "tmpfs": [
@@ -52,7 +57,11 @@
   "depends_on": [
     "postgres",
     "rabbitmq",
-    "elasticsearch"
+    "elasticsearch",
+    {
+      "service": "wiki_assets",
+      "condition": "service_completed_successfully"
+    }
   ],
   "weight": 4,
   "mem_min_mb": 512,

@@ -139,7 +139,14 @@ def check_services(ctx: Context, runner, prober) -> tuple[list[dict], bool]:
         info = ps.get(name, {})
         state = str(info.get("State") or info.get("state") or ("missing" if not info else "unknown")).lower()
         health = str(info.get("Health") or info.get("health") or "").lower()
-        ok = state == "running" and health in ("", "healthy")
+        one_shot = str((compose["services"][name] or {}).get("restart", "")) == "no"
+        if one_shot:
+            # a one-shot service (e.g. wiki_assets, SPEC-01 overlay_of) is healthy once it has exited with code 0
+            exit_code = info.get("ExitCode", info.get("exit_code", 0))
+            ok = state == "exited" and str(exit_code) in ("0", "None", "")
+            health = health or ("completed" if ok else "")
+        else:
+            ok = state == "running" and health in ("", "healthy")
         url = ""
         http = ""
         if name in HTTP_SERVICES:

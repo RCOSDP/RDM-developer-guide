@@ -31,10 +31,12 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
-  (sha12 from the build report when present), `grdm-dev/<base>:<base_sha12>-<overlay_sha12>` for a
-  base component that carries an overlay (SPEC-01 §3 `overlay_of`, ADR-06: osf.io's web, api, admin
-  and worker run the image built with the wiki-frontend overlay; the report row says `origin:
-  overlay` and the overlay component itself has no service), `base_image[@digest]` for infra, and
+  (sha12 from the build report when present), `grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>` for
+  an overlay component (SPEC-01 §3 `overlay_of`, ADR-06: `wiki_assets` runs the wiki-frontend bundle
+  builder once, copies `/code/website/static/public/js/` into the named volume `wiki_static` and
+  exits — `restart: "no"`; web/api/admin/worker mount that volume read-only at
+  `/code/website/static/public/js/wiki/` and depend on it with `condition:
+  service_completed_successfully`; the report row says `origin: overlay`), `base_image[@digest]` for infra, and
   the `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
   ember-osf-web until M4). A prebuilt service gets `platform:` from `build_platform` like any
   other, and the report row says `origin: prebuilt`; `scan` sees it as one more compose image;
@@ -44,7 +46,10 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
 
 Template schema (templates/<service>.json): service, component, profile?, container_port?,
 host_port?, expose?, command?, environment?, env_files?, volumes? ([{volume|config|config_dir,
-target, ro?}]), tmpfs?, user?, depends_on?, weight, mem_min_mb, pids_limit, note?. Strings may use
+target, ro?}]), tmpfs?, user?, depends_on? (service names, or {service, condition} for the Compose
+long form, e.g. `service_completed_successfully` on a one-shot), restart?, one_shot? (a container
+that runs to completion: rendered with `restart: "no"`, and `health` accepts `exited` with code 0),
+weight, mem_min_mb, pids_limit, note?. Strings may use
 `{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`.
 
 Upstream settings are rewritten under runtime/config/ (ADR-02 §3.3): osf/local.py, osf/api_local.py,
@@ -317,6 +322,27 @@ def _mount(entry: dict[str, Any]) -> str:
     raise ValueError(f"unknown volume entry {entry!r}")
 
 
+def render_depends_on(entries: list[Any], in_profile: set[str]) -> list[str] | dict[str, dict[str, str]]:
+    """Template `depends_on`: strings, or `{service, condition}` objects (Compose long form).
+
+    Services outside the profile are dropped. The short list form is kept when no remaining entry
+    carries a condition, so existing files do not change; otherwise every entry is written in the
+    long form (`condition: service_started` for plain names)."""
+    kept: list[tuple[str, str | None]] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            name, cond = str(entry.get("service", "")), entry.get("condition")
+        else:
+            name, cond = str(entry), None
+        if name in in_profile:
+            kept.append((name, cond))
+    if not kept:
+        return []
+    if all(cond is None for _, cond in kept):
+        return [name for name, _ in kept]
+    return {name: {"condition": cond or "service_started"} for name, cond in kept}
+
+
 def render_service(
     svc: _manifest.Service,
     *,
@@ -362,13 +388,13 @@ def render_service(
         expose.insert(0, str(tpl["container_port"]))
     if expose:
         out["expose"] = expose
-    deps = [d for d in tpl.get("depends_on", []) if d in in_profile]
+    deps = render_depends_on(tpl.get("depends_on", []), in_profile)
     if deps:
         out["depends_on"] = deps
     # grdm (internal) for every service; grdm-edge only where a port is published or egress was granted.
     on_edge = svc.name in published or svc.name in egress
     out["networks"] = [NETWORK, EDGE_NETWORK] if on_edge else [NETWORK]
-    out["restart"] = tpl.get("restart", "unless-stopped")
+    out["restart"] = "no" if tpl.get("one_shot") else tpl.get("restart", "unless-stopped")
     out["init"] = True
     out.update(resources)
     out["labels"] = {
@@ -698,7 +724,7 @@ def update_dotenv(path: Path, updates: dict[str, str]) -> bool:
 
 def built_image_tags(ctx: Context) -> dict[str, str]:
     """component id -> image tag from the latest build report, when one exists: the row's
-    `image_tag` (`<base_sha12>-<overlay_sha12>` for a base built with an overlay) or its sha12."""
+    `image_tag` (`<base_sha12>-<overlay_sha12>` for an overlay component) or its sha12."""
     path = ctx.reports_dir / "build_latest.json"
     if not path.exists():
         return {}
