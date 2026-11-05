@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05. **Learned:** the line between "automatic" and "human" is easiest to defend when it sits on two concrete commands, merge and publish, rather than on a judgment such as "important changes". ／ 「自動」と「人」の境目は、「重要な変更」のような判断ではなく、マージと公開という二つの具体的な操作に置くと最も守りやすいと分かった。
+- Version / 版: 0.2 — 2026-11-05. **Learned:** a one-time delegation must be written down with scope, grantor and evidence before it is used, or the human-merge rule erodes silently. ／ 一回限りの委任でも、使う前に範囲・許可者・証跡を書き残さなければ「人がマージする」規則が静かに崩れると分かった。
+  0.1 — 2026-11-05. **Learned:** the line between "automatic" and "human" is easiest to defend when it sits on two concrete commands, merge and publish, rather than on a judgment such as "important changes". ／ 「自動」と「人」の境目は、「重要な変更」のような判断ではなく、マージと公開という二つの具体的な操作に置くと最も守りやすいと分かった。
 - Status: Accepted (owner, 2026-11-05). Review date: after steady-state operation has run for one month (open question in §5).
 - Related: [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-03 Security Gate](../spec/03_security_gate.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](../spec/06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration Repository Placement](ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network Model](ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](ADR-03_Staged_Security_Gate.md) · [docs/README.md](../README.md)
 
@@ -103,6 +104,16 @@ A PR without all four is not ready for the owner; QAE returns it to AID.
 
 ---
 
+### Recorded exceptions
+
+| Date | Exception | Scope | Granted by | Evidence |
+|---|---|---|---|---|
+| 2026-11-05 | QAE (Claude Code Fable) merges PR #19 of RDM-developer-guide itself, using the repository administrator path of the branch protection because the author cannot approve its own pull request | This one pull request only. Merge, not approve; no other repository | Owner, in the session dialogue | REV r3 record `docs/reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3.md` (approve recommended), CI 6/6 green on the merged head |
+
+The rule "merge and publish are human" is unchanged; every further merge needs its own recorded exception or the owner's hand.
+
+---
+
 <a id="japanese"></a>
 ## 日本語
 
@@ -192,6 +203,16 @@ flowchart LR
 ### 5. 未決事項
 
 **脆弱性修正だけの PR に、REV 承認と QAE 合格の後の自動マージを認めるか。** 賛成の理由: 恒常運用で HIGH の検出をより早く閉じられる。反対の理由: POL-05 はマージを人に残している。セキュリティの経路での誤った自動マージは最も高くつく種類の誤りである。恒常運用を約一か月回し、所有者が修正 PR の実際の量と質を見てから決める。それまでは選択肢 2 を書いたとおりに適用する。
+
+---
+
+### 記録した例外
+
+| 日付 | 例外 | 範囲 | 許可者 | 証跡 |
+|---|---|---|---|---|
+| 2026-11-05 | QAE（Claude Code Fable）が RDM-developer-guide 自身の PR #19 をマージする。作者は自分の PR を承認できないため、ブランチ保護の管理者経路を使う | この PR 1 件のみ。承認ではなくマージ。他リポジトリには及ばない | 所有者（セッション内の対話） | REV r3 記録 `docs/reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3.md`（approve 推奨）、マージ対象 head で CI 6/6 合格 |
+
+「マージと公開は人が行う」という規則は変わらない。以後のマージはそれぞれ例外の記録か所有者の手を要する。
 
 ---
 

@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** the first construction of a `-dev2027` repository cannot literally replay "public → private → adopted PRs", so the rule needs a stated bootstrap interpretation; it is proposed in §5 and awaits the owner. ／ `-dev2027` の初回構築では「公開 → private → 採用 PR」を文字どおり再現できないため、初回構築の解釈を明文化する必要があると分かった。§5 に提案し所有者の承認を待つ。
+- Version / 版: 0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
+  0.2 — 2026-11-05. **Learned:** the first construction of a `-dev2027` repository cannot literally replay "public → private → adopted PRs", so the rule needs a stated bootstrap interpretation; it is proposed in §5 and awaits the owner. ／ `-dev2027` の初回構築では「公開 → private → 採用 PR」を文字どおり再現できないため、初回構築の解釈を明文化する必要があると分かった。§5 に提案し所有者の承認を待つ。
   0.1 — 2026-11-05. **Learned:** GitHub refuses a fork inside the same organization, so "fork and integrate" had to become "new repository with history pushed", and that in turn made the no-force-push and no-delete rules the only way to keep the pushed history trustworthy. ／ GitHub は同じ組織内へのフォークを許さないため「フォークして統合」は「履歴を push した新規リポジトリ」になり、その結果 force push 禁止と削除禁止が、push した履歴を信じられるものに保つ唯一の手段だと分かった。
 - Status: Accepted by the owner, 2026-11-05 (plan-interview).
 - Records a decision for: [POL-01 §2 item 5](../policy/POL-01_Developer_Environment_2027_Position.md) · [SPEC-01 Manifest](../spec/01_manifest.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md)
@@ -87,17 +88,19 @@ flowchart TD
 
 ---
 
-### 5. Bootstrap interpretation of the integration order (proposed, awaiting owner approval)
+### 5. Bootstrap of the integration order (decided 2026-11-05: strict reconstruction)
 
-**Status:** proposed on 2026-11-05 after review r1/r2 of RDM-osf.io-dev2027 PR #1 (finding R2). Not yet approved by the owner.
+**Status:** the owner **rejected** the proposed interpretation "seed from the `-private` tip and merge the newer public tip" (review r1/r2 of RDM-osf.io-dev2027 PR #1, finding R2). The integration order of [SPEC-01 §4](../spec/01_manifest.md) applies literally, also to the first construction.
 
-[SPEC-01 §4](../spec/01_manifest.md) fixes the integration order *public → private → adopted PRs*. The first construction of every `-dev2027` repository did not replay that recipe: `develop` was seeded from the `-private` tip (which already contains the public history) and the newer public tip was then merged in as a normal two-parent merge. We propose to read the rule as follows:
+**Procedure for every `-dev2027` repository:**
 
-- **Bootstrap (first construction):** seeding `develop` from the `-private` tip and merging the newer public tip incrementally satisfies the rule, because the `-private` tip is a verified superset of the public history and the merge preserves both parents.
-- **Steady state (weekly integration, SPEC-05):** the literal order applies: merge `upstream/public-*`, then `upstream/private-*`, then re-apply adopted PRs.
-- Upstream history is never rewritten to make the bootstrap look like a literal replay.
+1. Start a branch `integrate/strict-<YYYYMMDD>` at the tip of `upstream/public-<branch>`.
+2. Merge `upstream/private-<branch>` into it with a normal two-parent merge (`--no-ff`), resolving conflicts on the branch.
+3. Re-apply adopted PRs from the manifest, each as its own merge.
+4. Open a pull request from that branch to `develop`. The `develop` branch is never force-pushed or deleted; the pull request supersedes any earlier integration pull request, which is closed with a comment pointing to the new one.
+5. Review by REV, check by QAE, merge by the owner (ADR-04).
 
-If the owner rejects this interpretation, the alternative is a strict reconstruction of each `develop` from the public tip, proposed as a separate change without force-push.
+**Consequence:** the first `develop` of each repository (seeded from the `-private` tip during bootstrap) stays in history. The strictly reconstructed branch is merged on top of it, so from the first strict merge onward every `develop` carries the public-first order.
 
 ---
 
@@ -175,17 +178,19 @@ flowchart TD
 
 ---
 
-### 5. 統合順の「初回構築」の解釈（提案。所有者の承認待ち）
+### 5. 統合順の初回構築（2026-11-05 決定: 厳密に再構築する）
 
-**状態:** 2026-11-05、RDM-osf.io-dev2027 PR #1 のレビュー r1/r2（指摘 R2）を受けて提案。所有者はまだ承認していない。
+**状態:** 所有者は「`-private` の先端を起点にして、より新しい公開の先端をマージする」という解釈の提案を **退けた**（RDM-osf.io-dev2027 PR #1 のレビュー r1/r2、指摘 R2）。[SPEC-01 §4](../spec/01_manifest.md) の統合順は、初回構築にも文字どおり適用する。
 
-[SPEC-01 §4](../spec/01_manifest.md) は統合順を「公開 → private → 採用 PR」と定める。各 `-dev2027` リポジトリの初回構築はこの手順を文字どおりには再現していない。`develop` は `-private` の先端（公開の履歴を既に含む）を起点にし、より新しい公開の先端を通常の 2 親マージで取り込んだ。この規則を次のように読むことを提案する。
+**各 `-dev2027` リポジトリの手順:**
 
-- **初回構築:** `-private` の先端を起点にして、より新しい公開の先端を増分でマージする形は、規則を満たす。`-private` の先端が公開履歴の上位互換であることを確認済みで、マージは両親を保持するからである。
-- **定常運転（週次統合、SPEC-05）:** 文字どおりの順序を適用する。`upstream/public-*`、次に `upstream/private-*`、最後に採用 PR を再適用する。
-- 初回構築を文字どおりの再現に見せるために上流の履歴を書き換えることはしない。
+1. `upstream/public-<branch>` の先端からブランチ `integrate/strict-<YYYYMMDD>` を切る。
+2. そこへ `upstream/private-<branch>` を通常の 2 親マージ（`--no-ff`）で取り込み、衝突はそのブランチ上で解消する。
+3. manifest の採用 PR を、それぞれ独立したマージとして再適用する。
+4. そのブランチから `develop` へ PR を出す。`develop` は force push も削除もしない。この PR は以前の統合 PR を置き換え、以前の PR は新しい PR を示すコメントを付けて閉じる。
+5. REV のレビュー、QAE の検査、所有者のマージ（ADR-04）。
 
-所有者がこの解釈を退ける場合の代替は、各 `develop` を公開の先端から厳密に再構築することで、force push なしの別の変更として提案する。
+**結果:** 各リポジトリの最初の `develop`（初回構築で `-private` の先端から作ったもの）は履歴に残る。厳密に再構築したブランチはその上にマージされるので、最初の厳密マージ以降、どの `develop` も「公開が先」の順序を持つ。
 
 ---
 
