@@ -856,7 +856,11 @@ def run(
         if _write_if_changed(ctx.runtime / CONFIG_DIR / rel, text):
             written.append(f"{CONFIG_DIR}/{rel}")
     for name in compose["volumes"]:
-        (ctx.runtime / VOLUMES_DIR / name).mkdir(parents=True, exist_ok=True)
+        vol_dir = ctx.runtime / VOLUMES_DIR / name
+        vol_dir.mkdir(parents=True, exist_ok=True)
+        # Mode is set here on the host (we own the directory); containers only chown. A root container
+        # with CAP_CHOWN alone cannot chmod a directory it does not own (needs CAP_FOWNER) — PR #30 r3.
+        os.chmod(vol_dir, 0o755)
     env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress)}
     env_updates.update({port_key(name): str(port) for name, port in published.items()})
     if update_dotenv(dotenv, env_updates):

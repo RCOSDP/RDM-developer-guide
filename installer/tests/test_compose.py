@@ -727,9 +727,14 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIs(init["read_only"], True)
         self.assertIn("no-new-privileges:true", init["security_opt"])
         self.assertIn("chown 1000:1000 /wiki_static", init["command"][2])
-        # R2-01: chmod must come before chown (CAP_CHOWN only; chmod after chown would need CAP_FOWNER)
+        # R2-01/R3: the container never chmods (CAP_CHOWN only cannot chmod a dir owned by another uid);
+        # the host-side volume directory mode is set by compose render instead.
         cmd = init["command"][2]
-        self.assertLess(cmd.index("chmod 0755 /wiki_static"), cmd.index("chown 1000:1000 /wiki_static"))
+        self.assertNotIn("chmod", cmd)
+        self.assertIn("chown 1000:1000 /wiki_static", cmd)
+        vol_dir = self.root / "runtime" / "volumes" / "wiki_static"
+        if vol_dir.exists():
+            self.assertEqual(oct(vol_dir.stat().st_mode & 0o777), "0o755")
         self.assertEqual(init["volumes"], ["wiki_static:/wiki_static"])
         self.assertEqual(init["labels"]["org.gakunin-rdm.hardening-exception"], "cap_add,user")
         self.assertNotIn("depends_on", init)
