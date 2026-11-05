@@ -161,11 +161,12 @@ def component_platforms(comp, override: str | None) -> list[str]:
     return [s.strip() for s in str(raw).split(",") if s.strip()]
 
 
-def pull_argv(reference: str, platforms: list[str]) -> list[str]:
-    """`docker pull` of a prebuilt reference for exactly one platform (a digest names one manifest)."""
+def pull_argv(reference: str, platform: str | None) -> list[str]:
+    """`docker pull` of a prebuilt reference for one platform (a digest names one manifest, so the
+    caller pulls once per requested platform and records each result)."""
     argv = ["docker", "pull"]
-    if platforms:
-        argv += ["--platform", platforms[0]]
+    if platform:
+        argv += ["--platform", platform]
     argv.append(reference)
     return argv
 
@@ -211,12 +212,19 @@ def run(ctx: Context, args, runner=None) -> int:
         prebuilt = comp.get("prebuilt_image")
         if prebuilt:
             sys.stderr.write(f"[grdm-dev] build: {cid} uses prebuilt_image {prebuilt} (not built from {repo}; see manifest note)\n")
-            rc, _ = runner(pull_argv(str(prebuilt), platforms))
+            # One pull per requested platform: a digest names a single manifest, so a platform the
+            # image does not provide must fail visibly instead of being reported as pulled (review r3).
+            results = []
+            for plat in (platforms or [None]):
+                rc, _ = runner(pull_argv(str(prebuilt), plat))
+                results.append((plat or "host", rc))
+            bad = [f"{plat}: exit {rc}" for plat, rc in results if rc != 0]
             rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms),
-                         "status": "prebuilt" if rc == 0 else "pull-failed", "image": str(prebuilt),
+                         "status": "prebuilt" if not bad else "pull-failed", "image": str(prebuilt),
+                         "pulled": ",".join(plat for plat, rc in results if rc == 0),
                          "note": comp.get("note") or ""})
-            if rc != 0:
-                failed, detail = cid, f"docker pull of prebuilt_image exited {rc}"
+            if bad:
+                failed, detail = cid, "docker pull of prebuilt_image failed for " + "; ".join(bad)
                 break
             continue
         rc, sha, log = sync_source(repo, dest, pinned_ref(comp), runner)

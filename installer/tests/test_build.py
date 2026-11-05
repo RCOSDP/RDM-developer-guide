@@ -249,6 +249,27 @@ class BuildTests(unittest.TestCase):
         rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
         self.assertEqual(rows["waterbutler"]["status"], "pull-failed")
 
+    def test_prebuilt_multi_platform_pulls_each_and_fails_on_any(self):
+        """Review r3 R3-01: with --platform a,b every platform is pulled; a missing one fails with 30."""
+        self._with_prebuilt_waterbutler()
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+
+        class PlatformRunner(FakeRunner):
+            def __call__(self, argv):
+                if argv[:2] == ["docker", "pull"] and "linux/arm64" in argv:
+                    self.calls.append(list(argv))
+                    return 1, "no matching manifest for linux/arm64"
+                return super().__call__(argv)
+
+        runner = PlatformRunner()
+        rc = self.run_cmd(ctx, runner, platform="linux/arm64,linux/amd64", component="waterbutler")
+        pulls = [c for c in runner.calls if c[:2] == ["docker", "pull"]]
+        self.assertEqual(sorted(c[3] for c in pulls), ["linux/amd64", "linux/arm64"])
+        self.assertEqual(rc, exit_codes.BUILD_FAILED)
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["waterbutler"]["status"], "pull-failed")
+        self.assertEqual(rows["waterbutler"]["pulled"], "linux/amd64")
+
     def test_prebuilt_component_can_be_selected_alone_and_platform_flag_applies(self):
         self._with_prebuilt_waterbutler()
         ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
@@ -257,7 +278,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(runner.calls, [["docker", "pull", "--platform", "linux/arm64", self.PREBUILT]])
 
     def test_pull_argv(self):
-        self.assertEqual(build.pull_argv("img@sha256:" + "0" * 64, []), ["docker", "pull", "img@sha256:" + "0" * 64])
+        self.assertEqual(build.pull_argv("img@sha256:" + "0" * 64, None), ["docker", "pull", "img@sha256:" + "0" * 64])
 
     def test_host_platform_mapping(self):
         self.assertIn(build.host_platform(), ("linux/arm64", "linux/amd64") + (f"linux/{build._platform.machine().lower()}",))
