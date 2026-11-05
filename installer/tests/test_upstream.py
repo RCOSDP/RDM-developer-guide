@@ -25,7 +25,8 @@ def sha(label: str) -> str:
     """Deterministic fake 40-hex SHA from a label."""
     import hashlib
 
-    return hashlib.sha1(label.encode()).hexdigest()
+    # Fake 40-hex git object id for tests; this is not a security use of hashing.
+    return hashlib.sha256(label.encode()).hexdigest()[:40]
 
 
 # --- a shared linear history: base → pub1 → pub2; private and PR branches fork from pub1
