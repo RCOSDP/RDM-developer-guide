@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.5 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything; and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything. ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
   0.3 — 2026-11-06. **Learned:** CPU emulation can turn an EOL build into a silent hang rather than an error, so hung builds need an operator timeout and a prebuilt fallback until modernization. ／ CPU エミュレーションは EOL のビルドをエラーではなく無言のハングに変えうる。近代化までは、ハングしたビルドに操作者の打ち切りと配布済みイメージの代替が要る。
   0.2 — 2026-11-05. **Learned:** emulation solves missing arm64 wheels but not a base image that current Docker refuses outright; that needs a prebuilt fallback until the Dockerfile is modernized. ／ エミュレーションは arm64 の wheel 不足を解くが、現行 Docker が取得そのものを拒むベースイメージには効かない。Dockerfile を近代化するまでは配布済みイメージの代替が要る。
   0.1 — 2026-11-05. **Learned:** the first real run proved the stop-at-first-failure design and exposed that an EOL Python 3.5 image cannot be built for arm64, which the specifications had only predicted. ／ 最初の実行で「最初の失敗で止まる」設計が働くことと、EOL の Python 3.5 イメージは arm64 で組めないこと（仕様では予測だった）が実証された。
@@ -21,7 +23,7 @@
 
 ### Run 1 — 2026-11-05, branch `feat/m2-installer` (PR #21, before review fixes)
 
-Host (from `grdm-dev doctor`): macOS 27.2, arm64, 128 GiB memory, Docker 29.5.2, Compose 5.6.0, buildx present. Supported, Docker OK.
+Host (from `grdm-dev doctor`): macOS 27.2, arm64 (the CPU type of Apple Silicon, the chips Apple puts in its Macs since 2020; see [REF-01](../reference/REF-01_Glossary.md)), 128 GiB memory, Docker (the tool that builds images and runs containers; see [REF-01](../reference/REF-01_Glossary.md)) 29.5.2, Compose 5.6.0, buildx (Docker's helper that builds one image for several kinds of computer; see [REF-01](../reference/REF-01_Glossary.md)) present. Supported, Docker OK.
 
 ```toon
 run1:
@@ -44,13 +46,13 @@ What this proves:
 
 - The bootstrap (`install.sh` → `.venv/` → `grdm-dev install`) works end to end on a clean macOS shell.
 - The sequence stops at the first failing step and returns that step's exit code (30), as [SPEC-02 §2.1](../spec/02_installer_cli.md) requires; nothing was started.
-- The EOL base images (see [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)) are not only a security problem but a build problem on Apple Silicon.
+- The EOL (end-of-life: no longer fixed by their makers; see [REF-01](../reference/REF-01_Glossary.md)) base images (see [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)) are not only a security problem but a build problem on Apple Silicon.
 
 Decision taken: components whose base cannot be built for arm64 (modular-file-renderer, ember-osf-web, cas-overlay) get `build_platform: linux/amd64` in the manifest ([SPEC-01](../spec/01_manifest.md)) and run under emulation until M4 modernizes them. Run 2 will be recorded below after the review fixes land.
 
 ### Run 2 — 2026-11-05, branch `feat/m2-installer` (after review fixes r1, commit 3149c76 + 1c2a925)
 
-Same host. Changes since run 1: `build_platform: linux/amd64` for modular-file-renderer, ember-osf-web and cas-overlay; two networks (`grdm` internal, `grdm-edge` publishing); PostgreSQL 9.6 `auth-host=md5`.
+Same host. Changes since run 1: `build_platform: linux/amd64` for modular-file-renderer, ember-osf-web and cas-overlay; two networks (`grdm` internal, `grdm-edge` publishing); PostgreSQL (the main database; see [REF-01](../reference/REF-01_Glossary.md)) 9.6 `auth-host=md5`.
 
 ```toon
 run2:
@@ -147,7 +149,7 @@ Evidence (run 1): full log kept in the session scratchpad only (contains package
 
 ### 第 1 回 — 2026-11-05、ブランチ `feat/m2-installer`（PR #21、レビュー修正前）
 
-ホスト（`grdm-dev doctor` より）: macOS 27.2、arm64、メモリ 128 GiB、Docker 29.5.2、Compose 5.6.0、buildx あり。対応ホスト、Docker 正常。
+ホスト（`grdm-dev doctor` より）: macOS 27.2、arm64（2020 年から Apple が Mac に入れているチップ Apple Silicon の CPU の種類。[REF-01](../reference/REF-01_Glossary.md)）、メモリ 128 GiB、Docker（イメージを作りコンテナを動かす道具。[REF-01](../reference/REF-01_Glossary.md)）29.5.2、Compose 5.6.0、buildx（一つのイメージを何種類かの計算機向けに作る Docker の助手。[REF-01](../reference/REF-01_Glossary.md)）あり。対応ホスト、Docker 正常。
 
 ```toon
 run1:
@@ -170,13 +172,13 @@ run1:
 
 - ブートストラップ（`install.sh` → `.venv/` → `grdm-dev install`）は、素の macOS のシェルで端から端まで動く。
 - 手順は最初に失敗した段階で止まり、その段階の終了コード（30）を返す。[SPEC-02 §2.1](../spec/02_installer_cli.md) のとおりで、サービスは何も起動していない。
-- EOL のベースイメージ（[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)）は安全性の問題だけでなく、Apple Silicon ではビルドの問題でもある。
+- EOL（end of life。作った人がもう直さない。[REF-01](../reference/REF-01_Glossary.md)）のベースイメージ（[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)）は安全性の問題だけでなく、Apple Silicon ではビルドの問題でもある。
 
 決めたこと: arm64 で組めない部品（modular-file-renderer、ember-osf-web、cas-overlay）は manifest に `build_platform: linux/amd64` を持たせ（[SPEC-01](../spec/01_manifest.md)）、M4 で近代化するまでエミュレーションで動かす。第 2 回はレビュー修正の反映後に下へ追記する。
 
 ### 第 2 回 — 2026-11-05、ブランチ `feat/m2-installer`（レビュー r1 対応後、コミット 3149c76 ＋ 1c2a925）
 
-同じホスト。第 1 回からの変更: modular-file-renderer・ember-osf-web・cas-overlay に `build_platform: linux/amd64`、ネットワークを二つ（内部の `grdm` と公開用の `grdm-edge`）、PostgreSQL 9.6 の `auth-host=md5`。
+同じホスト。第 1 回からの変更: modular-file-renderer・ember-osf-web・cas-overlay に `build_platform: linux/amd64`、ネットワークを二つ（内部の `grdm` と公開用の `grdm-edge`）、PostgreSQL（主なデータベース。[REF-01](../reference/REF-01_Glossary.md)）9.6 の `auth-host=md5`。
 
 ```toon
 run2:

@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.7 — 2026-11-06. **Learned:** a repository with a Dockerfile is not necessarily a component that can be built from its own checkout (wiki-frontend's Dockerfile is osf.io's and its image holds only a webpack bundle), so the manifest needs `overlay_of`, the overlay image is tagged with both commits (`<base_sha12>-<overlay_sha12>`), and its services are one-shot copiers into a named volume (MC-14, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)); and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ Dockerfile があるリポジトリが必ず自分の checkout から組める部品とは限らない（wiki-frontend の Dockerfile は osf.io のもので、そのイメージは webpack の束しか持たない）ため、manifest には `overlay_of` が要り、オーバーレイのイメージは両コミット（`<ベース sha12>-<オーバーレイ sha12>`）をタグに持ち、そのサービスは名前付きボリュームへ写す一回限りのものになる（MC-14、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.6 — 2026-11-06. **Learned:** the fourth real install on Apple Silicon showed that a repository with a Dockerfile is not necessarily a component that can be built from its own checkout: the wiki-frontend Dockerfile is osf.io's with the Python steps removed and COPYs paths only the osf.io tree has, and the image it produces holds a webpack bundle, not a runtime. So the manifest needs `overlay_of` ("built from the base's checkout plus my files"), the overlay image is tagged with both commits (`<base_sha12>-<overlay_sha12>`), and its services are one-shot copiers of the bundle into a named volume (MC-14, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ Apple Silicon での第 4 回実導入で、Dockerfile があるリポジトリが必ず自分の checkout から組める部品とは限らないと分かった。wiki-frontend の Dockerfile は osf.io のものから Python 手順を除いた写しで、osf.io の木にしか無いパスを COPY し、できるイメージは実行環境でなく webpack の束を持つだけである。だから manifest には「ベースの checkout に自分のファイルを重ねて組む」を表す `overlay_of` が要り、オーバーレイのイメージは両コミット（`<ベース sha12>-<オーバーレイ sha12>`）をタグに持ち、そのサービスは束を名前付きボリュームへ写す一回限りのものになる（MC-14、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
+- Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
   0.5 — 2026-11-05. **Learned:** the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned `prebuilt_image` fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた `note` を伴うダイジェスト固定の `prebuilt_image` が部品ごとに要る。
   0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
   0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
@@ -23,7 +25,7 @@
 
 ### 1. What the manifest is
 
-A *manifest* is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment ([SPEC-00 §2](00_overview.md#2-component-map)), which *upstream* repositories (the original places we copy code from) are combined, at which *SHA* (the 40-character fingerprint of one commit), and which pull requests (*PRs*, proposed changes waiting to be merged) we add on top.
+A *manifest* is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment ([SPEC-00 §2](00_overview.md#2-component-map)), which *upstream* repositories (the original places we copy code from) are combined, at which *SHA* (the 40-character fingerprint of one commit), and which pull requests (*PRs*, proposed changes waiting to be merged; see [REF-01](../reference/REF-01_Glossary.md)) we add on top.
 
 The installer reads the manifest and nothing else to decide what to build. If a fact is not in the manifest, the installer does not know it.
 
@@ -37,7 +39,7 @@ The installer reads the manifest and nothing else to decide what to build. If a 
 
 The excerpt contains the top-level fields and, for every component, `id`, `role`, `integration_repo`, `profile`, every field of `upstreams[]`, and `adopted_prs[]` reduced to `repo`, `number`, `status`. It omits `candidate_prs`, images, services, and platforms. Other files under `manifest/` (`allowlist.json`, `allowlist.baseline.json`, `milestone.json`, `hardening.json`, `redteam-targets.json`) are defined by [SPEC-03](03_security_gate.md); their file list is in [SPEC-02 §9](02_installer_cli.md#english).
 
-> **Warning:** This repository is public. The manifest contains **repository names and SHAs only**. It never contains URLs to private repositories, access tokens, or code fragments from `-private` repositories. The CI secret scan fails the PR if it finds any.
+> **Warning:** This repository is public. The manifest contains **repository names and SHAs only**. It never contains URLs to private repositories, access tokens, or code fragments from `-private` repositories. The CI (continuous integration: automatic checks on every change; see [REF-01](../reference/REF-01_Glossary.md)) secret scan fails the PR (pull request: a proposed change waiting for review; see [REF-01](../reference/REF-01_Glossary.md)) if it finds any.
 
 ### 3. Schema
 
@@ -98,7 +100,7 @@ The all-zero SHAs above are placeholders for the example only; a real manifest n
 
 ### 4. Rules
 
-1. **SHAs are pinned.** Every `upstreams[].sha` is a real 40-character commit that exists on the named branch at `fetched_at`. Branch names alone are never enough.
+1. **SHAs are pinned.** Every `upstreams[].sha` is a real 40-character commit that exists on the named branch at `fetched_at`. Branch (a separate line of work in a repository; see [REF-01](../reference/REF-01_Glossary.md)) names alone are never enough.
 2. **A change to the manifest is a PR.** Nobody edits `upstreams.json` on `develop` directly. The weekly integration PR ([SPEC-05 §3](05_upstream_tracking.md#3-weekly-integration-pr)) is the normal way SHAs move. Adopting or rejecting a PR is also a manifest PR, with the `reason` filled in.
 3. **Integration order is fixed:** merge the `public` upstream with `status: merged`, then the `private` one, then apply `adopted_prs` in list order. A component that has no `public` upstream (the private subsystems) starts from its `private` upstream. The `cos` upstream (`status: reference`) is never merged; it is compared.
 4. **"Consistent" (矛盾なく) means all of the following:**
@@ -157,7 +159,7 @@ checks[14]{id,rule,severity}:
 
 ### 1. マニフェストとは
 
-「マニフェスト」は荷物の明細書です。箱に何が入るかを正確に書きます。私たちのマニフェストは、環境の全部品（[SPEC-00 §2](00_overview.md#2-部品の地図)）について、どの上流（コードを写してくる元のリポジトリ）を、どの SHA（一つのコミットを指す 40 文字の指紋）で重ね、どの PR（プルリクエスト。マージを待っている変更の提案）をその上に足すかを書きます。
+「マニフェスト」は荷物の明細書です。箱に何が入るかを正確に書きます。私たちのマニフェストは、環境の全部品（[SPEC-00 §2](00_overview.md#2-部品の地図)）について、どの上流（コードを写してくる元のリポジトリ）を、どの SHA（一つのコミットを指す 40 文字の指紋）で重ね、どの PR（プルリクエスト。マージを待っている変更の提案。[REF-01](../reference/REF-01_Glossary.md)）をその上に足すかを書きます。
 
 インストーラーは何を組むかをマニフェストだけから決めます。マニフェストに無いことは、インストーラーは知りません。
 
@@ -171,7 +173,7 @@ checks[14]{id,rule,severity}:
 
 抄録には、最上位の項目と、各部品の `id`・`role`・`integration_repo`・`profile`、`upstreams[]` の全項目、そして `repo`・`number`・`status` に絞った `adopted_prs[]` を載せます。`candidate_prs`、イメージ、サービス、platform は載せません。`manifest/` の下のほかのファイル（`allowlist.json`、`allowlist.baseline.json`、`milestone.json`、`hardening.json`、`redteam-targets.json`）は [SPEC-03](03_security_gate.md) が定め、一覧は [SPEC-02 §9](02_installer_cli.md#japanese) にあります。
 
-> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI の秘密スキャンが見つけたら PR は不合格です。
+> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI（continuous integration。変更ごとに自動で走る検査。[REF-01](../reference/REF-01_Glossary.md)）の秘密スキャンが見つけたら PR（プルリクエスト。レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）は不合格です。
 
 ### 3. 形（スキーマ）
 
@@ -232,7 +234,7 @@ components[1]:
 
 ### 4. 規則
 
-1. **SHA を固定する。** すべての `upstreams[].sha` は、`fetched_at` の時点でそのブランチに実在する 40 文字のコミットです。ブランチ名だけでは足りません。
+1. **SHA を固定する。** すべての `upstreams[].sha` は、`fetched_at` の時点でそのブランチに実在する 40 文字のコミットです。ブランチ（リポジトリの中の別の作業の道。[REF-01](../reference/REF-01_Glossary.md)）名だけでは足りません。
 2. **マニフェストの変更は PR で行う。** `develop` 上の `upstreams.json` を直接編集する人はいません。SHA が進む通常の経路は週次の統合 PR（[SPEC-05 §3](05_upstream_tracking.md#3-週次の統合-pr)）です。PR の採用・却下もマニフェストの PR で、`reason` を書きます。
 3. **統合の順番は固定:** `status: merged` の `public` の上流をマージ、次に `private` の上流をマージ、最後に `adopted_prs` を並び順に適用。`public` の上流がない部品（非公開サブシステム）は `private` の上流から始めます。`cos` の上流（`status: reference`）はマージせず、比較だけに使います。
 4. **「矛盾なく」とは次のすべてを満たすこと:**
