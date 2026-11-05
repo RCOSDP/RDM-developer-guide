@@ -100,19 +100,12 @@ PORT_SEARCH_RANGE = 100
 FORBIDDEN_ADDRESS = "192.168.168.167"  # the old loopback alias; must never appear (ADR-02)
 
 # Keys that compose output references; all are written by `grdm-dev secrets init` (secrets.py).
-REQUIRED_SECRETS: tuple[str, ...] = (
-    "POSTGRES_PASSWORD",
-    "DJANGO_SECRET_KEY",
-    "API_SECRET_KEY",
-    "SESSION_COOKIE_SECRET",
-    "RABBITMQ_DEFAULT_PASS",
-    "WATERBUTLER_JWE_SECRET",
-    "WATERBUTLER_JWE_SALT",
-    "WATERBUTLER_JWT_SECRET",
-    "MFR_SERVER_SECRET",
-    "SHAREJS_SECRET",
-    "Y_WEBSOCKET_JWT_SECRET",
-)
+# Every secret that `secrets init` generates must be present before rendering, so the generated
+# Compose file never references an unset variable (Compose would warn and substitute "").
+# The list is the single source of truth in secrets.py; we copy it to avoid drift (REV r1 of PR #30).
+from .secrets import SECRET_KEYS as _SECRET_KEYS  # noqa: E402
+
+REQUIRED_SECRETS: tuple[str, ...] = tuple(_SECRET_KEYS)
 
 PortChecker = Callable[[int], bool]
 
