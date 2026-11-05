@@ -30,10 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
     for name in SUBCOMMAND_MODULES:
         try:
             mod = importlib.import_module(f".{name}", __package__)
-        except ModuleNotFoundError as exc:
+        except ImportError as exc:
             # A subcommand (or one of its in-package helpers) is not implemented yet: hide it from
             # help instead of breaking every other command. Errors outside this package still raise.
-            if exc.name and exc.name.startswith(__package__):
+            missing = getattr(exc, "name", None) or ""
+            if missing.startswith(__package__) or f"from '{__package__}'" in str(exc):
                 continue
             raise
         mod.register(sub)
