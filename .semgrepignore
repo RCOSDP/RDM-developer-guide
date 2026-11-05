@@ -15,6 +15,6 @@ docs/guides/*/ember-osf-web/
 docs/guides/*/images/
 docs/guides/*/docs/
 docs/guides/*/waterbutler/
-# Compose service templates (data, not code). They name in-network endpoints such as ws://y_websocket:1234;
+# Compose service templates (data, not code). They name in-network endpoints (plain-text WebSocket to the y_websocket service);
 # traffic stays inside the Compose network `grdm` (ADR-02) and is never published to the host or the LAN.
 installer/grdm_dev/templates/
