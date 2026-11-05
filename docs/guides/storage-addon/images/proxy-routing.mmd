@@ -1,0 +1,7 @@
+flowchart LR
+    B["ブラウザ<br/>http://localhost"] --> C{{"Caddy<br/>単一オリジン<br/>リバースプロキシ"}}
+    C -->|"/v2, /_/"| API[("osf.io API<br/>:8000")]
+    C -->|"/v1/resources/*"| WB[("WaterButler<br/>:7777")]
+    C -->|"/v1, /static/*/icons"| GV[("GravyValet<br/>:8004")]
+    C -->|"/login /logout /oauth /api/v1 /download"| CAS[("osf.io web/CAS<br/>:5000")]
+    C -->|"上記以外すべて"| NG[("angular-osf<br/>:4200")]

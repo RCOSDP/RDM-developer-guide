@@ -185,6 +185,9 @@ $ docker compose up requirements mfr_requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker compose run --rm web python3 manage.py migrate
 
+# Metadataアドオン用フラグを設定する - 初回だけ必要
+$ docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone
+
 $ docker compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs worker web api admin ember_osf_web
 ```
 
@@ -200,6 +203,9 @@ $ docker compose up -d assets admin_assets mfr wb wb_worker fakecas sharejs work
 $ docker compose up requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker compose run --rm web python3 manage.py migrate
+
+# Metadataアドオン用フラグを設定する - 初回だけ必要
+$ docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone
 
 $ docker compose up -d assets wb wb_worker fakecas worker web api ember_osf_web
 ```
@@ -236,6 +242,9 @@ fakecasは手軽にRDMの動作確認を行えますが、OAuthの動作確認�
 $ docker compose up requirements wb_requirements
 # DBのマイグレーション - 初回/DB定義変更時だけ必要
 $ docker compose run --rm web python3 manage.py migrate
+
+# Metadataアドオン用フラグを設定する - 初回だけ必要
+$ docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone
 
 # fakecasではなくcasをサービスに指定する
 $ docker compose up -d assets wb wb_worker cas worker web api ember_osf_web

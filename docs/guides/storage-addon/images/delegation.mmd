@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant FE as angular-osf
+    participant OSF as osf.io
+    participant GV as GravyValet
+    participant WB as WaterButler
+    participant NC as NextCloud
+    FE->>OSF: ファイル操作要求（provider = nextcloud）
+    OSF->>GV: 認証情報・設定を要求（wb_key = nextcloud）
+    Note over GV: Addon Imp の build_wb_config() が settings を生成し、<br/>認証アカウントから credentials を取得
+    GV-->>OSF: credentials ＋ settings
+    OSF->>WB: make_provider(credentials, settings)
+    WB->>NC: WebDAV でアクセス（CRUD）
+    NC-->>WB: 応答
+    WB-->>FE: 応答

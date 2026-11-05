@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-06. **Learned:** the legacy guide was rewritten upstream for the GravyValet stack (PR #18), so the sample-code layout this overview assumed (Addon on osf.io + Provider on WaterButler, My MinIO sample) no longer exists in `README.legacy.md`; the overview must be realigned in a later milestone. ／ 旧ガイドが上流で GravyValet 構成向けに書き直された（PR #18）ため、この概要が前提にしていたサンプルコードの配置（osf.io 側 Addon + WaterButler 側 Provider、My MinIO 例）は `README.legacy.md` に存在しなくなった。概要は後のマイルストーンで合わせ直す必要があると分かった。
 - Version / 版: 0.1 — 2026-11-05
 - Normative for: `docs/guides/storage-addon/`
 - Related: [SPEC-06 Documentation Conventions](../../spec/06_documentation_conventions.md) · [Skeleton Guide](../skeleton/README.md)
@@ -43,6 +44,11 @@ The Addon receives authentication credentials and settings from users, while the
 
 The legacy storage addon instructions are kept verbatim in `README.legacy.md` for reference and will be rewritten per milestone.
 
+### Latest changes
+
+- **2026-11-06 — Legacy guide rewritten for the GravyValet architecture (PR #18).** [`README.legacy.md`](README.legacy.md) now describes building a storage addon as an independent Python package (the worked example is a NextCloud addon, `nextcloud_plugin`) on the current OSF stack: osf.io, GravyValet (a new service that keeps addon connection settings and credentials on behalf of osf.io), WaterButler (the service that reads and writes files on the storage) and angular-osf (the new browser front end), tied together by a Caddy (a small web server used here as a *reverse proxy*: one front door at `http://localhost` that forwards each request to the right service) single-origin proxy. The former My MinIO sample code under `osf.io/` and `waterbutler/` was removed by that rewrite, and the class diagrams were replaced by Mermaid (a text format that is drawn as a diagram) sources and PNG renders in `images/`. The overview above still describes the two-part Addon/Provider model and will be aligned with the new text in a later milestone. Incorporated from PR #18 by chiku-samugari (2026-11-06).
+- **2026-11-06 — Mako template file names get the addon name as a prefix (PR #14).** Mako (the template language used for the addon settings panels) caches templates by file name in some RDM run modes, so `user_settings.mako` must be named `<addon>_user_settings.mako`. The change was applied to the My MinIO legacy text and sample code first, and then superseded by the PR #18 rewrite above, which removed that sample; the rule itself is kept in the [Skeleton guide](../skeleton/README.md) and the [Screen Expansion guide](../screen-expansion/README.md). Incorporated from PR #14 by shun-nakazawa (2026-11-06).
+
 ---
 
 <a id="japanese"></a>
@@ -76,6 +82,11 @@ The legacy storage addon instructions are kept verbatim in `README.legacy.md` fo
 ### 過去のコンテンツ
 
 過去のストレージアドオンの手順は、参考のために `README.legacy.md` にそのまま残しており、マイルストーンごとに書き直す予定です。
+
+### 最近の変更
+
+- **2026-11-06 — 旧ガイドを GravyValet 構成向けに全面改訂（PR #18）。** [`README.legacy.md`](README.legacy.md) は、現在の OSF 構成（osf.io、GravyValet（アドオンの接続先・認証情報・設定を osf.io に代わって保管する新しいサービス）、WaterButler（ストレージ上のファイルを読み書きするサービス）、angular-osf（新しいブラウザ画面））の上で、ストレージアドオンを独立した Python パッケージとして作る手順（例は NextCloud アドオン `nextcloud_plugin`）を説明するようになりました。各サービスは Caddy（ここでは*リバースプロキシ*＝`http://localhost` という一つの入口で受けて各サービスへ振り分ける小さな Web サーバ）による単一オリジンのプロキシで束ねます。この改訂により `osf.io/`・`waterbutler/` 配下の旧 My MinIO サンプルコードは削除され、クラス図は `images/` の Mermaid（文字で書くと図として描かれる書式）のソースと PNG に置き換わりました。上の概要は従来の Addon/Provider 二部構成の説明のままであり、後のマイルストーンで新しい本文に合わせます。Incorporated from PR #18 by chiku-samugari (2026-11-06).
+- **2026-11-06 — mako テンプレートのファイル名の先頭にアドオン名を付ける（PR #14）。** Mako（アドオン設定画面のテンプレート言語）は RDM の動作モードによってテンプレートをファイル名でキャッシュするため、`user_settings.mako` は `<アドオン名>_user_settings.mako` という名前にします。この変更は My MinIO の旧本文とサンプルコードに先に適用した後、上記 PR #18 の改訂でサンプルごと置き換えられました。規則そのものは[スケルトンガイド](../skeleton/README.md)と[画面拡張ガイド](../screen-expansion/README.md)に残っています。Incorporated from PR #14 by shun-nakazawa (2026-11-06).
 
 ---
 
