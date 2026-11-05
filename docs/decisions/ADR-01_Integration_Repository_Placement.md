@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
+- Version / 版: 0.5 — 2026-11-05. **Learned:** a rule written as "every repository" must say what happens to the repositories it cannot apply to (private-only, identical tips), or reviewers will read a gap (review r3, R3-01). ／ 「すべてのリポジトリ」と書いた規則は、当てはまらないもの（private 専用、先端同一）の扱いも書かないと、レビューで穴として読まれると分かった（レビュー r3、R3-01）。
+  0.4 — 2026-11-05. **Learned:** a strict public-first reconstruction needs the public upstream recorded in the manifest; Shibboleth-SP had a public upstream that was mirrored but not recorded (review SR-02). ／ 公開が先の厳密再構築には、公開上流が manifest に記録されている必要がある。Shibboleth-SP はミラーされていたのに記録がなかった（レビュー SR-02）。
+  0.3 — 2026-11-05. **Learned:** the owner prefers a literal, reproducible integration order over a convenient bootstrap, so the first construction is redone public-first on a new branch and proposed as a superseding pull request. ／ 所有者は便利な初回構築より、文字どおり再現できる統合順を選ぶと分かった。初回構築は新しいブランチで「公開が先」にやり直し、置き換えの PR として提案する。
   0.2 — 2026-11-05. **Learned:** the first construction of a `-dev2027` repository cannot literally replay "public → private → adopted PRs", so the rule needs a stated bootstrap interpretation; it is proposed in §5 and awaits the owner. ／ `-dev2027` の初回構築では「公開 → private → 採用 PR」を文字どおり再現できないため、初回構築の解釈を明文化する必要があると分かった。§5 に提案し所有者の承認を待つ。
   0.1 — 2026-11-05. **Learned:** GitHub refuses a fork inside the same organization, so "fork and integrate" had to become "new repository with history pushed", and that in turn made the no-force-push and no-delete rules the only way to keep the pushed history trustworthy. ／ GitHub は同じ組織内へのフォークを許さないため「フォークして統合」は「履歴を push した新規リポジトリ」になり、その結果 force push 禁止と削除禁止が、push した履歴を信じられるものに保つ唯一の手段だと分かった。
 - Status: Accepted by the owner, 2026-11-05 (plan-interview).
@@ -27,7 +29,7 @@ We must combine, without contradiction, three groups of code kept in GitHub *rep
 
 - six public cores: `RDM-osf.io`, `RDM-waterbutler`, `RDM-modular-file-renderer`, `RDM-ember-osf-web`, `RDM-cas-overlay`, `RDM-wiki-frontend`;
 - six `-private` security-verified versions, each of which already contains the history of its public core (so it is a superset, not a rival);
-- five private subsystems: y-websocket, OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm.
+- five private subsystems: y-websocket, OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm. Two of them also have a public upstream that the manifest records and the integration repository tracks as `upstream/public-<branch>`: y-websocket (RDM-y-websocket, `master`) and Shibboleth-SP (RDM-Shibboleth-SP, `main`). OASys, rdmcp and aipf_mcp_data_grdm are private-only, so their first construction starts from the `-private` tip (review SR-02, 2026-11-05).
 
 Three constraints shaped the choice:
 
@@ -56,7 +58,7 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
    - `develop` — the integration branch; the only branch the installer builds from (its SHA is recorded in the manifest, see [SPEC-01](../spec/01_manifest.md));
    - one tracking branch per upstream listed in the manifest, named `upstream/<kind>-<branch>` where `<kind>` is `public`, `private`, or `cos` and `<branch>` is the upstream branch name with `/` replaced by `-` ([SPEC-01 §4](../spec/01_manifest.md#4-rules) rule 7);
    - `upstream/public-<branch>` — an exact *mirror* (identical copy, refreshed automatically) of the public core's default branch: `upstream/public-develop` for osf.io, waterbutler, mfr, cas-overlay, wiki-frontend; `upstream/public-master` for ember-osf-web and y-websocket;
-   - `upstream/private-<branch>` — a mirror of the `-private` default branch: `upstream/private-develop`, `upstream/private-master` (ember-osf-web, y-websocket), or `upstream/private-main` (OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm, which have no public upstream and only this branch);
+   - `upstream/private-<branch>` — a mirror of the `-private` default branch: `upstream/private-develop`, `upstream/private-master` (ember-osf-web, y-websocket), or `upstream/private-main` (OASys, Shibboleth-SP, rdmcp, aipf_mcp_data_grdm). Shibboleth-SP additionally has `upstream/public-main`; OASys, rdmcp and aipf_mcp_data_grdm have no public upstream and only the private branch;
    - `upstream/cos-develop` — a mirror of the CenterForOpenScience original, for reference only (not for wiki-frontend, which has no COS original);
    - a second upstream of the same kind gets a tag: `upstream/private-sec-test-fix-sec-test` mirrors `RDM-osf.io-private` (branch `fix/sec-test`) as a candidate.
    Mirrors are refreshed daily ([SPEC-05](../spec/05_upstream_tracking.md)).
@@ -92,7 +94,9 @@ flowchart TD
 
 **Status:** the owner **rejected** the proposed interpretation "seed from the `-private` tip and merge the newer public tip" (review r1/r2 of RDM-osf.io-dev2027 PR #1, finding R2). The integration order of [SPEC-01 §4](../spec/01_manifest.md) applies literally, also to the first construction.
 
-**Procedure for every `-dev2027` repository:**
+**Scope.** The procedure applies to every component that has a public upstream recorded in the manifest (the six cores, y-websocket, Shibboleth-SP). Components with a private upstream only (OASys, rdmcp, aipf_mcp_data_grdm) have nothing public to start from: their `develop` starts at the `-private` tip and no reconstruction is made. When the public and private tips are the same commit (wiki-frontend on 2026-11-05) there is nothing to join, so no integration pull request is opened until the two diverge.
+
+**Procedure for every component in scope:**
 
 1. Start a branch `integrate/strict-<YYYYMMDD>` at the tip of `upstream/public-<branch>`.
 2. Merge `upstream/private-<branch>` into it with a normal two-parent merge (`--no-ff`), resolving conflicts on the branch.
@@ -100,7 +104,7 @@ flowchart TD
 4. Open a pull request from that branch to `develop`. The `develop` branch is never force-pushed or deleted; the pull request supersedes any earlier integration pull request, which is closed with a comment pointing to the new one.
 5. Review by REV, check by QAE, merge by the owner (ADR-04).
 
-**Consequence:** the first `develop` of each repository (seeded from the `-private` tip during bootstrap) stays in history. The strictly reconstructed branch is merged on top of it, so from the first strict merge onward every `develop` carries the public-first order.
+**Consequence:** the first `develop` of each repository in scope (seeded from the `-private` tip during bootstrap) stays in history. The strictly reconstructed branch is merged on top of it, so from the first strict merge onward every `develop` carries the public-first order.
 
 ---
 
@@ -117,7 +121,7 @@ GitHub の「リポジトリ」（変更を全部覚えているフォルダ）�
 
 - 公開コア 6 本: `RDM-osf.io`、`RDM-waterbutler`、`RDM-modular-file-renderer`、`RDM-ember-osf-web`、`RDM-cas-overlay`、`RDM-wiki-frontend`。
 - `-private` のセキュリティ検証版 6 本。いずれも対応する公開コアの履歴を含んでいる（つまり対立ではなく上位互換）。
-- 非公開サブシステム 5 本: y-websocket、OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。
+- 非公開サブシステム 5 本: y-websocket、OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。このうち 2 本には公開の上流もあり、manifest に記録して統合リポジトリで `upstream/public-<branch>` として追跡する: y-websocket（RDM-y-websocket、`master`）と Shibboleth-SP（RDM-Shibboleth-SP、`main`）。OASys、rdmcp、aipf_mcp_data_grdm は private のみで、初回構築は `-private` の先端から始める（レビュー SR-02、2026-11-05）。
 
 選択を決めた制約は三つです。
 
@@ -146,7 +150,7 @@ options[4]{id,option,keeps_private_code_private,within_write_boundary,upstream_f
    - `develop` — 統合ブランチ。インストーラーが組み立てる唯一のブランチ（その SHA を manifest に記録。[SPEC-01](../spec/01_manifest.md)）。
    - manifest に載せた上流ごとに一本の追跡ブランチ。名前は `upstream/<kind>-<branch>` で、`<kind>` は `public`・`private`・`cos`、`<branch>` は上流のブランチ名の `/` を `-` に置き換えたもの（[SPEC-01 §4](../spec/01_manifest.md#4-規則) の規則 7）。
    - `upstream/public-<branch>` — 公開コアの既定ブランチの正確な「ミラー」（自動で更新される同一の写し）。osf.io・waterbutler・mfr・cas-overlay・wiki-frontend は `upstream/public-develop`、ember-osf-web と y-websocket は `upstream/public-master`。
-   - `upstream/private-<branch>` — `-private` の既定ブランチのミラー。`upstream/private-develop`、`upstream/private-master`（ember-osf-web、y-websocket）、または `upstream/private-main`（OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm。公開の上流がないのでこの一本だけ）。
+   - `upstream/private-<branch>` — `-private` の既定ブランチのミラー。`upstream/private-develop`、`upstream/private-master`（ember-osf-web、y-websocket）、または `upstream/private-main`（OASys、Shibboleth-SP、rdmcp、aipf_mcp_data_grdm）。Shibboleth-SP には加えて `upstream/public-main` があり、OASys・rdmcp・aipf_mcp_data_grdm は公開上流がなく private のブランチだけを持つ。
    - `upstream/cos-develop` — CenterForOpenScience 本家のミラー。参照のみ（COS 本家のない wiki-frontend にはない）。
    - 同じ kind の二つ目の上流にはタグを挟む。`upstream/private-sec-test-fix-sec-test` は `RDM-osf.io-private`（ブランチ `fix/sec-test`）を候補として写したもの。
    ミラーは日次で更新します（[SPEC-05](../spec/05_upstream_tracking.md)）。
@@ -182,7 +186,9 @@ flowchart TD
 
 **状態:** 所有者は「`-private` の先端を起点にして、より新しい公開の先端をマージする」という解釈の提案を **退けた**（RDM-osf.io-dev2027 PR #1 のレビュー r1/r2、指摘 R2）。[SPEC-01 §4](../spec/01_manifest.md) の統合順は、初回構築にも文字どおり適用する。
 
-**各 `-dev2027` リポジトリの手順:**
+**適用範囲。** この手順は、manifest に公開上流が記録されている部品すべて（コア 6 本、y-websocket、Shibboleth-SP）に適用する。private の上流しかない部品（OASys、rdmcp、aipf_mcp_data_grdm）には起点にする公開物がないため、`develop` は `-private` の先端から始め、再構築は行わない。公開と private の先端が同じコミットのとき（2026-11-05 の wiki-frontend）は結合するものがないので、両者が分岐するまで統合 PR は出さない。
+
+**範囲内の各部品の手順:**
 
 1. `upstream/public-<branch>` の先端からブランチ `integrate/strict-<YYYYMMDD>` を切る。
 2. そこへ `upstream/private-<branch>` を通常の 2 親マージ（`--no-ff`）で取り込み、衝突はそのブランチ上で解消する。
@@ -190,7 +196,7 @@ flowchart TD
 4. そのブランチから `develop` へ PR を出す。`develop` は force push も削除もしない。この PR は以前の統合 PR を置き換え、以前の PR は新しい PR を示すコメントを付けて閉じる。
 5. REV のレビュー、QAE の検査、所有者のマージ（ADR-04）。
 
-**結果:** 各リポジトリの最初の `develop`（初回構築で `-private` の先端から作ったもの）は履歴に残る。厳密に再構築したブランチはその上にマージされるので、最初の厳密マージ以降、どの `develop` も「公開が先」の順序を持つ。
+**結果:** 範囲内の各リポジトリの最初の `develop`（初回構築で `-private` の先端から作ったもの）は履歴に残る。厳密に再構築したブランチはその上にマージされるので、最初の厳密マージ以降、どの `develop` も「公開が先」の順序を持つ。
 
 ---
 

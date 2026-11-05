@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** a one-time delegation must be written down with scope, grantor and evidence before it is used, or the human-merge rule erodes silently. ／ 一回限りの委任でも、使う前に範囲・許可者・証跡を書き残さなければ「人がマージする」規則が静かに崩れると分かった。
+- Version / 版: 0.3 — 2026-11-06. **Learned:** each delegated merge batch is recorded before it is executed, with the review records that justify it, so that the human-merge rule stays auditable. ／ 委任されたマージは一括でも実行前に、根拠となるレビュー記録とともに記録し、「人がマージする」規則を監査できる状態に保つ。
+  0.2 — 2026-11-05. **Learned:** a one-time delegation must be written down with scope, grantor and evidence before it is used, or the human-merge rule erodes silently. ／ 一回限りの委任でも、使う前に範囲・許可者・証跡を書き残さなければ「人がマージする」規則が静かに崩れると分かった。
   0.1 — 2026-11-05. **Learned:** the line between "automatic" and "human" is easiest to defend when it sits on two concrete commands, merge and publish, rather than on a judgment such as "important changes". ／ 「自動」と「人」の境目は、「重要な変更」のような判断ではなく、マージと公開という二つの具体的な操作に置くと最も守りやすいと分かった。
 - Status: Accepted (owner, 2026-11-05). Review date: after steady-state operation has run for one month (open question in §5).
 - Related: [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-03 Security Gate](../spec/03_security_gate.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](../spec/06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration Repository Placement](ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network Model](ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](ADR-03_Staged_Security_Gate.md) · [docs/README.md](../README.md)
@@ -109,6 +110,7 @@ A PR without all four is not ready for the owner; QAE returns it to AID.
 | Date | Exception | Scope | Granted by | Evidence |
 |---|---|---|---|---|
 | 2026-11-05 | QAE (Claude Code Fable) merges PR #19 of RDM-developer-guide itself, using the repository administrator path of the branch protection because the author cannot approve its own pull request | This one pull request only. Merge, not approve; no other repository | Owner, in the session dialogue | REV r3 record `docs/reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3.md` (approve recommended), CI 6/6 green on the merged head |
+| 2026-11-06 | QAE (Claude Code Fable) merges, under the owner's explicit delegation given in the session dialogue: RDM-developer-guide PR #20 (manifest: Shibboleth-SP public upstream; ADR-01 §3/§5; Codex r4 pass) and PR #21 (installer M2 stage 1; Codex r5 pass, CI 6/6), and the seven strict-reconstruction pull requests in the private `-dev2027` repositories (Codex r1 pass for five, r2 confirmation for osf.io #2 and Shibboleth-SP #1). Repository-administrator path because the author cannot approve its own pull requests | These nine pull requests only; merge, not approve; no force-push | Owner, in the session dialogue (2026-11-06) | Review records `docs/reviews/2026-11-05_RDM-developer-guide_PR20_*_r4.md`, `2026-11-06_RDM-developer-guide_PR21_Installer_r5.md`, `2026-11-05_dev2027_Strict_Reconstruction_PRs_r1.md`/`_r2.md` |
 
 The rule "merge and publish are human" is unchanged; every further merge needs its own recorded exception or the owner's hand.
 
@@ -211,6 +213,7 @@ flowchart LR
 | 日付 | 例外 | 範囲 | 許可者 | 証跡 |
 |---|---|---|---|---|
 | 2026-11-05 | QAE（Claude Code Fable）が RDM-developer-guide 自身の PR #19 をマージする。作者は自分の PR を承認できないため、ブランチ保護の管理者経路を使う | この PR 1 件のみ。承認ではなくマージ。他リポジトリには及ばない | 所有者（セッション内の対話） | REV r3 記録 `docs/reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3.md`（approve 推奨）、マージ対象 head で CI 6/6 合格 |
+| 2026-11-06 | QAE（Claude Code Fable）が、セッション内で所有者が明示した委任により次をマージする: RDM-developer-guide PR #20（manifest: Shibboleth-SP の公開上流、ADR-01 §3/§5。Codex r4 合格）と PR #21（インストーラー M2 第 1 段。Codex r5 合格、CI 6/6）、および非公開 `-dev2027` リポジトリの厳密再構築 PR 7 本（Codex r1 で 5 本合格、osf.io #2 と Shibboleth-SP #1 は r2 で対応確認）。作者は自分の PR を承認できないためリポジトリ管理者の経路を使う | この 9 件の PR のみ。承認ではなくマージ。force push なし | 所有者（セッション内の対話、2026-11-06） | レビュー記録 `docs/reviews/2026-11-05_RDM-developer-guide_PR20_*_r4.md`、`2026-11-06_RDM-developer-guide_PR21_Installer_r5.md`、`2026-11-05_dev2027_Strict_Reconstruction_PRs_r1.md`/`_r2.md` |
 
 「マージと公開は人が行う」という規則は変わらない。以後のマージはそれぞれ例外の記録か所有者の手を要する。
 
