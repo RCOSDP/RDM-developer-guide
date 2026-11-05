@@ -7,9 +7,12 @@ scenario uses the guarded `api_context()` fixture, no browser.
 * success — user_a's personal access token (created through the OSF API with the session of the
   logged-in page) initializes an MCP session, lists tools, and reads the resource of the run's project;
   the title in the resource equals the project fixture's title.
-* rejection — (1) no Authorization header -> HTTP 401; (2) user_b's token reading user_a's private
-  project -> HTTP 403 (or a JSON-RPC error whose data carries http_status 403; TODO(M3) which one rdmcp
-  returns). 404 is not acceptable: it would hide the permission check (same rule as C6).
+* rejection — (1) no Authorization header -> transport HTTP 401; (2) user_b's token reading user_a's
+  private project -> transport HTTP 403. Exactly as SPEC-04 §5 states: the status is the HTTP status
+  line, never a JSON-RPC error body that merely embeds `http_status`; an HTTP 200 carrying such a body
+  fails (`transport_status_must_be`). 404 is not acceptable: it would hide the permission check (same
+  rule as C6). If rdmcp turns out to answer 200 + JSON-RPC error, SPEC-04 §5 (both halves) is amended
+  first and this test second.
 
 Prerequisite tracked as follow-up: rdmcp has no host_port yet (templates/rdmcp.json exposes 8100
 internally). The test skips with an explicit reason when GRDM_PORT_RDMCP is absent from runtime/.env.
@@ -44,6 +47,27 @@ def _rpc(client, url: str, method: str, params: dict | None = None, token: str |
         headers["Authorization"] = f"Bearer {token}"
     body = {"jsonrpc": "2.0", "id": rpc_id, "method": method, "params": params or {}}
     return client.post(url, data=json.dumps(body), headers=headers)
+
+
+def transport_status_must_be(status: int, body: str, expected: int) -> None:
+    """SPEC-04 §5 S2 rejection contract: the *transport* HTTP status is `expected`.
+
+    `status` is the HTTP status line; `body` the response text. A 200 whose JSON-RPC error embeds the
+    expected code (`error.data.http_status`) is still a failure: it would let the client believe the
+    request succeeded. Kept free of pytest/playwright so installer/tests can unit-test it.
+    """
+    if status == 200:
+        embedded = None
+        try:
+            err = json.loads(body).get("error") or {}
+            embedded = (err.get("data") or {}).get("http_status")
+        except (ValueError, AttributeError):
+            pass
+        if embedded is not None:
+            raise AssertionError(f"HTTP 200 carrying an embedded http_status {embedded}: SPEC-04 §5 requires transport HTTP {expected}")
+    if status != expected:
+        raise AssertionError(f"expected transport HTTP {expected}, got {status} (404 is not acceptable)" if expected == 403
+                             else f"expected transport HTTP {expected}, got {status}")
 
 
 def _result(resp) -> dict:
@@ -92,22 +116,18 @@ def test_s2_rdmcp_success(logged_in_page, project, api_url, api_context, api_wri
 
 @pytest.mark.case("rejection")
 def test_s2_rdmcp_rejection(logged_in_page, context_b, project, api_url, api_context, api_write, ports, record_property):
-    """No token -> 401; user_b's token reading user_a's private project -> 403 (never 404)."""
+    """No token -> transport 401; user_b's token reading user_a's private project -> transport 403 (never 404, never 200)."""
     url = f"http://127.0.0.1:{_port_or_skip(ports, 'RDMCP')}{MCP_PATH}"
     client = api_context()
     anon = _rpc(client, url, "tools/list")
-    assert anon.status == 401, f"expected 401 without a token, got {anon.status}"
+    transport_status_must_be(anon.status, anon.text(), 401)
 
     secret, token_id = _personal_token(api_write, context_b, api_url, "acceptance S2 user_b")
     try:
         _initialize(client, url, secret)
         resp = _rpc(client, url, "resources/read", {"uri": PROJECT_RESOURCE.format(node_id=project)}, secret, rpc_id=3)
-        status = resp.status
-        if status == 200:   # JSON-RPC level error carrying the HTTP status (TODO(M3): confirm rdmcp's convention)
-            err = resp.json().get("error") or {}
-            status = int((err.get("data") or {}).get("http_status") or 0)
-        record_property("http_status", status)
-        assert status == 403, f"expected 403 for user_b reading user_a's project, got {status} (404 is not acceptable)"
+        record_property("http_status", resp.status)
+        transport_status_must_be(resp.status, resp.text(), 403)   # SPEC-04 §5: transport 403, never 200 + embedded 403
     finally:
         api_write(context_b, "DELETE", api_url + sel.API.get("token", "/v2/tokens/{token_id}/").format(token_id=token_id))
         assert api(context_b).get(api_url + sel.API["node"].format(node_id=project)).status == 403  # the project really is private to user_a

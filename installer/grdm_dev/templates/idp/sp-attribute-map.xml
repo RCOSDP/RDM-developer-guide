@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- copied by grdm-dev compose render from templates/idp/sp-attribute-map.xml; do not edit (ADR-05, SPEC-04 S5)
-     SAML attribute names (SAML 2.0 URI format, as GakuNin publishes them) -> the header names the SP hands to
-     the application. The list is the GakuNin attribute set that the mock users of
-     installer/acceptance/fixtures/idp/mock_users.json carry. -->
+<!-- copied by grdm-dev compose render from templates/idp/sp-attribute-map.xml; do not edit (ADR-05 §3.7, SPEC-04 S5)
+     SAML attribute names on the wire (SAML 2.0 URI NameFormat, the names GakuNin publishes) -> the header names
+     the SP hands to the application. Every name here equals one entry of $gakuninWireNames in
+     saml20-idp-hosted.php.tmpl, plus pairwise-id which saml:PairwiseID names itself;
+     installer/tests/test_compose.py parses both files and fails when they disagree.
+     Source of the GakuNin OIDs: 学認技術運用基準 Ver. 2.6, 別添 属性一覧 (gakunin.jp, PDF) and the NII
+     GakuNinShibInstall "属性リスト" page; see ADR-05 §3.7. -->
 <Attributes xmlns="urn:mace:shibboleth:2.0:attribute-map" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
   <!-- eduPerson -->
@@ -18,11 +21,13 @@
   <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.1.1.7" id="entitlement" />
   <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.5.1.1" id="member" />
 
-  <!-- eduPersonTargetedID as a NameID-valued attribute (the form the test IdP's core:TargetedID emits) -->
+  <!-- eduPersonTargetedID as a NameID-valued attribute: core:TargetedID (nameId => true) emits
+       <saml2:NameID Format="persistent" NameQualifier=IdP SPNameQualifier=SP>, the form 学認技術運用基準 Ver. 2.6 §6 requires -->
   <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.1.1.10" id="persistent-id">
     <AttributeDecoder xsi:type="NameIDAttributeDecoder" formatter="$NameQualifier!$SPNameQualifier!$Name" defaultQualifiers="true" />
   </Attribute>
-  <!-- pairwise-id (SAML V2.0 Subject Identifier Attributes Profile); TODO(M3): confirm GRDM consumes it -->
+  <!-- pairwise-id (SAML V2.0 Subject Identifier Attributes Profile): emitted by saml:PairwiseID; not part of the
+       GakuNin attribute list, optional for GRDM (ADR-05 §3.7) -->
   <Attribute name="urn:oasis:names:tc:SAML:attribute:pairwise-id" id="pairwise-id">
     <AttributeDecoder xsi:type="ScopedAttributeDecoder" caseSensitive="false" />
   </Attribute>
@@ -34,7 +39,8 @@
   <Attribute name="urn:oid:2.5.4.4" id="sn" />
   <Attribute name="urn:oid:2.5.4.10" id="o" />
 
-  <!-- GakuNin Japanese attributes (OIDs from the GakuNin attribute specification; TODO(M3): verify each OID against the SP's upstream attribute-map.xml in RDM-Shibboleth-SP-dev2027) -->
-  <Attribute name="urn:oid:1.3.6.1.4.1.32264.1.1.1" id="jaOrganizationName" />
-  <Attribute name="urn:oid:1.3.6.1.4.1.32264.1.1.5" id="jaDisplayName" />
+  <!-- GakuNin schema (GakuNin.Schema, NII enterprise arc 1.3.6.1.4.1.32264): jaOrganizationName friendlyName "jao" = .4,
+       jaDisplayName = .3 (学認技術運用基準 Ver. 2.6 別添 2., 15.). The ids keep the full attribute names used by the fixtures. -->
+  <Attribute name="urn:oid:1.3.6.1.4.1.32264.1.1.4" id="jaOrganizationName" />
+  <Attribute name="urn:oid:1.3.6.1.4.1.32264.1.1.3" id="jaDisplayName" />
 </Attributes>

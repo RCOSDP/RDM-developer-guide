@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-06. **Learned:** the acceptance guard allows only `http://127.0.0.1`, so an IdP and an SP that normally insist on TLS must be configured for plain HTTP on loopback, and every URL in both configurations has to be rendered from the chosen host ports rather than written by hand. ／ 受入の監視は `http://127.0.0.1` しか通さないため、本来 TLS を求める IdP と SP をループバック上の平文 HTTP に合わせる必要があり、両方の設定に出てくる URL は手書きでなく選ばれたホスト側ポートから描画しなければならないと分かった。
+- Version / 版: 0.2 — 2026-11-06. **Learned:** SimpleSAMLphp's generic `name2oid` map has no GakuNin names, so the IdP now carries its own friendly-name → OID map (`$gakuninWireNames` in `saml20-idp-hosted.php.tmpl`) that a unit test compares with `sp-attribute-map.xml`; the OIDs are the verified ones of ADR-05 §3.7. ／ SimpleSAMLphp 汎用の `name2oid` には GakuNin の名前がないため、IdP は自前の属性名 → OID 対応表（`saml20-idp-hosted.php.tmpl` の `$gakuninWireNames`）を持ち、単体試験が `sp-attribute-map.xml` と比べる。OID は ADR-05 §3.7 で検証したもの。
+  - 0.1 — 2026-11-06. **Learned:** the acceptance guard allows only `http://127.0.0.1`, so an IdP and an SP that normally insist on TLS must be configured for plain HTTP on loopback, and every URL in both configurations has to be rendered from the chosen host ports rather than written by hand. ／ 受入の監視は `http://127.0.0.1` しか通さないため、本来 TLS を求める IdP と SP をループバック上の平文 HTTP に合わせる必要があり、両方の設定に出てくる URL は手書きでなく選ばれたホスト側ポートから描画しなければならないと分かった。
 - Normative source: [ADR-05 Test IdP for Shibboleth](../../../../docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) · [SPEC-04 §5](../../../../docs/spec/04_acceptance_tests.md#english) · [SPEC-03 §3](../../../../docs/spec/03_security_gate.md#english) · [ADR-02](../../../../docs/decisions/ADR-02_Network_Model.md)
 - Related: [installer/README.md](../../../README.md) · [fixtures/idp/README.md](../../../acceptance/fixtures/idp/README.md) · `templates/test_idp.json` · `templates/shibboleth_sp.json`
 
@@ -22,10 +23,10 @@
 templates[7]{file,rendered_to,mounted_in,purpose}:
   config.php.tmpl,runtime/config/idp/config/config.php,test_idp:/var/simplesamlphp/config,SimpleSAMLphp main settings (plain HTTP on loopback; secrets from .env)
   authsources.php.tmpl,runtime/config/idp/config/authsources.php,test_idp:/var/simplesamlphp/config,"MOCK users and their SAML attributes (exampleauth:UserPass)"
-  saml20-idp-hosted.php.tmpl,runtime/config/idp/metadata/saml20-idp-hosted.php,test_idp:/var/simplesamlphp/metadata,the IdP this container hosts (entityID + key pair + authproc)
+  saml20-idp-hosted.php.tmpl,runtime/config/idp/metadata/saml20-idp-hosted.php,test_idp:/var/simplesamlphp/metadata,"the IdP this container hosts (entityID + key pair + explicit wire-name map + authproc TargetedID/PairwiseID/AttributeMap/AttributeLimit)"
   saml20-sp-remote.php.tmpl,runtime/config/idp/metadata/saml20-sp-remote.php,test_idp:/var/simplesamlphp/metadata,the one SP the IdP trusts (shibboleth_sp)
   sp-shibboleth2.xml.tmpl,runtime/config/shibboleth_sp/shibboleth2.xml,shibboleth_sp:/etc/shibboleth/shibboleth2.xml,SP settings: entityID; trusted IdP; cookie flags; RequestMap affiliation rule
-  sp-attribute-map.xml,runtime/config/shibboleth_sp/attribute-map.xml,shibboleth_sp:/etc/shibboleth/attribute-map.xml,"SAML attribute OIDs -> header names (GakuNin set); copied, no placeholders"
+  sp-attribute-map.xml,runtime/config/shibboleth_sp/attribute-map.xml,shibboleth_sp:/etc/shibboleth/attribute-map.xml,"SAML attribute OIDs -> header names (GakuNin set, ADR-05 §3.7; equals $gakuninWireNames); copied, no placeholders"
   sp-idp-metadata.xml.tmpl,runtime/config/shibboleth_sp/idp-metadata.xml,shibboleth_sp:/etc/shibboleth/idp-metadata.xml,metadata of the test IdP as the SP trusts it
 ```
 
@@ -72,10 +73,10 @@ followups[5]{id,where,what}:
 templates[7]{file,rendered_to,mounted_in,purpose}:
   config.php.tmpl,runtime/config/idp/config/config.php,test_idp:/var/simplesamlphp/config,SimpleSAMLphp の主設定（ループバックの平文 HTTP。秘密は .env から）
   authsources.php.tmpl,runtime/config/idp/config/authsources.php,test_idp:/var/simplesamlphp/config,"MOCK 利用者とその SAML 属性（exampleauth:UserPass）"
-  saml20-idp-hosted.php.tmpl,runtime/config/idp/metadata/saml20-idp-hosted.php,test_idp:/var/simplesamlphp/metadata,このコンテナが提供する IdP（entityID・鍵対・authproc）
+  saml20-idp-hosted.php.tmpl,runtime/config/idp/metadata/saml20-idp-hosted.php,test_idp:/var/simplesamlphp/metadata,"このコンテナが提供する IdP（entityID・鍵対・明示的なワイヤ名対応表・authproc の TargetedID/PairwiseID/AttributeMap/AttributeLimit）"
   saml20-sp-remote.php.tmpl,runtime/config/idp/metadata/saml20-sp-remote.php,test_idp:/var/simplesamlphp/metadata,IdP が信頼する唯一の SP（shibboleth_sp）
   sp-shibboleth2.xml.tmpl,runtime/config/shibboleth_sp/shibboleth2.xml,shibboleth_sp:/etc/shibboleth/shibboleth2.xml,SP の設定。entityID・信頼する IdP・cookie 属性・RequestMap の所属規則
-  sp-attribute-map.xml,runtime/config/shibboleth_sp/attribute-map.xml,shibboleth_sp:/etc/shibboleth/attribute-map.xml,"SAML 属性の OID -> ヘッダ名（GakuNin の属性集合）。複写のみでプレースホルダなし"
+  sp-attribute-map.xml,runtime/config/shibboleth_sp/attribute-map.xml,shibboleth_sp:/etc/shibboleth/attribute-map.xml,"SAML 属性の OID -> ヘッダ名（GakuNin の属性集合。ADR-05 §3.7。$gakuninWireNames と一致）。複写のみでプレースホルダなし"
   sp-idp-metadata.xml.tmpl,runtime/config/shibboleth_sp/idp-metadata.xml,shibboleth_sp:/etc/shibboleth/idp-metadata.xml,SP が信頼する形のテスト IdP メタデータ
 ```
 

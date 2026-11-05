@@ -1,11 +1,14 @@
 import argparse
+import ast
 import io
 import json
 import os
+import re
 import shutil
 import stat
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -486,25 +489,104 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(tpl["user"], "1000:1000")
         self.assertEqual(tpl["container_port"], 8080)   # unprivileged port: no NET_BIND_SERVICE needed
 
-    def test_mock_users_fixture_and_idp_authsources_agree_and_are_mock(self):
-        """POL-05 §4 / ADR-05 rule: one canonical MOCK list, mirrored verbatim in the IdP template, every value visibly mock."""
-        fixture = json.loads((REPO_ROOT / "installer" / "acceptance" / "fixtures" / "idp" / "mock_users.json").read_text(encoding="utf-8"))
-        authsources = (Path(compose.__file__).parent / "templates" / "idp" / "authsources.php.tmpl").read_text(encoding="utf-8")
+    # ---- mock users (ADR-05 §3.5) and the attribute contract between IdP and SP (ADR-05 §3.7)
+
+    IDP_TEMPLATES = Path(compose.__file__).parent / "templates" / "idp"
+    FIXTURE = REPO_ROOT / "installer" / "acceptance" / "fixtures" / "idp" / "mock_users.json"
+    # The one documented exception to the all-values-mock rule: eduPersonAffiliation is a controlled vocabulary and
+    # the SP rule (SP_REQUIRED_AFFILIATION=member) can only be exercised with real vocabulary values (ADR-05 §3.5).
+    AFFILIATION_ALLOW_LIST = frozenset({"member", "faculty", "student", "affiliate"})
+    # Verified GakuNin schema OIDs (学認技術運用基準 Ver. 2.6 別添; NII GakuNinShibInstall 属性リスト): friendlyName jao = .4, jaDisplayName = .3
+    GAKUNIN_OIDS = {"jaOrganizationName": "urn:oid:1.3.6.1.4.1.32264.1.1.4", "jaDisplayName": "urn:oid:1.3.6.1.4.1.32264.1.1.3"}
+    PAIRWISE_ID = "urn:oasis:names:tc:SAML:attribute:pairwise-id"
+
+    @classmethod
+    def looks_mock(cls, key: str, value: str) -> bool:
+        """ADR-05 §3.5: visibly mock, except the eduPersonAffiliation vocabulary allow-list."""
+        if key == "eduPersonAffiliation":
+            return value in cls.AFFILIATION_ALLOW_LIST
+        return value.startswith(("mock-", "MOCK", "モック", "https://idp.mock.test/")) or value.endswith("@idp.mock.test")
+
+    @staticmethod
+    def parse_authsources(text: str) -> dict[str, dict[str, list[str]]]:
+        """'user:pass' => [ 'attr' => ['v1', 'v2'], ... ] blocks of authsources.php.tmpl -> {'user:pass': {attr: [values]}}."""
+        users: dict[str, dict[str, list[str]]] = {}
+        for m in re.finditer(r"^\s{8}'([^']+:[^']+)' => \[\n(.*?)^\s{8}\],", text, re.S | re.M):
+            attrs: dict[str, list[str]] = {}
+            for line in m.group(2).splitlines():
+                am = re.match(r"^\s{12}'([^']+)' => \[(.*)\],$", line)
+                if not am:
+                    raise AssertionError(f"unparsed authsources line: {line!r}")
+                attrs[am.group(1)] = re.findall(r"'([^']*)'", am.group(2))
+            users[m.group(1)] = attrs
+        return users
+
+    @classmethod
+    def parse_idp_wire_names(cls) -> tuple[dict[str, str], dict[str, str]]:
+        """$gakuninWireNames (friendly -> wire) and attributeencodings (wire -> encoding) of saml20-idp-hosted.php.tmpl."""
+        text = (cls.IDP_TEMPLATES / "saml20-idp-hosted.php.tmpl").read_text(encoding="utf-8")
+        block = re.search(r"^\$gakuninWireNames = \[\n(.*?)^\];", text, re.S | re.M)
+        assert block, "saml20-idp-hosted.php.tmpl must define $gakuninWireNames"
+        names = dict(re.findall(r"^\s+'([^']+)' => '(urn:[^']+)',", block.group(1), re.M))
+        enc_block = re.search(r"'attributeencodings' => \[\n(.*?)\n\s+\],", text, re.S)
+        encodings = dict(re.findall(r"'([^']+)' => '([^']+)'", enc_block.group(1))) if enc_block else {}
+        assert not re.search(r"""['"]name2oid['"]""", text), "the IdP must not load the generic name2oid map (no GakuNin names in it)"
+        assert f"$pairwiseIdWireName = '{cls.PAIRWISE_ID}';" in text
+        return names, encodings
+
+    @classmethod
+    def parse_sp_attribute_map(cls) -> dict[str, dict]:
+        """attribute-map.xml -> {wire name: {'id': header id, 'decoder': xsi:type or None}}."""
+        ns = {"am": "urn:mace:shibboleth:2.0:attribute-map", "xsi": "http://www.w3.org/2001/XMLSchema-instance"}
+        root = ET.fromstring((cls.IDP_TEMPLATES / "sp-attribute-map.xml").read_text(encoding="utf-8"))
+        out = {}
+        for attr in root.findall("am:Attribute", ns):
+            dec = attr.find("am:AttributeDecoder", ns)
+            out[attr.get("name")] = {"id": attr.get("id"), "decoder": dec.get(f"{{{ns['xsi']}}}type") if dec is not None else None}
+        return out
+
+    def test_mock_users_fixture_and_idp_authsources_agree_per_user_and_attribute(self):
+        """ADR-05 §3.5: one canonical MOCK list, mirrored in the IdP template; compared structurally, not by substring."""
+        fixture = json.loads(self.FIXTURE.read_text(encoding="utf-8"))
+        authsources = self.parse_authsources((self.IDP_TEMPLATES / "authsources.php.tmpl").read_text(encoding="utf-8"))
         self.assertIn("MOCK", fixture["_label"])
-        self.assertIn("MOCK", authsources)
+        expected = {}
+        for user in fixture["users"]:
+            self.assertTrue(user["username"].startswith("mock-") and user["password"].startswith("mock-"), user["username"])
+            self.assertEqual(user["attributes"]["uid"], user["username"])
+            expected[f"{user['username']}:{user['password']}"] = {
+                k: (v if isinstance(v, list) else [v]) for k, v in user["attributes"].items()
+            }
+        self.assertEqual(authsources, expected)   # same users, same attributes, same values in the same order per user
         roles = {u["role"] for u in fixture["users"]}
         self.assertTrue({"success", "rejection"} <= roles, roles)
+        # the derived identifiers are never stored per user (the authproc filters generate them from uid)
         for user in fixture["users"]:
-            self.assertIn(f"'{user['username']}:{user['password']}'", authsources, user["username"])
-            self.assertTrue(user["username"].startswith("mock-") and user["password"].startswith("mock-"), user["username"])
+            self.assertNotIn("eduPersonTargetedID", user["attributes"])
+            self.assertNotIn("pairwise-id", user["attributes"])
+        self.assertEqual(set(fixture["derived_identifiers"]), {"eduPersonTargetedID", "pairwise-id"})
+
+    def test_mock_values_are_visibly_mock_except_the_affiliation_vocabulary(self):
+        """ADR-05 §3.5 rule and its single documented exception, encoded as an allow-list of exactly the vocabulary values."""
+        fixture = json.loads(self.FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(fixture["affiliation_vocabulary_exception"]["attribute"], "eduPersonAffiliation")
+        self.assertEqual(set(fixture["affiliation_vocabulary_exception"]["allowed_values"]), self.AFFILIATION_ALLOW_LIST)
+        for user in fixture["users"]:
             for key, value in user["attributes"].items():
-                values = value if isinstance(value, list) else [value]
-                for v in values:
-                    self.assertIn(f"'{v}'", authsources, f"{user['username']}.{key}={v!r} missing from authsources.php.tmpl")
-                    if key in ("eduPersonAffiliation",):
-                        continue   # controlled vocabulary (member, faculty, student, affiliate)
-                    looks_mock = v.startswith(("mock-", "MOCK", "モック", "https://idp.mock.test/")) or v.endswith("idp.mock.test") or v == "USER"
-                    self.assertTrue(looks_mock, f"{user['username']}.{key}={v!r} does not look like mock data (ADR-05 §3.5)")
+                for v in (value if isinstance(value, list) else [value]):
+                    self.assertTrue(self.looks_mock(key, v), f"{user['username']}.{key}={v!r} is not visibly mock (ADR-05 §3.5)")
+        for key, value in fixture["institution"].items():
+            if key != "entity_id_note":
+                self.assertTrue(self.looks_mock(key, value), f"institution.{key}={value!r}")
+        # the exception is exactly the vocabulary: a plausible name, a bare surname, a real-looking domain or a
+        # non-vocabulary affiliation all fail
+        self.assertFalse(self.looks_mock("sn", "USER"))
+        self.assertFalse(self.looks_mock("givenName", "Taro"))
+        self.assertFalse(self.looks_mock("mail", "user01@example.ac.jp"))
+        self.assertFalse(self.looks_mock("eduPersonAffiliation", "mock-member"))
+        self.assertFalse(self.looks_mock("eduPersonAffiliation", "staff"))
+        self.assertFalse(self.looks_mock("o", "member"))          # the vocabulary is allowed only under eduPersonAffiliation
+        self.assertTrue(self.looks_mock("eduPersonAffiliation", "member"))
         # the rejection user really lacks the affiliation the SP requires, and the success user has it
         by_role = {u["role"]: u for u in fixture["users"]}
         self.assertIn("member", by_role["success"]["attributes"]["eduPersonAffiliation"])
@@ -512,9 +594,74 @@ class ComposeRenderTests(unittest.TestCase):
         sp = json.loads((Path(compose.__file__).parent / "templates" / "shibboleth_sp.json").read_text(encoding="utf-8"))
         self.assertEqual(sp["environment"]["SP_REQUIRED_AFFILIATION"], "member")
         # no real-looking e-mail or institution anywhere in the mock material
+        authsources = (self.IDP_TEMPLATES / "authsources.php.tmpl").read_text(encoding="utf-8")
         for text in (json.dumps(fixture, ensure_ascii=False), authsources):
             self.assertNotRegex(text, r"@[a-z0-9.-]+\.(ac\.jp|edu|com|org)\b")
             self.assertNotIn("Test User", text)
+
+    def test_idp_emitted_wire_names_equal_sp_decoded_names_for_every_fixture_attribute(self):
+        """ADR-05 §3.7: the IdP's explicit name map and the SP's attribute-map.xml agree for every attribute the mock users carry."""
+        fixture = json.loads(self.FIXTURE.read_text(encoding="utf-8"))
+        wire, encodings = self.parse_idp_wire_names()
+        sp_map = self.parse_sp_attribute_map()
+        fixture_attrs = set()
+        for user in fixture["users"]:
+            fixture_attrs |= set(user["attributes"])
+        fixture_attrs.discard("uid")                                   # the login key: derived identifiers come from it, it is never released
+        self.assertNotIn("uid", wire)
+        emitted = set(fixture_attrs) | set(fixture["derived_identifiers"])
+        # every emitted friendly name has an explicit wire name (pairwise-id is named by saml:PairwiseID itself)
+        for name in emitted - {"pairwise-id"}:
+            self.assertIn(name, wire, f"{name} has no entry in $gakuninWireNames")
+        wire_names = {wire[n] for n in emitted - {"pairwise-id"}} | {self.PAIRWISE_ID}
+        # IdP-side emitted names == SP-side decoded names (one-to-one; no SP entry without an IdP source and vice versa)
+        self.assertEqual(wire_names, set(sp_map), "IdP wire names and SP attribute-map.xml names differ")
+        self.assertEqual(len(set(wire.values())), len(wire), "two friendly names map to the same OID")
+        self.assertTrue(all(v.startswith("urn:oid:") for v in wire.values()), wire)
+        # verified GakuNin schema OIDs; the SP id keeps the full attribute name
+        for friendly, oid in self.GAKUNIN_OIDS.items():
+            self.assertEqual(wire[friendly], oid)
+            self.assertEqual(sp_map[oid]["id"], friendly)
+        self.assertNotIn("urn:oid:1.2.392.200453.100.20.1", set(wire.values()) | set(sp_map), "not a GakuNin OID (ADR-05 §3.7)")
+        # eduPersonTargetedID: NameID-valued on both sides (TargetedID nameId => true + 'raw' encoding; NameIDAttributeDecoder)
+        eptid = wire["eduPersonTargetedID"]
+        self.assertEqual(eptid, "urn:oid:1.3.6.1.4.1.5923.1.1.1.10")
+        self.assertEqual(encodings, {eptid: "raw"})
+        self.assertEqual(sp_map[eptid]["decoder"], "NameIDAttributeDecoder")
+        self.assertEqual(sp_map[self.PAIRWISE_ID]["decoder"], "ScopedAttributeDecoder")
+        # scoped attributes are decoded as scoped on the SP side
+        for scoped in ("eduPersonPrincipalName", "eduPersonScopedAffiliation"):
+            self.assertEqual(sp_map[wire[scoped]]["decoder"], "ScopedAttributeDecoder", scoped)
+        # the authproc chain generates the derived identifiers from uid, maps, then limits to the contract
+        hosted = (self.IDP_TEMPLATES / "saml20-idp-hosted.php.tmpl").read_text(encoding="utf-8")
+        self.assertRegex(hosted, r"'core:TargetedID', 'identifyingAttribute' => 'uid', 'nameId' => true")
+        self.assertRegex(hosted, r"'saml:PairwiseID', 'identifyingAttribute' => 'uid', 'scopeAttribute' => 'eduPersonScopedAffiliation'")
+        self.assertIn("['class' => 'core:AttributeMap'] + $gakuninWireNames", hosted)
+        self.assertIn("'core:AttributeLimit', 'default' => false], array_values($gakuninWireNames), [$pairwiseIdWireName]", hosted)
+        self.assertIn("'attributes.NameFormat' => 'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'", hosted)
+
+    def test_s2_rejection_requires_transport_status_not_embedded_json_status(self):
+        """SPEC-04 §5 S2: 401 without a token and 403 for user_b are HTTP status lines; 200 + embedded 403 fails (review I3)."""
+        src = (REPO_ROOT / "installer" / "acceptance" / "test_s2_rdmcp.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "transport_status_must_be")
+        ns: dict = {"json": json}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), "test_s2_rdmcp.py", "exec"), ns)
+        check = ns["transport_status_must_be"]
+        check(403, '{"jsonrpc":"2.0","id":3,"error":{"code":-32001,"message":"forbidden"}}', 403)
+        check(401, "", 401)
+        with self.assertRaisesRegex(AssertionError, "HTTP 200 carrying an embedded http_status 403"):
+            check(200, '{"jsonrpc":"2.0","id":3,"error":{"code":-32001,"data":{"http_status":403}}}', 403)
+        with self.assertRaisesRegex(AssertionError, "expected transport HTTP 403, got 200"):
+            check(200, '{"jsonrpc":"2.0","id":3,"result":{}}', 403)
+        with self.assertRaisesRegex(AssertionError, "404 is not acceptable"):
+            check(404, "", 403)
+        with self.assertRaisesRegex(AssertionError, "expected transport HTTP 401, got 200"):
+            check(200, "not json", 401)
+        # the test module no longer substitutes an embedded status for the transport status
+        self.assertNotIn('.get("http_status") or 0', src)
+        self.assertIn("transport_status_must_be(resp.status, resp.text(), 403)", src)
+        self.assertIn("transport_status_must_be(anon.status, anon.text(), 401)", src)
 
     def test_resource_limits_scale_with_memory(self):
         root = make_root()
