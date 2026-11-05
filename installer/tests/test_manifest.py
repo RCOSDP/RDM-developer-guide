@@ -78,6 +78,11 @@ class ManifestLoadTests(unittest.TestCase):
             wb2 = man2.component("waterbutler")
             public2 = [u for u in wb2.upstreams if u.kind == "public" and u.status == "merged"][0]
             self.assertEqual(wb2.build_sha, public2.sha)
+            # private-only component without integration_sha falls back to its merged private upstream
+            oasys2 = man2.component("OASys")
+            private2 = [u for u in oasys2.upstreams if u.kind == "private" and u.status == "merged"][0]
+            self.assertEqual(oasys2.build_sha, private2.sha)
+            self.assertNotEqual(oasys2.build_sha, wb2.build_sha)
 
     def test_invalid_manifest_reports_exit_20(self):
         def bad(data):
