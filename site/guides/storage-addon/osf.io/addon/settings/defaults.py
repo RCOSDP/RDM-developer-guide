@@ -1,0 +1,1 @@
+MAX_FILE_SIZE = 128  # MB

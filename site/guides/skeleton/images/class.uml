@@ -1,0 +1,37 @@
+# Build:
+# $ cat class.uml | docker run --rm -i think/plantuml -tpng > class.png
+@startuml
+
+package addons.base.apps <<Rectangle>> {
+  class BaseAddonAppConfig
+}
+
+package addons.base.models <<Rectangle>> {
+  class BaseNodeSettings
+}
+
+package addons.$(addon_short_name).apps <<Rectangle>> {
+  class AddonAppConfig
+}
+
+package addons.$(addon_short_name).routes <<Rectangle>> {
+  object api_routes
+}
+
+package addons.$(addon_short_name).models <<Rectangle>> {
+  class NodeSettings
+}
+
+package addons.$(addon_short_name).views <<Rectangle>> {
+  object some_getter
+  object some_setter
+}
+
+BaseAddonAppConfig <|-- AddonAppConfig
+BaseNodeSettings <|-- NodeSettings
+AddonAppConfig ..> api_routes
+AddonAppConfig ..> NodeSettings
+api_routes ..> some_getter
+api_routes ..> some_setter
+
+@enduml

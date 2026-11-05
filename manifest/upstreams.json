@@ -1,0 +1,959 @@
+{
+  "components": [
+    {
+      "adopted_prs": [
+        {
+          "number": 796,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "[GRDM-60922] institutional admin API permission checks"
+        },
+        {
+          "number": 797,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "y-websocket JWT auth"
+        },
+        {
+          "number": 798,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "Wiki import API ADMIN permission check"
+        },
+        {
+          "number": 35,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "adopted",
+          "title": "GRDM authentication required / limited user search"
+        }
+      ],
+      "base_image": "node:12-alpine3.9 (+Python 3.6)",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 812,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "Wiki parent cross-project guard"
+        },
+        {
+          "number": 811,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "eduGAIN DS setup"
+        },
+        {
+          "number": 803,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "MATLAB R2026b"
+        },
+        {
+          "number": 802,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "JAIRO Cloud index search"
+        },
+        {
+          "number": 769,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "download history"
+        },
+        {
+          "number": 746,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "S3 SigV4"
+        },
+        {
+          "number": 738,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "quota on move/copy"
+        },
+        {
+          "number": 612,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "FileViewUxRefine"
+        },
+        {
+          "number": 474,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "service access control"
+        },
+        {
+          "number": 402,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "datamgr addon"
+        },
+        {
+          "number": 343,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "rushfiles"
+        },
+        {
+          "number": 79,
+          "reason": "dependency",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "candidate",
+          "title": "markdown-it-sanitizer 0.4.3"
+        },
+        {
+          "number": 55,
+          "reason": "dependency",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "candidate",
+          "title": "keen-dataviz 3.15.5"
+        }
+      ],
+      "id": "osf.io",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-osf.io-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "core",
+      "services": [
+        "web",
+        "api",
+        "admin",
+        "worker"
+      ],
+      "target_image": {
+        "M4": "python:3.13-alpine multi-stage, non-root",
+        "M5": "same, ES2/mongo removed"
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-osf.io",
+          "sha": "bacfe64fdc002f09df47145fc17f57630772ac82",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-osf.io-develop-private",
+          "sha": "3f4c9cd32e2e118f42a6b5aacbe2a5ff066a8a38",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/osf.io",
+          "sha": "d7dd98ec6ca7ed6b779cfc35f6aa004ddbef49a2",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        },
+        {
+          "branch": "fix/sec-test",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-osf.io-private",
+          "sha": "1c7b6bd908b578255f8ffb325f29f39e77797bc7",
+          "status": "candidate",
+          "tracking_branch": "upstream/private-sec-test-fix-sec-test"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 101,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-waterbutler",
+          "status": "adopted",
+          "title": "Python 3.13, dependency update, multi-stage image (WIP)"
+        }
+      ],
+      "base_image": "python:3.6-slim-buster",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 98,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "s3compatsigv4 error handling"
+        },
+        {
+          "number": 93,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "S3 SigV4"
+        },
+        {
+          "number": 92,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "quota on move/copy"
+        },
+        {
+          "number": 79,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "skip s3 region checks"
+        }
+      ],
+      "id": "waterbutler",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-waterbutler-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "wb",
+        "wb_worker"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim multi-stage, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-waterbutler",
+          "sha": "004f407fefb071f1dc924d09f99916b1d5ea3561",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-waterbutler-develop-private",
+          "sha": "722557612d3432fbbcd2b952f70660588dd7b4f4",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/waterbutler",
+          "sha": "84e3d21b7c074c4054f24d8998d352be61634cbd",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 9,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-modular-file-renderer",
+          "status": "adopted",
+          "title": "[GRDM-63966] Python 3.13, unoserver split (stage 1)"
+        },
+        {
+          "number": 8,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-modular-file-renderer",
+          "status": "adopted",
+          "title": "Python/dependency update, multi-stage (WIP)"
+        }
+      ],
+      "base_image": "python:3.5-slim-buster",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 6,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "metadata from redirect headers"
+        },
+        {
+          "number": 5,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "keys.openpgp.org keyserver"
+        },
+        {
+          "number": 4,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "AWS X-Ray timing"
+        }
+      ],
+      "id": "modular-file-renderer",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-modular-file-renderer-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "mfr"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim multi-stage, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-modular-file-renderer",
+          "sha": "8990b184e04ec8c9b83d25123187a7a2cfb32909",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-modular-file-renderer-develop-private",
+          "sha": "571b74fa17ea421f72d46f6e2136936c68bd8d73",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/modular-file-renderer",
+          "sha": "1b2acfdde1a98bcd584950c05eb4a7fd9ab63bca",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "quay.io/centerforopenscience/ember-base + node:8-alpine",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 201,
+          "reason": "feature",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "eduGAIN DS in IdP list"
+        },
+        {
+          "number": 108,
+          "reason": "feature",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "service access control setting"
+        },
+        {
+          "number": 82,
+          "reason": "dependency",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "flat 5.0.1"
+        },
+        {
+          "number": 63,
+          "reason": "dependency",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "node-sass 7.0.0"
+        }
+      ],
+      "id": "ember-osf-web",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-ember-osf-web-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "ember_osf_web"
+      ],
+      "target_image": {
+        "M4": "node LTS alpine, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-ember-osf-web",
+          "sha": "13dab2e19ea4e083c91e87c1cb793cb206b8a119",
+          "status": "merged",
+          "tracking_branch": "upstream/public-master"
+        },
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-ember-osf-web-master-private",
+          "sha": "79f4c2719e340ceb438bfbae1bfd356008fb6e91",
+          "status": "merged",
+          "tracking_branch": "upstream/private-master"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/ember-osf-web",
+          "sha": "2d188e1ba4769f8064fbea2ace03b34ba6f310cc",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "maven:3.3-jdk-8 + jetty:9.3-jre8-alpine",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "cas-overlay",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-cas-overlay-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "cas"
+      ],
+      "target_image": {
+        "M4": "JDK LTS, jetty current, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-cas-overlay",
+          "sha": "ba95f6f87ddeb84bd990690199cd1d72d7e0c2a0",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-cas-overlay-develop-private",
+          "sha": "84d14baa130309e1a2b9447e75dba5e0c0fa0212",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/cas-overlay",
+          "sha": "787e34a62a14c851686f139407d8784be367111a",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 15,
+          "reason": "security/auth",
+          "repo": "RDM-wiki-frontend",
+          "status": "adopted",
+          "title": "y-websocket JWT auth (client + auth Docker)"
+        }
+      ],
+      "base_image": "node:21-alpine",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 8,
+          "reason": "feature",
+          "repo": "RDM-wiki-frontend",
+          "status": "candidate",
+          "title": "truncate long file names in import screen"
+        }
+      ],
+      "id": "wiki-frontend",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-wiki-frontend-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "wiki"
+      ],
+      "target_image": {
+        "M4": "node LTS alpine, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-wiki-frontend",
+          "sha": "203d32fab60aad8d78e9b743987519252f99b817",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-wiki-frontend-develop-private",
+          "sha": "203d32fab60aad8d78e9b743987519252f99b817",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "y-websocket",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-y-websocket-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "y_websocket"
+      ],
+      "target_image": {
+        "M4": "node LTS alpine, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-y-websocket",
+          "sha": "51eb21d35bd37b197514e6cc67409b7c8a2dc130",
+          "status": "merged",
+          "tracking_branch": "upstream/public-master"
+        },
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-y-webocket-develop-private",
+          "sha": "e16d995eb362fcc8c53e545ba39a835e5af853b9",
+          "status": "merged",
+          "tracking_branch": "upstream/private-master"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "OASys",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-OASys-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "oasys"
+      ],
+      "target_image": {
+        "M4": "node LTS, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-OASys-main-private",
+          "sha": "b3860fda51722bbd0faffbe1d49684125e381af3",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo; CentOS based)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "Shibboleth-SP",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-Shibboleth-SP-dev2027",
+      "note": "mutually exclusive with fakecas; bundled test IdP for acceptance",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "shibboleth_sp",
+        "test_idp"
+      ],
+      "target_image": {
+        "M4": "current Shibboleth SP on a maintained base, non-root where possible",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-Shibboleth-SP-main-private",
+          "sha": "218b07f4143834278e5289a2c95ee8fe6ff01cf1",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "rdmcp",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-rdmcp-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "rdmcp"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-rdmcp-private",
+          "sha": "7eed0db7d3726df7a4029b1b6ee024815d4f0646",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "aipf_mcp_data_grdm",
+      "integration_branch": "develop",
+      "integration_repo": "RDM-aipf_mcp_data_grdm-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "aipf_mcp_data_grdm"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-aipf_mcp_data_grdm-private",
+          "sha": "94e277da694462516c7a8f12024e3aa0ad67dda7",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "postgres:9.6",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "postgres",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "postgres"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "postgres:15"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "elasticsearch:2",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "elasticsearch2",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "elasticsearch"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "removed (ES8)"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "docker.elastic.co/elasticsearch/elasticsearch:6.3.1",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "elasticsearch6",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "elasticsearch6"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "elasticsearch:8"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "mongo:3.4",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "mongo",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "mongo"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "removed"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "rabbitmq:3-management",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "rabbitmq",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "rabbitmq"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "rabbitmq current stable"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "redis:7",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "redis",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "redis"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "redis current stable"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "quay.io/centerforopenscience/sharejs:develop",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "sharejs",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "sharejs"
+      ],
+      "target_image": {
+        "M4": "rebuilt on node LTS",
+        "M5": null
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "centerforopenscience/unoconv",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "unoconv",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "unoconv"
+      ],
+      "target_image": {
+        "M4": "unoserver (mfr PR #9)",
+        "M5": null
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "quay.io/centerforopenscience/fakecas:master",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "fakecas",
+      "integration_branch": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "fakecas"
+      ],
+      "target_image": {
+        "M4": "golang current, alpine current",
+        "M5": null
+      },
+      "upstreams": []
+    }
+  ],
+  "generated_at": "2026-11-05",
+  "note": "Names and SHAs only. This repository is public: no URLs to private repositories, no credentials.",
+  "schema_version": 1
+}

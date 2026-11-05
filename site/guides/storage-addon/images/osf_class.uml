@@ -1,0 +1,96 @@
+# Build:
+# $ cat osf_class.uml | docker run --rm -i think/plantuml -tpng > osf_class.png
+@startuml
+
+package addons.base.apps <<Rectangle>> {
+  class BaseAddonAppConfig
+}
+
+package addons.base <<Rectangle>> {
+  object generic_views
+}
+
+package addons.base.serializer <<Rectangle>> {
+  class StorageAddonSerializer
+}
+
+package addons.base.models <<Rectangle>> {
+  class BaseNodeSettings
+  class BaseUserSettings
+  class BaseOAuthNodeSettings
+  class BaseOAuthUserSettings
+  class BaseStorageAddon
+}
+
+package osf.models.files <<Rectangle>> {
+  class BaseFileNode
+  class Folder
+  class File
+}
+
+
+package addons.$(addon_short_name).apps <<Rectangle>> {
+  class AddonAppConfig
+}
+
+package addons.$(addon_short_name).routes <<Rectangle>> {
+  object api_routes
+}
+
+package addons.$(addon_short_name).provider <<Rectangle>> {
+  class "$(AddonShortName)Provider"
+}
+
+package addons.$(addon_short_name).serializer <<Rectangle>> {
+  class "$(AddonShortName)Serializer"
+}
+
+package addons.$(addon_short_name).models <<Rectangle>> {
+  class NodeSettings
+  class UserSettings
+  class "$(AddonShortName)FileNode"
+  class "$(AddonShortName)Folder"
+  class "$(AddonShortName)File"
+}
+
+package addons.$(addon_short_name).views <<Rectangle>> {
+  object set_config
+  object get_config
+  object import_auth
+  object deauthorize_node
+  object add_user_account
+  object account_list
+  object create_folder
+  object folder_list
+}
+
+BaseAddonAppConfig <|-- AddonAppConfig
+
+StorageAddonSerializer <|-- "$(AddonShortName)Serializer"
+
+BaseNodeSettings <|-- BaseOAuthNodeSettings
+BaseUserSettings <|-- BaseOAuthUserSettings
+
+BaseOAuthNodeSettings <|-- NodeSettings
+BaseStorageAddon <|-- NodeSettings
+NodeSettings ..> "$(AddonShortName)Provider"
+NodeSettings ..> "$(AddonShortName)Serializer"
+
+BaseOAuthUserSettings <|-- UserSettings
+UserSettings ...> "$(AddonShortName)Provider"
+UserSettings ...> "$(AddonShortName)Serializer"
+
+BaseFileNode <|-- "$(AddonShortName)FileNode"
+Folder <|-- "$(AddonShortName)Folder"
+File <|-- "$(AddonShortName)File"
+"$(AddonShortName)FileNode"  <|-- "$(AddonShortName)Folder"
+"$(AddonShortName)FileNode"  <|-- "$(AddonShortName)File"
+
+AddonAppConfig ..> api_routes
+AddonAppConfig ..> NodeSettings
+AddonAppConfig ..> UserSettings
+api_routes ..> "addons.$(addon_short_name).views"
+"addons.$(addon_short_name).views" ..> generic_views
+"addons.$(addon_short_name).views" ..> "$(AddonShortName)Serializer"
+
+@enduml

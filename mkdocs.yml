@@ -1,0 +1,82 @@
+# MkDocs configuration for GakuNin RDM Developer Environment 2027
+# Site documentation built from docs/**/*.md
+
+site_name: "GakuNin RDM Developer Environment 2027 / 開発環境 2027 版"
+docs_dir: docs
+site_dir: site
+
+# Theme configuration
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system theme
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.scrollspy
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+# Markdown extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: toon
+          class: toon
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+# Navigation: generated from the docs/ tree (each folder's README.md is its index page).
+
+# Extra JavaScript for Mermaid diagrams
+extra_javascript:
+  - https://unpkg.com/mermaid@11.4.1/dist/mermaid.min.js
+  - assets/mermaid-init.js
+
+# Extra CSS (optional, for custom styling)
+extra_css:
+  - assets/stylesheets/extra.css
+
+# Repository configuration
+repo_url: https://github.com/rcosdp/RDM-developer-guide
+edit_uri: edit/develop/docs/
+
+# Plugins (if needed in future)
+plugins:
+  - search
+
+# Link validation. File existence is enforced by tools/docs_check.py (strict, GitHub-style);
+# MkDocs cannot see files outside docs/ (root README.md, site/), and its anchor slugs differ
+# from GitHub's for Japanese headings, so those two checks are informational here.
+validation:
+  nav:
+    omitted_files: info
+  links:
+    not_found: info
+    anchors: info
+    unrecognized_links: info  # legacy guide text keeps its original relative links

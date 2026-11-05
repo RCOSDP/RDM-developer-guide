@@ -1,0 +1,6 @@
+# MkDocs and extensions for GakuNin RDM Developer Environment 2027
+# Keep versions pinned to stable releases
+
+mkdocs==1.6.1
+mkdocs-material==9.5.37
+pymdown-extensions==10.12

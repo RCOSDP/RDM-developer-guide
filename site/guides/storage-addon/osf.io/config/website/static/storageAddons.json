@@ -1,0 +1,86 @@
+{
+  "bitbucket": {
+    "fullName": "Bitbucket",
+    "externalView": true
+  },
+  "box": {
+    "fullName": "Box",
+    "externalView": false
+  },
+  "dataverse": {
+    "fullName": "Dataverse",
+    "externalView": false
+  },
+  "dropbox": {
+    "fullName": "Dropbox",
+    "externalView": false
+  },
+  "figshare": {
+    "fullName": "figshare",
+    "externalView": true
+  },
+  "github": {
+    "fullName": "GitHub",
+    "externalView": true
+  },
+  "gitlab": {
+    "fullName": "GitLab",
+    "externalView": true
+  },
+  "googledrive": {
+    "fullName": "Google Drive",
+    "externalView": true
+  },
+  "osfstorage": {
+    "fullName": "NII Storage",
+    "externalView": false
+  },
+  "owncloud": {
+    "fullName": "ownCloud",
+    "externalView": false
+  },
+  "s3": {
+    "fullName": "Amazon S3",
+    "externalView": false
+  },
+  "onedrive": {
+    "fullName": "OneDrive",
+    "externalView": true
+  },
+  "swift": {
+    "fullName": "OpenStack Swift",
+    "externalView": false
+  },
+  "azureblobstorage": {
+    "fullName": "Azure Blob Storage",
+    "externalView": false
+  },
+  "s3compat": {
+    "fullName": "S3 Compatible Storage",
+    "externalView": false
+  },
+  "myminio": {
+    "fullName": "My MinIO",
+    "externalView": false
+  },
+  "weko": {
+    "fullName": "WEKO",
+    "externalView": false
+  },
+  "nextcloud": {
+    "fullName": "Nextcloud",
+    "externalView": false
+  },
+  "iqbrims": {
+    "fullName": "IQB-RIMS",
+    "externalView": false
+  },
+  "nextcloudinstitutions": {
+    "fullName": "Nextcloud for Institutions",
+    "externalView": false
+  },
+  "dropboxbusiness": {
+    "fullName": "Dropbox Business",
+    "externalView": false
+  }
+}

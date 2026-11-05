@@ -1,0 +1,28 @@
+# Gitleaks configuration for RDM-developer-guide
+# This file adds allowlist rules while keeping default detection rules active
+
+title = "RDM-developer-guide Gitleaks Configuration"
+
+[allowlist]
+# No path exclusions: this repository is public, so every path is scanned.
+
+# Regex allowlist - patterns that match false positives
+regexes = [
+    # SHA values in documentation examples (40 hex characters)
+    '''[0-9a-f]{40}''',
+]
+
+# Entropy allowlist - patterns that match false positives
+entropy = [
+    # SHA values have high entropy but are not secrets
+    '''[0-9a-f]{40}''',
+]
+
+# Comments to add to each rule explaining why it's allowlisted
+description = '''
+Allow SHAs and documentation examples to be scanned without triggering false positives.
+SHAs in docs are not secrets - they are example commit hashes.
+'''
+
+# Keep default rules active
+default = true

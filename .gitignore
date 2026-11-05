@@ -1,1 +1,8 @@
 .DS_Store
+
+# grdm-dev runtime (generated, contains secrets)
+runtime/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

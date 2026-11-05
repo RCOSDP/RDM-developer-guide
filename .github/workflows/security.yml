@@ -1,0 +1,59 @@
+name: Security Checks
+
+on:
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks over the whole history
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            detect --source . --config .gitleaks.toml --redact --exit-code 1 \
+            --report-format json --report-path gitleaks-results.json || status=$?
+          test -z "${status:-}" || { echo "::error::gitleaks found possible secrets"; exit "$status"; }
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-results.json
+          if-no-files-found: ignore
+
+  semgrep:
+    name: Semgrep static analysis
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.97.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run semgrep (p/default)
+        run: semgrep scan --config p/default --error --metrics=off .
+
+  manifest-check:
+    name: Manifest Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Run manifest check
+        run: python3 tools/manifest_check.py
