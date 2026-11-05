@@ -5,9 +5,19 @@ asks `docker compose ps --format json` for container state and health, and probe
 facing HTTP endpoints on 127.0.0.1:<port> for the services of the SPEC-02 §4 ports table that the
 Compose file defines. Any missing, stopped, unhealthy or unreachable service is exit 40.
 
---network lists the listening TCP sockets of the host (`lsof -nP -iTCP -sTCP:LISTEN` on macOS,
-`ss -ltnp` on Linux) and fails with exit 40 when a Docker-owned socket (docker-proxy, com.docker)
-is bound to 0.0.0.0, :: / * or any other non-loopback address.
+--network fails closed (exit 40) unless every host-side binding of the project is on loopback. It
+correlates three sources, so a listener whose owner cannot be seen is never ignored (review PR #21
+finding 3: unprivileged `ss -ltnp` on Linux shows a root-owned docker-proxy socket without its
+process field):
+
+  1. `docker compose ps --format json`: every Publishers[].URL (host address) must be loopback;
+  2. `docker inspect <container>`: every NetworkSettings.Ports[*][].HostIp must be loopback
+     (Docker Desktop and Linux both report the address the port was published on);
+  3. the host's listening TCP sockets (`lsof -nP -iTCP -sTCP:LISTEN` on macOS, `ss -ltnp` on
+     Linux): a socket on a non-loopback address fails when it is Docker-owned (docker-proxy,
+     com.docker, vpnkit) OR when its port is one of the project's ports (from the compose file,
+     ps or inspect), whatever the process field says — including an empty one.
+  Any of the three commands failing or returning unreadable output is itself a failure.
 
 Injection points for tests: `runner(argv) -> (rc, stdout)`, `prober(url) -> (ok, detail)`,
 `system` ("Darwin" / "Linux").
@@ -198,12 +208,93 @@ def listening_sockets(runner, system: str | None = None) -> tuple[list[dict], st
     return (parse_ss(out) if rc == 0 else []), ("" if rc == 0 else f"ss exited {rc}")
 
 
-def check_network(runner, system: str | None = None) -> tuple[list[dict], list[dict], str]:
-    """Return (docker sockets, offending non-loopback docker sockets, error)."""
+def project_bindings(ctx: Context, runner) -> tuple[list[dict], list[str]]:
+    """Host bindings of the project's containers from `compose ps` Publishers and `docker inspect`.
+
+    Returns (bindings, errors). A binding is {service, source, address, port, loopback}; `source` is
+    `ps` or `inspect`. Errors name the command that failed: the caller treats them as a failure.
+    """
+    bindings: list[dict] = []
+    errors: list[str] = []
+    rc, out = runner(compose_base(ctx) + ["ps", "--format", "json"])
+    if rc != 0:
+        return bindings, [f"docker compose ps exited {rc}; cannot enumerate project port bindings"]
+    ps = parse_ps(out)
+    for service, info in ps.items():
+        for pub in info.get("Publishers") or []:
+            try:
+                port = int(pub.get("PublishedPort") or 0)
+            except (TypeError, ValueError):
+                continue
+            if port <= 0:
+                continue
+            addr = str(pub.get("URL") or "").strip() or "*"
+            bindings.append({"service": service, "source": "ps", "address": addr, "port": str(port), "loopback": is_loopback(addr)})
+        container = info.get("Name") or info.get("ID") or info.get("Id")
+        if not container:
+            continue
+        rc, out = runner(["docker", "inspect", "--format", "{{json .NetworkSettings.Ports}}", str(container)])
+        if rc != 0:
+            errors.append(f"docker inspect {container} exited {rc}")
+            continue
+        try:
+            ports = json.loads(out.strip() or "{}") or {}
+        except ValueError:
+            errors.append(f"docker inspect {container}: unreadable port table")
+            continue
+        for key, entries in ports.items():
+            for entry in entries or []:
+                addr = str((entry or {}).get("HostIp") or "").strip() or "*"
+                port = str((entry or {}).get("HostPort") or "")
+                if not port:
+                    continue
+                bindings.append({"service": service, "source": "inspect", "address": addr, "port": port, "loopback": is_loopback(addr),
+                                 "container_port": key})
+    return bindings, errors
+
+
+def project_ports(ctx: Context, bindings: list[dict]) -> set[str]:
+    """Every host port the project uses: compose file `ports` (+ GRDM_PORT_*) and live bindings."""
+    from .secrets import env_path, read_env
+
+    ports: set[str] = {b["port"] for b in bindings}
+    try:
+        compose = load_compose(compose_path(ctx))
+    except (OSError, ValueError):
+        return ports
+    env = read_env(env_path(ctx))
+    for name in (compose.get("services") or {}):
+        port = host_port(name, compose, env)
+        if port:
+            ports.add(str(port))
+    return ports
+
+
+def check_network(ctx: Context, runner, system: str | None = None) -> tuple[dict, list[str]]:
+    """Fail-closed loopback check. Returns (data for the report, problems); empty problems = pass."""
+    problems: list[str] = []
+    bindings, errors = project_bindings(ctx, runner)
+    problems.extend(errors)
+    for b in bindings:
+        if not b["loopback"]:
+            problems.append(f"{b['service']} publishes {b['address']}:{b['port']} ({b['source']}; not loopback)")
+    ports = project_ports(ctx, bindings)
     sockets, err = listening_sockets(runner, system)
-    docker = [s for s in sockets if is_docker_process(s["process"])]
-    bad = [s for s in docker if not s["loopback"]]
-    return docker, bad, err
+    if err:
+        problems.append(err)
+    relevant: list[dict] = []
+    for s in sockets:
+        docker_owned = is_docker_process(s["process"])
+        on_project_port = s["port"] in ports
+        if not (docker_owned or on_project_port):
+            continue  # unrelated host daemon (e.g. rapportd, sshd)
+        relevant.append(s)
+        if not s["loopback"]:
+            who = s["process"] or "unknown process"
+            why = "docker-owned" if docker_owned else "project port, owner not visible"
+            problems.append(f"{who} listens on {s['address']}:{s['port']} (not loopback; {why})")
+    data = {"bindings": bindings, "project_ports": sorted(ports, key=int), "sockets": relevant}
+    return data, problems
 
 
 def wait_until_healthy(ctx: Context, timeout: float, runner=None, prober=None, sleep=time.sleep, interval: float = 5.0) -> tuple[list[dict], bool]:
@@ -237,14 +328,11 @@ def run(ctx: Context, args, runner=None, prober=None, system: str | None = None)
     data: dict = {"services": rows, "healthy": ok}
     problems: list[str] = [f"{r['service']} ({r['state']}, {r['health']}{', ' + r['http'] if r['http'] else ''})" for r in rows if not r["ok"]]
     if getattr(args, "network", False):
-        docker, bad, err = check_network(runner, system)
-        data["sockets"] = docker
-        data["loopback_only"] = not bad and not err
-        if err:
-            problems.append(err)
-        for s in bad:
-            problems.append(f"{s['process']} listens on {s['address']}:{s['port']} (not loopback)")
-        ok = ok and not bad and not err
+        net, net_problems = check_network(ctx, runner, system)
+        data.update(net)
+        data["loopback_only"] = not net_problems
+        problems.extend(net_problems)
+        ok = ok and not net_problems
     report.emit(ctx, "health", data)
     if not ok:
         return report.error(ctx, exit_codes.HEALTH_FAILED, "; ".join(problems))

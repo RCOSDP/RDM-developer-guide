@@ -771,6 +771,27 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../demo/20_core_install_mac_studio/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DEMO-20 Core Install on Mac Studio / Mac Studio でのコア導入記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
     
@@ -784,10 +805,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -798,8 +819,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             Runs
           </label>
@@ -1937,6 +1958,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r1 / インストーラーレビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2721,7 +2763,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.3 — 2026-11-05. <strong>Learned:</strong> building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an <code>integration_sha</code> (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に <code>integration_sha</code>（最初の厳密マージまでは null 可）が要ると分かった。
+<li>Version / 版: 0.4 — 2026-11-05. <strong>Learned:</strong> the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component <code>build_platform</code> is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの <code>build_platform</code> が要る。
+  0.3 — 2026-11-05. <strong>Learned:</strong> building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an <code>integration_sha</code> (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に <code>integration_sha</code>（最初の厳密マージまでは null 可）が要ると分かった。
   0.2 — 2026-11-05. <strong>Learned:</strong> a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the public osf.io <code>develop</code> (2026-11-05) is already newer than its <code>-private</code> twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の <code>develop</code>（2026-11-05）は <code>-private</code>（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。</li>
 <li>Normative for: <code>manifest/upstreams.json</code> (canonical), <code>manifest/upstreams.toon</code> (excerpt), <code>manifest/README.md</code>, the <code>manifest</code> subcommand of <code>grdm-dev</code> (<a href="../02_installer_cli/">SPEC-02</a>), and every document that quotes the manifest.</li>

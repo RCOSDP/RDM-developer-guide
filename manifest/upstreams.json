@@ -328,6 +328,7 @@
         "linux/arm64",
         "linux/amd64"
       ],
+      "build_platform": "linux/amd64",
       "profile": "core",
       "role": "core",
       "services": [
@@ -410,6 +411,7 @@
         "linux/arm64",
         "linux/amd64"
       ],
+      "build_platform": "linux/amd64",
       "profile": "core",
       "role": "core",
       "services": [
@@ -463,6 +465,7 @@
         "linux/arm64",
         "linux/amd64"
       ],
+      "build_platform": "linux/amd64",
       "profile": "core",
       "role": "core",
       "services": [

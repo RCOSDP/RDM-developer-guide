@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
+- Version / 版: 0.4 — 2026-11-05. **Learned:** the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component `build_platform` is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの `build_platform` が要る。
+  0.3 — 2026-11-05. **Learned:** building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an `integration_sha` (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に `integration_sha`（最初の厳密マージまでは null 可）が要ると分かった。
   0.2 — 2026-11-05. **Learned:** a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the public osf.io `develop` (2026-11-05) is already newer than its `-private` twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の `develop`（2026-11-05）は `-private`（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。
 - Normative for: `manifest/upstreams.json` (canonical), `manifest/upstreams.toon` (excerpt), `manifest/README.md`, the `manifest` subcommand of `grdm-dev` ([SPEC-02](02_installer_cli.md)), and every document that quotes the manifest.

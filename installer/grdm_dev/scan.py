@@ -11,6 +11,15 @@ Every external program goes through an injectable `runner(argv) -> (returncode, 
 presence through an injectable `which(name) -> bool`, so unit tests feed canned scanner JSON and
 never need Docker (SPEC-02 §10). Reports never contain secret values (SPEC-03 §3.1): gitleaks runs
 with --redact, only rule id / file / line are kept, and every value of runtime/.env is masked.
+
+Fail-closed rules (review r1 findings 2 and 5):
+  * the baseline validator reads manifest/hardening.json: a service that runs as root or with a
+    writable root filesystem passes only through a recorded exception whose review date has not
+    passed, and the report lists each accepted exception with its reason and review date;
+  * a scanner that exits nonzero, prints no JSON, reports its own errors, or cannot write an SBOM is
+    `incomplete`; one incomplete scanner makes the whole run exit 51, never 0;
+  * Trivy scans every image the rendered compose file references (project-built and infrastructure),
+    every integration repository under runtime/src/, and this repository.
 """
 from __future__ import annotations
 
@@ -48,6 +57,18 @@ ZAP_IMAGE = "ghcr.io/zaproxy/zaproxy:stable"
 DEFAULT_NETWORK = "grdm"
 FORBIDDEN_ALIAS = "192.168.168.167"
 IMAGE_PREFIX = "grdm-dev/"
+# Semgrep rule packs of SPEC-03 §4.2; all four run in one invocation.
+SEMGREP_PACKS = ("p/default", "p/python", "p/javascript", "p/docker-compose")
+# Semgrep exit codes with --error: 0 clean, 1 findings present, anything else is a failed run.
+SEMGREP_OK_CODES = (0, 1)
+# zap-baseline.py: 0 clean, 1 warnings, 2 fails, 3+ error (and -I ignores warnings).
+ZAP_OK_CODES = (0, 1, 2)
+ENV_SECRET_MODE = 0o600
+MIN_SECRET_LEN = 32
+# Keys of runtime/.env that must hold a generated secret (SPEC-03 §3.1). Taken from compose.py's
+# REQUIRED_SECRETS when available; the pattern below also catches keys added later.
+_SECRET_KEY_PATTERN = re.compile(r"(PASSWORD|SECRET|_PASS$|_KEY$|SALT|TOKEN)", re.I)
+FORBIDDEN_DEFAULTS = frozenset({"postgres", "changeme", "guest", "password", "secret", "osf", "admin", "root", ""})
 
 DEFAULT_ALLOWLIST: dict[str, Any] = {
     "schema_version": 1,
@@ -249,18 +270,132 @@ def _load_compose(path: Path) -> tuple[dict | None, str]:
     return (data if isinstance(data, dict) else None), text
 
 
-def check_baseline(compose_path: Path) -> tuple[list[dict], list[str]]:
-    """Re-check the SPEC-03 §3.2/§3.3 controls of a rendered compose file. Returns (findings, notes)."""
+def _required_secret_keys() -> tuple[str, ...]:
+    try:  # compose.py is owned by another task; its constant is the canonical list when present
+        from . import compose as _compose  # type: ignore
+        keys = getattr(_compose, "REQUIRED_SECRETS", ())
+        return tuple(str(k) for k in keys)
+    except Exception:
+        return ()
+
+
+def load_hardening_exceptions(path: Path) -> tuple[dict[str, dict], list[str]]:
+    """manifest/hardening.json exceptions keyed by service (SPEC-03 §3.3). Returns (by_service, problems)."""
+    if not path.exists():
+        return {}, []
+    data = _json_or_empty(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("exceptions"), list):
+        return {}, [f"{path.name} is not a JSON object with an 'exceptions' list; no exception is honoured"]
+    out: dict[str, dict] = {}
+    problems: list[str] = []
+    for idx, e in enumerate(data["exceptions"]):
+        if not isinstance(e, dict) or not isinstance(e.get("service"), str):
+            problems.append(f"{path.name}#exceptions[{idx}] has no service name; ignored")
+            continue
+        if not isinstance(e.get("controls"), list) or not e["controls"]:
+            problems.append(f"{path.name}#exceptions[{idx}] ({e['service']}) lists no controls; ignored")
+            continue
+        if not str(e.get("reason") or "").strip() or _parse_date(e.get("review")) is None:
+            problems.append(f"{path.name}#exceptions[{idx}] ({e['service']}) needs reason and an ISO review date; ignored")
+            continue
+        out[e["service"]] = e
+    return out, problems
+
+
+def _is_root_user(value: Any) -> bool:
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return True
+    uid = text.split(":", 1)[0].strip()
+    return uid in ("0", "root")
+
+
+def _port_published_on_loopback(p: Any) -> tuple[bool, str]:
+    if isinstance(p, dict):
+        spec = f"{p.get('host_ip', '')}:{p.get('published', '')}:{p.get('target', '')}"
+        return p.get("host_ip") == "127.0.0.1", spec
+    spec = str(p)
+    return spec.startswith("127.0.0.1:") and spec.count(":") == 2, spec
+
+
+def _network_names(networks: Any) -> list[str]:
+    if isinstance(networks, dict):
+        return [str(k) for k in networks]
+    if isinstance(networks, list):
+        return [str(n) for n in networks]
+    return []
+
+
+def _internal_networks(doc: dict) -> tuple[set[str], set[str], bool]:
+    """Return (internal network keys, all network keys, grdm_internal_ok)."""
+    nets = doc.get("networks") or {}
+    if not isinstance(nets, dict):
+        return set(), set(), False
+    internal: set[str] = set()
+    grdm_ok = False
+    for key, val in nets.items():
+        val = val if isinstance(val, dict) else {}
+        is_internal = val.get("internal") is True
+        if is_internal:
+            internal.add(str(key))
+        name = str(val.get("name") or key)
+        if (str(key) == DEFAULT_NETWORK or name == DEFAULT_NETWORK or name.endswith(f"_{DEFAULT_NETWORK}")) and is_internal:
+            grdm_ok = True
+    return internal, {str(k) for k in nets}, grdm_ok
+
+
+def check_env_file(env_path: Path, required_keys: tuple[str, ...] | None = None) -> list[dict]:
+    """SPEC-03 §3.1: runtime/.env is mode 0600 and holds no default, empty, or short secret.
+    Findings name keys only, never values."""
+    loc = "runtime/.env"
+    if not env_path.exists():
+        return [_finding("baseline", "BASE-ENV-MISSING", "HIGH", "env", loc, "runtime/.env not found; run grdm-dev secrets init")]
+    findings: list[dict] = []
+    mode = env_path.stat().st_mode & 0o777
+    if mode != ENV_SECRET_MODE:
+        findings.append(_finding("baseline", "BASE-ENV-MODE", "HIGH", "env", loc, f"mode {mode:04o}; must be 0600"))
+    values: dict[str, str] = {}
+    for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        values[k.strip()] = v.strip().strip("'\"")
+    required = tuple(required_keys if required_keys is not None else _required_secret_keys())
+    secret_keys = [k for k in values if _SECRET_KEY_PATTERN.search(k) or k in required]
+    for k in required:
+        if k not in values:
+            findings.append(_finding("baseline", "BASE-ENV-DEFAULT", "HIGH", k, f"{loc}#{k}", f"{k} is missing"))
+    for k in secret_keys:
+        v = values[k]
+        if v.lower() in FORBIDDEN_DEFAULTS:
+            findings.append(_finding("baseline", "BASE-ENV-DEFAULT", "HIGH", k, f"{loc}#{k}", f"{k} holds an upstream default or empty value"))
+        elif len(v) < MIN_SECRET_LEN:
+            findings.append(_finding("baseline", "BASE-ENV-DEFAULT", "HIGH", k, f"{loc}#{k}", f"{k} is shorter than {MIN_SECRET_LEN} characters"))
+    return findings
+
+
+def check_baseline(compose_path: Path, hardening_path: Path | None = None, env_path: Path | None = None,
+                   today: _dt.date | None = None, required_keys: tuple[str, ...] | None = None) -> tuple[list[dict], list[str], list[dict]]:
+    """Re-check the SPEC-03 §3.1–§3.3 controls of a rendered compose file plus runtime/.env.
+
+    Returns (findings, notes, accepted). `accepted` lists every hardening exception that was applied:
+    {service, control, status: accepted-exception, reason, review}. An exception whose review date has
+    passed is not applied and becomes a BASE-EXCEPTION-EXPIRED finding (fail-closed).
+    """
+    today = today or _dt.date.today()
     if not compose_path.exists():
-        return [], ["runtime/docker-compose.yml not found; baseline controls not checked (run compose render)"]
+        return [], ["runtime/docker-compose.yml not found; baseline controls not checked (run compose render)"], []
     data, text = _load_compose(compose_path)
     findings: list[dict] = []
+    notes: list[str] = []
+    accepted: list[dict] = []
     loc = "runtime/docker-compose.yml"
     if FORBIDDEN_ALIAS in text:
         findings.append(_finding("baseline", "BASE-ALIAS", "HIGH", "compose", loc,
                                  f"loopback alias {FORBIDDEN_ALIAS} must not appear (ADR-02)"))
     if data is None:
-        # Not JSON: best-effort text checks only.
+        # Not JSON: best-effort text checks only, and the structural checks count as failed.
         for m in re.finditer(r'^\s*-\s*"?(?P<spec>[^"\s]+)"?\s*$', text, re.M):
             spec = m.group("spec")
             if re.match(r"^\d+:\d+", spec) or re.match(r"^0\.0\.0\.0:", spec):
@@ -268,28 +403,99 @@ def check_baseline(compose_path: Path) -> tuple[list[dict], list[str]]:
                                          f"port {spec} is not published on 127.0.0.1"))
         if re.search(r"^\s*privileged:\s*true", text, re.M):
             findings.append(_finding("baseline", "BASE-PRIVILEGED", "CRITICAL", "compose", loc, "privileged: true is forbidden"))
-        return findings, ["compose file is not JSON; user/cap_drop checks skipped"]
+        findings.append(_finding("baseline", "BASE-UNREADABLE", "HIGH", "compose", loc,
+                                 "compose file is not the JSON that compose render writes; user/cap_drop/network checks impossible"))
+        return findings, notes, accepted
+
+    exceptions: dict[str, dict] = {}
+    if hardening_path is not None:
+        exceptions, problems = load_hardening_exceptions(hardening_path)
+        notes.extend(problems)
+
+    def exception_for(service: str, control: str) -> dict | None:
+        e = exceptions.get(service)
+        if not e or control not in [str(c) for c in e.get("controls", [])]:
+            return None
+        return e
+
+    def relaxed(service: str, control: str, sloc: str) -> bool:
+        """True when a valid exception covers (service, control); records it or its expiry."""
+        e = exception_for(service, control)
+        if e is None:
+            return False
+        review = _parse_date(e.get("review"))
+        if review is None or review < today:
+            findings.append(_finding("baseline", "BASE-EXCEPTION-EXPIRED", "HIGH", service, sloc,
+                                     f"hardening exception for control '{control}' passed its review date {e.get('review')}"))
+            return False
+        accepted.append({"service": service, "control": control, "status": "accepted-exception",
+                         "reason": str(e.get("reason", "")), "review": review.isoformat(),
+                         "target": str(e.get("target", ""))})
+        return True
+
+    internal, all_nets, grdm_ok = _internal_networks(data)
+    if not grdm_ok:
+        findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", "compose", f"{loc}#networks",
+                                 f"no network '{DEFAULT_NETWORK}' with internal: true (SPEC-03 §3.2, ADR-02)"))
+
     services = data.get("services") or {}
     for name, svc in services.items():
         if not isinstance(svc, dict):
             continue
-        for p in svc.get("ports") or []:
-            spec = p if isinstance(p, str) else str((p or {}).get("host_ip", "")) + ":" + str((p or {}).get("published", ""))
-            if isinstance(p, dict):
-                ok = p.get("host_ip") == "127.0.0.1"
-            else:
-                ok = spec.startswith("127.0.0.1:")
+        sloc = f"{loc}#services.{name}"
+        ports = svc.get("ports") or []
+        for p in ports:
+            ok, spec = _port_published_on_loopback(p)
             if not ok:
-                findings.append(_finding("baseline", "BASE-PUBLISH", "HIGH", name, f"{loc}#services.{name}.ports",
+                findings.append(_finding("baseline", "BASE-PUBLISH", "HIGH", name, f"{sloc}.ports",
                                          f"port {spec} is not published on 127.0.0.1"))
-        if not str(svc.get("user") or "").strip():
-            findings.append(_finding("baseline", "BASE-USER", "HIGH", name, f"{loc}#services.{name}", "no user: set (runs as root)"))
+        if _is_root_user(svc.get("user")) and not relaxed(name, "user", sloc):
+            shown = str(svc.get("user") or "").strip() or "(unset)"
+            findings.append(_finding("baseline", "BASE-USER", "HIGH", name, sloc,
+                                     f"user {shown} runs as root and no hardening exception covers it"))
+        if svc.get("read_only") is not True and not relaxed(name, "read_only", sloc):
+            findings.append(_finding("baseline", "BASE-READONLY", "MEDIUM", name, sloc,
+                                     "read_only: true missing and no hardening exception covers it"))
         caps = [str(c).upper() for c in (svc.get("cap_drop") or [])]
         if "ALL" not in caps:
-            findings.append(_finding("baseline", "BASE-CAPDROP", "MEDIUM", name, f"{loc}#services.{name}", "cap_drop must contain ALL"))
+            findings.append(_finding("baseline", "BASE-CAPDROP", "MEDIUM", name, sloc, "cap_drop must contain ALL"))
+        added = [str(c) for c in (svc.get("cap_add") or [])]
+        if added:
+            e = exception_for(name, "cap_add")
+            allowed = {str(c).upper() for c in (e or {}).get("cap_add", [])}
+            extra = [c for c in added if c.upper() not in allowed]
+            if extra or not relaxed(name, "cap_add", sloc):
+                findings.append(_finding("baseline", "BASE-CAPADD", "MEDIUM", name, sloc,
+                                         f"cap_add {', '.join(added)} not covered by a hardening exception"))
+        sec_opts = [str(o) for o in (svc.get("security_opt") or [])]
+        if not any(o.startswith("no-new-privileges") and not o.endswith(":false") for o in sec_opts):
+            findings.append(_finding("baseline", "BASE-NNP", "MEDIUM", name, sloc, "security_opt must contain no-new-privileges:true"))
         if svc.get("privileged") is True:
-            findings.append(_finding("baseline", "BASE-PRIVILEGED", "CRITICAL", name, f"{loc}#services.{name}", "privileged: true is forbidden"))
-    return findings, []
+            findings.append(_finding("baseline", "BASE-PRIVILEGED", "CRITICAL", name, sloc, "privileged: true is forbidden"))
+        missing_limits = [k for k in ("mem_limit", "pids_limit") if not svc.get(k)]
+        if missing_limits:
+            findings.append(_finding("baseline", "BASE-LIMITS", "MEDIUM", name, sloc,
+                                     f"resource limit(s) missing: {', '.join(missing_limits)}"))
+        attached = _network_names(svc.get("networks"))
+        if not attached:
+            findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
+                                     "service is on the default bridge, not on the internal network"))
+        on_internal = any(n in internal for n in attached)
+        for net in attached:
+            if net not in all_nets:
+                findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks", f"network {net} is not defined"))
+            elif net not in internal and not ports and on_internal:
+                findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
+                                         f"attached to non-internal network {net} without publishing a port"))
+        if attached and not on_internal:
+            findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, f"{sloc}.networks",
+                                     "service is not attached to any internal network"))
+        if svc.get("network_mode"):
+            findings.append(_finding("baseline", "BASE-NETWORK", "HIGH", name, sloc, f"network_mode {svc['network_mode']} is forbidden"))
+
+    if env_path is not None:
+        findings.extend(check_env_file(env_path, required_keys))
+    return findings, notes, accepted
 
 
 # --------------------------------------------------------------------------- secrets masking
@@ -352,59 +558,116 @@ def _tool_version(runner: Runner, argv: list[str]) -> str:
     return m.group(0) if m else out.strip().splitlines()[0][:40]
 
 
+def _tool(name: str, version: str, targets: int, problems: list[str]) -> dict:
+    """Tool row of the report. Any problem makes the result `incomplete: ...`, never `ok` (SPEC-03 §8, 51)."""
+    result = "ok" if not problems else "incomplete: " + "; ".join(problems)[:300]
+    return {"name": name, "version": version, "result": result, "targets": targets, "problems": list(problems)}
+
+
+def _safe_name(text: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", text)
+
+
+def compose_images(compose_path: Path) -> list[str]:
+    """Every image the rendered compose file references (project-built and infrastructure), in order."""
+    if not compose_path.exists():
+        return []
+    data, _ = _load_compose(compose_path)
+    if data is None:
+        return []
+    out: list[str] = []
+    for svc in (data.get("services") or {}).values():
+        img = (svc or {}).get("image") if isinstance(svc, dict) else None
+        if isinstance(img, str) and img.strip() and img not in out:
+            out.append(img.strip())
+    return out
+
+
+def integration_checkouts(ctx: Context) -> list[Path]:
+    """runtime/src/<repo>/ directories that build.py cloned (SPEC-03 §4.1: lockfiles live there)."""
+    src = ctx.runtime / "src"
+    if not src.is_dir():
+        return []
+    return sorted(p for p in src.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
 def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
               secrets: list[str] | None = None) -> tuple[list[dict], dict, list[str]]:
+    """Trivy over every compose image, every integration checkout, and this repository.
+
+    A failed SBOM or scan of any target is a finding (SBOM-FAILED / SCAN-FAILED) and marks the tool
+    incomplete; the remaining targets are still scanned so the report is as complete as possible.
+    """
     secrets = secrets or []
     _require(which, "trivy")
     notes: list[str] = []
     findings: list[dict] = []
-    images: list[str] = []
-    if which("docker"):
+    problems: list[str] = []
+    reports = ctx.reports_dir
+    reports.mkdir(parents=True, exist_ok=True)
+
+    images = compose_images(ctx.runtime / "docker-compose.yml")
+    if not images and which("docker"):
         rc, out = runner(["docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}"])
         if rc == 0:
             images = [l.strip() for l in out.splitlines() if l.strip().startswith(IMAGE_PREFIX) and not l.strip().endswith(":<none>")]
-    reports = ctx.reports_dir
-    reports.mkdir(parents=True, exist_ok=True)
-    if images:
-        for img in images:
-            safe = re.sub(r"[^A-Za-z0-9_.-]", "_", img)
-            sbom = reports / f"sbom_{safe}_{ts}.json"
-            rc, _ = runner(["trivy", "image", "--quiet", "--format", "cyclonedx", "--output", str(sbom), img])
-            if rc != 0:
-                notes.append(f"trivy sbom failed for {img} (rc {rc})")
-            rc, out = runner(["trivy", "image", "--quiet", "--format", "json", "--scanners", "vuln", img])
-            data = _json_or_empty(out)
-            if rc != 0 or data is None:
-                raise ScannerMissing("trivy", f"image scan of {img} failed (rc {rc}); vulnerability database download may have failed")
-            _save_raw(ctx, f"trivy_{safe}_{ts}.json", out, secrets)
-            findings.extend(normalize_trivy(data, img))
-    else:
-        notes.append(f"no {IMAGE_PREFIX}* image found; trivy fs scan of the repository instead (SPEC-03 §4.1 M1 scope)")
-        sbom = reports / f"sbom_repo_{ts}.json"
-        rc, _ = runner(["trivy", "fs", "--quiet", "--format", "cyclonedx", "--output", str(sbom), "."])
-        if rc != 0:
-            notes.append(f"trivy sbom of the repository failed (rc {rc})")
-        rc, out = runner(["trivy", "fs", "--quiet", "--format", "json", "--scanners", "vuln,misconfig", "."])
+        if images:
+            notes.append("runtime/docker-compose.yml not rendered; scanned the locally built grdm-dev/* images instead")
+    if not images:
+        notes.append("no compose file and no grdm-dev/* image; image scan skipped (SPEC-03 §4.1 M1 scope)")
+
+    def scan_target(kind: str, target: str, label: str, scanners: str) -> None:
+        safe = _safe_name(label)
+        sbom = reports / f"sbom_{safe}_{ts}.json"
+        rc, out = runner(["trivy", kind, "--quiet", "--format", "cyclonedx", "--output", str(sbom), target])
+        if rc != 0 or not sbom.exists():
+            findings.append(_finding("trivy", "SBOM-FAILED", "HIGH", label, label, f"trivy {kind} SBOM failed (rc {rc})"))
+            problems.append(f"sbom {label} rc {rc}")
+        rc, out = runner(["trivy", kind, "--quiet", "--format", "json", "--scanners", scanners, target])
         data = _json_or_empty(out)
         if rc != 0 or data is None:
-            raise ScannerMissing("trivy", f"fs scan failed (rc {rc}); vulnerability database download may have failed")
-        _save_raw(ctx, f"trivy_repo_{ts}.json", out, secrets)
-        findings.extend(normalize_trivy(data, "."))
-    tool = {"name": "trivy", "version": _tool_version(runner, ["trivy", "--version"]), "result": "ok",
-            "targets": len(images) if images else 1}
-    return findings, tool, notes
+            findings.append(_finding("trivy", "SCAN-FAILED", "HIGH", label, label,
+                                     f"trivy {kind} scan failed (rc {rc}); database download or image access may have failed"))
+            problems.append(f"scan {label} rc {rc}")
+            return
+        _save_raw(ctx, f"trivy_{safe}_{ts}.json", out, secrets)
+        findings.extend(normalize_trivy(data, label))
+
+    for img in images:
+        scan_target("image", img, img, "vuln")
+    checkouts = integration_checkouts(ctx)
+    for d in checkouts:
+        scan_target("fs", str(d), f"src/{d.name}", "vuln,misconfig,secret")
+    if not checkouts:
+        notes.append("no integration checkout under runtime/src/; lockfile scan covers this repository only")
+    scan_target("fs", ".", "repo", "vuln,misconfig")
+    targets = len(images) + len(checkouts) + 1
+    return findings, _tool("trivy", _tool_version(runner, ["trivy", "--version"]), targets, problems), notes
 
 
 def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
                 secrets: list[str] | None = None) -> tuple[list[dict], dict]:
+    """Semgrep with the four SPEC-03 §4.2 packs and --error: rc 1 means findings, rc 0 clean, any other
+    rc or a nonempty `errors` array means the run was incomplete."""
     _require(which, "semgrep")
-    rc, out = runner(["semgrep", "scan", "--config", "p/default", "--json", "--quiet", "."])
+    argv = ["semgrep", "scan"]
+    for pack in SEMGREP_PACKS:
+        argv += ["--config", pack]
+    argv += ["--json", "--quiet", "--metrics=off", "--error", "."]
+    rc, out = runner(argv)
     data = _json_or_empty(out)
+    problems: list[str] = []
     if data is None:
-        raise ScannerMissing("semgrep", f"no JSON output (rc {rc})")
+        problems.append(f"no JSON output (rc {rc})")
+        return [], _tool("semgrep", _tool_version(runner, ["semgrep", "--version"]), len(SEMGREP_PACKS), problems)
     _save_raw(ctx, f"semgrep_{ts}.json", out, secrets or [])
-    return normalize_semgrep(data), {"name": "semgrep", "version": _tool_version(runner, ["semgrep", "--version"]),
-                                     "result": "ok", "targets": 1}
+    if rc not in SEMGREP_OK_CODES:
+        problems.append(f"semgrep exited {rc} (0 clean, 1 findings; other codes mean the run failed)")
+    errors = data.get("errors") if isinstance(data, dict) else None
+    if errors:
+        msgs = [str((e or {}).get("message", e))[:80] for e in errors[:3] if isinstance(e, (dict, str))]
+        problems.append(f"semgrep reported {len(errors)} error(s): " + " | ".join(msgs))
+    return normalize_semgrep(data), _tool("semgrep", _tool_version(runner, ["semgrep", "--version"]), len(SEMGREP_PACKS), problems)
 
 
 def run_gitleaks(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
@@ -417,19 +680,24 @@ def run_gitleaks(ctx: Context, runner: Runner, which: Callable[[str], bool], ts:
     if (ctx.root / ".gitleaks.toml").exists():
         argv[4:4] = ["--config", ".gitleaks.toml"]
     rc, out = runner(argv)
+    problems: list[str] = []
     data = None
     if out_path.exists():
         data = _json_or_empty(out_path.read_text(encoding="utf-8"))
     if data is None:
         data = _json_or_empty(out)
+    if rc != 0:  # --exit-code 0 makes leaks exit 0, so any other code is a failed run
+        problems.append(f"gitleaks exited {rc}")
     if data is None:
-        if rc != 0:
-            raise ScannerMissing("gitleaks", f"rc {rc} and no report")
-        data = []
+        if rc == 0:
+            data = []
+        else:
+            problems.append("no report written")
+            data = []
     findings = mask_secrets(normalize_gitleaks(data), secrets or [])
     # Rewrite the saved report with only the normalized fields: never Secret / Match / Line.
     out_path.write_text(json.dumps(findings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return findings, {"name": "gitleaks", "version": _tool_version(runner, ["gitleaks", "version"]), "result": "ok", "targets": 1}
+    return findings, _tool("gitleaks", _tool_version(runner, ["gitleaks", "version"]), 1, problems)
 
 
 def _compose_services_and_network(compose_path: Path) -> tuple[list[str], str]:
@@ -495,9 +763,10 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
     notes: list[str] = []
     if not targets:
         notes.append("no ZAP target service (web, admin, ember_osf_web) in the compose file; dynamic scan skipped")
-        return [], {"name": "zap", "version": "stable", "result": "skipped", "targets": 0}, notes
+        return [], {"name": "zap", "version": "stable", "result": "skipped", "targets": 0, "problems": []}, notes
     ctx.reports_dir.mkdir(parents=True, exist_ok=True)
     findings: list[dict] = []
+    problems: list[str] = []
     for svc, port in targets.items():
         url = f"http://{svc}:{port}"  # service name, never 127.0.0.1 (SPEC-03 §4.3)
         out_name = f"zap_{svc}_{ts}.json"
@@ -509,23 +778,29 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
         out_path = ctx.reports_dir / out_name
         data = _json_or_empty(out_path.read_text(encoding="utf-8")) if out_path.exists() else _json_or_empty(out)
         if data is None:
-            raise ScannerMissing("zap", f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull may have failed")
+            problems.append(f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull or the scan may have failed")
+            continue
+        if rc not in ZAP_OK_CODES:
+            problems.append(f"zap-baseline exited {rc} for {url}")
         if out_path.exists():
             _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
         findings.extend(normalize_zap(data, url))
-    return findings, {"name": "zap", "version": "stable", "result": "ok", "targets": len(targets)}, notes
+    return findings, _tool("zap", "stable", len(targets), problems), notes
 
 
 # --------------------------------------------------------------------------- gate
 
 def gate_decision(milestone: str, findings: list[dict], allowlisted: list[dict], allow_entries: list[dict],
-                  baseline_failed: bool, allowlist_invalid: bool, count: int, baseline_count: int | None) -> dict[str, Any]:
+                  baseline_failed: bool, allowlist_invalid: bool, count: int, baseline_count: int | None,
+                  manifest_problems: list[str] | None = None) -> dict[str, Any]:
     rule = GATE_BY_MILESTONE.get(milestone, "report-only")
     reasons: list[str] = []
     if baseline_failed:
         reasons.append("baseline control violated (SPEC-03 §3)")
     if allowlist_invalid:
         reasons.append("allow-list entry malformed (SPEC-03 §5.1 rule 1)")
+    if manifest_problems:  # a malformed milestone/allow-list file never silently falls back to M1
+        reasons.append("gate manifest unreadable: " + "; ".join(manifest_problems))
     open_high = [f for f in findings if f["severity"] in ("CRITICAL", "HIGH") and f["tool"] not in ("baseline", "gitleaks", "allowlist")]
     over = 0
     if rule in ("count-not-growing", "fail-high", "zero-critical-high") and baseline_count is not None and count > baseline_count:
@@ -561,23 +836,26 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
     problems += p2 + p3
     milestone = getattr(args, "milestone", None) or str(milestone_data.get("milestone", "M1"))
     if milestone not in MILESTONES:
-        problems.append(f"unknown milestone {milestone!r}; treating as M1")
+        problems.append(f"unknown milestone {milestone!r} in manifest/milestone.json")
         milestone = "M1"
 
     findings: list[dict] = []
     tools: list[dict] = []
     notes: list[str] = list(problems)
+    accepted: list[dict] = []
     baseline_result = "not-run"
     dynamic_unhealthy = False
     missing: ScannerMissing | None = None
 
     try:
         if full or "baseline" in only:
-            bfind, bnotes = check_baseline(ctx.runtime / "docker-compose.yml")
+            compose_path = ctx.runtime / "docker-compose.yml"
+            bfind, bnotes, accepted = check_baseline(compose_path, ctx.root / "manifest" / "hardening.json",
+                                                     ctx.runtime / ".env", today)
             findings.extend(bfind)
             notes.extend(bnotes)
             baseline_result = "pass" if not bfind else "fail"
-            if bnotes and not (ctx.runtime / "docker-compose.yml").exists():
+            if not compose_path.exists():
                 baseline_result = "skipped"
         if full:
             tf, tt, tn = run_trivy(ctx, runner, which, ts, secrets)
@@ -630,10 +908,12 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
             break
     count = len(entries) if isinstance(entries, list) else 0
     baseline_failed = any(f["tool"] in ("baseline", "gitleaks") for f in findings)
-    gate = gate_decision(milestone, open_findings, allowlisted, active, baseline_failed, allowlist_invalid, count, baseline_count)
+    gate = gate_decision(milestone, open_findings, allowlisted, active, baseline_failed, allowlist_invalid, count, baseline_count,
+                         manifest_problems=problems)
 
     by_sev = {s.lower(): sum(1 for f in open_findings if f["severity"] == s) for s in SEVERITIES}
-    if missing is not None:
+    incomplete = [t for t in tools if str(t.get("result", "")).startswith("incomplete")]
+    if missing is not None or incomplete:
         code = exit_codes.SCANNER_UNAVAILABLE
     elif dynamic_unhealthy:
         code = exit_codes.SERVICES_UNHEALTHY
@@ -650,6 +930,7 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
         "host": f"{platform.system().lower()}-{platform.machine().lower()}",
         "parts": sorted(only) if only else ["baseline", "trivy", "semgrep", "gitleaks", "zap"],
         "baseline": baseline_result,
+        "baseline_exceptions": accepted,
         "tools": tools,
         "findings_total": len(open_findings),
         "findings_by_severity": by_sev,
@@ -668,6 +949,8 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
     report.emit(ctx, "scan", data)
     if code == exit_codes.SCANNER_UNAVAILABLE and missing is not None:
         return report.error(ctx, code, f"{missing.tool}: {missing.detail}")
+    if code == exit_codes.SCANNER_UNAVAILABLE:
+        return report.error(ctx, code, "; ".join(f"{t['name']}: {t['result']}" for t in incomplete))
     if code == exit_codes.SERVICES_UNHEALTHY:
         return report.error(ctx, code, "run grdm-dev up / grdm-dev health first")
     if code == exit_codes.SCAN_GATE_FAILED:

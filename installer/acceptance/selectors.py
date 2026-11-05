@@ -26,6 +26,7 @@ API = {
     "node_files": "/v2/nodes/{node_id}/files/osfstorage/",
     "node_wikis": "/v2/nodes/{node_id}/wikis/",
     "node_contributors": "/v2/nodes/{node_id}/contributors/",
+    "institution_users": "/v2/institutions/{institution_id}/users/",  # TODO(M2): confirm the admin-only listing path
 }
 
 WATERBUTLER = {

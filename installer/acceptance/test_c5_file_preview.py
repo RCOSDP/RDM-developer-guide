@@ -2,7 +2,8 @@
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.test_c3_file_upload import upload
+from acceptance.netguard import same_origin
+from acceptance.test_c3_file_upload import download_link, upload
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C5", "File preview")]
 
@@ -17,8 +18,8 @@ def test_c5_file_preview_success(logged_in_page, project, base_url, service_url,
     """An uploaded PDF renders inside the mfr iframe (mfr answers 200 for the render request)."""
     page = logged_in_page
     entity = upload(page.context, service_url("wb"), project, f"c5-{run_id}.pdf", tmp_pdf)
-    mfr_origin = service_url("mfr")
-    with page.expect_response(lambda r: r.url.startswith(mfr_origin) and "/render" in r.url, timeout=90_000) as render:
+    mfr = service_url("mfr")
+    with page.expect_response(lambda r: same_origin(r.url, mfr) and "/render" in r.url, timeout=90_000) as render:
         page.goto(_file_page_url(base_url, project, entity["attributes"]["path"]), wait_until="domcontentloaded")
         page.wait_for_selector(sel.WEB["file_preview_iframe"], timeout=60_000)
     record_property("http_status", render.value.status)
@@ -26,16 +27,13 @@ def test_c5_file_preview_success(logged_in_page, project, base_url, service_url,
 
 
 @pytest.mark.case("rejection")
-def test_c5_file_preview_rejection(logged_in_page, project, service_url, tmp_pdf, run_id, playwright, record_property):
+def test_c5_file_preview_rejection(logged_in_page, project, service_url, tmp_pdf, run_id, api_context, record_property):
     """The preview URL of a private file without a session -> 401/403."""
     page = logged_in_page
-    entity = upload(page.context, service_url("wb"), project, f"c5-private-{run_id}.pdf", tmp_pdf)
-    file_url = entity["links"]["download"] if "links" in entity else service_url("wb") + sel.WATERBUTLER["download"].format(
-        node_id=project, path=entity["attributes"]["path"])
-    anon = playwright.request.new_context()
-    try:
-        resp = anon.get(service_url("mfr") + sel.MFR["render"].format(file_url=file_url))
-        record_property("http_status", resp.status)
-        assert resp.status in (401, 403), f"anonymous preview returned {resp.status}"
-    finally:
-        anon.dispose()
+    wb = service_url("wb")
+    entity = upload(page.context, wb, project, f"c5-private-{run_id}.pdf", tmp_pdf)
+    file_url = download_link(entity, wb, project)
+    anon = api_context()
+    resp = anon.get(service_url("mfr") + sel.MFR["render"].format(file_url=file_url))
+    record_property("http_status", resp.status)
+    assert resp.status in (401, 403), f"anonymous preview returned {resp.status}"

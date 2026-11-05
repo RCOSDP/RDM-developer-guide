@@ -4,7 +4,13 @@ Everything the tests need to know about the environment arrives through environm
 `grdm-dev accept` sets (GRDM_BASE_URL, GRDM_RUN_ID, GRDM_ENV_FILE, GRDM_ACCEPT_RESULTS,
 GRDM_ACCEPT_USER_A/B, GRDM_ACCEPT_ADMIN) or through pytest's own --base-url option. Nothing else on
 the host is read (SPEC-04 §6). Hooks here enforce the per-test and per-suite time boxes, block every
-request that would leave 127.0.0.1, and write collector.json for results.json.
+request that would leave 127.0.0.1 (browser requests, WebSockets, service workers and API request
+contexts alike), and write collector.json for results.json.
+
+Network rule (SPEC-04 §3.4): a test never touches `playwright.request.new_context()`,
+`browser.new_context()` or `<context>.request` directly. It asks for the `api_context`,
+`new_context` fixtures or wraps a context with `api(context)`, so every URL is checked with
+`netguard.is_loopback_origin` before it is sent and after it is answered.
 """
 from __future__ import annotations
 
@@ -16,19 +22,20 @@ import signal
 import time
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlparse
 
 import pytest
 
 from acceptance import selectors as sel
+from acceptance.netguard import HTTP_SCHEMES, WS_SCHEMES, is_loopback_origin
 
 TEST_TIMEOUT_S = 120          # SPEC-04 §3.3
 SUITE_TIMEOUT_S = 30 * 60
-LOOPBACK_HOSTS = {"127.0.0.1"}
 DEFAULT_PORTS = {"WEB": 5000, "API": 8000, "ADMIN": 8001, "WB": 7777, "MFR": 7778, "FAKECAS": 8080, "EMBER_OSF_WEB": 4200}
 
 _SESSION_START = time.monotonic()
 _RESULTS: dict[str, dict[str, Any]] = {}
+# Every non-loopback URL any guard saw during the session; the autouse guard fails the test on it.
+_OFFENDERS: list[str] = []
 
 
 # --- environment ---------------------------------------------------------------------------------
@@ -46,8 +53,7 @@ def _read_env_file(path: str | None) -> dict[str, str]:
 
 
 def _assert_loopback(url: str) -> str:
-    host = urlparse(url).hostname
-    if host not in LOOPBACK_HOSTS:
+    if not is_loopback_origin(url, HTTP_SCHEMES):
         pytest.fail(f"refusing non-loopback URL {url!r}: acceptance tests never leave this machine (ADR-02)")
     return url.rstrip("/")
 
@@ -131,30 +137,135 @@ def tmp_pdf(run_id) -> bytes:
     return body + b"%" * max(0, 1024 - len(body) - 1) + b"\n"
 
 
-# --- browser helpers -----------------------------------------------------------------------------
+# --- network guard (SPEC-04 §3.4) ----------------------------------------------------------------
 
-def guard_context(context, offenders: list[str]) -> None:
-    """Abort any request whose host is not loopback and remember it (SPEC-04 §3.4)."""
+class GuardedRequest:
+    """Wraps a Playwright APIRequestContext: every URL is checked before sending, redirects are not
+    followed unless the caller passes `max_redirects`, and the answered URL is checked as well.
+
+    Attribute access other than the HTTP verbs is delegated (dispose, storage_state, ...).
+    """
+
+    VERBS = ("get", "post", "put", "patch", "delete", "head", "fetch")
+
+    def __init__(self, request_context, offenders: list[str] | None = None):
+        self._rc = request_context
+        self._offenders = offenders if offenders is not None else _OFFENDERS
+
+    def _refuse(self, url: str, why: str) -> None:
+        self._offenders.append(url)
+        pytest.fail(f"{why}: {url!r} is not http://127.0.0.1:<port> (SPEC-04 §3.4, ADR-02)")
+
+    def _call(self, verb: str, url: str, **kwargs):
+        if not isinstance(url, str) or not is_loopback_origin(url, HTTP_SCHEMES):
+            self._refuse(str(url), f"refusing API {verb.upper()}")
+        kwargs.setdefault("max_redirects", 0)
+        resp = getattr(self._rc, verb)(url, **kwargs)
+        if not is_loopback_origin(resp.url, HTTP_SCHEMES):
+            self._refuse(resp.url, f"API {verb.upper()} {url!r} was answered from another origin")
+        return resp
+
+    def __getattr__(self, name: str):
+        if name in self.VERBS:
+            return lambda url, **kw: self._call(name, url, **kw)
+        return getattr(self._rc, name)
+
+
+def api(context) -> GuardedRequest:
+    """api(browser_context) -> guarded view of `context.request` (session cookies included)."""
+    if isinstance(context, GuardedRequest):
+        return context
+    return GuardedRequest(context.request)
+
+
+def guard_context(context, offenders: list[str] | None = None) -> None:
+    """Abort any browser request, WebSocket or service worker that would leave loopback and remember
+    it (SPEC-04 §3.4). Installed on the context *and* on every page it opens."""
+    seen = offenders if offenders is not None else _OFFENDERS
+
     def _route(route):
-        host = urlparse(route.request.url).hostname
-        if host in LOOPBACK_HOSTS:
+        if is_loopback_origin(route.request.url, HTTP_SCHEMES):
             route.continue_()
         else:
-            offenders.append(route.request.url)
+            seen.append(route.request.url)
             route.abort("blockedbyclient")
+
+    def _ws_route(ws):
+        if is_loopback_origin(ws.url, WS_SCHEMES):
+            ws.connect_to_server()  # frames are forwarded unchanged when no handlers are installed
+        else:
+            seen.append(ws.url)
+            ws.close(code=1008, reason="blocked: non-loopback websocket")
+
+    def _network_url(url: str) -> bool:
+        return url.split(":", 1)[0].lower() in ("http", "https", "ws", "wss")  # blob:/data: workers are local
+
+    def _watch_page(page):
+        page.route("**/*", _route)
+        page.on("websocket", lambda ws: None if is_loopback_origin(ws.url, WS_SCHEMES) else seen.append(ws.url))
+        page.on("worker", lambda w: seen.append(w.url) if _network_url(w.url) and not is_loopback_origin(w.url, HTTP_SCHEMES) else None)
+
     context.route("**/*", _route)
+    if hasattr(context, "route_web_socket"):
+        context.route_web_socket("**/*", _ws_route)
+    context.on("serviceworker", lambda w: seen.append(w.url))  # blocked by browser_context_args too
+    context.on("page", _watch_page)
+    for page in context.pages:
+        _watch_page(page)
+
+
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args):
+    """pytest-playwright's context arguments plus: service workers never run (they could bypass routes)."""
+    return {**browser_context_args, "service_workers": "block"}
 
 
 @pytest.fixture(autouse=True)
 def external_guard(request):
-    """Attach the loopback guard to the default `context` fixture when a test uses it."""
+    """Attach the loopback guard to the default `context` fixture when a test uses it; fail the test
+    if any guard (browser, websocket, API) saw a URL that would have left the machine."""
     offenders: list[str] = []
+    before = len(_OFFENDERS)
     if "context" in request.fixturenames:
         guard_context(request.getfixturevalue("context"), offenders)
     yield offenders
+    offenders.extend(_OFFENDERS[before:])
     if offenders:
-        pytest.fail(f"request(s) left the machine: {offenders[:5]}")
+        pytest.fail(f"request(s) would have left the machine: {offenders[:5]}")
 
+
+@pytest.fixture
+def new_context(browser, browser_context_args, external_guard):
+    """new_context() -> a fresh, guarded browser context (own cookies); all are closed in teardown."""
+    created = []
+
+    def _new(**overrides):
+        ctx = browser.new_context(**{**browser_context_args, **overrides, "service_workers": "block"})
+        guard_context(ctx, external_guard)
+        created.append(ctx)
+        return ctx
+
+    yield _new
+    for ctx in created:
+        ctx.close()
+
+
+@pytest.fixture
+def api_context(playwright, external_guard):
+    """api_context() -> a guarded, cookie-less APIRequestContext (the anonymous caller); disposed in teardown."""
+    created = []
+
+    def _new(**kwargs) -> GuardedRequest:
+        rc = playwright.request.new_context(**kwargs)
+        created.append(rc)
+        return GuardedRequest(rc, external_guard)
+
+    yield _new
+    for rc in created:
+        rc.dispose()
+
+
+# --- browser helpers -----------------------------------------------------------------------------
 
 @pytest.fixture
 def login(base_url, service_url):
@@ -177,17 +288,17 @@ def logged_in_page(page, login, user_a):
 
 
 @pytest.fixture
-def two_contexts(browser, external_guard):
+def context_b(new_context, login, user_b):
+    """A second guarded browser context signed in as user_b (the non-contributor / second person)."""
+    ctx = new_context()
+    login(ctx.new_page(), user_b)
+    return ctx
+
+
+@pytest.fixture
+def two_contexts(new_context):
     """Two independent browser contexts (own cookies) for C4; both guarded, both closed."""
-    a = browser.new_context()
-    b = browser.new_context()
-    guard_context(a, external_guard)
-    guard_context(b, external_guard)
-    try:
-        yield a.new_page(), b.new_page()
-    finally:
-        a.close()
-        b.close()
+    return new_context().new_page(), new_context().new_page()
 
 
 def csrf_headers(context) -> dict[str, str]:
@@ -198,13 +309,33 @@ def csrf_headers(context) -> dict[str, str]:
     return {}
 
 
+def user_id_of(context, api_url: str) -> str:
+    """The API id of the user signed in to `context`."""
+    me = api(context).get(api_url + sel.API["me"])
+    assert me.status == 200, f"GET {sel.API['me']} answered {me.status}"
+    return me.json()["data"]["id"]
+
+
 @pytest.fixture
 def api_write():
     """api_write(context, method, url, json) -> response, using the context's session cookies."""
     def _write(context, method: str, url: str, data: dict | None = None):
         headers = {"Content-Type": "application/vnd.api+json", **csrf_headers(context)}
-        return getattr(context.request, method.lower())(url, data=json.dumps(data) if data is not None else None, headers=headers)
+        return getattr(api(context), method.lower())(url, data=json.dumps(data) if data is not None else None, headers=headers)
     return _write
+
+
+@pytest.fixture
+def add_contributor(api_url, api_write):
+    """add_contributor(owner_context, node_id, user_id, permission) -> adds a contributor; asserts 201."""
+    def _add(owner_ctx, node_id: str, user_id: str, permission: str):
+        resp = api_write(owner_ctx, "POST", api_url + sel.API["node_contributors"].format(node_id=node_id), {
+            "data": {"type": "contributors", "attributes": {"permission": permission, "bibliographic": False},
+                     "relationships": {"users": {"data": {"type": "users", "id": user_id}}}}
+        })
+        assert resp.status == 201, f"adding {permission} contributor failed: {resp.status} {resp.text()[:200]}"
+        return resp
+    return _add
 
 
 @pytest.fixture

@@ -146,6 +146,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "target_image": ("MC-01", "str|null-map"),
     "profile": ("MC-10", "str"),
     "platforms": ("MC-10", "list[str]"),
+    "build_platform": ("MC-10", "str|null"),
     "note": ("MC-01", "str|null"),
 }
 STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {

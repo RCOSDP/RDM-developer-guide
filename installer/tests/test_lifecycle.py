@@ -103,12 +103,13 @@ class LifecycleTests(unittest.TestCase):
         down = [c for c in runner.calls if "down" in c][0]
         self.assertIn("--volumes", down)
 
-    def test_running_services_and_restart_helpers(self):
+    def test_running_services_and_recreate_helpers(self):
         ctx = Context(root=self.root, stdin_is_tty=False)
         runner = make_runner(json.dumps([{"Service": "web", "State": "running"}, {"Service": "api", "State": "exited"}]))
         self.assertEqual(lifecycle.running_services(ctx, runner=runner), ["web"])
-        self.assertEqual(lifecycle.restart(ctx, ["web"], runner=runner), 0)
-        self.assertEqual(runner.calls[-1][-2:], ["restart", "web"])
+        self.assertEqual(lifecycle.recreate(ctx, runner=runner), 0)
+        self.assertEqual(runner.calls[-1][6:], ["up", "-d", "--force-recreate", "--remove-orphans"])
+        self.assertFalse(hasattr(lifecycle, "restart"))  # restart keeps the old environment: not offered
 
     def test_missing_compose_is_usage_error(self):
         (self.root / "runtime" / "docker-compose.yml").unlink()

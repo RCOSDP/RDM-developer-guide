@@ -2,6 +2,8 @@
 import pytest
 
 from acceptance import selectors as sel
+from acceptance.conftest import api, user_id_of
+from acceptance.netguard import same_origin
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C2", "Create project")]
 
@@ -16,45 +18,33 @@ def test_c2_create_project_success(logged_in_page, base_url, api_url, api_write,
     page.fill(sel.WEB["create_project_title"], title)
     page.click(sel.WEB["create_project_submit"])
     # TODO(M2): confirm the modal navigates to /<node_id>/ (legacy UI shows a "Go to new project" link).
-    page.wait_for_url(lambda url: url.startswith(base_url) and "/dashboard" not in url, timeout=60_000)
+    page.wait_for_url(lambda url: same_origin(url, base_url) and "/dashboard" not in url, timeout=60_000)
     page.wait_for_selector(f"text={title}", timeout=30_000)
 
     node_id = page.url.rstrip("/").rsplit("/", 1)[-1]
-    me = page.context.request.get(api_url + sel.API["node"].format(node_id=node_id))
+    me = api(page.context).get(api_url + sel.API["node"].format(node_id=node_id))
     record_property("http_status", me.status)
     try:
         assert me.status == 200
         attrs = me.json()["data"]["attributes"]
         assert attrs["title"] == title
-        assert attrs.get("current_user_permissions", ["admin"])[0] == "admin"
+        # Contract: the creator is admin. An API shape without current_user_permissions is a failure,
+        # never a pass by default.
+        assert "current_user_permissions" in attrs, f"node attributes lack current_user_permissions: {sorted(attrs)}"
+        assert "admin" in attrs["current_user_permissions"], f"creator is not admin: {attrs['current_user_permissions']}"
     finally:
         api_write(page.context, "DELETE", api_url + sel.API["node"].format(node_id=node_id))
 
 
 @pytest.mark.case("rejection")
-def test_c2_create_project_rejection(logged_in_page, project, browser, login, user_b, api_url, api_write,
-                                     external_guard, record_property):
-    """A read-only contributor (user_b) PATCHing the project -> 403."""
-    from acceptance.conftest import guard_context
-
+def test_c2_create_project_rejection(logged_in_page, project, context_b, api_url, api_write, add_contributor, record_property):
+    """A second user, read-only contributor (user_b), PATCHing the project -> 403."""
     a_ctx = logged_in_page.context
-    # user_a adds user_b as read-only contributor. TODO(M2): confirm payload (users relationship by id).
-    b_ctx = browser.new_context()
-    guard_context(b_ctx, external_guard)
-    try:
-        b_page = b_ctx.new_page()
-        login(b_page, user_b)
-        b_id = b_ctx.request.get(api_url + sel.API["me"]).json()["data"]["id"]
-        added = api_write(a_ctx, "POST", api_url + sel.API["node_contributors"].format(node_id=project), {
-            "data": {"type": "contributors", "attributes": {"permission": "read", "bibliographic": False},
-                     "relationships": {"users": {"data": {"type": "users", "id": b_id}}}}
-        })
-        assert added.status == 201, f"adding contributor failed: {added.status} {added.text()[:200]}"
+    # TODO(M2): confirm the contributors payload (users relationship by id) on the real API.
+    add_contributor(a_ctx, project, user_id_of(context_b, api_url), "read")
 
-        resp = api_write(b_ctx, "PATCH", api_url + sel.API["node"].format(node_id=project), {
-            "data": {"type": "nodes", "id": project, "attributes": {"title": "renamed by read-only user"}}
-        })
-        record_property("http_status", resp.status)
-        assert resp.status == 403, f"expected 403, got {resp.status}"
-    finally:
-        b_ctx.close()
+    resp = api_write(context_b, "PATCH", api_url + sel.API["node"].format(node_id=project), {
+        "data": {"type": "nodes", "id": project, "attributes": {"title": "renamed by read-only user"}}
+    })
+    record_property("http_status", resp.status)
+    assert resp.status == 403, f"expected 403, got {resp.status}"

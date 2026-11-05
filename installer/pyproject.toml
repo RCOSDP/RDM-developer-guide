@@ -19,8 +19,15 @@ docs = ["mkdocs==1.6.1", "mkdocs-material==9.5.37", "pymdown-extensions==10.12"]
 grdm-dev = "grdm_dev.cli:main"
 
 [tool.setuptools]
-packages = ["grdm_dev"]
+# The acceptance suite ships inside the wheel (SPEC-04 §1 keeps it at installer/acceptance/ in the
+# checkout); grdm_dev.accept resolves it from the installed package first, the checkout second.
+packages = ["grdm_dev", "acceptance"]
 include-package-data = true
+
+[tool.setuptools.package-dir]
+grdm_dev = "grdm_dev"
+acceptance = "acceptance"
 
 [tool.setuptools.package-data]
 grdm_dev = ["messages.tsv", "templates/*.json"]
+acceptance = ["pytest.ini", "README.md"]

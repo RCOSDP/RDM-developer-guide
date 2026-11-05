@@ -17,7 +17,24 @@ COMPOSE = {
     }
 }
 
-PS_OK = "\n".join(json.dumps({"Service": s, "State": "running", "Health": "healthy"}) for s in ("web", "api", "postgres"))
+def ps_row(service, host_ip="127.0.0.1"):
+    row = {"Service": service, "Name": f"grdm-dev-{service}-1", "State": "running", "Health": "healthy", "Publishers": []}
+    if service in ("web", "api"):
+        port = 5000 if service == "web" else 8000
+        row["Publishers"] = [{"URL": host_ip, "TargetPort": port, "PublishedPort": port, "Protocol": "tcp"}]
+    return row
+
+
+PS_OK = "\n".join(json.dumps(ps_row(s)) for s in ("web", "api", "postgres"))
+PS_PUBLISH_ANY = json.dumps([ps_row("web", host_ip="0.0.0.0"), ps_row("api"), ps_row("postgres")])
+
+
+def inspect_ports(name, host_ip="127.0.0.1"):
+    port = {"grdm-dev-web-1": "5000", "grdm-dev-api-1": "8000"}.get(name)
+    if not port:
+        return "{}"
+    return json.dumps({f"{port}/tcp": [{"HostIp": host_ip, "HostPort": port}]})
+
 PS_BAD = json.dumps([
     {"Service": "web", "State": "running", "Health": "healthy"},
     {"Service": "api", "State": "exited", "Health": ""},
@@ -39,15 +56,28 @@ LISTEN 0      4096   0.0.0.0:5000        0.0.0.0:*     users:(("docker-proxy",pi
 LISTEN 0      4096   127.0.0.1:8000      0.0.0.0:*     users:(("docker-proxy",pid=98,fd=4))
 LISTEN 0      128    0.0.0.0:22          0.0.0.0:*     users:(("sshd",pid=1,fd=3))
 """
+# unprivileged `ss -ltnp`: a root-owned docker-proxy socket shows no process field at all
+SS_NO_PROCESS = """State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process
+LISTEN 0      4096   0.0.0.0:5000        0.0.0.0:*
+LISTEN 0      4096   127.0.0.1:8000      0.0.0.0:*
+LISTEN 0      128    0.0.0.0:22          0.0.0.0:*
+"""
+SS_OK = """State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process
+LISTEN 0      4096   127.0.0.1:5000      0.0.0.0:*
+LISTEN 0      4096   127.0.0.1:8000      0.0.0.0:*
+LISTEN 0      128    0.0.0.0:22          0.0.0.0:*     users:(("sshd",pid=1,fd=3))
+"""
 
 
-def make_runner(ps_output, sockets_output="", ps_rc=0):
+def make_runner(ps_output, sockets_output="", ps_rc=0, inspect_host_ip="127.0.0.1", inspect_rc=0):
     calls = []
 
     def runner(argv):
         calls.append(argv)
         if argv[:2] == ["docker", "compose"]:
             return ps_rc, ps_output
+        if argv[:2] == ["docker", "inspect"]:
+            return inspect_rc, inspect_ports(argv[-1], inspect_host_ip) if inspect_rc == 0 else ""
         if argv[0] in ("lsof", "ss"):
             return 0, sockets_output
         return 1, ""
@@ -112,8 +142,52 @@ class HealthTests(unittest.TestCase):
         runner = make_runner(PS_OK, SS_BAD)
         self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
         self.assertIn(["ss", "-ltnp"], runner.calls)
-        _, bad, _ = health.check_network(runner, "Linux")
-        self.assertEqual([(s["address"], s["port"]) for s in bad], [("0.0.0.0", "5000")])
+        _, problems = health.check_network(self.ctx, runner, "Linux")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("0.0.0.0:5000", problems[0])
+
+    # ---- fail closed (review PR #21 finding 3)
+
+    def test_network_project_port_without_process_field_is_40(self):
+        runner = make_runner(PS_OK, SS_NO_PROCESS)
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
+        err = self.err.getvalue()
+        self.assertIn("0.0.0.0:5000", err)
+        self.assertIn("owner not visible", err)
+        self.assertNotIn(":22", err)  # sshd on a non-project port is not ours to judge
+
+    def test_network_inspect_host_ip_any_is_40(self):
+        runner = make_runner(PS_OK, SS_OK, inspect_host_ip="0.0.0.0")
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
+        self.assertIn("inspect", self.err.getvalue())
+        self.assertIn("0.0.0.0:5000", self.err.getvalue())
+        self.assertTrue(any(c[:2] == ["docker", "inspect"] and c[-1] == "grdm-dev-web-1" for c in runner.calls))
+
+    def test_network_compose_ps_publisher_any_is_40(self):
+        runner = make_runner(PS_PUBLISH_ANY, SS_OK)
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
+        self.assertIn("web publishes 0.0.0.0:5000 (ps", self.err.getvalue())
+
+    def test_network_all_loopback_is_0_on_linux(self):
+        runner = make_runner(PS_OK, SS_OK)
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.OK)
+        self.assertIn("loopback_only: true", self.out.getvalue())
+        self.assertNotIn("sshd", self.out.getvalue())
+
+    def test_network_inspect_failure_is_40(self):
+        runner = make_runner(PS_OK, SS_OK, inspect_rc=1)
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
+        self.assertIn("docker inspect", self.err.getvalue())
+
+    def test_network_ss_failure_is_40(self):
+        def runner(argv):
+            if argv[:2] == ["docker", "compose"]:
+                return 0, PS_OK
+            if argv[:2] == ["docker", "inspect"]:
+                return 0, inspect_ports(argv[-1])
+            return 2, ""
+        self.assertEqual(self.run_cmd(True, runner, system="Linux"), exit_codes.HEALTH_FAILED)
+        self.assertIn("ss exited 2", self.err.getvalue())
 
     def test_missing_compose_is_usage_error(self):
         (self.root / "runtime" / "docker-compose.yml").unlink()

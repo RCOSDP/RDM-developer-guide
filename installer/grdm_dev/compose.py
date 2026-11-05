@@ -2,14 +2,34 @@
 
 Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to every service:
 
-* one bridge network `grdm`; services address each other by Compose service name (ADR-02 §3.1);
+* two networks (SPEC-03 §3.2, ADR-02 §3.1):
+  - `grdm` is `internal: true` and carries every service-to-service call; services address each
+    other by Compose service name. An internal network has no route to the host's interfaces, the
+    LAN or the Internet, so a compromised container cannot call home from it.
+  - `grdm-edge` is a plain bridge attached only to the services that publish a port on 127.0.0.1
+    (web, api, admin, wb, mfr, ember_osf_web, fakecas): Docker cannot publish a port from an
+    internal network, and the browser must reach exactly those services. Nothing else joins it.
+  Egress is therefore NOT available on `grdm`. A service that must reach the Internet (for example
+  an external storage provider while developing an add-on in waterbutler, or a package index at
+  run time) has no route unless it is attached to `grdm-edge` explicitly with
+  `compose render --egress <service>[,<service>...]`. The choice is recorded in runtime/.env as
+  `GRDM_EGRESS_SERVICES` (so `scan --baseline` and the install report can show it), is kept on
+  later renders, and is cleared with `--egress none`. Publishing services are on `grdm-edge`
+  anyway, so they always have egress; the flag matters for the others.
 * ports only as `127.0.0.1:<host>:<container>`; host ports from the SPEC-02 §4 table, overridden by
-  `GRDM_PORT_<SERVICE>` in runtime/.env, remapped to the next free port on collision (exit 12 when
-  none is free within +100); every chosen port is written back to runtime/.env;
+  `GRDM_PORT_<SERVICE>` in runtime/.env. Before choosing, the bindings of the project's own running
+  containers are read (`docker compose ps --format json`) and kept: a port that our own service
+  already publishes is not a collision (review PR #21 finding 10). Only a port held by another
+  process moves to the next free one (exit 12 when none is free within +100); every decision is
+  logged in the report (`port_decisions`) and every chosen port is written back to runtime/.env;
 * `user:` non-root (uid from the template), `read_only: true` with explicit `tmpfs`/volumes,
   `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `mem_limit`/`cpus`/`pids_limit`
   scaled from the detected memory (argument; default 16 GiB), `platform:` from the argument or
   host detection; per-service exceptions come from manifest/hardening.json (SPEC-03 §3.3);
+* `platform:` is the argument or the detected host platform, except for a service whose manifest
+  component carries `build_platform` (SPEC-01; e.g. mfr, ember-osf-web, cas-overlay on
+  "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
+  under emulation on an arm64 host;
 * named volumes are local bind volumes under runtime/volumes/<name>;
 * secrets never enter generated files: the compose file references `${KEY}` and Compose reads
   runtime/.env (same directory) at `up`; `secrets init` must have run (exit 2 otherwise).
@@ -49,7 +69,10 @@ from .plan import (
     volumes_of,
 )
 
-NETWORK = "grdm"
+NETWORK = "grdm"               # internal: true — service-to-service only, no egress
+EDGE_NETWORK = "grdm-edge"     # plain bridge — only services that publish a port on 127.0.0.1 (+ --egress)
+EGRESS_ENV_KEY = "GRDM_EGRESS_SERVICES"
+EGRESS_NONE = "none"
 PROJECT_NAME = "grdm-dev"
 COMPOSE_FILE = "docker-compose.yml"
 CONFIG_DIR = "config"
@@ -90,6 +113,9 @@ def register(subparsers) -> None:
     r.add_argument("--platform", help="Compose platform, e.g. linux/arm64 (default: detected host)")
     r.add_argument("--memory-gib", type=float, help="host memory to scale resource limits from (default: detected, else 16)")
     r.add_argument("--cpus", type=float, help="host CPUs to scale cpu limits from (default: detected, else 4)")
+    r.add_argument("--egress", metavar="SERVICES",
+                   help=f"comma-separated services to attach to {EDGE_NETWORK} so they can reach the Internet "
+                        f"(default: the value of {EGRESS_ENV_KEY} in runtime/.env; `{EGRESS_NONE}` clears it)")
     p.set_defaults(_module=sys.modules[__name__])
 
 
@@ -124,21 +150,66 @@ def default_port_checker(port: int) -> bool:
             return False
 
 
-def assign_ports(rows: list[dict[str, Any]], checker: PortChecker) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    """Remap busy ports to the next free one. Returns (rows, remapped, unresolved)."""
+def current_bindings(ctx: Context, runner) -> dict[str, int]:
+    """Host ports the project's own running containers publish right now: {service: host_port}.
+
+    Read from `docker compose ps --format json` (Publishers[].PublishedPort). {} when the compose
+    file does not exist yet, Docker is unavailable, or the output is unreadable: nothing is then
+    treated as owned and the free-port check alone decides.
+    """
+    from . import health  # lazy: health is a sibling command module
+
+    if not health.compose_path(ctx).exists():
+        return {}
+    try:
+        rc, out = runner(health.compose_base(ctx) + ["ps", "--format", "json"])
+    except Exception:  # noqa: BLE001 - a broken docker must not stop rendering
+        return {}
+    if rc != 0:
+        return {}
+    owned: dict[str, int] = {}
+    for service, info in health.parse_ps(out).items():
+        for pub in info.get("Publishers") or []:
+            try:
+                port = int(pub.get("PublishedPort") or 0)
+            except (TypeError, ValueError):
+                continue
+            if port > 0 and service not in owned:
+                owned[service] = port
+    return owned
+
+
+def assign_ports(
+    rows: list[dict[str, Any]], checker: PortChecker, owned: dict[str, int] | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    """Keep ports our own running containers hold; move only ports held by other processes.
+
+    Returns (rows, decisions, unresolved). A decision row is {service, wanted, chosen, reason}
+    with reason `kept-own-binding` (our running container already publishes it), `free`,
+    or `remapped-foreign-listener` (another process holds the wanted port).
+    """
+    owned = owned or {}
     taken: set[int] = set()
-    remapped: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
     unresolved: list[str] = []
     out: list[dict[str, Any]] = []
     for row in rows:
         wanted = int(row["host_port"])
+        own = owned.get(row["service"])
         chosen = None
-        for cand in range(wanted, wanted + PORT_SEARCH_RANGE + 1):
-            if cand in taken or cand > 65535:
-                continue
-            if checker(cand):
-                chosen = cand
-                break
+        reason = "free"
+        if own and own not in taken:
+            # Our own container publishes `own`; the port is busy because of us, not a foreign process.
+            chosen, reason = own, "kept-own-binding"
+        else:
+            for cand in range(wanted, wanted + PORT_SEARCH_RANGE + 1):
+                if cand in taken or cand > 65535:
+                    continue
+                if checker(cand):
+                    chosen = cand
+                    break
+            if chosen is not None and chosen != wanted:
+                reason = "remapped-foreign-listener"
         if chosen is None:
             unresolved.append(row["service"])
             out.append(row)
@@ -147,11 +218,31 @@ def assign_ports(rows: list[dict[str, Any]], checker: PortChecker) -> tuple[list
         new = dict(row)
         new["host_port"] = chosen
         new["url"] = f"http://{LOOPBACK}:{chosen}"
-        if chosen != wanted:
+        if reason == "kept-own-binding":
+            new["source"] = "running"
+        elif reason == "remapped-foreign-listener":
             new["source"] = "remapped"
-            remapped.append({"service": row["service"], "wanted": wanted, "chosen": chosen})
+        decisions.append({"service": row["service"], "wanted": wanted, "chosen": chosen, "reason": reason})
         out.append(new)
-    return out, remapped, unresolved
+    return out, decisions, unresolved
+
+
+def parse_egress(raw: str | None, services: list[str]) -> list[str]:
+    """Normalize a comma-separated --egress / GRDM_EGRESS_SERVICES value against the profile's services.
+
+    Unknown names raise ValueError (exit 2 upstream); `none`/empty clears the list.
+    """
+    if not raw or raw.strip().lower() == EGRESS_NONE:
+        return []
+    names: list[str] = []
+    for part in raw.split(","):
+        name = part.strip()
+        if not name or name in names:
+            continue
+        if name not in services:
+            raise ValueError(f"--egress: {name!r} is not a service of this profile (choose from {', '.join(services)})")
+        names.append(name)
+    return names
 
 
 def host_port_map(env: dict[str, str], rows: list[dict[str, Any]]) -> dict[str, int]:
@@ -228,13 +319,17 @@ def render_service(
     hardening: dict[str, dict[str, Any]],
     resources: dict[str, Any],
     platform_string: str,
+    egress: set[str] | None = None,
+    service_platform: str | None = None,
 ) -> dict[str, Any]:
+    egress = egress or set()
     tpl = substitute(svc.template, host_ports, container_ports)
     exc = hardening.get(svc.name, {})
     relaxed = set(exc.get("controls", []))
     out: dict[str, Any] = {"image": svc.image}
-    if platform_string and platform_string != "unknown":
-        out["platform"] = platform_string
+    plat = service_platform or platform_string  # manifest build_platform wins over the host platform
+    if plat and plat != "unknown":
+        out["platform"] = plat
     if "command" in tpl:
         out["command"] = tpl["command"]
     if "user" not in relaxed:
@@ -262,7 +357,9 @@ def render_service(
     deps = [d for d in tpl.get("depends_on", []) if d in in_profile]
     if deps:
         out["depends_on"] = deps
-    out["networks"] = [NETWORK]
+    # grdm (internal) for every service; grdm-edge only where a port is published or egress was granted.
+    on_edge = svc.name in published or svc.name in egress
+    out["networks"] = [NETWORK, EDGE_NETWORK] if on_edge else [NETWORK]
     out["restart"] = tpl.get("restart", "unless-stopped")
     out["init"] = True
     out.update(resources)
@@ -270,6 +367,7 @@ def render_service(
         "org.gakunin-rdm.component": svc.component,
         "org.gakunin-rdm.profile": svc.profile,
         "org.gakunin-rdm.hardening-exception": ",".join(sorted(relaxed)) if relaxed else "none",
+        "org.gakunin-rdm.egress": "explicit" if svc.name in egress else "published" if svc.name in published else "none",
     }
     return out
 
@@ -284,7 +382,11 @@ def render_compose(
     memory_gib: float,
     cpus: float,
     platform_string: str,
+    egress: list[str] | None = None,
+    service_platforms: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    egress = list(egress or [])
+    service_platforms = service_platforms or {}
     in_profile = {s.name for s in services}
     container_ports = {s.name: int(s.template.get("container_port", DEFAULT_PORTS.get(s.name, 0))) for s in services}
     for name, port in DEFAULT_PORTS.items():
@@ -300,6 +402,8 @@ def render_compose(
             hardening=hardening,
             resources=resources[svc.name],
             platform_string=platform_string,
+            egress=set(egress),
+            service_platform=service_platforms.get(svc.name),
         )
         for svc in services
     }
@@ -312,8 +416,18 @@ def render_compose(
     }
     return {
         "name": PROJECT_NAME,
-        "x-grdm-dev": {"generated": GENERATED_HEADER, "network_model": "ADR-02", "memory_gib": memory_gib, "cpus": cpus},
-        "networks": {NETWORK: {"driver": "bridge", "name": f"{PROJECT_NAME}_{NETWORK}"}},
+        "x-grdm-dev": {
+            "generated": GENERATED_HEADER,
+            "network_model": "ADR-02",
+            "memory_gib": memory_gib,
+            "cpus": cpus,
+            "egress_services": egress,
+        },
+        # `grdm` first: scan --dynamic attaches ZAP to the first network and must reach services by name.
+        "networks": {
+            NETWORK: {"driver": "bridge", "internal": True, "name": f"{PROJECT_NAME}_{NETWORK}"},
+            EDGE_NETWORK: {"driver": "bridge", "name": f"{PROJECT_NAME}_{EDGE_NETWORK}"},
+        },
         "volumes": volumes,
         "services": rendered,
     }
@@ -613,7 +727,10 @@ def run(
     cpus: float | None = None,
     port_checker: PortChecker | None = None,
     platform_string: str | None = None,
+    runner=None,
 ) -> int:
+    """`runner(argv) -> (rc, stdout)` is used only for the read-only `docker compose ps` that finds our own
+    running bindings; tests inject a fake."""
     if getattr(args, "compose_command", "render") != "render":
         return report.error(ctx, exit_codes.USAGE, "usage: grdm-dev compose render [--profile ...]")
 
@@ -637,12 +754,35 @@ def run(
         auth = getattr(args, "auth", None) or _manifest.AUTH_FAKECAS
         services = _manifest.services_for_profile(man, profile, auth, image_tags=built_image_tags(ctx))
         hardening = load_hardening(ctx.root)
+        service_platforms = {
+            s.name: str(man.component(s.component).get("build_platform"))
+            for s in services
+            if man.component(s.component).get("build_platform")
+        }
     except (_manifest.ManifestError, ValueError, OSError) as exc:
         return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
 
-    rows, remapped, unresolved = assign_ports(published_ports(services, env), port_checker or default_port_checker)
+    service_names = [s.name for s in services]
+    try:
+        raw_egress = getattr(args, "egress", None)
+        egress = parse_egress(raw_egress if raw_egress is not None else env.get(EGRESS_ENV_KEY), service_names)
+    except ValueError as exc:
+        return report.error(ctx, exit_codes.USAGE, str(exc))
+
+    if runner is None:
+        from . import health
+
+        runner = health.default_runner
+    owned = current_bindings(ctx, runner)
+    rows, decisions, unresolved = assign_ports(published_ports(services, env), port_checker or default_port_checker, owned)
     if unresolved:
         return report.error(ctx, exit_codes.PORT_IN_USE, f"no free port within +{PORT_SEARCH_RANGE} for: {', '.join(unresolved)}")
+    for d in decisions:
+        if d["reason"] == "kept-own-binding":
+            sys.stderr.write(f"[grdm-dev] compose render: {d['service']} keeps port {d['chosen']} (our own running container holds it)\n")
+        elif d["reason"] == "remapped-foreign-listener":
+            sys.stderr.write(f"[grdm-dev] compose render: {d['service']} port {d['wanted']} is held by another process; using {d['chosen']}\n")
+    remapped = [{"service": d["service"], "wanted": d["wanted"], "chosen": d["chosen"]} for d in decisions if d["reason"] == "remapped-foreign-listener"]
     published = {r["service"]: int(r["host_port"]) for r in rows}
     host_ports = host_port_map(env, rows)
 
@@ -661,6 +801,8 @@ def run(
         memory_gib=float(memory_gib),
         cpus=float(cpus),
         platform_string=platform_string,
+        egress=egress,
+        service_platforms=service_platforms,
     )
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
     configs = config_files(host_ports)
@@ -677,10 +819,10 @@ def run(
             written.append(f"{CONFIG_DIR}/{rel}")
     for name in compose["volumes"]:
         (ctx.runtime / VOLUMES_DIR / name).mkdir(parents=True, exist_ok=True)
-    env_updates = {PROFILE_ENV_KEY: profile}
+    env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress)}
     env_updates.update({port_key(name): str(port) for name, port in published.items()})
     if update_dotenv(dotenv, env_updates):
-        written.append(".env (GRDM_PROFILE, GRDM_PORT_*)")
+        written.append(f".env (GRDM_PROFILE, GRDM_PORT_*, {EGRESS_ENV_KEY})")
 
     data = {
         "profile": profile,
@@ -688,12 +830,15 @@ def run(
         "platform": platform_string,
         "compose_file": str(ctx.runtime / COMPOSE_FILE),
         "network": NETWORK,
+        "networks": {NETWORK: "internal (no egress)", EDGE_NETWORK: "bridge; publishing services" + (" + --egress" if egress else "")},
+        "egress_services": egress,
         "memory_gib": round(float(memory_gib), 1),
         "cpus": float(cpus),
         "services": [
             {
                 "service": s.name,
                 "image": s.image,
+                "platform": compose["services"][s.name].get("platform", "unknown"),
                 "user": compose["services"][s.name].get("user", "image default"),
                 "read_only": compose["services"][s.name]["read_only"],
                 "mem_limit": compose["services"][s.name]["mem_limit"],
@@ -703,6 +848,7 @@ def run(
             for s in services
         ],
         "ports": rows,
+        "port_decisions": decisions,
         "remapped_ports": remapped,
         "volumes": list(compose["volumes"]),
         "config_files": [f"{CONFIG_DIR}/{rel}" for rel in configs],

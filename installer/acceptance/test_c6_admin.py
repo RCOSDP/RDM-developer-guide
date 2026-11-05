@@ -2,6 +2,7 @@
 import pytest
 
 from acceptance import selectors as sel
+from acceptance.conftest import api
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C6", "Institution admin screen")]
 
@@ -29,12 +30,12 @@ def test_c6_admin_success(page, service_url, admin_user, record_property):
 
 @pytest.mark.case("rejection")
 def test_c6_admin_rejection(logged_in_page, service_url, api_url, record_property):
-    """An ordinary user opening the admin URL -> 403 or redirect to login; the API answers 403."""
-    page = logged_in_page
+    """An ordinary user opening the admin URL -> 403 or redirect to login; the API answers exactly 403."""
+    client = api(logged_in_page.context)
     admin_url = service_url("admin")
-    screen = page.context.request.get(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), max_redirects=0)
-    assert screen.status in (301, 302, 303, 307, 401, 403), f"admin screen answered {screen.status} to an ordinary user"
-    # TODO(M2): confirm the admin-only API endpoint an ordinary user is denied on (institution users listing).
-    api = page.context.request.get(api_url + "/v2/institutions/1/users/")
-    record_property("http_status", api.status)
-    assert api.status in (403, 404), f"expected 403 (or 404 if hidden), got {api.status}"
+    screen = client.get(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), max_redirects=0)
+    assert screen.status in (301, 302, 303, 307, 403), f"admin screen answered {screen.status} to an ordinary user"
+    # TODO(M2): confirm the exact admin-only API path (institution users listing) on the real app.
+    api_resp = client.get(api_url + sel.API["institution_users"].format(institution_id="1"))
+    record_property("http_status", api_resp.status)
+    assert api_resp.status == 403, f"expected 403 from the institution users API, got {api_resp.status} (404 is not acceptable)"

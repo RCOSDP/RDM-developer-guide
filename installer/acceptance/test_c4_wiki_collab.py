@@ -5,71 +5,76 @@ Never skipped: y_websocket belongs to the `core` profile (SPEC-02 §4).
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import csrf_headers
+from acceptance.conftest import user_id_of
+from acceptance.netguard import WS_SCHEMES, is_loopback_origin
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C4", "Wiki collaborative edit")]
 
 CONVERGE_MS = 5_000  # SPEC-04 §5 S1 budget, reused for the M2 case
+
+# Looks for the marker in rendered text and in every textarea (CodeMirror mirrors its value there).
+_SEES_MARKER = ("m => document.body.innerText.includes(m) || "
+                "[...document.querySelectorAll('textarea')].some(t => t.value.includes(m))")
 
 
 def _wiki_edit_url(base_url: str, node_id: str) -> str:
     return f"{base_url}/{node_id}/wiki/home/?edit&view&menu"  # TODO(M2): confirm the edit-mode query string
 
 
-def _add_write_contributor(ctx_a, api_url: str, node_id: str, user_id: str) -> None:
-    headers = {"Content-Type": "application/vnd.api+json", **csrf_headers(ctx_a)}
-    resp = ctx_a.request.post(api_url + sel.API["node_contributors"].format(node_id=node_id), headers=headers, data=
-        '{"data":{"type":"contributors","attributes":{"permission":"write","bibliographic":false},'
-        '"relationships":{"users":{"data":{"type":"users","id":"%s"}}}}}' % user_id)
-    assert resp.status == 201, f"adding write contributor failed: {resp.status} {resp.text()[:200]}"
+def _open_editor(page, base_url: str, node_id: str):
+    resp = page.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+    return resp
+
+
+def _propagates(writer, reader, marker: str) -> None:
+    """`writer` types `marker`; it must appear in `reader` through y-websocket within the budget."""
+    writer.click(sel.WEB["wiki_editor"])
+    writer.keyboard.type(marker)
+    reader.wait_for_function(_SEES_MARKER, arg=marker, timeout=CONVERGE_MS)
 
 
 @pytest.mark.case("success")
-def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, run_id, record_property):
-    """Both users open the same wiki page; text typed by B appears in A's editor."""
+def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                run_id, record_property):
+    """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
     page_a, page_b = two_contexts
     login(page_a, user_a)
     login(page_b, user_b)
 
-    headers = {"Content-Type": "application/vnd.api+json", **csrf_headers(page_a.context)}
-    created = page_a.context.request.post(api_url + sel.API["nodes"], headers=headers, data=
-        '{"data":{"type":"nodes","attributes":{"title":"acceptance C4","category":"project","public":false}}}')
+    created = api_write(page_a.context, "POST", api_url + sel.API["nodes"], {
+        "data": {"type": "nodes", "attributes": {"title": "acceptance C4", "category": "project", "public": False}}
+    })
     assert created.status == 201, created.text()[:200]
     node_id = created.json()["data"]["id"]
     try:
-        b_id = page_b.context.request.get(api_url + sel.API["me"]).json()["data"]["id"]
-        _add_write_contributor(page_a.context, api_url, node_id, b_id)
+        add_contributor(page_a.context, node_id, user_id_of(page_b.context, api_url), "write")
 
-        resp_a = page_a.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
+        resp_a = _open_editor(page_a, base_url, node_id)
         record_property("http_status", resp_a.status if resp_a else None)
-        page_a.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
-        page_b.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
-        page_b.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+        _open_editor(page_b, base_url, node_id)
 
-        marker = f"collab-{run_id}"
-        page_b.click(sel.WEB["wiki_editor"])
-        page_b.keyboard.type(marker)
-        # Deterministic wait: the text must appear in A's editor through y-websocket within the budget.
-        page_a.wait_for_function("m => document.body.innerText.includes(m) || "
-                                 "[...document.querySelectorAll('textarea')].some(t => t.value.includes(m))",
-                                 arg=marker, timeout=CONVERGE_MS)
+        # Both directions must converge: B -> A, then A -> B (SPEC-04 §4: "both see merged text").
+        _propagates(page_b, page_a, f"collab-b-{run_id}")
+        _propagates(page_a, page_b, f"collab-a-{run_id}")
+        for page, who in ((page_a, "A"), (page_b, "B")):
+            for marker in (f"collab-b-{run_id}", f"collab-a-{run_id}"):
+                assert page.evaluate(_SEES_MARKER, marker), f"{who} does not show {marker} after both edits"
     finally:
-        page_a.context.request.delete(api_url + sel.API["node"].format(node_id=node_id),
-                                      headers={"Content-Type": "application/vnd.api+json", **csrf_headers(page_a.context)})
+        api_write(page_a.context, "DELETE", api_url + sel.API["node"].format(node_id=node_id))
 
 
 @pytest.mark.case("rejection")
-def test_c4_wiki_collab_rejection(two_contexts, login, user_a, base_url, api_url, project, record_property):
+def test_c4_wiki_collab_rejection(two_contexts, login, user_a, base_url, project, record_property):
     """A logged-out context connecting to the wiki websocket is closed with code 4401."""
     page_a, page_anon = two_contexts
     login(page_a, user_a)
-    page_a.goto(_wiki_edit_url(base_url, project), wait_until="domcontentloaded")
-    page_a.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+    _open_editor(page_a, base_url, project)
     # The web page tells the browser where the collaboration socket is. TODO(M2): confirm contextVars key.
     ws_url = page_a.evaluate("() => (window.contextVars && window.contextVars.wiki && "
                              "(window.contextVars.wiki.urls.y_websocket || window.contextVars.wiki.urls.sharejs)) || null")
     assert ws_url, "wiki page did not expose the websocket URL (window.contextVars.wiki.urls)"
-    assert "127.0.0.1" in ws_url, f"websocket URL must stay on loopback: {ws_url}"
+    assert is_loopback_origin(ws_url, WS_SCHEMES), f"websocket URL must be exactly ws://127.0.0.1:<port>: {ws_url}"
 
     page_anon.goto(base_url + sel.PATHS["login"], wait_until="domcontentloaded")  # same origin, no session
     close_code = page_anon.evaluate(

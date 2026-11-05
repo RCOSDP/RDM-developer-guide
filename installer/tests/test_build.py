@@ -55,8 +55,8 @@ class FakeRunner:
                 return 0, (SHA_OSF if "osf.io" in argv[2] else SHA_WB) + "\n"
             return 0, ""
         if argv[:3] == ["docker", "buildx", "build"]:
-            tag = [a for a in argv if a.startswith("grdm-dev/")][0]
-            if self.fail_build_for and tag.startswith(f"grdm-dev/{self.fail_build_for}:"):
+            tag = argv[argv.index("-t") + 1]
+            if self.fail_build_for and tag.split("/")[-1].startswith(f"{self.fail_build_for}:"):
                 return 1, "ERROR: failed to solve"
             return 0, "ok"
         return 0, ""
@@ -98,18 +98,61 @@ class BuildTests(unittest.TestCase):
         self.assertNotIn(f"ghcr.io/rcosdp/osf.io:{SHA_OSF[:12]}", bx[0])
         self.assertEqual(bx[0][-1], str(self.root / "runtime" / "src" / "RDM-osf.io-dev2027"))
 
-    def test_push_adds_registry_tag_and_branch_fallback(self):
+    def test_push_uses_only_the_ghcr_tag_and_branch_fallback(self):
         ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
         runner = FakeRunner()
         self.assertEqual(self.run_cmd(ctx, runner, platform="linux/arm64,linux/amd64", push=True), exit_codes.OK)
         bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]]
         self.assertEqual(len(bx), 2)  # osf.io + waterbutler, not OASys (full) nor postgres (infra)
-        wb = [c for c in bx if any(a.startswith("grdm-dev/waterbutler:") for a in c)][0]
-        self.assertIn("--push", wb)
-        self.assertIn(f"ghcr.io/rcosdp/waterbutler:{SHA_WB[:12]}", wb)
-        self.assertEqual(wb[3:5], ["--platform", "linux/arm64,linux/amd64"])
+        wb = [c for c in bx if "waterbutler" in c[-1]][0]
+        # the complete argument list: exactly one -t, fully qualified, no Docker Hub (unqualified) destination
+        self.assertEqual(wb, [
+            "docker", "buildx", "build", "--platform", "linux/arm64,linux/amd64",
+            "--push", "-t", f"ghcr.io/rcosdp/waterbutler:{SHA_WB[:12]}",
+            "--label", "org.gakunin-rdm.component=waterbutler", "--label", f"org.gakunin-rdm.sha={SHA_WB[:12]}",
+            str(self.root / "runtime" / "src" / "RDM-waterbutler-dev2027"),
+        ])
+        self.assertEqual(wb.count("-t"), 1)
+        self.assertFalse(any(a.startswith("grdm-dev/") for a in wb))
+        self.assertNotIn("--load", wb)
         checkout = [c for c in runner.calls if "checkout" in c and "waterbutler" in c[2]][0]
         self.assertEqual(checkout[-1], SHA_WB)  # no integration_sha → first merged public upstream SHA
+        rows = json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]
+        self.assertEqual([r["status"] for r in rows], ["pushed", "pushed"])
+        self.assertEqual(rows[1]["image"], f"ghcr.io/rcosdp/waterbutler:{SHA_WB[:12]}")
+
+    def test_local_build_argv_is_exactly_the_load_form(self):
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, platform="linux/arm64"), exit_codes.OK)
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]][0]
+        self.assertEqual(bx, [
+            "docker", "buildx", "build", "--platform", "linux/arm64",
+            "--load", "-t", f"grdm-dev/osf.io:{SHA_OSF[:12]}",
+            "--label", "org.gakunin-rdm.component=osf.io", "--label", f"org.gakunin-rdm.sha={SHA_OSF[:12]}",
+            str(self.root / "runtime" / "src" / "RDM-osf.io-dev2027"),
+        ])
+
+    # ---- per-component build_platform (manifest field; coordinator addendum after the first arm64 run)
+
+    def test_build_platform_from_manifest_wins_over_host_and_yields_to_flag(self):
+        data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
+        data["components"][1]["build_platform"] = "linux/amd64"  # waterbutler stands in for mfr here
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK)
+        bx = {c[-1].rsplit("/", 1)[-1]: c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]}
+        self.assertEqual(bx["RDM-waterbutler-dev2027"][3:5], ["--platform", "linux/amd64"])
+        self.assertEqual(bx["RDM-osf.io-dev2027"][3:5], ["--platform", build.host_platform()])
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["waterbutler"]["platforms"], "linux/amd64")
+        self.assertEqual(rows["osf.io"]["platforms"], build.host_platform())
+        # --platform overrides every component
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, platform="linux/arm64"), exit_codes.OK)
+        for c in (c for c in runner.calls if c[:3] == ["docker", "buildx", "build"]):
+            self.assertEqual(c[3:5], ["--platform", "linux/arm64"])
 
     def test_no_sha_at_all_falls_back_to_branch_head(self):
         ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)

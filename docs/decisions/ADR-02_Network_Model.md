@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05. **Learned:** the alias existed only so that one address worked both inside containers and in the browser; once services talk by Compose service name and the browser talks to `127.0.0.1`, no shared address is needed and the `sudo` step disappears with it. ／ 別名は「一つのアドレスがコンテナの中でもブラウザでも通る」ためだけに存在していた。サービス間が Compose のサービス名で、ブラウザが `127.0.0.1` で話せば共通アドレスは不要になり、`sudo` の手順も一緒に消えると分かった。
+- Version / 版: 0.2 — 2026-11-05. **Learned:** Docker cannot publish ports from an internal network, so "one internal network" became two networks with an explicit egress switch (PR #21 review r1, finding 8). ／ Docker は内部ネットワークからポートを公開できないため、「内部ネットワーク一つ」は二つのネットワークと明示的な egress の切替になった（PR #21 レビュー r1、指摘 8）。
+  0.1 — 2026-11-05. **Learned:** the alias existed only so that one address worked both inside containers and in the browser; once services talk by Compose service name and the browser talks to `127.0.0.1`, no shared address is needed and the `sudo` step disappears with it. ／ 別名は「一つのアドレスがコンテナの中でもブラウザでも通る」ためだけに存在していた。サービス間が Compose のサービス名で、ブラウザが `127.0.0.1` で話せば共通アドレスは不要になり、`sudo` の手順も一緒に消えると分かった。
 - Status: Accepted by the owner, 2026-11-05 (plan-interview).
 - Records a decision for: [POL-01 §5](../policy/POL-01_Developer_Environment_2027_Position.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-03 Security Gate](../spec/03_security_gate.md)
 - Related: [docs/README.md](../README.md) · [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md) · [ADR-01](ADR-01_Integration_Repository_Placement.md) · [ADR-03](ADR-03_Staged_Security_Gate.md) · [REF-01 Glossary](../reference/REF-01_Glossary.md) · legacy guide `docs/guides/environment/README.md` (moved from `Environment.md`)
@@ -49,7 +50,7 @@ options[3]{id,option,needs_sudo,lan_exposure,matches_upstream_docs,test_matrix,v
 
 ### 3. Decision
 
-1. **Service-to-service traffic uses the Compose internal network.** Every service addresses another by its Compose service name (`web`, `api`, `wb`, `mfr`, `fakecas`, `cas`, `postgres`, `elasticsearch`, `rabbitmq`, `redis`, `mongo`). Docker's built-in DNS (the phone book that turns a name into an address) resolves them. No fixed IP addresses.
+1. **Service-to-service traffic uses the internal Compose network `grdm` (`internal: true`).** Every service addresses another by its Compose service name (`web`, `api`, `wb`, `mfr`, `fakecas`, `cas`, `postgres`, `elasticsearch`, `rabbitmq`, `redis`, `mongo`); Docker's built-in DNS resolves them, no fixed IP addresses. An internal network has no egress. Browser-facing services are additionally attached to the plain bridge `grdm-edge`, from which their ports are published on `127.0.0.1` (decision 2). A service that needs the Internet is attached to `grdm-edge` explicitly with `compose render --egress`, recorded in `runtime/.env` (`GRDM_EGRESS_SERVICES`); the default grants none.
 2. **Browser-facing traffic is published on `127.0.0.1` only.** The generated Compose file writes `127.0.0.1:<host-port>:<container-port>`, never `0.0.0.0` or a bare port. The default host ports are defined once, in the ports table of [SPEC-02 §4](../spec/02_installer_cli.md#2-en-ports) (`5000` web, `8000` api, `8001` admin, `7777` wb, `7778` mfr, `8080` fakecas, `4200` ember). The installer checks each port is free and remaps on collision (macOS AirPlay on `5000` is the known case), recording the mapping in `runtime/.env` and the install report.
 3. **Settings that differ from upstream documents are rewritten by the installer**, not by hand:
    - `website/settings/local.py` and `api/base/settings/local.py`: `DOMAIN`, `API_DOMAIN`, `WATERBUTLER_URL`, `MFR_SERVER_URL`, `CAS_SERVER_URL` and similar — the *internal* URLs use service names, the *external* (browser) URLs use `http://127.0.0.1:<port>/`;
@@ -80,6 +81,8 @@ flowchart LR
 ```
 
 ### 4. Consequences
+
+- **Cost — no egress by default.** Add-on development against external providers requires `compose render --egress <service>`; the choice is visible to the security gate.
 
 - **Good:** no `sudo`, nothing survives a reboot that must be redone, nothing is reachable from the LAN, the same Compose file works on macOS, Ubuntu and WSL2, and CI can run it unmodified.
 - **Good:** fewer moving parts for the security gate — the "listening address" check in [SPEC-03](../spec/03_security_gate.md) becomes a one-line rule.
@@ -127,7 +130,7 @@ options[3]{id,option,needs_sudo,lan_exposure,matches_upstream_docs,test_matrix,v
 
 ### 3. 決定
 
-1. **サービス間の通信は Compose の内部ネットワークを使う。** 各サービスは相手を Compose のサービス名（`web`、`api`、`wb`、`mfr`、`fakecas`、`cas`、`postgres`、`elasticsearch`、`rabbitmq`、`redis`、`mongo`）で呼びます。Docker 内蔵の DNS（名前をアドレスに変える電話帳）が解決します。固定 IP アドレスは使いません。
+1. **サービス間通信は内部 Compose ネットワーク `grdm`（`internal: true`）を使う。** 各サービスは相手を Compose のサービス名（`web`、`api`、`wb`、`mfr`、`fakecas`、`cas`、`postgres`、`elasticsearch`、`rabbitmq`、`redis`、`mongo`）で呼び、Docker 内蔵の DNS（名前をアドレスに変える電話帳）が解決する。固定 IP は使わない。内部ネットワークには外向き通信がない。ブラウザ向けサービスは通常の bridge `grdm-edge` にも接続し、そこから `127.0.0.1` にポートを公開する（決定 2）。インターネットが必要なサービスは `compose render --egress` で明示的に `grdm-edge` へ接続し、`runtime/.env`（`GRDM_EGRESS_SERVICES`）に記録する。既定では何も与えない。
 2. **ブラウザ向けの公開は `127.0.0.1` だけ。** 生成する Compose ファイルには `127.0.0.1:<ホスト側ポート>:<コンテナ側ポート>` と書き、`0.0.0.0` やポート番号だけの書き方はしません。既定のホスト側ポートは [SPEC-02 §4](../spec/02_installer_cli.md#2-ja-ports) のポート表で一度だけ定めます（`5000` web、`8000` api、`8001` admin、`7777` wb、`7778` mfr、`8080` fakecas、`4200` ember）。インストーラーは各ポートの空きを確かめ、衝突時（macOS の AirPlay と `5000` が既知）は付け替えて `runtime/.env` と導入報告書に記録します。
 3. **上流文書と異なる設定は、手ではなくインストーラーが書き換える。**
    - `website/settings/local.py` と `api/base/settings/local.py`: `DOMAIN`、`API_DOMAIN`、`WATERBUTLER_URL`、`MFR_SERVER_URL`、`CAS_SERVER_URL` およびその類。「内部」の URL はサービス名、「外部」（ブラウザ）の URL は `http://127.0.0.1:<ポート>/`。
@@ -158,6 +161,8 @@ flowchart LR
 ```
 
 ### 4. 結果
+
+- **代価 — 既定では外向き通信がない。** 外部プロバイダに対するアドオン開発には `compose render --egress <service>` が要り、その選択はセキュリティの門から見える。
 
 - **良い点:** `sudo` が不要。再起動後にやり直す手順がない。LAN から届くものがない。同じ Compose ファイルが macOS・Ubuntu・WSL2 で動き、CI でもそのまま動く。
 - **良い点:** セキュリティ門の部品が減る。[SPEC-03](../spec/03_security_gate.md) の「待ち受けアドレス」の検査が一行の規則になる。

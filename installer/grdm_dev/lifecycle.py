@@ -6,7 +6,9 @@ up     `docker compose up -d`, then wait for health (exit 40 on timeout), then o
 down   `docker compose down` — containers stop, volumes stay.
 reset  down, then delete runtime/volumes/ after ctx.confirm(). Non-interactive without --yes → exit 2.
 
-Helpers for other modules: running_services(ctx) and restart(ctx, services) (used by secrets rotate).
+Helpers for other modules: running_services(ctx) and recreate(ctx) (used by secrets rotate).
+`recreate` is `docker compose up -d --force-recreate`: a plain `restart` keeps the containers' old
+environment, so rotated secrets would never reach them (review PR #21 finding 1).
 Runner: `runner(argv) -> (rc, stdout)`; tests inject a fake and never need Docker.
 """
 from __future__ import annotations
@@ -49,9 +51,10 @@ def running_services(ctx: Context, runner=None) -> list[str]:
     return [name for name, info in ps.items() if str(info.get("State") or info.get("state") or "").lower() == "running"]
 
 
-def restart(ctx: Context, services: list[str] | None = None, runner=None) -> int:
+def recreate(ctx: Context, runner=None) -> int:
+    """Recreate every container of the rendered profile so it reads the current runtime/.env."""
     runner = runner or default_runner
-    rc, _ = runner(health.compose_base(ctx) + ["restart", *(services or [])])
+    rc, _ = runner(health.compose_base(ctx) + ["up", "-d", "--force-recreate", "--remove-orphans"])
     return rc
 
 

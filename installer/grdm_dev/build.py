@@ -13,8 +13,18 @@ checked out; the SHA actually checked out is always re-read with `git rev-parse`
 the build report (`components[]{component,sha12}`), which `compose render` reads as image tags.
 
 Images: local builds use `--load` for the host platform (or --platform) and tag
-`grdm-dev/<component>:<sha12>`. With --push, the multi-arch manifest is pushed to
-`ghcr.io/rcosdp/<component>:<sha12>` as well. Exit 30 names the failing component.
+`grdm-dev/<component>:<sha12>` only. With --push, buildx receives exactly one tag,
+`ghcr.io/rcosdp/<component>:<sha12>`: an unqualified tag such as `grdm-dev/<component>` would be
+pushed to Docker Hub, outside the private GHCR destination (review PR #21 finding 11). A pushed
+multi-arch manifest cannot be `--load`ed, so the local tag is not produced in that mode; `compose
+render` keeps reading the sha12 from the build report either way. Exit 30 names the failing component.
+
+Platform per component: `--platform` (comma-separated) wins for every component; otherwise the
+component's optional manifest field `build_platform` (e.g. "linux/amd64" for images whose EOL base
+has no arm64 wheels — mfr's pandas 0.25.1 on Python 3.5 is the case that made install stop with exit
+30 on Apple Silicon); otherwise the host platform. The platform actually used is recorded per
+component in the build report, and `compose render` writes the same value as `platform:` so Compose
+runs the service under emulation.
 
 Runner: `runner(argv) -> (returncode, stdout)`; the default streams the child's output lines to
 stderr while collecting them, so a long build stays visible. Tests inject a fake.
@@ -117,16 +127,30 @@ def sync_source(repo: str, dest: Path, ref: str, runner) -> tuple[int, str, str]
     return rc, out.strip().splitlines()[-1] if out.strip() else "", "".join(log)
 
 
+def local_tag(component_id: str, sha12: str) -> str:
+    return f"{LOCAL_IMAGE_PREFIX}/{image_name(component_id)}:{sha12}"
+
+
+def registry_tag(component_id: str, sha12: str) -> str:
+    return f"{REGISTRY}/{image_name(component_id)}:{sha12}"
+
+
 def buildx_argv(component_id: str, context_dir: Path, sha12: str, platforms: list[str], push: bool) -> list[str]:
-    name = image_name(component_id)
+    """`--push` carries only the fully qualified GHCR tag; `--load` carries only the local tag."""
     argv = ["docker", "buildx", "build", "--platform", ",".join(platforms)]
-    argv += ["--push" if push else "--load"]
-    argv += ["-t", f"{LOCAL_IMAGE_PREFIX}/{name}:{sha12}"]
     if push:
-        argv += ["-t", f"{REGISTRY}/{name}:{sha12}"]
+        argv += ["--push", "-t", registry_tag(component_id, sha12)]
+    else:
+        argv += ["--load", "-t", local_tag(component_id, sha12)]
     argv += ["--label", f"org.gakunin-rdm.component={component_id}", "--label", f"org.gakunin-rdm.sha={sha12}"]
     argv.append(str(context_dir))
     return argv
+
+
+def component_platforms(comp, override: str | None) -> list[str]:
+    """Platforms to build `comp` for: --platform > manifest build_platform > host platform."""
+    raw = override or comp.get("build_platform") or host_platform()
+    return [s.strip() for s in str(raw).split(",") if s.strip()]
 
 
 def pinned_ref(comp) -> str:
@@ -146,7 +170,7 @@ def register(subparsers) -> None:
 
 def run(ctx: Context, args, runner=None) -> int:
     runner = runner or default_runner
-    platforms = [s.strip() for s in (getattr(args, "platform", None) or host_platform()).split(",") if s.strip()]
+    override = getattr(args, "platform", None) or None
     push = bool(getattr(args, "push", False))
     only = getattr(args, "component", None)
     profile = resolve_profile(ctx)
@@ -166,6 +190,7 @@ def run(ctx: Context, args, runner=None) -> int:
         cid = comp["id"]
         repo = comp["integration_repo"]
         dest = ctx.runtime / "src" / repo
+        platforms = component_platforms(comp, override)
         rc, sha, log = sync_source(repo, dest, pinned_ref(comp), runner)
         if rc != 0 or not sha:
             rows.append({"component": cid, "repo": repo, "sha12": "", "platforms": ",".join(platforms), "status": "source-failed"})
@@ -174,12 +199,13 @@ def run(ctx: Context, args, runner=None) -> int:
         sha12 = sha[:12]
         rc, out = runner(buildx_argv(cid, dest, sha12, platforms, push))
         status = "pushed" if (rc == 0 and push) else "built" if rc == 0 else "build-failed"
-        rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": status})
+        rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": status,
+                     "image": registry_tag(cid, sha12) if push else local_tag(cid, sha12)})
         if rc != 0:
             failed, detail = cid, f"docker buildx build exited {rc}"
             break
 
-    data = {"profile": profile, "platforms": platforms, "push": push, "components": rows, "failed": failed}
+    data = {"profile": profile, "platform_override": override or "(per component)", "push": push, "components": rows, "failed": failed}
     report.emit(ctx, "build", data)
     if failed is not None:
         return report.error(ctx, exit_codes.BUILD_FAILED, f"component {failed}: {detail}")

@@ -771,6 +771,27 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../demo/20_core_install_mac_studio/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DEMO-20 Core Install on Mac Studio / Mac Studio でのコア導入記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
     
@@ -784,10 +805,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -798,8 +819,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             Runs
           </label>
@@ -1937,6 +1958,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r1 / インストーラーレビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
         
   
@@ -2961,7 +3003,8 @@
 </blockquote>
 <p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
 <ul>
-<li>Version / 版: 0.2 — 2026-11-05. <strong>Learned:</strong> a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。</li>
+<li>Version / 版: 0.3 — 2026-11-05. <strong>Learned:</strong> <code>secrets rotate</code> had to become a coordinated database-password change plus container recreation, because <code>restart</code> keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ <code>restart</code> は旧い環境を保つため、捕られた資格情報が有効なまま残る。<code>secrets rotate</code> は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
+  0.2 — 2026-11-05. <strong>Learned:</strong> a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。</li>
 <li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with <code>unittest</code>. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を <code>unittest</code> で試験できないと分かった。</li>
 <li>Normative for: <code>installer/install.sh</code>, <code>installer/grdm_dev/</code>, <code>installer/tests/</code>, <code>runtime/</code>.</li>
 <li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../01_manifest/">SPEC-01 Manifest</a> · <a href="../03_security_gate/">SPEC-03 Security Gate</a> · <a href="../04_acceptance_tests/">SPEC-04 Acceptance Tests</a> · <a href="../05_upstream_tracking/">SPEC-05 Upstream Tracking</a> · <a href="../06_documentation_conventions/">SPEC-06 Documentation Conventions</a> · <a href="../../decisions/ADR-02_Network_Model/">ADR-02 Network Model</a> · <a href="../../decisions/ADR-03_Staged_Security_Gate/">ADR-03 Staged Security Gate</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../">docs/README.md</a></li>
@@ -3033,12 +3076,12 @@
 </tr>
 <tr>
 <td><code>secrets init</code> / <code>secrets rotate</code></td>
-<td><code>init</code> writes random secrets (database passwords, Django secret key, CAS keys) into <code>runtime/.env</code> with file mode <code>0600</code>. Never writes a default or example password. Refuses to overwrite an existing file unless <code>--force</code>. <code>rotate</code> regenerates every secret and restarts the services that use them; used after a red-team capture (<a href="../03_security_gate/#english">SPEC-03 §6</a>).</td>
+<td><code>init</code> writes random secrets (database passwords, Django secret key, CAS keys) into <code>runtime/.env</code> with file mode <code>0600</code>. Never writes a default or example password. Refuses to overwrite an existing file unless <code>--force</code>. <code>rotate</code> regenerates every secret, changes the live PostgreSQL and RabbitMQ passwords, recreates the containers so they receive the new environment, and verifies that the old credentials are rejected; any failure restores the previous <code>runtime/.env</code> and exits 40. Used after a red-team capture (<a href="../03_security_gate/#english">SPEC-03 §6</a>).</td>
 <td>no / yes</td>
 </tr>
 <tr>
 <td><code>compose render</code></td>
-<td>Writes <code>runtime/docker-compose.yml</code> from manifest + profile: one internal network, ports published only on <code>127.0.0.1</code> (<a href="#2-en-ports">§4</a>), non-root <code>user:</code> for every service, <code>read_only</code>, <code>cap_drop</code>, and resource limits (<code>mem_limit</code>, <code>cpus</code>, <code>pids_limit</code>) scaled from the memory <code>doctor</code> detected, with per-service exceptions from <code>manifest/hardening.json</code> (<a href="../03_security_gate/#english">SPEC-03 §3.3</a>), <code>platform:</code> chosen from <code>doctor</code>, named volumes mapped under <code>runtime/volumes/</code>. Follows <a href="../../decisions/ADR-02_Network_Model/">ADR-02</a>.</td>
+<td>Writes <code>runtime/docker-compose.yml</code> from manifest + profile: the internal network <code>grdm</code> plus the publishing-only <code>grdm-edge</code> (<code>--egress &lt;services&gt;</code> attaches more, recorded in <code>runtime/.env</code>; <a href="../03_security_gate/#english">SPEC-03 §3.2</a>), per-component <code>platform:</code> from the manifest's <code>build_platform</code>, ports published only on <code>127.0.0.1</code> (<a href="#2-en-ports">§4</a>), non-root <code>user:</code> for every service, <code>read_only</code>, <code>cap_drop</code>, and resource limits (<code>mem_limit</code>, <code>cpus</code>, <code>pids_limit</code>) scaled from the memory <code>doctor</code> detected, with per-service exceptions from <code>manifest/hardening.json</code> (<a href="../03_security_gate/#english">SPEC-03 §3.3</a>), <code>platform:</code> chosen from <code>doctor</code>, named volumes mapped under <code>runtime/volumes/</code>. Follows <a href="../../decisions/ADR-02_Network_Model/">ADR-02</a>.</td>
 <td>no</td>
 </tr>
 <tr>
@@ -3302,12 +3345,12 @@
 </tr>
 <tr>
 <td><code>secrets init</code> / <code>secrets rotate</code></td>
-<td><code>init</code> は乱数の秘密（DB パスワード、Django の秘密鍵、CAS の鍵）を <code>runtime/.env</code> にモード <code>0600</code> で書く。既定値や例のパスワードは決して書かない。既存ファイルは <code>--force</code> がなければ上書きしない。<code>rotate</code> は全秘密を作り直し、それを使うサービスを再起動する。レッドチームに秘密を取られた後に使う（<a href="../03_security_gate/#japanese">SPEC-03 §6</a>）。</td>
+<td><code>init</code> は乱数の秘密（DB パスワード、Django の秘密鍵、CAS の鍵）を <code>runtime/.env</code> にモード <code>0600</code> で書く。既定値や例のパスワードは決して書かない。既存ファイルは <code>--force</code> がなければ上書きしない。<code>rotate</code> はすべての秘密を作り直し、稼働中の PostgreSQL と RabbitMQ のパスワードを変更し、新しい環境を受け取るようコンテナを再作成し、旧い資格情報が拒否されることを確かめる。どこかで失敗したら以前の <code>runtime/.env</code> に戻して 40 で終わる。レッドチームに秘密を取られた後に使う（<a href="../03_security_gate/#japanese">SPEC-03 §6</a>）。</td>
 <td>触れない / 触れる</td>
 </tr>
 <tr>
 <td><code>compose render</code></td>
-<td>manifest とプロファイルから <code>runtime/docker-compose.yml</code> を書く。内部ネットワーク一つ、ポートは <code>127.0.0.1</code> にだけ公開（<a href="#2-ja-ports">§4</a>）、全サービスに非 root の <code>user:</code>、<code>read_only</code>・<code>cap_drop</code>・資源制限（<code>mem_limit</code>・<code>cpus</code>・<code>pids_limit</code>。<code>doctor</code> が検出したメモリに応じて決める）、サービスごとの例外は <code>manifest/hardening.json</code> から（<a href="../03_security_gate/#japanese">SPEC-03 §3.3</a>）、<code>platform:</code> は <code>doctor</code> の結果から選ぶ、名前付きボリュームは <code>runtime/volumes/</code> の下。<a href="../../decisions/ADR-02_Network_Model/">ADR-02</a> に従う。</td>
+<td>manifest とプロファイルから <code>runtime/docker-compose.yml</code> を書く。内部ネットワーク <code>grdm</code> と公開専用の <code>grdm-edge</code>（<code>--egress &lt;services&gt;</code> で追加接続し <code>runtime/.env</code> に記録。<a href="../03_security_gate/#japanese">SPEC-03 §3.2</a>）、部品ごとの <code>platform:</code> は manifest の <code>build_platform</code> から、ポートは <code>127.0.0.1</code> にだけ公開（<a href="#2-ja-ports">§4</a>）、全サービスに非 root の <code>user:</code>、<code>read_only</code>・<code>cap_drop</code>・資源制限（<code>mem_limit</code>・<code>cpus</code>・<code>pids_limit</code>。<code>doctor</code> が検出したメモリに応じて決める）、サービスごとの例外は <code>manifest/hardening.json</code> から（<a href="../03_security_gate/#japanese">SPEC-03 §3.3</a>）、<code>platform:</code> は <code>doctor</code> の結果から選ぶ、名前付きボリュームは <code>runtime/volumes/</code> の下。<a href="../../decisions/ADR-02_Network_Model/">ADR-02</a> に従う。</td>
 <td>触れない</td>
 </tr>
 <tr>

@@ -8,7 +8,7 @@
     "POSTGRES_DB": "osf",
     "POSTGRES_USER": "postgres",
     "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-    "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256 --auth-local=trust"
+    "POSTGRES_INITDB_ARGS": "--auth-host=md5 --auth-local=trust"
   },
   "volumes": [
     {
