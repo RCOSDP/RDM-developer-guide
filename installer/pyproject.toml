@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grdm-dev"
+version = "0.1.0"
+description = "GakuNin RDM developer environment 2027: one-command installer (SPEC-02)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = []
+
+[project.optional-dependencies]
+accept = ["pytest>=8", "pytest-playwright>=0.5", "playwright>=1.47"]
+docs = ["mkdocs==1.6.1", "mkdocs-material==9.5.37", "pymdown-extensions==10.12"]
+
+[project.scripts]
+grdm-dev = "grdm_dev.cli:main"
+
+[tool.setuptools]
+packages = ["grdm_dev"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+grdm_dev = ["messages.tsv"]
