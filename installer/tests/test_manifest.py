@@ -53,13 +53,36 @@ class ManifestLoadTests(unittest.TestCase):
         man = manifest.load(REPO_ROOT / "manifest" / "upstreams.json")
         self.assertEqual(man.component_for_service("wb").id, "waterbutler")
 
-    def test_build_sha_prefers_public_merged_upstream(self):
+    def test_build_sha_precedence_integration_sha_then_public_then_private(self):
+        """SPEC-01: integration_sha (the pinned develop tip) wins; without it the merged public
+        upstream, then the private upstream. Checked on the real manifest and on a synthetic copy."""
         man = manifest.load(self.ctx)
         wb = man.component("waterbutler")
-        public = [u for u in wb.upstreams if u.kind == "public" and u.status == "merged"][0]
-        self.assertEqual(wb.build_sha, public.sha)
+        self.assertRegex(wb.build_sha, r"^[0-9a-f]{40}$")
+        if wb.get("integration_sha"):
+            self.assertEqual(wb.build_sha, wb.get("integration_sha"))
+        else:
+            public = [u for u in wb.upstreams if u.kind == "public" and u.status == "merged"][0]
+            self.assertEqual(wb.build_sha, public.sha)
         oasys = man.component("OASys")  # private only
-        self.assertEqual(oasys.build_sha, oasys.upstreams[0].sha)
+        self.assertEqual(oasys.build_sha, oasys.get("integration_sha") or oasys.upstreams[0].sha)
+        # synthetic: strip integration_sha and the precedence falls back to the merged public upstream
+        import copy, json, tempfile, pathlib
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            comp["integration_sha"] = None
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td); (root / "manifest").mkdir()
+            (root / "manifest" / "upstreams.json").write_text(json.dumps(data), encoding="utf-8")
+            man2 = manifest.load(root / "manifest" / "upstreams.json")
+            wb2 = man2.component("waterbutler")
+            public2 = [u for u in wb2.upstreams if u.kind == "public" and u.status == "merged"][0]
+            self.assertEqual(wb2.build_sha, public2.sha)
+            # private-only component without integration_sha falls back to its merged private upstream
+            oasys2 = man2.component("OASys")
+            private2 = [u for u in oasys2.upstreams if u.kind == "private" and u.status == "merged"][0]
+            self.assertEqual(oasys2.build_sha, private2.sha)
+            self.assertNotEqual(oasys2.build_sha, wb2.build_sha)
 
     def test_invalid_manifest_reports_exit_20(self):
         def bad(data):
