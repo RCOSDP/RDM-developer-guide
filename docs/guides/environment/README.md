@@ -277,9 +277,9 @@ The installer implements these controls from milestone M1:
 
 #### Port in use (exit 12)
 
-If a default port is already bound, `compose render` fails with exit code 12.
+If a default port is already bound by another program, `compose render` moves that service to the next free port (up to 100 above the default), records the choice in `runtime/.env` as `GRDM_PORT_<SERVICE>`, and tells you. Ports already held by this project's own running services are kept. Exit code 12 happens only when no free alternative exists.
 
-**Fix:** Find the offending process and stop it, or wait for `compose render` to select a different port.
+**Fix:** Stop the other program if you want the default port back, or simply use the port `grdm-dev plan` reports.
 
 ```bash
 # macOS: AirPlay shares port 5000
@@ -606,9 +606,9 @@ docker compose -f runtime/docker-compose.yml logs -f web api
 
 #### ポート使用中（終了コード 12）
 
-既定ポートがすでに確保されていると、`compose render` は終了コード 12 で失敗します。
+既定ポートを別のプログラムが使っていると、`compose render` はそのサービスを次の空きポート（既定から最大 100 まで）へ移し、`runtime/.env` に `GRDM_PORT_<SERVICE>` として記録して知らせます。このプロジェクト自身が動かしているサービスのポートはそのまま保ちます。終了コード 12 になるのは空きの代替がまったくないときだけです。
 
-**対応:** 隙閉めているプロセスを探して止めるか、`compose render` が別のポートを選ぶのを待ちます。
+**対応:** 既定のポートを使いたければ相手のプログラムを止める。そうでなければ `grdm-dev plan` が示すポートをそのまま使う。
 
 ```bash
 # macOS: AirPlay はポート 5000 を使う
