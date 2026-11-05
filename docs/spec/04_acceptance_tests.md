@@ -252,7 +252,7 @@ evidence:
 | M4 | M3 が Python 3.13 移植後も変わらず合格 | Mac Studio arm64 | 受入が移植の回帰判定の門になる |
 | M5 | M4 に加え [SPEC-03](03_security_gate.md) の最終の門 | Mac Studio arm64 と Ubuntu 24.04 amd64 | 両アーキテクチャで全受入 |
 
-節目の合格は変更の作者が判定しません。QAE（QA担当）の役割が `grdm-dev accept` を実行し、実行 ID を `docs/status/` に記録し、所有者が承認します（[SPEC-00](00_overview.md)）。
+節目の合格は変更の作者が判定しません。QAE（QA担当。成果が正しいか検査する役割。[REF-01](../reference/REF-01_Glossary.md)）の役割が `grdm-dev accept` を実行し、実行 ID を `docs/status/` に記録し、所有者が承認します（[SPEC-00](00_overview.md)）。
 
 Mac Studio のセルフホストランナーは非公開の `-dev2027` リポジトリにだけ登録し、公開のこのリポジトリには登録しません（[REF-01](../reference/REF-01_Glossary.md)）。そのため `acceptance-arm64` ワークフローはそちらで動き、QAE が実行フォルダを PR（プルリクエスト。誰かが見て受け入れるのを待っている変更の提案。[REF-01](../reference/REF-01_Glossary.md)）でこのリポジトリの `docs/demo/runs/` へ持ち込みます。
 

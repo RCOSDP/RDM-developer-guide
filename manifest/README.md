@@ -76,7 +76,7 @@ Exit code:
 
 ### upstreams.toon とは？
 
-`manifest/upstreams.toon` は、TOON 形式（JSON を人が読みやすい短い文字形式にしたもの。[SPEC-06 §4](../docs/spec/06_documentation_conventions.md#4-diagrams-and-data)）のマニフェスト抄録です。次のように自動生成されます：
+`manifest/upstreams.toon` は、TOON 形式（JSON を人が読みやすい短い文字形式にしたもの。[REF-01](../docs/reference/REF-01_Glossary.md)、[SPEC-06 §4](../docs/spec/06_documentation_conventions.md#4-diagrams-and-data)）のマニフェスト抄録です。次のように自動生成されます：
 
 ```sh
 grdm-dev manifest toon

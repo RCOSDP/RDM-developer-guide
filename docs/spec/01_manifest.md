@@ -169,7 +169,7 @@ checks[13]{id,rule,severity}:
 
 抄録には、最上位の項目と、各部品の `id`・`role`・`integration_repo`・`profile`、`upstreams[]` の全項目、そして `repo`・`number`・`status` に絞った `adopted_prs[]` を載せます。`candidate_prs`、イメージ、サービス、platform は載せません。`manifest/` の下のほかのファイル（`allowlist.json`、`allowlist.baseline.json`、`milestone.json`、`hardening.json`、`redteam-targets.json`）は [SPEC-03](03_security_gate.md) が定め、一覧は [SPEC-02 §9](02_installer_cli.md#japanese) にあります。
 
-> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI（continuous integration。変更ごとに自動で走る検査。[REF-01](../reference/REF-01_Glossary.md)）の秘密スキャンが見つけたら PR は不合格です。
+> **Warning:** このリポジトリは公開です。マニフェストには **リポジトリ名と SHA だけ** を書きます。非公開リポジトリの URL、アクセストークン、`-private` 由来のコード断片は決して書きません。CI（continuous integration。変更ごとに自動で走る検査。[REF-01](../reference/REF-01_Glossary.md)）の秘密スキャンが見つけたら PR（プルリクエスト。レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）は不合格です。
 
 ### 3. 形（スキーマ）
 

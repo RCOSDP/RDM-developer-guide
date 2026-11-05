@@ -117,7 +117,7 @@ flowchart LR
 
 ### 1. 背景
 
-GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）は機関の利用者を *Shibboleth*（大学がシングルサインオンに使うソフトウェア）でログインさせます。*SP*（サービスプロバイダ。ログイン結果を信頼する GRDM 側の部品）が、機関の *IdP*（アイデンティティプロバイダ。「あなたが誰か」を確かめるサーバ）から *SAML*（IdP と SP がログイン結果を渡し合う文書の形式）のメッセージを受け取ります。`--auth shibboleth` 付きの `full` プロファイル（[SPEC-02 §4](../spec/02_installer_cli.md#2-ja-ports)）は `fakecas` を外し、`shibboleth_sp`（`RDM-Shibboleth-SP-dev2027` から組む CentOS ベースの Apache httpd + shibd）と同梱の `test_idp` を起動します。受入シナリオ S5（[SPEC-04 §5.1](../spec/04_acceptance_tests.md#japanese)）が SP → IdP → GRDM の経路を成功と拒否の各一件で示すためです。
+GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）は機関の利用者を *Shibboleth*（大学がシングルサインオンに使うソフトウェア）でログインさせます。*SP*（サービスプロバイダ。ログイン結果を信頼する GRDM 側の部品）が、機関の *IdP*（アイデンティティプロバイダ。「あなたが誰か」を確かめるサーバ）から *SAML*（IdP と SP がログイン結果を渡し合う文書の形式。[REF-01](../reference/REF-01_Glossary.md)）のメッセージを受け取ります。`--auth shibboleth` 付きの `full` プロファイル（[SPEC-02 §4](../spec/02_installer_cli.md#2-ja-ports)）は `fakecas` を外し、`shibboleth_sp`（`RDM-Shibboleth-SP-dev2027` から組む CentOS ベースの Apache httpd + shibd）と同梱の `test_idp` を起動します。受入シナリオ S5（[SPEC-04 §5.1](../spec/04_acceptance_tests.md#japanese)）が SP → IdP → GRDM の経路を成功と拒否の各一件で示すためです。
 
 開発環境には、本番の IdP が満たさない条件があります。
 

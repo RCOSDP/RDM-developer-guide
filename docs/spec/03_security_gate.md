@@ -83,7 +83,7 @@ These controls are not negotiable and have no allow-list. `grdm-dev health --net
 
 #### 3.5 Secret scanning in CI
 
-Because this repository is public, every pull request and every push to `develop` runs a secret scanner (`gitleaks` or an equivalent that detects private keys, tokens, and passwords in the diff and in history). One finding fails the workflow. The same scanner runs locally in `grdm-dev scan --secrets`. False positives are suppressed by a rule in `.gitleaks.toml` with a reason, never by deleting the finding from the report.
+Because this repository is public, every pull request and every push to `develop` runs a secret scanner in CI (continuous integration: automatic checks on every change; see [REF-01](../reference/REF-01_Glossary.md)) (`gitleaks` or an equivalent that detects private keys, tokens, and passwords in the diff and in history). One finding fails the workflow. The same scanner runs locally in `grdm-dev scan --secrets`. False positives are suppressed by a rule in `.gitleaks.toml` with a reason, never by deleting the finding from the report.
 
 ### 4. Scanning
 
