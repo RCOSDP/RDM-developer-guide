@@ -38,7 +38,8 @@
 | Guides migration to `docs/guides/` (pointers kept at old paths) | ✅ Done |
 | Codex Astra review of RDM-osf.io-dev2027 PR #1 | 🔄 r1/r2 done: request changes. R1 fixed; R2 awaits the owner's decision on ADR-01 §5; R3 is the owner's call |
 | M1 skeleton PR to `develop` (this repository) | 🔄 Open, awaiting Codex Astra review and owner merge |
-| GitHub Actions (docs, security) | ✅ Authored; first run happens on the M1 PR |
+| GitHub Actions (docs, security) | ✅ Running on PR #19 (docs, gitleaks, manifest pass) |
+| Semgrep findings in legacy guide sample code (6: raw HTML in templates ×4, exec ×1, path join ×1) | ⏳ Deferred to the guide rewrite (M2/M3); paths listed in `.semgrepignore` with reasons |
 
 ### 3. Rules
 
@@ -77,7 +78,8 @@ This board is the **single source of truth** for milestone progress:
 | ガイドの `docs/guides/` への移植（旧パスに誘導を残す） | ✅ 完了 |
 | Codex Astra による RDM-osf.io-dev2027 PR #1 のレビュー | 🔄 r1/r2 完了: request changes。R1 修正済み、R2 は ADR-01 §5 の所有者判断待ち、R3 は所有者判断 |
 | M1 骨格 PR（本リポジトリ、develop 向け） | 🔄 作成済み。Codex Astra レビューと所有者マージ待ち |
-| GitHub Actions（docs, security） | ✅ 作成済み。初回実行は M1 PR で行う |
+| GitHub Actions（docs, security） | ✅ PR #19 で稼働（docs・gitleaks・manifest 合格） |
+| 旧ガイドのサンプルコードに対する Semgrep 指摘（6 件: テンプレートの生 HTML ×4、exec ×1、path join ×1） | ⏳ ガイド書き直し（M2/M3）で対応。対象パスと理由は `.semgrepignore` に記載 |
 
 ### 3. 規則
 
