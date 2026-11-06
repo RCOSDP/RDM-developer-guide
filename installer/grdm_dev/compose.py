@@ -417,6 +417,11 @@ def render_service(
         out["command"] = [escape_compose_dollar(c) for c in tpl["command"]]
     if "user" not in relaxed:
         out["user"] = tpl.get("user", "1000:1000")
+    elif tpl.get("run_as"):
+        # a relaxed service may name the user it needs explicitly with `run_as` (an owner-init one-shot that
+        # must run as root on an image whose own USER is 1000, PR #34 review r1 R1-01); `user` in a template
+        # is only the non-root default and is dropped when the control is relaxed. The exception stays recorded.
+        out["user"] = str(tpl["run_as"])
     out["read_only"] = "read_only" not in relaxed
     out["cap_drop"] = ["ALL"]
     if "cap_add" in relaxed and exc.get("cap_add"):

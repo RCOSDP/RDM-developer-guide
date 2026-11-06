@@ -122,7 +122,7 @@ def buildable_components(components: list[dict], profile: str, only: str | None 
     rank = PROFILE_RANK.get(profile, PROFILE_RANK[DEFAULT_PROFILE])
     out = []
     for comp in components:
-        if not comp.get("integration_repo"):
+        if not comp.get("integration_repo") and not comp.get("image_build"):
             continue
         if PROFILE_RANK.get(comp.get("profile", "full"), 2) > rank and only is None:
             continue
@@ -187,7 +187,7 @@ def registry_tag(component_id: str, sha12: str) -> str:
 
 
 def buildx_argv(component_id: str, context_dir: Path, sha12: str, platforms: list[str], push: bool,
-                overlay: tuple[str, str] | None = None, dockerfile: Path | None = None) -> list[str]:
+                overlay: tuple[str, str] | None = None, dockerfile: Path | None = None, base_digest: str | None = None) -> list[str]:
     """`--push` carries only the fully qualified GHCR tag; `--load` carries only the local tag.
 
     `sha12` is the tag (for an overlay component: `<base_sha12>-<overlay_sha12>`); `overlay` is
@@ -199,6 +199,9 @@ def buildx_argv(component_id: str, context_dir: Path, sha12: str, platforms: lis
     else:
         argv += ["--load", "-t", local_tag(component_id, sha12)]
     argv += ["--label", f"org.gakunin-rdm.component={component_id}", "--label", f"org.gakunin-rdm.sha={sha12}"]
+    if base_digest:
+        # SPEC-03 §3.4: a locally built image records the digest of the base it was built from
+        argv += ["--label", f"org.opencontainers.image.base.digest={base_digest}", "--label", f"org.gakunin-rdm.base-digest={base_digest}"]
     if overlay:
         argv += ["--label", f"org.gakunin-rdm.overlay-of={overlay[0]}", "--label", f"org.gakunin-rdm.base-sha={overlay[1]}"]
     if dockerfile is not None:
@@ -269,9 +272,28 @@ def run(ctx: Context, args, runner=None) -> int:
     detail = ""
     for comp in selected:
         cid = comp["id"]
+        platforms = component_platforms(comp, override)
+        image_build = comp.get("image_build")
+        if image_build and not comp.get("integration_repo"):
+            # Infra image built from a Dockerfile in this repository (SPEC-01 §3 image_build, ADR-07):
+            # no clone, the tag is the recipe version from the manifest, the context is repo-relative.
+            context_dir = ctx.root / str(image_build["context"])
+            tag = str(image_build["tag"])
+            sys.stderr.write(f"[grdm-dev] build: {cid} is built natively from {image_build['context']} (image_build; see manifest note)\n")
+            if not (context_dir / "Dockerfile").is_file():
+                rows.append({"component": cid, "repo": "", "sha12": "", "image_tag": tag, "platforms": ",".join(platforms), "status": "source-failed"})
+                failed, detail = cid, f"image_build context {image_build['context']} has no Dockerfile"
+                break
+            rc, out = runner(buildx_argv(cid, context_dir, tag, platforms, push, base_digest=comp.get("base_image_digest")))
+            status = "pushed" if (rc == 0 and push) else "built" if rc == 0 else "build-failed"
+            rows.append({"component": cid, "repo": "", "sha12": "", "image_tag": tag, "platforms": ",".join(platforms), "status": status,
+                         "image": registry_tag(cid, tag) if push else local_tag(cid, tag), "context": str(image_build["context"])})
+            if rc != 0:
+                failed, detail = cid, f"docker buildx build exited {rc} (image_build {image_build['context']})"
+                break
+            continue
         repo = comp["integration_repo"]
         dest = ctx.runtime / "src" / repo
-        platforms = component_platforms(comp, override)
         prebuilt = comp.get("prebuilt_image")
         if prebuilt:
             sys.stderr.write(f"[grdm-dev] build: {cid} uses prebuilt_image {prebuilt} (not built from {repo}; see manifest note)\n")

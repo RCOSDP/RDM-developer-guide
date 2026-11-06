@@ -27,6 +27,8 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
   MC-09  adopted_prs status == adopted; candidate_prs status in candidate|rejected;
          upstreams status in merged|reference|candidate and kind cos => reference;
          PR number is a positive integer
+  MC-15  image_build {context, tag} only on infra, context is a repo-relative directory with a Dockerfile,
+         tag is a valid image tag, note required, exclusive with prebuilt_image and build_platform (ADR-07)
   MC-10  profile in minimum|core|full; platforms subset of linux/arm64,linux/amd64;
          build_platform on infra only together with a non-empty note (PR #32 review r1 R1-01);
          core components list both platforms
@@ -88,6 +90,7 @@ EXIT_MANIFEST = 20
 
 MANIFEST_JSON = Path("manifest/upstreams.json")
 MANIFEST_TOON = Path("manifest/upstreams.toon")
+REPO_ROOT = Path(__file__).resolve().parent.parent  # tools/ -> repository root (MC-15 looks for Dockerfiles)
 
 ROLES = {"core", "infra", "subsystem"}
 KINDS = {"public", "private", "cos"}
@@ -161,6 +164,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "build_platform": ("MC-10", "str|null"),
     "prebuilt_image": ("MC-06", "str|null"),
     "overlay_of": ("MC-14", "str|null"),
+    "image_build": ("MC-15", "obj"),
     "note": ("MC-01", "str|null"),
 }
 STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {
@@ -511,6 +515,40 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
 
     # MC-14
     errors.extend(check_overlays(components))
+
+    # MC-15: image_build (ADR-07) only on infra, with a repo-relative context that holds a Dockerfile,
+    # a tag, a note, no prebuilt_image and no build_platform (the point is a native build)
+    for i, comp in enumerate(components):
+        if not isinstance(comp, dict) or "image_build" not in comp:
+            continue  # key absent: not an image_build component
+        label = f"components[{i}]"
+        ib = comp["image_build"]
+        if comp.get("role") != "infra":
+            errors.append(f"MC-15: {label}: image_build is only for infra components")
+        if not isinstance(ib, dict) or not isinstance(ib.get("context"), str) or not isinstance(ib.get("tag"), str) or not ib["context"] or not ib["tag"]:
+            # an empty object or a missing key is an error, never "no image_build" (review PR #34 r1 R1-02)
+            errors.append(f"MC-15: {label}: image_build must be an object with non-empty string context and tag (got {ib!r})")
+            continue
+        ctxp = ib["context"]
+        if ctxp.startswith("/") or ".." in ctxp.split("/") or not re.fullmatch(r"[A-Za-z0-9_./-]+", ctxp):
+            errors.append(f"MC-15: {label}: image_build.context must be a plain repo-relative path (got {ctxp!r})")
+        else:
+            root = REPO_ROOT.resolve()
+            ctx_dir = (REPO_ROOT / ctxp).resolve()
+            dockerfile = (REPO_ROOT / ctxp / "Dockerfile").resolve()
+            inside = all(str(q).startswith(str(root) + "/") for q in (ctx_dir, dockerfile))
+            if not inside:
+                errors.append(f"MC-15: {label}: image_build.context {ctxp} resolves outside this repository (symlink?)")
+            elif not ctx_dir.is_dir() or not dockerfile.is_file():
+                errors.append(f"MC-15: {label}: image_build.context {ctxp} has no Dockerfile in this repository")
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", ib["tag"]):
+            errors.append(f"MC-15: {label}: image_build.tag must be a valid image tag (got {ib['tag']!r})")
+        if comp.get("prebuilt_image"):
+            errors.append(f"MC-15: {label}: image_build and prebuilt_image are exclusive")
+        if comp.get("build_platform"):
+            errors.append(f"MC-15: {label}: image_build components are built for the host platform; drop build_platform")
+        if not (isinstance(comp.get("note"), str) and comp["note"].strip()):
+            errors.append(f"MC-15: {label}: image_build requires a note (why the official image cannot be used, until which milestone)")
 
     # MC-08
     for (urepo, ubranch), shas in sorted(sha_by_repo_branch.items()):

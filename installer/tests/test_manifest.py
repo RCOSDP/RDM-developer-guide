@@ -121,6 +121,23 @@ class ServicesForProfileTests(unittest.TestCase):
             self.assertIn(name, templates, f"missing template for {name}")
             self.assertEqual(templates[name]["component"], self.man.component_for_service(name).id)
 
+    def test_native_image_build_component_has_image_origin(self):
+        """ADR-07: elasticsearch runs grdm-dev/elasticsearch2:<tag> built from installer/images/, origin `image`."""
+        services = {s.name: s for s in manifest.services_for_profile(self.man, "minimum")}
+        es = services["elasticsearch"]
+        self.assertEqual(es.image, "grdm-dev/elasticsearch2:2.4.6-1")
+        self.assertEqual(es.origin, "image")
+        self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
+        self.assertTrue(self.man.component("elasticsearch2").is_image_build)
+
+    def test_empty_image_build_is_a_manifest_error(self):
+        """PR #34 review r1 R1-02: `image_build: {}` must not degrade into the plain base image."""
+        data = json.loads(json.dumps(self.man_data)) if hasattr(self, "man_data") else json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
+        es["image_build"] = {}
+        with self.assertRaises(manifest.ManifestError):
+            manifest.parse(data)
+
     def test_minimum(self):
         self.assertEqual(self.names("minimum"), MINIMUM)
 

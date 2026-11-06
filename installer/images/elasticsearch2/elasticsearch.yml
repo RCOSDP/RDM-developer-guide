@@ -1,0 +1,8 @@
+# Elasticsearch 2.4.6 for the GakuNin RDM developer environment (grdm-dev/elasticsearch2).
+# Same settings the upstream osf.io docker-compose relies on: a single node reachable by service
+# name inside the Compose network only (ADR-02); no multicast discovery.
+cluster.name: grdm-dev
+network.host: 0.0.0.0
+discovery.zen.ping.multicast.enabled: false
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs

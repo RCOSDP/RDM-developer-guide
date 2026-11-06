@@ -115,7 +115,10 @@ class ComposeRenderTests(unittest.TestCase):
             for key in ("mem_limit", "cpus", "pids_limit"):
                 self.assertIn(key, svc, name)
             if "user" in relaxed:
-                self.assertNotIn("user", svc, name)
+                if name == "elasticsearch_data_init":
+                    self.assertEqual(svc["user"], "0:0", name)  # explicit root via template run_as (ADR-07, PR #34 r1 R1-01)
+                else:
+                    self.assertNotIn("user", svc, name)
             else:
                 uid = svc["user"].split(":")[0]
                 self.assertNotEqual(uid, "0", name)
@@ -353,6 +356,27 @@ class ComposeRenderTests(unittest.TestCase):
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # ---- native Elasticsearch image (ADR-07)
+
+    def test_elasticsearch_uses_the_native_image_under_the_hardening_default(self):
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            es = doc["services"]["elasticsearch"]
+            self.assertEqual(es["image"], "grdm-dev/elasticsearch2:2.4.6-1")
+            self.assertEqual(es["user"], "1000:1000"); self.assertTrue(es["read_only"])
+            self.assertNotIn("cap_add", es); self.assertNotIn("platform", es.get("platform", "linux/amd64") == "linux/amd64" and "x" or "", "")
+            self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
+            self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
+            init = doc["services"]["elasticsearch_data_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
+            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (es["image"], "0:0", ["CHOWN"], "no"))
+            self.assertEqual(es["depends_on"], {"elasticsearch_data_init": {"condition": "service_completed_successfully"}})
+            self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # ---- invoke-based services keep stdin open (real install run 9)
 
     def test_invoke_services_keep_stdin_open(self):
@@ -576,7 +600,7 @@ class ComposeRenderTests(unittest.TestCase):
         for name in ("test_idp", "shibboleth_sp"):
             svc = doc["services"][name]
             relaxed = exceptions.get(name, set())
-            self.assertEqual("user" not in svc, "user" in relaxed, name)
+            self.assertEqual("user" not in svc or svc.get("user") == "0:0", "user" in relaxed, name)
             self.assertEqual(svc["read_only"], "read_only" not in relaxed, name)
             self.assertEqual(rows[name]["exceptions"], ",".join(sorted(relaxed)) if relaxed else "none", name)
         # the SP binds port 80 as root and needs exactly the recorded capability for it; the IdP (uid 1000 on 8080) needs none

@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.7 — 2026-11-06. **Learned:** the M2 open-items table needs the build row and the start-up row kept separate, because build finished at run 6 while start-up took seven more runs. ／ M2 の残件表はビルドの行と起動の行を分けておく必要がある。ビルドは第 6 回で終わり、起動にはさらに 7 回かかった。
+- Version / 版: 0.8 — 2026-11-06. **Learned:** a warm success and a cold-start success are two different rows: the cold start needed one more architecture decision (ADR-07) before it passed. ／ 温まった状態の成功とコールドスタートの成功は別の行である。コールドスタートは通るまでにもう一つ設計判断（ADR-07）を要した。
+  0.7 — 2026-11-06. **Learned:** the M2 open-items table needs the build row and the start-up row kept separate, because build finished at run 6 while start-up took seven more runs. ／ M2 の残件表はビルドの行と起動の行を分けておく必要がある。ビルドは第 6 回で終わり、起動にはさらに 7 回かかった。
   0.6 — 2026-11-06. **Learned:** the M2 row still said "awaiting owner merge" nine PRs later; a board row must be updated in the same PR that changes what it describes, and a milestone in progress needs its own open-items table (§2b). ／ M2 の行は 9 本の PR を経ても「所有者マージ待ち」のままだった。ボードの行は、その記述の対象を変える PR と同じ PR で更新しなければならず、進行中の節目には専用の残件表（§2b）が要る。
   0.5 — 2026-11-06. **Learned:** an installer change that depends on a matching change in an integration repository must leave an open item here, or the dependency is only visible in an ADR (PR #30 review r1 R1-03: the wiki editor page must load the new bundle path). ／ 統合リポジトリ側の対応する変更に依存するインストーラーの変更は、ここに残件を残さなければ ADR の中にしか見えないと分かった（PR #30 レビュー r1 R1-03: Wiki エディタのページが新しい束のパスを読む必要がある）。
   0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
@@ -55,9 +56,10 @@
 | Installer CLI and templates (SPEC-02), overlay support (ADR-06) | ✅ Merged (PR #21–#30) |
 | Real install on Mac Studio reaches `build` for all six components | ✅ Run 6 (2026-11-06): three built locally, two prebuilt, one overlay |
 | `up` → `health --network` → `scan` → `report` on Mac Studio | ✅ Run 18 (2026-11-06, PR #33): exit 0, ready at the loopback URL; runs 6–17 fixed one start-up fact each (DEMO-20) |
+| Cold start (empty volumes, new `runtime/`) on Mac Studio | ✅ Run 21 (2026-11-06, PR #34, ADR-07): exit 0 in 31 minutes; run 19 had shown the emulated Elasticsearch 2 needing 38 minutes to start, replaced by a native image |
 | edit.mako wiring in the integration repository — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 once a real install reaches `up` | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository; needed for the Wiki acceptance case, not for `health` |
 | Playwright acceptance C1–C6 (selectors and seed data are `TODO(M2)`) | 🔄 First real run 2026-11-06 against the run-18 stack: seeding works (OSF accounts need a password different from the e-mail; the browser detection had to learn Playwright's newer Chromium layouts), 0 of 12 cases pass — a fixture name mismatch fails C1–C3/C5/C6 at setup and the fakecas password field is not visible for C4; next PR |
-| Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18 (Trivy alone): 1835 CRITICAL / 8290 HIGH / 9763 MEDIUM / 3886 LOW over 22 targets; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM, 13 LOW to triage at M3) |
+| Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18 (Trivy alone): 1835 CRITICAL / 8290 HIGH / 9763 MEDIUM / 3886 LOW over 22 targets; run 21 with the native Elasticsearch 2: 1769 / 8030 / 9550 / 3676; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM, 13 LOW to triage at M3) |
 | Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
 ### 3. Rules
@@ -108,9 +110,10 @@ This board is the **single source of truth** for milestone progress:
 | インストーラー CLI とテンプレート（SPEC-02）、オーバーレイ対応（ADR-06） | ✅ マージ済み（PR #21〜#30） |
 | Mac Studio の実機導入で 6 部品すべてが `build` を通過 | ✅ 第 6 回（2026-11-06）: 3 本はローカルビルド、2 本は prebuilt、1 本はオーバーレイ |
 | Mac Studio で `up` → `health --network` → `scan` → `report` | ✅ 第 18 回（2026-11-06、PR #33）: 終了コード 0、ループバックの URL で準備完了。第 6〜17 回は起動の事実を毎回 1 件ずつ修正（DEMO-20） |
+| Mac Studio でのコールドスタート（空のボリューム、新しい `runtime/`） | ✅ 第 21 回（2026-11-06、PR #34、ADR-07）: 31 分で終了コード 0。第 19 回でエミュレーションの Elasticsearch 2 が起動に 38 分かかることが分かり、ネイティブイメージに置き換えた |
 | 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機導入が `up` に達したらエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない。Wiki の受入ケースに必要で、`health` には不要 |
 | Playwright 受入 C1〜C6（セレクタと種データは `TODO(M2)`） | 🔄 2026-11-06 に第 18 回のスタックへ初回実行: 種データ作成は動く（OSF アカウントのパスワードはメールと別にする必要。ブラウザ検出は Playwright の新しい Chromium 配置を学ぶ必要があった）、12 ケース中 0 合格 — fixture 名の不一致で C1〜C3/C5/C6 が setup で失敗、C4 は fakecas のパスワード欄が不可視。次の PR で対応 |
-| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測（Trivy 単独）: 22 対象で CRITICAL 1835 / HIGH 8290 / MEDIUM 9763 / LOW 3886。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9・LOW 13 は M3 で精査） |
+| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測（Trivy 単独）: 22 対象で CRITICAL 1835 / HIGH 8290 / MEDIUM 9763 / LOW 3886。ネイティブ Elasticsearch 2 の第 21 回: 1769 / 8030 / 9550 / 3676。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9・LOW 13 は M3 で精査） |
 | 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
 ### 3. 規則
