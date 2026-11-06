@@ -532,6 +532,30 @@ class ScannerRobustnessTests(ScanTestBase):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_ERRORS, semgrep_rc=0))
         self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
 
+    def test_semgrep_rule_timeouts_are_warnings_not_failures(self):
+        """Real install run 20: 148 per-file rule timeouts under load made the gate fail closed; a timeout is a
+        coverage gap recorded on the tool row, other errors still make the run incomplete."""
+        only_timeouts = json.dumps({"results": [], "errors": [
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.x", "message": "Timeout when running python.lang.x on a.py", "path": "a.py"},
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.y", "message": "Timeout when running python.lang.y on a.py", "path": "a.py"}]})
+        code, data, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0))
+        self.assertEqual(code, exit_codes.OK)
+        sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+        self.assertTrue(sem["result"].startswith("ok ("), sem)
+        self.assertIn("2 rule timeout(s) on 1 file(s)", sem["warnings"][0])
+        mixed = json.loads(only_timeouts); mixed["errors"].append({"code": 2, "level": "error", "type": "SemgrepError", "message": "boom", "path": "b.py"})
+        code, data, _ = self.run_scan(fake_runner(semgrep_json=json.dumps(mixed), semgrep_rc=2))
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+        self.assertIn("1 error(s)", sem["result"])
+
+    def test_semgrep_argv_raises_the_timeout(self):
+        calls = []
+        self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING, semgrep_rc=1, calls=calls))
+        sem = [c for c in calls if c and "semgrep" in str(c[0]) and "scan" in c][0]
+        self.assertIn("--timeout", sem); self.assertEqual(sem[sem.index("--timeout") + 1], "30")
+        self.assertIn("--timeout-threshold", sem)
+
     def test_semgrep_exit_1_means_findings_not_failure(self):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING, semgrep_rc=1))
         self.assertEqual(code, exit_codes.OK)

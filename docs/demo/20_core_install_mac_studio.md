@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
+- Version / 版: 0.10 — 2026-11-06. **Learned:** a warm success is not a cold-start success: with fresh volumes the emulated Elasticsearch 2 took 38 minutes to open its port and the database initialisation gave up; the same program on a native arm64 JRE starts in 5 seconds, so EOL amd64-only middleware must be built natively instead of emulated (review r1 of PR #33 asked for the cold start). ／ 温まった状態の成功はコールドスタートの成功ではない。新しいボリュームではエミュレーション下の Elasticsearch 2 がポートを開くまで 38 分かかり、データベース初期化が諦めた。同じプログラムは arm64 ネイティブの JRE で 5 秒で起動するので、amd64 しか無い EOL ミドルウェアはエミュレーションでなくネイティブで組む（PR #33 のレビュー r1 がコールドスタートを求めた）。
+  0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
   0.8 — 2026-11-06. **Learned:** after the images, the application layer fails for installer reasons that only a real start reveals — settings keys read at import, Compose's stdin and tmpfs semantics, a memory budget larger than the Docker VM, and a database that nobody initialised; and an unhandled 500 in osf.io's development server leaks a database connection. ／ イメージの後、アプリケーション層は実際に起動しないと分からないインストーラー側の理由で失敗する。import 時に読まれる設定キー、Compose の stdin と tmpfs の意味、Docker VM より大きいメモリ予算、誰も初期化していないデータベース。そして osf.io の開発サーバーの未処理の 500 はデータベース接続を漏らす。
   0.7 — 2026-11-06. **Learned:** once every image builds, the next failures are per-image start-up facts under the hardening baseline and under Rosetta emulation; and a Docker Desktop bind directory lies about ownership (`chown` is a no-op, `test -w` fails, writes succeed), so a container must probe by doing, not by asking. ／ すべてのイメージが組めた後の失敗は、hardening 基準と Rosetta エミュレーションの下でのイメージごとの起動の事実である。また Docker Desktop の bind ディレクトリは所有権について嘘をつく（`chown` は無効、`test -w` は失敗、書込は成功）ので、コンテナは尋ねるのではなく実際に試して確かめなければならない。
   0.6 — 2026-11-06. **Learned:** when a component is an overlay, its dependency manifest can drift from the base it is applied to; the base's new modules then fail to resolve inside the overlay's lock file, so SPEC-05 integration must diff the two manifests every week. ／ 部品がオーバーレイのとき、その依存一覧は重ねる先の基底からずれうる。基底が新しく使うモジュールはオーバーレイ側のロックファイルの中で解決できなくなるため、SPEC-05 の統合では毎週二つの一覧の差分を取らなければならない。
@@ -359,6 +360,58 @@ What this proves:
 
 Next on M2: the Playwright (a tool that drives a real browser to test web pages; see [REF-01](../reference/REF-01_Glossary.md)) acceptance suite (C1–C6) against this running stack, and the osf.io wiki editor page wiring (C4) in RDM-osf.io-dev2027.
 
+### Run 19 — 2026-11-06, cold start after the review-r1 fixes (volumes removed, `runtime/` recreated)
+
+```toon
+run19:
+  preparation: "`docker compose down -v`; runtime/ moved aside (images kept)"
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 40 (docker compose up exited 1: service "osf_init" didn't complete successfully)
+  steps[6]{step,code,status}:
+    doctor,0,ok
+    plan,0,ok
+    "secrets init",0,"ok (new runtime/.env)"
+    "compose render",0,"ok (fakecas 8080 busy → 8081; budget from the 47 GiB VM)"
+    build,0,"ok (all cached)"
+    up,40,"failed after 11 minutes"
+  one_shots[4]{service,result}:
+    elasticsearch_data_init,"exited 0 (chown 101:101; on Docker Desktop the chown is a no-op and the directory is writable anyway)"
+    wiki_static_init,"exited 0"
+    wiki_assets,"exited 0 (bundle copied)"
+    osf_init,"exited 1: migrate ran all migrations on the empty database; populate_institutions then failed 30 times in 5 minutes — Elasticsearch 2 refused connections"
+  elasticsearch2: "the container was running at 200 % CPU but had not opened port 9200: the EOL elasticsearch:2 image (JDK 8, linux/amd64) under Rosetta logged `initializing ...` at 03:31:52 and `started` at 04:09:57 — 38 minutes of start-up"
+  native_trial: "the official elasticsearch-2.4.6 tarball (27.3 MB, sha256 5f7e4bb7…cfc6f) on an arm64 eclipse-temurin:8-jre container: `initialized` and `started` 5 seconds after launch"
+```
+
+What this proves:
+
+- The cold start exposes the one remaining emulation cost that no timeout can hide: a JDK 8 service under Rosetta takes about 40 minutes to initialise, every time its data directory is new, and the whole stack waits for it.
+- Run with a native arm64 JRE the same Elasticsearch 2.4.6 starts in seconds; the problem is the x86-64 image, not the program.
+
+Decision taken: for this PR, `osf_init` waits up to 30 minutes for Elasticsearch and ember-osf-web no longer depends on web/api, so its own long build runs in parallel; run 20 continued the same cold start and passed `up` (below). For the next PR: build a multi-architecture `grdm-dev/elasticsearch2` image from the official tarball on a digest-pinned Temurin 8 JRE (checksum verified, non-root, no owner-init container) and record the rule in an ADR — EOL middleware that only ships amd64 images is built natively for arm64 until the milestone that retires it.
+
+### Run 20 — 2026-11-06, the same cold start continued once Elasticsearch had started
+
+```toon
+run20:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 51 (stopped at `scan`: semgrep incomplete)
+  steps[8]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env from run 19)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,0,"ok (cached)"
+    up,0,"ok — ready: http://127.0.0.1:5000/ on the fresh volumes: osf_init completed (migrations already applied in run 19, institutions imported once Elasticsearch answered), ember built its dist into the new volume"
+    "health --network",0,"ok (warning: foreign-listener ControlCe on *:5000)"
+    scan,51,"semgrep reported 148 errors: per-file rule timeouts (default 5 s) while the host was still busy; the scan is marked incomplete and the gate fails closed"
+```
+
+What this proves:
+
+- With Elasticsearch finally up, the cold start completes through `up` and the loopback check: the database initialisation, the wiki bundle and the ember build all work from empty volumes.
+- `scan` is not yet robust under load: Semgrep's 5-second per-rule-per-file timeout trips on the large osf.io checkout while other containers consume the CPU. Timeouts are a coverage note, not a scanner failure; the next run raises the timeout and records skipped files as a warning instead of exit 51.
+
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
 ---
@@ -701,6 +754,58 @@ run18:
 - EOL スタックの脆弱性の基準値が測れた。Trivy 単独で CRITICAL 1835 件、HIGH 8290 件（ZAP が HIGH 1 件を加える）で、ほぼすべてがイメージ由来（Python 3.5/3.6、node 8/12、JDK 8、Elasticsearch 2/6、mongo 3.4）。これが M4 と M5 でゼロにすべき数であり、許容リストは隠すためには使わず空のままにする。
 
 M2 の次: この起動したスタックに対する Playwright 受入（C1〜C6）と、RDM-osf.io-dev2027 側の Wiki エディタページの配線（C4）。
+
+### 第 19 回 — 2026-11-06、レビュー r1 対応後のコールドスタート（ボリューム削除、`runtime/` 新規）
+
+```toon
+run19:
+  preparation: "`docker compose down -v`。runtime/ を退避（イメージは保持）"
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 40（docker compose up が 1: service \"osf_init\" didn't complete successfully）"
+  steps[6]{step,code,status}:
+    doctor,0,ok
+    plan,0,ok
+    "secrets init",0,"ok（新しい runtime/.env）"
+    "compose render",0,"ok（fakecas の 8080 は使用中→8081。予算は 47 GiB の VM から）"
+    build,0,"ok（すべてキャッシュ）"
+    up,40,"11 分後に失敗"
+  one_shots[4]{service,result}:
+    elasticsearch_data_init,"0 で終了（chown 101:101。Docker Desktop では chown は無効だがどの uid でも書ける）"
+    wiki_static_init,"0 で終了"
+    wiki_assets,"0 で終了（束を写した）"
+    osf_init,"1 で終了: migrate は空のデータベースに全 migration を適用。続く populate_institutions は 5 分間に 30 回失敗 — Elasticsearch 2 が接続を拒否"
+  elasticsearch2: "コンテナは CPU 200 % で動いていたが 9200 番を開いていなかった。EOL の elasticsearch:2 イメージ（JDK 8、linux/amd64）は Rosetta 下で 03:31:52 に `initializing ...`、04:09:57 に `started` — 起動に 38 分"
+  native_trial: "公式の elasticsearch-2.4.6 tarball（27.3 MB、sha256 5f7e4bb7…cfc6f）を arm64 の eclipse-temurin:8-jre コンテナで起動: 5 秒で `initialized`・`started`"
+```
+
+これで分かったこと:
+
+- コールドスタートは、どんなタイムアウトでも隠せない最後のエミュレーションのコストを露わにした。JDK 8 のサービスは Rosetta 下で、データディレクトリが新しいたびに初期化に約 40 分かかり、スタック全体がそれを待つ。
+- 同じ Elasticsearch 2.4.6 を arm64 ネイティブの JRE で動かすと数秒で起動する。問題は x86-64 のイメージであってプログラムではない。
+
+決めたこと: 本 PR では `osf_init` が Elasticsearch を最長 30 分待ち、ember-osf-web は web/api に依存しなくして自身の長いビルドを並行させる。第 20 回は同じコールドスタートの続きで `up` を通した（下記）。次の PR では、公式 tarball からダイジェスト固定の Temurin 8 JRE 上にマルチアーキテクチャの `grdm-dev/elasticsearch2` イメージを組み（チェックサム検証、非 root、所有者初期化コンテナ不要）、その規則を ADR に記す — amd64 のイメージしか無い EOL ミドルウェアは、退役する節目まで arm64 向けにネイティブで組む。
+
+### 第 20 回 — 2026-11-06、Elasticsearch が起動してから同じコールドスタートを続行
+
+```toon
+run20:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 51（`scan` で停止: semgrep が不完全）"
+  steps[8]{step,code,status}:
+    "secrets init",0,"skipped（第 19 回の runtime/.env）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,0,"ok（キャッシュ）"
+    up,0,"ok — ready: http://127.0.0.1:5000/。新しいボリューム上で osf_init が完了（migration は第 19 回で適用済み、Elasticsearch が応答してから機関を投入）、ember は新しいボリュームへ dist を組んだ"
+    "health --network",0,"ok（警告: foreign-listener ControlCe on *:5000）"
+    scan,51,"semgrep がエラー 148 件を報告: ホストがまだ忙しい間にファイルごとのルールのタイムアウト（既定 5 秒）。検査は不完全と記録され、門は安全側に失敗"
+```
+
+これで分かったこと:
+
+- Elasticsearch がようやく起動すると、コールドスタートは `up` とループバック検査を通る。データベース初期化、wiki の束、ember のビルドはいずれも空のボリュームから動く。
+- `scan` は負荷の下でまだ頑健でない。Semgrep のルール・ファイルごとの 5 秒のタイムアウトが、他のコンテナが CPU を使っている間に大きな osf.io の checkout で発動する。タイムアウトはスキャナーの失敗ではなく網羅性の注記であり、次の回ではタイムアウトを伸ばし、飛ばしたファイルを終了 51 でなく警告として記録する。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 

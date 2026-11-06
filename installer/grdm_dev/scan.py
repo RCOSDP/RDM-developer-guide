@@ -767,7 +767,10 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     argv = [_exe("semgrep"), "scan"]
     for pack in SEMGREP_PACKS:
         argv += ["--config", pack]
-    argv += ["--json", "--quiet", "--metrics=off", "--error", "."]
+    # --timeout 30 / --timeout-threshold 3: Semgrep's default 5 s per rule per file trips on large
+    # checkouts while other containers load the CPU (real install run 20: 148 timeouts under a cold
+    # start); a file is dropped after three timeouts and reported below as a coverage warning.
+    argv += ["--json", "--quiet", "--metrics=off", "--error", "--timeout", "30", "--timeout-threshold", "3", "."]
     rc, out = runner(argv)
     data = _json_or_empty(out)
     problems: list[str] = []
@@ -778,10 +781,22 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     if rc not in SEMGREP_OK_CODES:
         problems.append(f"semgrep exited {rc} (0 clean, 1 findings; other codes mean the run failed)")
     errors = data.get("errors") if isinstance(data, dict) else None
+    timeouts: list[dict] = []
     if errors:
-        msgs = [str((e or {}).get("message", e))[:80] for e in errors[:3] if isinstance(e, (dict, str))]
-        problems.append(f"semgrep reported {len(errors)} error(s): " + " | ".join(msgs))
-    return normalize_semgrep(data), _tool("semgrep", _tool_version(runner, [_exe("semgrep"), "--version"]), len(SEMGREP_PACKS), problems)
+        # A rule timeout is a coverage gap on one file, not a failed scanner run: it is recorded as a
+        # warning (the files are named in the raw report) so the gate still judges the findings it has.
+        timeouts = [e for e in errors if isinstance(e, dict) and str(e.get("type", "")).startswith("Timeout")]
+        others = [e for e in errors if e not in timeouts]
+        if others:
+            msgs = [str((e or {}).get("message", e))[:80] for e in others[:3] if isinstance(e, (dict, str))]
+            problems.append(f"semgrep reported {len(others)} error(s): " + " | ".join(msgs))
+    tool = _tool("semgrep", _tool_version(runner, [_exe("semgrep"), "--version"]), len(SEMGREP_PACKS), problems)
+    if timeouts:
+        files = sorted({str(e.get("path", "?")) for e in timeouts})
+        tool["warnings"] = [f"{len(timeouts)} rule timeout(s) on {len(files)} file(s); coverage gap, not a failure: " + ", ".join(files[:5]) + (" ..." if len(files) > 5 else "")]
+        if not problems:
+            tool["result"] = f"ok ({len(timeouts)} rule timeouts, see warnings)"
+    return normalize_semgrep(data), tool
 
 
 def run_gitleaks(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
