@@ -26,6 +26,9 @@ services in runtime/.env as GRDM_EGRESS_SERVICES (and in the compose file's `x-g
 A non-publishing service on `grdm-edge` passes the baseline only when that record names it (reported as
 `accepted-egress`); an attachment the record does not name is BASE-NETWORK, and a record that names a
 service which is not attached is BASE-EGRESS-STALE (re-render so record and reality agree).
+
+Semgrep rule timeouts (SPEC-03 §4.2): at M1-M3 a timeout is a coverage warning on the tool row and the
+gate judges the findings it has; at M4-M5 it makes the run incomplete (exit 51) like any scanner error.
 """
 from __future__ import annotations
 
