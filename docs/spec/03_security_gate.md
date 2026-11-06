@@ -101,7 +101,7 @@ Because this repository is public, every pull request and every push to `develop
 
 #### 4.2 Static analysis: Semgrep and CodeQL
 
-*Static analysis* reads source code without running it and flags dangerous patterns (for example, building an SQL query from user text). Semgrep (a tool that reads source code looking for dangerous patterns; see [REF-01](../reference/REF-01_Glossary.md)) runs locally and in CI on every PR with the `p/default`, `p/python`, `p/javascript`, and `p/docker-compose` rule packs. CodeQL runs in the private `-dev2027` repositories on `develop` nightly. Findings of severity ERROR count as HIGH in the gate; WARNING counts as MEDIUM.
+*Static analysis* reads source code without running it and flags dangerous patterns (for example, building an SQL query from user text). Semgrep (a tool that reads source code looking for dangerous patterns; see [REF-01](../reference/REF-01_Glossary.md)) runs locally and in CI on every PR with the `p/default`, `p/python`, `p/javascript`, and `p/docker-compose` rule packs. CodeQL runs in the private `-dev2027` repositories on `develop` nightly. Findings of severity ERROR count as HIGH in the gate; WARNING counts as MEDIUM. Semgrep runs with a 30-second per-rule-per-file timeout (three timeouts drop a file). A rule timeout is a *coverage gap*: at M1–M3 (report-only, count-not-growing) `scan` records it as a warning on the tool row and still judges the findings it has; at M4 and M5 (fail-high, zero) a rule that never finished cannot establish a clean result, so the run is incomplete (exit 51) until the scan is repeated on an idle host or with a longer `--timeout` (real install run 20, PR #33 review r2).
 
 #### 4.3 Dynamic scan: OWASP ZAP baseline
 
@@ -330,7 +330,7 @@ Exit codes are defined in [SPEC-02 §6](02_installer_cli.md#english); this table
 
 #### 4.2 静的解析: Semgrep と CodeQL
 
-「静的解析」はソースコードを動かさずに読み、危ない書き方（たとえば利用者の入力文字から SQL を組み立てる）を見つけます。Semgrep（ソースコードを読んで危ない書き方を探す道具。[REF-01](../reference/REF-01_Glossary.md)）はローカルと CI で全 PR に対し `p/default`、`p/python`、`p/javascript`、`p/docker-compose` のルール集で動かします。CodeQL は非公開の `-dev2027` リポジトリの `develop` で毎晩動かします。深刻度 ERROR は門では HIGH、WARNING は MEDIUM として数えます。
+「静的解析」はソースコードを動かさずに読み、危ない書き方（たとえば利用者の入力文字から SQL を組み立てる）を見つけます。Semgrep（ソースコードを読んで危ない書き方を探す道具。[REF-01](../reference/REF-01_Glossary.md)）はローカルと CI で全 PR に対し `p/default`、`p/python`、`p/javascript`、`p/docker-compose` のルール集で動かします。CodeQL は非公開の `-dev2027` リポジトリの `develop` で毎晩動かします。深刻度 ERROR は門では HIGH、WARNING は MEDIUM として数えます。 Semgrep はルール・ファイルごとに 30 秒のタイムアウトで動く（3 回超えたファイルは落とす）。ルールのタイムアウトは*網羅性の穴*である。M1〜M3（報告のみ・件数非増加）では `scan` が道具の行の警告として記録し、得られた検出で判定する。M4・M5（fail-high・zero）では終わらなかったルールは「きれい」を立証できないので、空いたホストで、または長い `--timeout` で検査をやり直すまで不完全（終了 51）とする（実機第 20 回、PR #33 レビュー r2）。
 
 #### 4.3 動的スキャン: OWASP ZAP ベースライン
 

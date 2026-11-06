@@ -549,6 +549,19 @@ class ScannerRobustnessTests(ScanTestBase):
         sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
         self.assertIn("1 error(s)", sem["result"])
 
+    def test_semgrep_timeouts_are_incomplete_at_strict_milestones(self):
+        """M4 (fail-high) and M5 (zero): a rule that never finished cannot prove a clean result → 51 (review r2 R2-02)."""
+        only_timeouts = json.dumps({"results": [], "errors": [
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.x", "message": "Timeout", "path": "a.py"}]})
+        for ms in ("M4", "M5"):
+            code, data, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0), milestone=ms)
+            self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE, ms)
+            sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+            self.assertIn("incomplete", sem["result"]); self.assertIn("timeout", sem["result"])
+        for ms in ("M1", "M2", "M3"):
+            code, _, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0), milestone=ms)
+            self.assertEqual(code, exit_codes.OK, ms)
+
     def test_semgrep_argv_raises_the_timeout(self):
         calls = []
         self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING, semgrep_rc=1, calls=calls))

@@ -9,6 +9,7 @@ import shutil
 import stat
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -280,7 +281,9 @@ class ComposeRenderTests(unittest.TestCase):
 
     # ---- memory budget is capped by the Docker VM (real install run 10)
 
-    def _render_with_vm(self, vm_bytes: int, memory_gib=None):
+    def _render_with_vm(self, vm_bytes: int, memory_gib=None, host_gib: float = 128.0):
+        """Render with a faked `docker info` VM size and a faked host memory (the real machine's size must
+        not leak into the test: PR #33 review r2 R2-01 — CI runners have far less than the core floor)."""
         def runner(argv):
             if argv[:2] == ["docker", "info"]:
                 return 0, f"{vm_bytes}\n"
@@ -290,7 +293,7 @@ class ComposeRenderTests(unittest.TestCase):
             ctx = Context(root=root, yes=True, json_output=True, profile="core")
             args = argparse.Namespace(compose_command="render", auth="fakecas", platform="linux/arm64", memory_gib=memory_gib, cpus=None, egress=None)
             err = io.StringIO()
-            with redirect_stdout(io.StringIO()), redirect_stderr(err):
+            with redirect_stdout(io.StringIO()), redirect_stderr(err), mock.patch.object(compose, "detect_memory_gib", return_value=host_gib):
                 rc = compose.run(ctx, args, cpus=4.0, port_checker=lambda port: True, platform_string="linux/arm64", runner=runner)
             report_path = root / "runtime" / "reports" / "compose_latest.json"
             report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
@@ -301,9 +304,9 @@ class ComposeRenderTests(unittest.TestCase):
             shutil.rmtree(root, ignore_errors=True)
 
     def test_memory_budget_uses_docker_vm_when_smaller(self):
-        rc, _, report, doc = self._render_with_vm(48 * 1024 ** 3)  # 48 GiB VM on a bigger host
+        rc, _, report, doc = self._render_with_vm(48 * 1024 ** 3, host_gib=128.0)  # 48 GiB VM on a 128 GiB host
         self.assertEqual(rc, exit_codes.OK)
-        self.assertLessEqual(report["memory_gib"], 48.0)
+        self.assertEqual(report["memory_gib"], 48.0)  # the smaller of host and engine VM
         total = sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values())
         self.assertLessEqual(total, 48 * 1024 * compose.MEMORY_SHARE)  # floors fit, so the sum stays inside the budget
 
@@ -319,8 +322,15 @@ class ComposeRenderTests(unittest.TestCase):
 
     def test_sum_of_floors_fits_the_documented_minimum_vm(self):
         """SPEC-02 §8: the core profile needs a 24 GiB Docker VM on Apple Silicon (ember 8 GiB floor under emulation)."""
-        rc, _, _, _ = self._render_with_vm(24 * 1024 ** 3)
+        rc, _, report, _ = self._render_with_vm(24 * 1024 ** 3, host_gib=64.0)
         self.assertEqual(rc, exit_codes.OK)
+        self.assertEqual(report["memory_gib"], 24.0)
+
+    def test_small_host_caps_the_budget_below_the_vm(self):
+        """A 16 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
+        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=16.0)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("16.0 GiB", err)
 
     def test_detect_docker_memory_gib_tolerates_bad_output(self):
         self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (1, "")))

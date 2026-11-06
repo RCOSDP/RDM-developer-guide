@@ -760,9 +760,10 @@ def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: st
 
 
 def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
-                secrets: list[str] | None = None) -> tuple[list[dict], dict]:
+                secrets: list[str] | None = None, strict: bool = False) -> tuple[list[dict], dict]:
     """Semgrep with the four SPEC-03 §4.2 packs and --error: rc 1 means findings, rc 0 clean, any other
-    rc or a nonempty `errors` array means the run was incomplete."""
+    rc or a nonempty `errors` array means the run was incomplete — except Semgrep rule timeouts at M1-M3,
+    which are coverage warnings (SPEC-03 §4.2); at M4/M5 they are incomplete too."""
     _require(which, "semgrep")
     argv = [_exe("semgrep"), "scan"]
     for pack in SEMGREP_PACKS:
@@ -783,17 +784,21 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     errors = data.get("errors") if isinstance(data, dict) else None
     timeouts: list[dict] = []
     if errors:
-        # A rule timeout is a coverage gap on one file, not a failed scanner run: it is recorded as a
-        # warning (the files are named in the raw report) so the gate still judges the findings it has.
+        # A rule timeout is a coverage gap on one file. At the reporting milestones (M1-M3, SPEC-03 §4.2)
+        # it is recorded as a warning so the gate still judges the findings it has; at the strict
+        # milestones (M4 fail-high, M5 zero) a rule that never finished cannot establish a clean result,
+        # so it stays a problem and the run is incomplete (exit 51) — PR #33 review r2 R2-02.
         timeouts = [e for e in errors if isinstance(e, dict) and str(e.get("type", "")).startswith("Timeout")]
         others = [e for e in errors if e not in timeouts]
         if others:
             msgs = [str((e or {}).get("message", e))[:80] for e in others[:3] if isinstance(e, (dict, str))]
             problems.append(f"semgrep reported {len(others)} error(s): " + " | ".join(msgs))
+        if timeouts and strict:
+            problems.append(f"semgrep: {len(timeouts)} rule timeout(s) left files unscanned; a strict milestone needs complete coverage (raise --timeout or scan on an idle host)")
     tool = _tool("semgrep", _tool_version(runner, [_exe("semgrep"), "--version"]), len(SEMGREP_PACKS), problems)
     if timeouts:
         files = sorted({str(e.get("path", "?")) for e in timeouts})
-        tool["warnings"] = [f"{len(timeouts)} rule timeout(s) on {len(files)} file(s); coverage gap, not a failure: " + ", ".join(files[:5]) + (" ..." if len(files) > 5 else "")]
+        tool["warnings"] = [f"{len(timeouts)} rule timeout(s) on {len(files)} file(s); coverage gap" + (" (incomplete at this milestone)" if strict else ", reported at M1-M3") + ": " + ", ".join(files[:5]) + (" ..." if len(files) > 5 else "")]
         if not problems:
             tool["result"] = f"ok ({len(timeouts)} rule timeouts, see warnings)"
     return normalize_semgrep(data), tool
@@ -991,7 +996,7 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
             findings.extend(tf)
             tools.append(tt)
             notes.extend(tn)
-            sf, st = run_semgrep(ctx, runner, which, ts, secrets)
+            sf, st = run_semgrep(ctx, runner, which, ts, secrets, strict=GATE_BY_MILESTONE.get(milestone, "report-only") in ("fail-high", "zero-critical-high"))
             findings.extend(sf)
             tools.append(st)
         if full or "secrets" in only:
