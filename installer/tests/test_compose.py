@@ -9,6 +9,7 @@ import shutil
 import stat
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -95,7 +96,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 21)  # core profile (SPEC-02 §4), wiki_static_init + wiki_assets (one-shots, ADR-06) included
+        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, elasticsearch_data_init, wiki_static_init, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -153,6 +154,9 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("DOMAIN = 'http://127.0.0.1:5050/'", local_py)
         self.assertIn("INTERNAL_DOMAIN = 'http://web:5000/'", local_py)
         self.assertIn("WATERBUTLER_INTERNAL_URL = 'http://wb:7777'", local_py)
+        # website/views.py reads EXTERNAL_EMBER_APPS['preprints']['path'] at import (real install run 9)
+        self.assertIn("'preprints': {'server': 'http://ember_osf_web:4201/', 'path': '/preprints/'}", local_py)
+        self.assertIn("'reviews': {", local_py)
         self.assertIn("MFR_SERVER_URL = 'http://127.0.0.1:7778'", local_py)
         self.assertIn("CAS_SERVER_URL = 'http://127.0.0.1:8080'", local_py)
         self.assertIn("SECRET_KEY = environ['SECRET_KEY']", local_py)
@@ -275,6 +279,95 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(json.loads(out)["remapped_ports"], [])
 
+    # ---- memory budget is capped by the Docker VM (real install run 10)
+
+    def _render_with_vm(self, vm_bytes: int, memory_gib=None, host_gib: float = 128.0):
+        """Render with a faked `docker info` VM size and a faked host memory (the real machine's size must
+        not leak into the test: PR #33 review r2 R2-01 — CI runners have far less than the core floor)."""
+        def runner(argv):
+            if argv[:2] == ["docker", "info"]:
+                return 0, f"{vm_bytes}\n"
+            return ps_runner()(argv)
+        root = make_root()
+        try:
+            ctx = Context(root=root, yes=True, json_output=True, profile="core")
+            args = argparse.Namespace(compose_command="render", auth="fakecas", platform="linux/arm64", memory_gib=memory_gib, cpus=None, egress=None)
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(err), mock.patch.object(compose, "detect_memory_gib", return_value=host_gib):
+                rc = compose.run(ctx, args, cpus=4.0, port_checker=lambda port: True, platform_string="linux/arm64", runner=runner)
+            report_path = root / "runtime" / "reports" / "compose_latest.json"
+            report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
+            doc_path = root / "runtime" / "docker-compose.yml"
+            doc = json.loads(doc_path.read_text(encoding="utf-8")) if doc_path.exists() else {}
+            return rc, err.getvalue(), report.get("data", report), doc
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_memory_budget_uses_docker_vm_when_smaller(self):
+        rc, _, report, doc = self._render_with_vm(48 * 1024 ** 3, host_gib=128.0)  # 48 GiB VM on a 128 GiB host
+        self.assertEqual(rc, exit_codes.OK)
+        self.assertEqual(report["memory_gib"], 48.0)  # the smaller of host and engine VM
+        total = sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values())
+        self.assertLessEqual(total, 48 * 1024 * compose.MEMORY_SHARE)  # floors fit, so the sum stays inside the budget
+
+    def test_infeasible_memory_floors_are_exit_10_unless_overcommit_is_explicit(self):
+        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (ember alone needs 8 GiB)."""
+        rc, err, _, _ = self._render_with_vm(8 * 1024 ** 3)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("memory floors", err)
+        self.assertIn("--memory-gib", err)
+        rc, _, _, doc = self._render_with_vm(8 * 1024 ** 3, memory_gib=8.0)  # explicit value = knowing overcommit
+        self.assertEqual(rc, exit_codes.OK)
+        self.assertGreater(sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values()), 8 * 1024 * compose.MEMORY_SHARE)
+
+    def test_sum_of_floors_fits_the_documented_minimum_vm(self):
+        """SPEC-02 §8: the core profile needs a 24 GiB Docker VM on Apple Silicon (ember 8 GiB floor under emulation)."""
+        rc, _, report, _ = self._render_with_vm(24 * 1024 ** 3, host_gib=64.0)
+        self.assertEqual(rc, exit_codes.OK)
+        self.assertEqual(report["memory_gib"], 24.0)
+
+    def test_small_host_caps_the_budget_below_the_vm(self):
+        """A 16 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
+        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=16.0)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("16.0 GiB", err)
+
+    def test_detect_docker_memory_gib_tolerates_bad_output(self):
+        self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (1, "")))
+        self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (0, "not a number")))
+        self.assertAlmostEqual(compose.detect_docker_memory_gib(lambda argv: (0, str(4 * 1024 ** 3))), 4.0)
+
+    # ---- tmpfs mounts are world-writable (real install run 11)
+
+    def test_tmpfs_mounts_carry_mode_1777(self):
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            compose_doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            self.assertIn("/tmp:mode=1777", compose_doc["services"]["web"]["tmpfs"])
+            self.assertIn("/code/website/static/built:mode=1777", compose_doc["services"]["web"]["tmpfs"])
+            for svc in compose_doc["services"].values():
+                for entry in svc.get("tmpfs", []):
+                    self.assertIn(":mode=", entry, entry)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # ---- invoke-based services keep stdin open (real install run 9)
+
+    def test_invoke_services_keep_stdin_open(self):
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            compose = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            for name in ("web", "api", "admin", "worker"):
+                self.assertIs(compose["services"][name].get("stdin_open"), True, name)
+            for name in ("wb", "mfr", "postgres", "wiki_assets"):
+                self.assertNotIn("stdin_open", compose["services"][name], name)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # ---- per-component build_platform (coordinator addendum)
 
     def test_build_platform_from_manifest_overrides_host_platform(self):
@@ -382,14 +475,16 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
-        self.assertEqual(doc["services"]["web"]["depends_on"], ["postgres", "rabbitmq", "elasticsearch"])
+        self.assertEqual(set(doc["services"]), {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(doc["services"]["web"]["depends_on"], {
+            "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
+            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
         rc, _, _, _ = render(root, profile="full", auth="shibboleth")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 25)
+        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -466,8 +561,8 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("./config/idp/cert/sp.key:/etc/shibboleth/sp-key.pem:ro", sp_mounts)
         self.assertTrue(all(m.endswith(":ro") for m in idp_mounts + sp_mounts))
         # writable paths are explicit tmpfs, so read_only can hold once the hardening exception goes (ADR-05)
-        self.assertIn("/var/simplesamlphp/log", doc["services"]["test_idp"]["tmpfs"])
-        self.assertIn("/var/simplesamlphp/data", doc["services"]["test_idp"]["tmpfs"])
+        self.assertIn("/var/simplesamlphp/log:mode=1777", doc["services"]["test_idp"]["tmpfs"])
+        self.assertIn("/var/simplesamlphp/data:mode=1777", doc["services"]["test_idp"]["tmpfs"])
         # every rendered file the two services mount has a template under templates/idp/ (follow-up F-1 renders them)
         tpl_dir = Path(compose.__file__).parent / "templates" / "idp"
         expected = {"config.php.tmpl", "authsources.php.tmpl", "saml20-idp-hosted.php.tmpl", "saml20-sp-remote.php.tmpl",
@@ -870,7 +965,11 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertNotIn("wiki_assets", doc["services"])
         self.assertNotIn("wiki_static_init", doc["services"])
-        self.assertEqual(doc["services"]["web"]["depends_on"], ["postgres", "rabbitmq", "elasticsearch"])  # list form, dropped dependency
+        # wiki_assets is dropped (not in the profile); osf_init stays, so the long form remains with the
+        # plain dependencies rendered as service_started (real install run 12: osf_init added)
+        self.assertEqual(doc["services"]["web"]["depends_on"], {
+            "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
+            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
 
     def test_escape_compose_dollar(self):
         self.assertEqual(compose.escape_compose_dollar('ls "$src"; echo ${X} $$'), 'ls "$$src"; echo $${X} $$$$')

@@ -27,5 +27,11 @@
   ],
   "weight": 3,
   "mem_min_mb": 512,
-  "pids_limit": 1024
+  "pids_limit": 1024,
+  "command": [
+    "postgres",
+    "-c",
+    "max_connections=500"
+  ],
+  "note": "max_connections=500 (default 100): osf.io's development server leaks one connection per request that ends in an unhandled error (the Django teardown that closes connections is skipped), and the health probe plus a browser exhausted 100 within minutes in real install run 12. The limit is a dev-environment safety margin, not a fix for the leak."
 }

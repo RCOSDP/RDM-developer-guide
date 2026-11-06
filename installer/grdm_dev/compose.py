@@ -268,37 +268,82 @@ def host_port_map(env: dict[str, str], rows: list[dict[str, Any]]) -> dict[str, 
     return ports
 
 
-_PLACEHOLDER = re.compile(r"\{\{(HOST_PORT|CONTAINER_PORT):([A-Za-z0-9_]+)\}\}")
+_PLACEHOLDER = re.compile(r"\{\{(HOST_PORT|CONTAINER_PORT):([A-Za-z0-9_]+)\}\}|\{\{(AUTH_URL|SERVICE_IMAGE)\}\}")
 
 
-def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str, int]) -> Any:
+def auth_url(auth: str, host_ports: dict[str, int]) -> str:
+    """Where a browser starts a login: fakecas's published port, or web's own /login when Shibboleth
+    replaces fakecas (osf.io's login route then redirects to the SP). Used by `{{AUTH_URL}}`
+    (ember-osf-web's CAS_URL), so no template carries the fakecas port when fakecas is absent."""
+    from . import manifest as _manifest
+
+    if auth == _manifest.AUTH_SHIBBOLETH:
+        return f"http://{LOOPBACK}:{host_ports['web']}"
+    return f"http://{LOOPBACK}:{host_ports['fakecas']}"
+
+
+def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str, int], extras: dict[str, str] | None = None) -> Any:
+    """Resolve `{{HOST_PORT:svc}}`, `{{CONTAINER_PORT:svc}}`, `{{AUTH_URL}}` and `{{SERVICE_IMAGE}}` (the
+    service's own image reference, so a container can fingerprint what it was built from; from `extras`)."""
+    extras = extras or {}
     if isinstance(value, str):
         def repl(m: re.Match) -> str:
+            if m.group(3):
+                if m.group(3) not in extras:
+                    raise ValueError(f"template placeholder {m.group(0)} is not available here")
+                return extras[m.group(3)]
             table = host_ports if m.group(1) == "HOST_PORT" else container_ports
             if m.group(2) not in table:
                 raise ValueError(f"template placeholder {m.group(0)} has no known port")
             return str(table[m.group(2)])
         return _PLACEHOLDER.sub(repl, value)
     if isinstance(value, list):
-        return [substitute(v, host_ports, container_ports) for v in value]
+        return [substitute(v, host_ports, container_ports, extras) for v in value]
     if isinstance(value, dict):
-        return {k: substitute(v, host_ports, container_ports) for k, v in value.items()}
+        return {k: substitute(v, host_ports, container_ports, extras) for k, v in value.items()}
     return value
 
 
 # --------------------------------------------------------------------------- resources
 
 
-def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float) -> dict[str, dict[str, Any]]:
+class MemoryBudgetError(ValueError):
+    """The memory floors of the profile do not fit the budget (exit 10, host unsupported)."""
+
+
+def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float, allow_overcommit: bool = False) -> dict[str, dict[str, Any]]:
     budget_mb = memory_gib * 1024 * MEMORY_SHARE
     total_weight = sum(float(s.template.get("weight", 1)) for s in services) or 1.0
+    # Memory in two passes so the floors (`mem_min_mb`) do not push the total past the budget: a
+    # service whose weighted share is below its floor gets the floor; the budget that remains is
+    # then shared by weight among the others. Only when the floors alone exceed the budget does the
+    # total exceed it (real install run 10: ember needs 8 GiB under emulation on a 47 GiB Docker VM).
+    floors = {s.name: int(s.template.get("mem_min_mb", 128)) for s in services}
+    weights = {s.name: float(s.template.get("weight", 1)) for s in services}
+    if sum(floors.values()) > budget_mb and not allow_overcommit:
+        need_gib = sum(floors.values()) / 1024 / MEMORY_SHARE
+        raise MemoryBudgetError(
+            f"the {len(services)} services of this profile need at least {sum(floors.values())} MiB of memory floors, "
+            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Give the Docker engine "
+            f"at least {need_gib:.0f} GiB (Docker Desktop: Settings > Resources), choose a smaller --profile, or pass "
+            f"--memory-gib to overcommit knowingly (PR #33 review r1 R1-04)")
+    mem: dict[str, int] = {}
+    pinned: set[str] = set()
+    while True:
+        rest_weight = sum(w for n, w in weights.items() if n not in pinned) or 1.0
+        rest_budget = budget_mb - sum(floors[n] for n in pinned)
+        newly = [n for n in weights if n not in pinned and math.floor(rest_budget * weights[n] / rest_weight) < floors[n]]
+        if not newly:
+            break
+        pinned.update(newly)
+    for n in weights:
+        mem[n] = floors[n] if n in pinned else int(math.floor(rest_budget * weights[n] / rest_weight))
     out: dict[str, dict[str, Any]] = {}
     for svc in services:
         tpl = svc.template
-        weight = float(tpl.get("weight", 1))
-        mem = max(int(tpl.get("mem_min_mb", 128)), int(math.floor(budget_mb * weight / total_weight)))
+        weight = weights[svc.name]
         cpu = min(cpus, max(0.5, cpus * CPU_OVERSUBSCRIBE * weight / total_weight))
-        out[svc.name] = {"mem_limit": f"{mem}m", "cpus": round(cpu, 2), "pids_limit": int(tpl.get("pids_limit", 512))}
+        out[svc.name] = {"mem_limit": f"{mem[svc.name]}m", "cpus": round(cpu, 2), "pids_limit": int(tpl.get("pids_limit", 512))}
     return out
 
 
@@ -355,9 +400,10 @@ def render_service(
     platform_string: str,
     egress: set[str] | None = None,
     service_platform: str | None = None,
+    extras: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     egress = egress or set()
-    tpl = substitute(svc.template, host_ports, container_ports)
+    tpl = substitute(svc.template, host_ports, container_ports, {**(extras or {}), "SERVICE_IMAGE": svc.image})
     exc = hardening.get(svc.name, {})
     relaxed = set(exc.get("controls", []))
     out: dict[str, Any] = {"image": svc.image}
@@ -383,7 +429,11 @@ def render_service(
     if tpl.get("volumes"):
         out["volumes"] = [_mount(v) for v in tpl["volumes"]]
     if tpl.get("tmpfs"):
-        out["tmpfs"] = list(tpl["tmpfs"])
+        # Compose's short `tmpfs:` entry mounts with mode 0755 owned by root (unlike `docker run --tmpfs`,
+        # which uses 1777), so a non-root service could not write to it (real install run 11:
+        # PermissionError on /code/website/static/built/nodeCategories.json). The docker-CLI option
+        # suffix is accepted by Compose and gives the sticky world-writable mode a tmpfs is expected to have.
+        out["tmpfs"] = [p if ":" in p else f"{p}:mode=1777" for p in tpl["tmpfs"]]
     if svc.name in published:
         out["ports"] = [f"{LOOPBACK}:{published[svc.name]}:{container_ports[svc.name]}"]
     expose = [str(p) for p in tpl.get("expose", [])]
@@ -398,6 +448,11 @@ def render_service(
     on_edge = svc.name in published or svc.name in egress
     out["networks"] = [NETWORK, EDGE_NETWORK] if on_edge else [NETWORK]
     out["restart"] = "no" if tpl.get("one_shot") else tpl.get("restart", "unless-stopped")
+    if tpl.get("stdin_open"):
+        # invoke (osf.io's task runner) spawns a stdin-forwarding thread that calls FIONREAD on fd 0 and
+        # dies with `OSError: [Errno 25] Not a tty` when stdin is closed (real install run 9); upstream's
+        # compose file keeps stdin open for the same services.
+        out["stdin_open"] = True
     out["init"] = True
     out.update(resources)
     out["labels"] = {
@@ -421,14 +476,17 @@ def render_compose(
     platform_string: str,
     egress: list[str] | None = None,
     service_platforms: dict[str, str] | None = None,
+    auth: str = "fakecas",
+    allow_overcommit: bool = False,
 ) -> dict[str, Any]:
     egress = list(egress or [])
     service_platforms = service_platforms or {}
+    extras = {"AUTH_URL": auth_url(auth, host_ports)}
     in_profile = {s.name for s in services}
     container_ports = {s.name: int(s.template.get("container_port", DEFAULT_PORTS.get(s.name, 0))) for s in services}
     for name, port in DEFAULT_PORTS.items():
         container_ports.setdefault(name, port)
-    resources = scale_resources(services, memory_gib, cpus)
+    resources = scale_resources(services, memory_gib, cpus, allow_overcommit=allow_overcommit)
     rendered = {
         svc.name: render_service(
             svc,
@@ -441,6 +499,7 @@ def render_compose(
             platform_string=platform_string,
             egress=set(egress),
             service_platform=service_platforms.get(svc.name),
+            extras=extras,
         )
         for svc in services
     }
@@ -490,6 +549,11 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
         "from . import defaults",
         "",
         "DEV_MODE = True",
+        "# DEBUG_MODE must stay True for a development server: api/base/wsgi.py monkey-patches gevent when",
+        "# it is False, and Django's runserver then fails with 'DatabaseWrapper objects created in a thread",
+        "# can only be used in that same thread' (real install run 14). The Django DEBUG flags of the api and",
+        "# admin projects are set to False separately (api_local.py, admin_local.py) because their urls.py",
+        "# import debug_toolbar under DEBUG and the image has no requirements/dev.txt (run 10).",
         "DEBUG_MODE = True",
         "SECURE_MODE = False",
         "PROTOCOL = 'http://'",
@@ -516,6 +580,11 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
         "        'path': '/ember_osf_web/',",
         "        'routes': ['collections', 'registries', 'handbook'],",
         "    },",
+        "    # preprints and reviews are not run in this environment, but website/views.py reads",
+        "    # EXTERNAL_EMBER_APPS['preprints']['path'] at import time (KeyError in real install run 9),",
+        "    # so the keys exist with the same shape as upstream local-dist.py; nothing listens there.",
+        "    'preprints': {'server': 'http://ember_osf_web:4201/', 'path': '/preprints/'},",
+        "    'reviews': {'server': 'http://ember_osf_web:4203/', 'path': '/reviews/'},",
         "}",
         "PREPRINT_PROVIDER_DOMAINS = {'enabled': False, 'prefix': 'http://local.', 'suffix': ':4201/'}",
         "",
@@ -560,6 +629,24 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
     return "\n".join(lines)
 
 
+def render_admin_local_py() -> str:
+    return "\n".join([
+        f"# {GENERATED_HEADER}",
+        "from .defaults import *  # noqa",
+        "",
+        "# Django DEBUG off for the admin project: admin/base/urls.py imports debug_toolbar under DEBUG and",
+        "# the image has no requirements/dev.txt (real install run 10); website.settings.DEBUG_MODE itself",
+        "# stays True (run 14). defaults.py has already appended debug_toolbar and nplusone to INSTALLED_APPS",
+        "# and MIDDLEWARE at import time (it reads DEBUG_MODE before this file runs), so they are removed here (run 15).",
+        "DEBUG = False",
+        "INSTALLED_APPS = tuple(a for a in INSTALLED_APPS if a not in ('debug_toolbar', 'nplusone.ext.django'))",
+        "MIDDLEWARE = tuple(m for m in MIDDLEWARE if not m.startswith(('debug_toolbar.', 'nplusone.')))",
+        "# the browser reaches admin on the published loopback port (run 15: 400 DisallowedHost)",
+        f"ALLOWED_HOSTS = list(ALLOWED_HOSTS) + ['{LOOPBACK}', 'localhost', 'admin']",
+        "",
+    ])
+
+
 def render_api_local_py(host_ports: dict[str, int]) -> str:
     return "\n".join([
         f"# {GENERATED_HEADER}",
@@ -567,7 +654,9 @@ def render_api_local_py(host_ports: dict[str, int]) -> str:
         "from os import environ",
         "from website import settings as osf_settings",
         "",
-        "DEBUG = osf_settings.DEBUG_MODE",
+        "# Django DEBUG off: api/base/urls.py imports debug_toolbar under DEBUG and the image lacks it (run 10);",
+        "# website.settings.DEBUG_MODE stays True so api/base/wsgi.py does not monkey-patch gevent (run 14).",
+        "DEBUG = False",
         "SECRET_KEY = environ['API_SECRET_KEY']",
         "VARNISH_SERVERS = []",
         "ENABLE_VARNISH = False",
@@ -680,6 +769,7 @@ def config_files(host_ports: dict[str, int]) -> dict[str, str]:
     return {
         "osf/local.py": render_website_local_py(host_ports),
         "osf/api_local.py": render_api_local_py(host_ports),
+        "osf/admin_local.py": render_admin_local_py(),
         "osf.env": render_osf_env(host_ports),
         "wb.env": render_wb_env(host_ports),
         "mfr.env": render_mfr_env(host_ports),
@@ -752,6 +842,22 @@ def detect_memory_gib() -> float | None:
     except (ValueError, OSError, AttributeError):
         pass
     return None
+
+
+def detect_docker_memory_gib(runner) -> float | None:
+    """Memory of the Docker engine's VM (`docker info --format {{.MemTotal}}`), or None when the
+    runner fails or prints something that is not a byte count. Read-only."""
+    try:
+        rc, out = runner(["docker", "info", "--format", "{{.MemTotal}}"])
+    except Exception:  # a runner that only knows `docker compose ps` (tests) or a missing docker
+        return None
+    if rc != 0:
+        return None
+    try:
+        total = int(str(out).strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return total / (1024 ** 3) if total > 0 else None
 
 
 # --------------------------------------------------------------------------- entry point
@@ -841,13 +947,26 @@ def run(
     published = {r["service"]: int(r["host_port"]) for r in rows}
     host_ports = host_port_map(env, rows)
 
+    explicit_memory = bool(getattr(args, "memory_gib", None)) or memory_gib is not None
     if memory_gib is None:
-        memory_gib = getattr(args, "memory_gib", None) or detect_memory_gib() or DEFAULT_MEMORY_GIB
+        memory_gib = getattr(args, "memory_gib", None)
+        if not memory_gib:
+            host_gib = detect_memory_gib()
+            vm_gib = detect_docker_memory_gib(runner)
+            # Docker Desktop (macOS, Windows) runs containers in a VM whose memory is a fraction of the
+            # host's: on the 128 GiB Mac Studio the VM had 47 GiB, so a budget scaled from the host let
+            # the sum of mem_limit exceed what the engine can give (real install run 10). The smaller
+            # of the two is the real ceiling; on Linux both are the same number.
+            candidates = [g for g in (host_gib, vm_gib) if g]
+            memory_gib = min(candidates) if candidates else DEFAULT_MEMORY_GIB
+            if vm_gib and host_gib and vm_gib < host_gib:
+                sys.stderr.write(f"[grdm-dev] compose render: memory budget uses the Docker VM's {vm_gib:.1f} GiB, not the host's {host_gib:.1f} GiB\n")
     if cpus is None:
         cpus = getattr(args, "cpus", None) or float(os.cpu_count() or 0) or DEFAULT_CPUS
     platform_string = platform_string or getattr(args, "platform", None) or detect_platform()
 
-    compose = render_compose(
+    try:
+      compose = render_compose(
         services,
         runtime=ctx.runtime,
         host_ports=host_ports,
@@ -858,7 +977,11 @@ def run(
         platform_string=platform_string,
         egress=egress,
         service_platforms=service_platforms,
-    )
+        auth=auth,
+        allow_overcommit=explicit_memory,
+      )
+    except MemoryBudgetError as exc:
+        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}")
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
     configs = config_files(host_ports)
     for text in [compose_text, *configs.values()]:

@@ -39,13 +39,20 @@
       "ro": true
     },
     {
+      "config": "osf/admin_local.py",
+      "target": "/code/admin/base/settings/local.py",
+      "ro": true
+    },
+    {
       "volume": "wiki_static",
       "target": "/code/website/static/public/js/wiki",
       "ro": true
     }
   ],
   "tmpfs": [
-    "/tmp"
+    "/tmp",
+    "/code/website/static/built",
+    "/code/logs"
   ],
   "user": "1000:1000",
   "depends_on": [
@@ -55,6 +62,10 @@
     {
       "service": "wiki_assets",
       "condition": "service_completed_successfully"
+    },
+    {
+      "service": "osf_init",
+      "condition": "service_completed_successfully"
     }
   ],
   "weight": 2,
@@ -62,5 +73,6 @@
   "pids_limit": 1024,
   "container_port": 8001,
   "host_port": 8001,
-  "note": "Upstream also starts crond for rdm_statistics; cron needs root, so it is left to a later milestone (non-root rule, SPEC-03 §3.3)."
+  "note": "Upstream also starts crond for rdm_statistics; cron needs root, so it is left to a later milestone (non-root rule, SPEC-03 §3.3). stdin_open: invoke's stdin-forwarding thread needs an open stdin or the process dies with `Not a tty` (real install run 9; upstream compose sets the same). tmpfs /code/website/static/built: init_app rewrites built/nodeCategories.json at every start (the image keeps only .gitkeep and that file there), which a read-only root refused in real install run 10. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root).",
+  "stdin_open": true
 }

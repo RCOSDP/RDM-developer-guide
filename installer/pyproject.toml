@@ -14,6 +14,8 @@ dependencies = []
 [project.optional-dependencies]
 # playwright>=1.48 provides BrowserContext.route_web_socket, which the loopback guard requires (fails closed without it).
 accept = ["pytest>=8", "pytest-playwright>=0.6", "playwright>=1.48"]
+# semgrep runs locally in `grdm-dev scan` (SPEC-03 §4.2); the bootstrap installs this extra by default (real install run 17).
+scan = ["semgrep>=1.100"]
 docs = ["mkdocs==1.6.1", "mkdocs-material==9.5.37", "pymdown-extensions==10.12"]
 
 [project.scripts]

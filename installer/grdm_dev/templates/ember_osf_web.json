@@ -4,17 +4,25 @@
   "command": [
     "/bin/sh",
     "-c",
-    "yarn --frozen-lockfile && yarn start --host 0.0.0.0 --port 4200 --live-reload-port 41953"
+    "set -e; cd /code; yarn --frozen-lockfile; fp=\"$GRDM_IMAGE|$GRDM_BUILD_RECIPE|$BACKEND|$OSF_URL|$OSF_API_URL|$CAS_URL|$OSF_RENDER_URL|$OSF_FILE_URL|$OSF_HELP_URL|$OSF_COOKIE_DOMAIN\"; if [ ! -f /code/dist/index.html ] || [ \"$(cat /code/dist/.grdm-build 2>/dev/null)\" != \"$fp\" ]; then echo \"ember: building dist for $fp\"; rm -rf /code/dist/*; node_modules/.bin/ember build --environment development --output-path /code/dist; printf %s \"$fp\" > /code/dist/.grdm-build; fi; exec node_modules/.bin/ember serve --path /code/dist --host 0.0.0.0 --port 4200 --live-reload false"
   ],
   "container_port": 4200,
   "host_port": 4200,
-  "expose": [
-    41953
-  ],
+  "expose": [],
   "environment": {
     "BACKEND": "local",
     "YARN_CACHE_FOLDER": "/tmp/yarn-cache",
-    "HOME": "/tmp"
+    "HOME": "/tmp",
+    "JOBS": "2",
+    "OSF_URL": "http://127.0.0.1:{{HOST_PORT:web}}/",
+    "OSF_API_URL": "http://127.0.0.1:{{HOST_PORT:api}}",
+    "OSF_RENDER_URL": "http://127.0.0.1:{{HOST_PORT:mfr}}/render",
+    "OSF_FILE_URL": "http://127.0.0.1:{{HOST_PORT:wb}}/",
+    "OSF_HELP_URL": "http://127.0.0.1:{{HOST_PORT:ember_osf_web}}/help",
+    "CAS_URL": "{{AUTH_URL}}",
+    "OSF_COOKIE_DOMAIN": "127.0.0.1",
+    "GRDM_IMAGE": "{{SERVICE_IMAGE}}",
+    "GRDM_BUILD_RECIPE": "1"
   },
   "volumes": [
     {
@@ -26,12 +34,8 @@
     "/tmp"
   ],
   "user": "1000:1000",
-  "depends_on": [
-    "api",
-    "web"
-  ],
-  "weight": 3,
-  "mem_min_mb": 1024,
+  "weight": 4,
+  "mem_min_mb": 8192,
   "pids_limit": 1024,
-  "note": "Live-reload port 41953 is reachable inside the network only; publishing it is not in the SPEC-02 §4 table."
+  "note": "ember-osf-web's config/environment.js takes its backend URLs from the environment (OSF_URL, OSF_API_URL, OSF_RENDER_URL, OSF_FILE_URL, OSF_HELP_URL, CAS_URL, OSF_COOKIE_DOMAIN); the defaults are localhost:<port> and the retired alias 192.168.168.167:8080 for CAS, so every value is set from the published loopback ports (ADR-02). The prebuilt image runs `ember server`, a full ember-cli build at every start that takes 10+ minutes under amd64 emulation on Apple Silicon and was OOM-killed twice at 6.3 GiB (real install runs 10-12); the command therefore builds once into the named volume ember_osf_web_dist (/code/dist) with a fingerprint in /code/dist/.grdm-build made of the image reference (GRDM_IMAGE = {{SERVICE_IMAGE}}, digest-pinned), the build-recipe version (GRDM_BUILD_RECIPE, bump when this command changes) and the URL settings, and rebuilds only when that fingerprint changes (PR #33 review r1 R1-02: a new image digest must not serve the old bundle), and serves the prebuilt output with `ember serve --path`. Live reload is off (no 41953 port): edit-and-reload of ember sources is not a goal of the prebuilt fallback; it returns with the M4 Dockerfile. JOBS=2 caps ember-cli's parallel build workers; weight 4 and at least 8 GiB cover the build. No depends_on: the container only builds and serves static files (the browser talks to web/api directly), so on a cold start its 13-25 minute build runs in parallel with osf_init and the databases instead of after them (real install run 19)."
 }

@@ -290,7 +290,10 @@ class SecretsInitTests(unittest.TestCase):
             self.skipTest("templates/ not present")
         referenced = set()
         for f in tpl_dir.glob("*.json"):
-            referenced.update(re.findall(r"\$\{?([A-Z][A-Z0-9_]*)", f.read_text(encoding="utf-8")))
+            data = json.loads(f.read_text(encoding="utf-8"))
+            data.pop("command", None)  # container-shell text; compose render escapes its `$` as `$$`
+            data.pop("note", None)
+            referenced.update(re.findall(r"\$\{?([A-Z][A-Z0-9_]*)", json.dumps(data)))
         generated = set(secrets.SECRET_KEYS) | set(secrets.default_non_secrets("core"))
         self.assertEqual(sorted(referenced - generated), [])
 

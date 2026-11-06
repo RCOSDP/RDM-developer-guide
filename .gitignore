@@ -1,7 +1,9 @@
 .DS_Store
 
-# grdm-dev runtime (generated, contains secrets)
+# grdm-dev runtime (generated, contains secrets); runtime.*/ are operator-made copies of it (a moved-aside
+# runtime from a cold-start test got scanned by Semgrep in real install run 20 because only runtime/ was ignored)
 runtime/
+runtime.*/
 .venv/
 __pycache__/
 *.pyc

@@ -138,6 +138,7 @@
       "profile": "minimum",
       "role": "core",
       "services": [
+        "osf_init",
         "web",
         "api",
         "admin",
@@ -806,6 +807,7 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
+        "elasticsearch_data_init",
         "elasticsearch"
       ],
       "target_image": {

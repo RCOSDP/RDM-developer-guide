@@ -2,7 +2,7 @@
 # grdm-dev bootstrap (SPEC-02 §2.1). Does four things and nothing else:
 #   1. runs on the bash that ships with macOS (3.2): no associative arrays, no mapfile, no ${var,,}
 #   2. finds python3 >= 3.11, or prints how to install one for this OS and exits 10
-#   3. creates .venv/ at the repository root and runs `pip install -e installer`
+#   3. creates .venv/ at the repository root and runs `pip install -e installer[scan]` (semgrep included)
 #   4. exec .venv/bin/grdm-dev install "$@"
 # OS differences live in installer/grdm_dev/host.py. Exit-code messages come from
 # installer/grdm_dev/messages.tsv so bash and Python say the same thing.
@@ -130,8 +130,13 @@ if ! py_ok "${VPY}"; then
   fail 10 "existing .venv/ uses Python $(py_version "${VPY}"); remove .venv/ and rerun / 既存の .venv/ の Python $(py_version "${VPY}") が古いです。.venv/ を消して再実行してください"
 fi
 
-EXTRA=""
-if [ "${GRDM_WITH_ACCEPT:-0}" = "1" ]; then EXTRA="[accept]"; fi
+# [scan] brings semgrep into the same .venv (SPEC-03 runs it locally; real install run 17 stopped with exit 51
+# because it was not on PATH). GRDM_WITHOUT_SCAN=1 skips it (CI-only hosts); GRDM_WITH_ACCEPT=1 adds Playwright.
+EXTRA="[scan]"
+if [ "${GRDM_WITHOUT_SCAN:-0}" = "1" ]; then EXTRA=""; fi
+if [ "${GRDM_WITH_ACCEPT:-0}" = "1" ]; then
+  if [ -n "${EXTRA}" ]; then EXTRA="[scan,accept]"; else EXTRA="[accept]"; fi
+fi
 "${VPY}" -m pip install -q --upgrade pip >/dev/null 2>&1 || true
 if ! "${VPY}" -m pip install -q -e "${INST}${EXTRA}"; then
   fail 2 "pip install -e installer${EXTRA} failed / pip install -e installer${EXTRA} に失敗しました"

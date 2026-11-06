@@ -38,6 +38,10 @@ from .context import Context
 
 COMPOSE_PROJECT = "grdm-dev"
 HTTP_SERVICES: tuple[str, ...] = ("web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas")
+# Probe paths other than "/": osf.io's "/" proxies to ember_osf_web (PROXY_EMBER_APPS) and answers 500
+# while ember is still building its first bundle (real install run 14), so web is probed at its own
+# login page, which renders without ember; ember_osf_web has its own row.
+HTTP_PATHS: dict[str, str] = {"web": "/login/"}
 DOCKER_PROCESS_MARKERS: tuple[str, ...] = ("docker-proxy", "docker-pr", "com.docker", "com.docke", "vpnkit")
 HTTP_TIMEOUT = 3.0
 
@@ -152,7 +156,7 @@ def check_services(ctx: Context, runner, prober) -> tuple[list[dict], bool]:
         if name in HTTP_SERVICES:
             port = host_port(name, compose, env)
             if port:
-                url = f"http://127.0.0.1:{port}/"
+                url = f"http://127.0.0.1:{port}{HTTP_PATHS.get(name, '/')}"
                 reachable, http = prober(url)
                 ok = ok and reachable
         rows.append({"service": name, "state": state, "health": health or "n/a", "url": url, "http": http, "ok": ok})
@@ -290,6 +294,7 @@ def check_network(ctx: Context, runner, system: str | None = None) -> tuple[dict
     if err:
         problems.append(err)
     relevant: list[dict] = []
+    warnings: list[str] = []
     for s in sockets:
         docker_owned = is_docker_process(s["process"])
         on_project_port = s["port"] in ports
@@ -297,10 +302,22 @@ def check_network(ctx: Context, runner, system: str | None = None) -> tuple[dict
             continue  # unrelated host daemon (e.g. rapportd, sshd)
         relevant.append(s)
         if not s["loopback"]:
-            who = s["process"] or "unknown process"
-            why = "docker-owned" if docker_owned else "project port, owner not visible"
-            problems.append(f"{who} listens on {s['address']}:{s['port']} (not loopback; {why})")
-    data = {"bindings": bindings, "project_ports": sorted(ports, key=int), "sockets": relevant}
+            if docker_owned:
+                problems.append(f"{s['process']} listens on {s['address']}:{s['port']} (not loopback; docker-owned)")
+            elif not s["process"]:
+                # fail closed: a wildcard listener on our port whose owner we cannot see may be ours
+                problems.append(f"unknown process listens on {s['address']}:{s['port']} (not loopback; project port, owner not visible)")
+            else:
+                # A named host program that is not Docker shares our port number on a wildcard
+                # address (real install run 16: macOS AirPlay Receiver "ControlCe" on *:5000 next to
+                # our web on 127.0.0.1:5000). It is not a leak of ours (ADR-02 is about our
+                # containers), so it is reported, not failed; GRDM_PORT_<SERVICE> moves our port.
+                w = f"foreign-listener: {s['process']} listens on {s['address']}:{s['port']} (not ours; set GRDM_PORT_<SERVICE> in runtime/.env to move the project port)"
+                if w not in warnings:  # lsof lists IPv4 and IPv6 sockets of the same program separately
+                    warnings.append(w)
+    data = {"bindings": bindings, "project_ports": sorted(ports, key=int), "sockets": relevant, "warnings": warnings}
+    for w in warnings:
+        sys.stderr.write(f"[grdm-dev] health --network: warning: {w}\n")
     return data, problems
 
 

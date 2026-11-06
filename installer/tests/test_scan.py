@@ -247,7 +247,8 @@ class BaselineValidatorTests(ScanTestBase):
                 self.assertTrue(a["reason"] and a["review"])
                 by_service.setdefault(a["service"], set()).add(a["control"])
             # every root-running service of the core profile is covered by a recorded `user` exception
-            for svc in ("postgres", "elasticsearch", "mongo", "rabbitmq", "unoconv"):
+            # (elasticsearch left this list in real install run 8: it now runs as uid 101; cas joined it)
+            for svc in ("postgres", "mongo", "rabbitmq", "unoconv", "cas"):
                 self.assertIn("user", by_service[svc], svc)
             # and the full scan reports them under baseline_exceptions
             shutil.copytree(root / "runtime", self.root / "runtime", dirs_exist_ok=True)
@@ -530,6 +531,43 @@ class ScannerRobustnessTests(ScanTestBase):
     def test_semgrep_errors_array_with_exit_0_is_still_incomplete(self):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_ERRORS, semgrep_rc=0))
         self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+
+    def test_semgrep_rule_timeouts_are_warnings_not_failures(self):
+        """Real install run 20: 148 per-file rule timeouts under load made the gate fail closed; a timeout is a
+        coverage gap recorded on the tool row, other errors still make the run incomplete."""
+        only_timeouts = json.dumps({"results": [], "errors": [
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.x", "message": "Timeout when running python.lang.x on a.py", "path": "a.py"},
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.y", "message": "Timeout when running python.lang.y on a.py", "path": "a.py"}]})
+        code, data, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0))
+        self.assertEqual(code, exit_codes.OK)
+        sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+        self.assertTrue(sem["result"].startswith("ok ("), sem)
+        self.assertIn("2 rule timeout(s) on 1 file(s)", sem["warnings"][0])
+        mixed = json.loads(only_timeouts); mixed["errors"].append({"code": 2, "level": "error", "type": "SemgrepError", "message": "boom", "path": "b.py"})
+        code, data, _ = self.run_scan(fake_runner(semgrep_json=json.dumps(mixed), semgrep_rc=2))
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+        self.assertIn("1 error(s)", sem["result"])
+
+    def test_semgrep_timeouts_are_incomplete_at_strict_milestones(self):
+        """M4 (fail-high) and M5 (zero): a rule that never finished cannot prove a clean result → 51 (review r2 R2-02)."""
+        only_timeouts = json.dumps({"results": [], "errors": [
+            {"code": 2, "level": "warn", "type": "Timeout", "rule_id": "python.lang.x", "message": "Timeout", "path": "a.py"}]})
+        for ms in ("M4", "M5"):
+            code, data, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0), milestone=ms)
+            self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE, ms)
+            sem = [t for t in data["tools"] if t["name"] == "semgrep"][0]
+            self.assertIn("incomplete", sem["result"]); self.assertIn("timeout", sem["result"])
+        for ms in ("M1", "M2", "M3"):
+            code, _, _ = self.run_scan(fake_runner(semgrep_json=only_timeouts, semgrep_rc=0), milestone=ms)
+            self.assertEqual(code, exit_codes.OK, ms)
+
+    def test_semgrep_argv_raises_the_timeout(self):
+        calls = []
+        self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING, semgrep_rc=1, calls=calls))
+        sem = [c for c in calls if c and "semgrep" in str(c[0]) and "scan" in c][0]
+        self.assertIn("--timeout", sem); self.assertEqual(sem[sem.index("--timeout") + 1], "30")
+        self.assertIn("--timeout-threshold", sem)
 
     def test_semgrep_exit_1_means_findings_not_failure(self):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING, semgrep_rc=1))
