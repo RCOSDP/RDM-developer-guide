@@ -82,6 +82,7 @@ Each record explains one choice. Repository (a folder that remembers every chang
 - [ADR-04 AI Autonomy and Roles](docs/decisions/ADR-04_AI_Autonomy_and_Roles.md) - AI autonomy and roles / AI 自律性と役割
 - [ADR-05 Test IdP for Shibboleth](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 - [ADR-06 Wiki Frontend Overlay](docs/decisions/ADR-06_Wiki_Frontend_Overlay.md) - Wiki frontend overlay / Wiki フロントエンドのオーバーレイ
+- [ADR-07 Native Builds of EOL Middleware](docs/decisions/ADR-07_Native_Builds_of_EOL_Middleware.md) - Native builds of EOL middleware / EOL ミドルウェアのネイティブビルド
 
 #### References / 参考資料
 
@@ -179,6 +180,7 @@ graph TD
 - [ADR-04 AI 自律性と役割](docs/decisions/ADR-04_AI_Autonomy_and_Roles.md) - AI autonomy and roles / AI 自律性と役割
 - [ADR-05 Shibboleth 用テスト IdP](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 - [ADR-06 Wiki フロントエンドのオーバーレイ](docs/decisions/ADR-06_Wiki_Frontend_Overlay.md) - Wiki frontend overlay / Wiki フロントエンドのオーバーレイ
+- [ADR-07 EOL ミドルウェアのネイティブビルド](docs/decisions/ADR-07_Native_Builds_of_EOL_Middleware.md) - Native builds of EOL middleware / EOL ミドルウェアのネイティブビルド
 
 #### 参考資料
 

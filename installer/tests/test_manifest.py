@@ -10,7 +10,7 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
 CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_static_init", "wiki_assets", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}
@@ -120,6 +120,15 @@ class ServicesForProfileTests(unittest.TestCase):
         for name in self.man.service_names:
             self.assertIn(name, templates, f"missing template for {name}")
             self.assertEqual(templates[name]["component"], self.man.component_for_service(name).id)
+
+    def test_native_image_build_component_has_image_origin(self):
+        """ADR-07: elasticsearch runs grdm-dev/elasticsearch2:<tag> built from installer/images/, origin `image`."""
+        services = {s.name: s for s in manifest.services_for_profile(self.man, "minimum")}
+        es = services["elasticsearch"]
+        self.assertEqual(es.image, "grdm-dev/elasticsearch2:2.4.6-1")
+        self.assertEqual(es.origin, "image")
+        self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
+        self.assertTrue(self.man.component("elasticsearch2").is_image_build)
 
     def test_minimum(self):
         self.assertEqual(self.names("minimum"), MINIMUM)

@@ -14,17 +14,11 @@
     }
   ],
   "tmpfs": [
-    "/tmp"
+    "/tmp",
+    "/usr/share/elasticsearch/logs"
   ],
   "weight": 3,
   "mem_min_mb": 1024,
   "pids_limit": 1024,
-  "user": "101:101",
-  "note": "Runs directly as the image's elasticsearch user (uid 101), so the entrypoint skips its chown and gosu steps: gosu (an old Go binary) aborts under Rosetta on Apple Silicon with `runtime: failed to create new OS thread (have 2 already; errno=22)` (real install run 8). The data volume is a bind directory under runtime/volumes/ owned by the host user; the one-shot elasticsearch_data_init chowns it to 101:101 first (PR #33 review r1 R1-01), so Linux/WSL hosts start too.",
-  "depends_on": [
-    {
-      "service": "elasticsearch_data_init",
-      "condition": "service_completed_successfully"
-    }
-  ]
+  "note": "grdm-dev/elasticsearch2 (ADR-07): Elasticsearch 2.4.6 built natively in installer/images/elasticsearch2 on Temurin 8, running as uid 1000 (the hardening default) with a read-only root: logs on tmpfs, data on the named volume elasticsearch_data (a bind directory under runtime/volumes/ owned by the host user; uid 1000 matches the usual developer uid on Linux/WSL, the same assumption elasticsearch6 already makes). Replaces the emulated elasticsearch:2 image that needed 38 minutes to start on Apple Silicon (real install run 19) and its owner-init one-shot."
 }

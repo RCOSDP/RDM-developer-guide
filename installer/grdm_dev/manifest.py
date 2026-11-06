@@ -104,6 +104,7 @@ class Component:
     note: str | None
     prebuilt_image: str | None = None
     overlay_of: str | None = None
+    image_build: dict[str, Any] | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     # dict compatibility for modules written against the raw JSON
@@ -117,6 +118,13 @@ class Component:
     def is_prebuilt(self) -> bool:
         """True when `prebuilt_image` replaces the build from the integration repository (SPEC-01 §3)."""
         return bool(self.prebuilt_image)
+
+    @property
+    def is_image_build(self) -> bool:
+        """True for an infra component whose image is built from a Dockerfile inside this repository
+        (`image_build: {context, tag}`, SPEC-01 §3, ADR-07): EOL middleware that only ships amd64 images is
+        built natively for the host instead of emulated."""
+        return bool(self.image_build)
 
     @property
     def is_overlay(self) -> bool:
@@ -160,6 +168,8 @@ class Component:
     def image_reference(self, sha12: str | None = None) -> str:
         if self.is_prebuilt:
             return str(self.prebuilt_image)
+        if self.is_image_build:
+            return f"{LOCAL_IMAGE_PREFIX}/{self.id.lower()}:{self.image_build['tag']}"
         return self.local_image(sha12) if self.is_built else self.pinned_image
 
 
@@ -222,6 +232,7 @@ class Service:
     build: BuildInfo | None
     template: dict[str, Any] = field(default_factory=dict, repr=False)
     prebuilt_image: str | None = None  # set when the component bypasses the build (SPEC-01 §3)
+    image_build: bool = False  # built from a Dockerfile in this repository (SPEC-01 §3 image_build, ADR-07)
 
     @property
     def is_built(self) -> bool:
@@ -244,11 +255,14 @@ class Service:
     @property
     def origin(self) -> str:
         """`built` (from the integration repository), `overlay` (merged base + overlay context, bundle
-        builder), `prebuilt` (registry image by digest) or `pinned` (infra)."""
+        builder), `prebuilt` (registry image by digest), `image` (infra built from a Dockerfile in this
+        repository, ADR-07) or `pinned` (infra from a registry)."""
         if self.is_prebuilt:
             return "prebuilt"
         if self.is_overlay_build:
             return "overlay"
+        if self.image_build:
+            return "image"
         return "built" if self.is_built else "pinned"
 
 
@@ -290,6 +304,7 @@ def parse(data: dict[str, Any], path: Path | None = None) -> Manifest:
                     note=c.get("note"),
                     prebuilt_image=c.get("prebuilt_image") or None,
                     overlay_of=c.get("overlay_of") or None,
+                    image_build=dict(c["image_build"]) if c.get("image_build") else None,
                     raw=c,
                 )
             )
@@ -447,6 +462,7 @@ def services_for_profile(
                     build=build,
                     template=tpl or {},
                     prebuilt_image=comp.prebuilt_image,
+                    image_build=comp.is_image_build,
                 )
             )
     return out

@@ -96,7 +96,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, elasticsearch_data_init, wiki_static_init, wiki_assets included
+        self.assertEqual(len(services), 22)  # core profile (SPEC-02 §4), one-shots osf_init, wiki_static_init, wiki_assets included (elasticsearch is a native image_build, ADR-07)
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -353,6 +353,25 @@ class ComposeRenderTests(unittest.TestCase):
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    # ---- native Elasticsearch image (ADR-07)
+
+    def test_elasticsearch_uses_the_native_image_under_the_hardening_default(self):
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            es = doc["services"]["elasticsearch"]
+            self.assertEqual(es["image"], "grdm-dev/elasticsearch2:2.4.6-1")
+            self.assertEqual(es["user"], "1000:1000"); self.assertTrue(es["read_only"])
+            self.assertNotIn("cap_add", es); self.assertNotIn("platform", es.get("platform", "linux/amd64") == "linux/amd64" and "x" or "", "")
+            self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
+            self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
+            self.assertNotIn("elasticsearch_data_init", doc["services"])
+            self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     # ---- invoke-based services keep stdin open (real install run 9)
 
     def test_invoke_services_keep_stdin_open(self):
@@ -475,7 +494,7 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
             "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
@@ -484,7 +503,7 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 26)  # full profile with shibboleth: core 22 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 

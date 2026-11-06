@@ -5,10 +5,11 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-06. **Learned:** a repository that cannot be built alone because its Dockerfile belongs to another tree is an architecture decision (overlay, not service) and needs its own record (ADR-06). ／ Dockerfile が別の木に属していて単独で組めないリポジトリは、サービスでなくオーバーレイという設計上の決定であり、独自の記録（ADR-06）が要ると分かった。
+- Version / 版: 0.4 — 2026-11-06. **Learned:** a cold start turned an emulation cost into an architecture decision (ADR-07): EOL amd64-only middleware is built natively. ／ コールドスタートがエミュレーションのコストを設計判断（ADR-07）に変えた。amd64 のみの EOL ミドルウェアはネイティブで組む。
+  0.3 — 2026-11-06. **Learned:** a repository that cannot be built alone because its Dockerfile belongs to another tree is an architecture decision (overlay, not service) and needs its own record (ADR-06). ／ Dockerfile が別の木に属していて単独で組めないリポジトリは、サービスでなくオーバーレイという設計上の決定であり、独自の記録（ADR-06）が要ると分かった。
   0.2 — 2026-11-06. **Learned:** a test fixture that logs people in is an architecture choice like any other service, so it needs its own record (ADR-05) rather than a note in a template. ／ 人をログインさせる試験用の部品も他のサービスと同じ設計上の選択であり、テンプレートの注記ではなく独自の記録（ADR-05）が要ると分かった。
   0.1 — 2026-11-05. **Learned:** writing decisions as records turned subjective choices into objective, reviewable documents that explain the reasoning behind each rule. ／ 決定を記録として残すことで、主観的な選択を客観的でレビュー可能な文書にし、各ルールの背後にある推論を説明できるようになったと分かった。
-- Normative for: [ADR-01 Integration Repository Placement](./ADR-01_Integration_Repository_Placement.md) through [ADR-06 Wiki Frontend Overlay](./ADR-06_Wiki_Frontend_Overlay.md).
+- Normative for: [ADR-01 Integration Repository Placement](./ADR-01_Integration_Repository_Placement.md) through [ADR-07 Native Builds of EOL Middleware](./ADR-07_Native_Builds_of_EOL_Middleware.md).
 - Related: [../README.md](../README.md) · [policy/](../policy/README.md) · [spec/](../spec/README.md) · [reference/REF-01_Glossary.md](./../reference/REF-01_Glossary.md)
 
 ---
@@ -30,6 +31,7 @@ A *decision record* (ADR) explains why we chose one way and not another. This fo
 | ADR-04 | [ADR-04_AI_Autonomy_and_Roles.md](./ADR-04_AI_Autonomy_and_Roles.md) | AI detects, fixes, reviews, tests; humans merge and publish. |
 | ADR-05 | [ADR-05_Test_IdP_for_Shibboleth.md](./ADR-05_Test_IdP_for_Shibboleth.md) | Bundled test IdP for `--auth shibboleth`: our own SimpleSAMLphp image on `php:8.3-apache`, mock attributes prefixed `mock-`. |
 | ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend is an overlay of osf.io (`overlay_of`): a bundle-builder image from the merged tree, tagged `<osf_sha12>-<wiki_sha12>`, run once by `wiki_assets` into the volume `wiki_static`; no `wiki` server. |
+| ADR-07 | [ADR-07_Native_Builds_of_EOL_Middleware.md](./ADR-07_Native_Builds_of_EOL_Middleware.md) | EOL middleware that only ships amd64 images is built natively for both architectures from the official artefact on a digest-pinned base (`image_build`, MC-15); first Elasticsearch 2.4.6, which took 38 minutes to start under emulation and 5 seconds natively (real install run 19). | Proposed 2026-11-06 |
 
 Future decision records may cover:
 
@@ -75,6 +77,7 @@ flowchart TD
 | ADR-04 | [ADR-04_AI_Autonomy_and_Roles.md](./ADR-04_AI_Autonomy_and_Roles.md) | AI は検出・修正・レビュー・試験；人はマージと公開。 |
 | ADR-05 | [ADR-05_Test_IdP_for_Shibboleth.md](./ADR-05_Test_IdP_for_Shibboleth.md) | `--auth shibboleth` 用の同梱テスト IdP：`php:8.3-apache` 上の自前 SimpleSAMLphp イメージ、`mock-` 接頭辞の模擬属性。 |
 | ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend は osf.io のオーバーレイ（`overlay_of`）：重ねた木から束を組むイメージ（タグ `<osf の sha12>-<wiki の sha12>`）を `wiki_assets` が一度動かしてボリューム `wiki_static` へ写す。`wiki` サーバは無い。 |
+| ADR-07 | [ADR-07_Native_Builds_of_EOL_Middleware.md](./ADR-07_Native_Builds_of_EOL_Middleware.md) | amd64 のイメージしか無い EOL ミドルウェアは、公式成果物からダイジェスト固定のベース上に両アーキテクチャ向けにネイティブで組む（`image_build`、MC-15）。まず Elasticsearch 2.4.6。エミュレーションでは起動に 38 分、ネイティブでは 5 秒（実機第 19 回）。 | 提案 2026-11-06 |
 
 今後の決定記録として以下が考えられます：
 

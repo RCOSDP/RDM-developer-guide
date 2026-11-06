@@ -211,6 +211,50 @@ class BuildTests(unittest.TestCase):
         data["components"][1]["note"] = "schema-1 base image; remove at M4"
         (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
 
+    def _with_native_elasticsearch(self):
+        data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
+        data["components"].append(comp("elasticsearch2", "infra", "minimum", None, ["elasticsearch"],
+                                       image_build={"context": "installer/images/elasticsearch2", "tag": "2.4.6-1"},
+                                       note="official image is amd64-only (ADR-07); retired at M5"))
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
+        ctxdir = self.root / "installer" / "images" / "elasticsearch2"
+        ctxdir.mkdir(parents=True)
+        (ctxdir / "Dockerfile").write_text("FROM scratch\n")
+
+    def test_image_build_component_is_built_from_the_repository_without_a_clone(self):
+        """SPEC-01 §3 image_build (ADR-07): an infra image built from a Dockerfile in this repository."""
+        self._with_native_elasticsearch()
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK, self.err.getvalue())
+        self.assertFalse([c for c in runner.calls if c[0] == "git" and "elasticsearch" in " ".join(c)])
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"] and "elasticsearch2" in " ".join(c)]
+        self.assertEqual(len(bx), 1)
+        self.assertIn("-t", bx[0]); self.assertIn("grdm-dev/elasticsearch2:2.4.6-1", bx[0])
+        self.assertEqual(bx[0][-1], str(self.root / "installer" / "images" / "elasticsearch2"))
+        rows = {r["component"]: r for r in json.loads((self.root / "runtime" / "reports" / "build_latest.json").read_text())["components"]}
+        self.assertEqual(rows["elasticsearch2"]["status"], "built")
+        self.assertEqual(rows["elasticsearch2"]["image"], "grdm-dev/elasticsearch2:2.4.6-1")
+        self.assertEqual(rows["elasticsearch2"]["image_tag"], "2.4.6-1")
+        self.assertEqual(rows["elasticsearch2"]["context"], "installer/images/elasticsearch2")
+        self.assertIn("natively", self.err.getvalue())
+
+    def test_image_build_without_dockerfile_is_30(self):
+        self._with_native_elasticsearch()
+        (self.root / "installer" / "images" / "elasticsearch2" / "Dockerfile").unlink()
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, FakeRunner()), exit_codes.BUILD_FAILED)
+        self.assertIn("no Dockerfile", self.err.getvalue())
+
+    def test_image_build_push_uses_the_registry_tag(self):
+        self._with_native_elasticsearch()
+        ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner, push=True), exit_codes.OK, self.err.getvalue())
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"] and "elasticsearch2" in " ".join(c)][0]
+        self.assertIn("--push", bx); self.assertIn("ghcr.io/rcosdp/elasticsearch2:2.4.6-1", bx)
+        self.assertNotIn("grdm-dev/elasticsearch2:2.4.6-1", bx)
+
     def test_prebuilt_component_is_pulled_and_recorded_not_built(self):
         self._with_prebuilt_waterbutler()
         ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
