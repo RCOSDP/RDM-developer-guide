@@ -95,7 +95,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 22)  # core profile (SPEC-02 §4), one-shots osf_init, wiki_static_init, wiki_assets included
+        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, elasticsearch_data_init, wiki_static_init, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -280,22 +280,47 @@ class ComposeRenderTests(unittest.TestCase):
 
     # ---- memory budget is capped by the Docker VM (real install run 10)
 
-    def test_memory_budget_uses_docker_vm_when_smaller(self):
+    def _render_with_vm(self, vm_bytes: int, memory_gib=None):
         def runner(argv):
             if argv[:2] == ["docker", "info"]:
-                return 0, "8589934592\n"  # 8 GiB VM
+                return 0, f"{vm_bytes}\n"
             return ps_runner()(argv)
         root = make_root()
         try:
             ctx = Context(root=root, yes=True, json_output=True, profile="core")
-            args = argparse.Namespace(compose_command="render", auth="fakecas", platform="linux/arm64", memory_gib=None, cpus=None, egress=None)
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            args = argparse.Namespace(compose_command="render", auth="fakecas", platform="linux/arm64", memory_gib=memory_gib, cpus=None, egress=None)
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(err):
                 rc = compose.run(ctx, args, cpus=4.0, port_checker=lambda port: True, platform_string="linux/arm64", runner=runner)
-            self.assertEqual(rc, exit_codes.OK)
-            report = json.loads((root / "runtime" / "reports" / "compose_latest.json").read_text(encoding="utf-8"))
-            self.assertLessEqual(report.get("data", report)["memory_gib"], 8.0)
+            report_path = root / "runtime" / "reports" / "compose_latest.json"
+            report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
+            doc_path = root / "runtime" / "docker-compose.yml"
+            doc = json.loads(doc_path.read_text(encoding="utf-8")) if doc_path.exists() else {}
+            return rc, err.getvalue(), report.get("data", report), doc
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    def test_memory_budget_uses_docker_vm_when_smaller(self):
+        rc, _, report, doc = self._render_with_vm(48 * 1024 ** 3)  # 48 GiB VM on a bigger host
+        self.assertEqual(rc, exit_codes.OK)
+        self.assertLessEqual(report["memory_gib"], 48.0)
+        total = sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values())
+        self.assertLessEqual(total, 48 * 1024 * compose.MEMORY_SHARE)  # floors fit, so the sum stays inside the budget
+
+    def test_infeasible_memory_floors_are_exit_10_unless_overcommit_is_explicit(self):
+        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (ember alone needs 8 GiB)."""
+        rc, err, _, _ = self._render_with_vm(8 * 1024 ** 3)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("memory floors", err)
+        self.assertIn("--memory-gib", err)
+        rc, _, _, doc = self._render_with_vm(8 * 1024 ** 3, memory_gib=8.0)  # explicit value = knowing overcommit
+        self.assertEqual(rc, exit_codes.OK)
+        self.assertGreater(sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values()), 8 * 1024 * compose.MEMORY_SHARE)
+
+    def test_sum_of_floors_fits_the_documented_minimum_vm(self):
+        """SPEC-02 §8: the core profile needs a 24 GiB Docker VM on Apple Silicon (ember 8 GiB floor under emulation)."""
+        rc, _, _, _ = self._render_with_vm(24 * 1024 ** 3)
+        self.assertEqual(rc, exit_codes.OK)
 
     def test_detect_docker_memory_gib_tolerates_bad_output(self):
         self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (1, "")))
@@ -440,7 +465,7 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
             "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
@@ -449,7 +474,7 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 26)  # full profile with shibboleth: core 22 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 

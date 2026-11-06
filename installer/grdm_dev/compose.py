@@ -268,7 +268,7 @@ def host_port_map(env: dict[str, str], rows: list[dict[str, Any]]) -> dict[str, 
     return ports
 
 
-_PLACEHOLDER = re.compile(r"\{\{(HOST_PORT|CONTAINER_PORT):([A-Za-z0-9_]+)\}\}|\{\{(AUTH_URL)\}\}")
+_PLACEHOLDER = re.compile(r"\{\{(HOST_PORT|CONTAINER_PORT):([A-Za-z0-9_]+)\}\}|\{\{(AUTH_URL|SERVICE_IMAGE)\}\}")
 
 
 def auth_url(auth: str, host_ports: dict[str, int]) -> str:
@@ -283,7 +283,8 @@ def auth_url(auth: str, host_ports: dict[str, int]) -> str:
 
 
 def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str, int], extras: dict[str, str] | None = None) -> Any:
-    """Resolve `{{HOST_PORT:svc}}`, `{{CONTAINER_PORT:svc}}` and `{{AUTH_URL}}` (from `extras`)."""
+    """Resolve `{{HOST_PORT:svc}}`, `{{CONTAINER_PORT:svc}}`, `{{AUTH_URL}}` and `{{SERVICE_IMAGE}}` (the
+    service's own image reference, so a container can fingerprint what it was built from; from `extras`)."""
     extras = extras or {}
     if isinstance(value, str):
         def repl(m: re.Match) -> str:
@@ -306,7 +307,11 @@ def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str
 # --------------------------------------------------------------------------- resources
 
 
-def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float) -> dict[str, dict[str, Any]]:
+class MemoryBudgetError(ValueError):
+    """The memory floors of the profile do not fit the budget (exit 10, host unsupported)."""
+
+
+def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float, allow_overcommit: bool = False) -> dict[str, dict[str, Any]]:
     budget_mb = memory_gib * 1024 * MEMORY_SHARE
     total_weight = sum(float(s.template.get("weight", 1)) for s in services) or 1.0
     # Memory in two passes so the floors (`mem_min_mb`) do not push the total past the budget: a
@@ -315,6 +320,13 @@ def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: 
     # total exceed it (real install run 10: ember needs 8 GiB under emulation on a 47 GiB Docker VM).
     floors = {s.name: int(s.template.get("mem_min_mb", 128)) for s in services}
     weights = {s.name: float(s.template.get("weight", 1)) for s in services}
+    if sum(floors.values()) > budget_mb and not allow_overcommit:
+        need_gib = sum(floors.values()) / 1024 / MEMORY_SHARE
+        raise MemoryBudgetError(
+            f"the {len(services)} services of this profile need at least {sum(floors.values())} MiB of memory floors, "
+            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Give the Docker engine "
+            f"at least {need_gib:.0f} GiB (Docker Desktop: Settings > Resources), choose a smaller --profile, or pass "
+            f"--memory-gib to overcommit knowingly (PR #33 review r1 R1-04)")
     mem: dict[str, int] = {}
     pinned: set[str] = set()
     while True:
@@ -391,7 +403,7 @@ def render_service(
     extras: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     egress = egress or set()
-    tpl = substitute(svc.template, host_ports, container_ports, extras)
+    tpl = substitute(svc.template, host_ports, container_ports, {**(extras or {}), "SERVICE_IMAGE": svc.image})
     exc = hardening.get(svc.name, {})
     relaxed = set(exc.get("controls", []))
     out: dict[str, Any] = {"image": svc.image}
@@ -465,6 +477,7 @@ def render_compose(
     egress: list[str] | None = None,
     service_platforms: dict[str, str] | None = None,
     auth: str = "fakecas",
+    allow_overcommit: bool = False,
 ) -> dict[str, Any]:
     egress = list(egress or [])
     service_platforms = service_platforms or {}
@@ -473,7 +486,7 @@ def render_compose(
     container_ports = {s.name: int(s.template.get("container_port", DEFAULT_PORTS.get(s.name, 0))) for s in services}
     for name, port in DEFAULT_PORTS.items():
         container_ports.setdefault(name, port)
-    resources = scale_resources(services, memory_gib, cpus)
+    resources = scale_resources(services, memory_gib, cpus, allow_overcommit=allow_overcommit)
     rendered = {
         svc.name: render_service(
             svc,
@@ -934,6 +947,7 @@ def run(
     published = {r["service"]: int(r["host_port"]) for r in rows}
     host_ports = host_port_map(env, rows)
 
+    explicit_memory = bool(getattr(args, "memory_gib", None)) or memory_gib is not None
     if memory_gib is None:
         memory_gib = getattr(args, "memory_gib", None)
         if not memory_gib:
@@ -951,7 +965,8 @@ def run(
         cpus = getattr(args, "cpus", None) or float(os.cpu_count() or 0) or DEFAULT_CPUS
     platform_string = platform_string or getattr(args, "platform", None) or detect_platform()
 
-    compose = render_compose(
+    try:
+      compose = render_compose(
         services,
         runtime=ctx.runtime,
         host_ports=host_ports,
@@ -963,7 +978,10 @@ def run(
         egress=egress,
         service_platforms=service_platforms,
         auth=auth,
-    )
+        allow_overcommit=explicit_memory,
+      )
+    except MemoryBudgetError as exc:
+        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}")
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
     configs = config_files(host_ports)
     for text in [compose_text, *configs.values()]:

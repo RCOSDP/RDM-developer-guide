@@ -259,14 +259,14 @@ run14:
 
 ```toon
 run15:
-  result: exit 40 (not healthy after 900s; see below)
+  result: "exit 40 — `up` passed (0, ok) for the first time; `health --network` failed (40): not healthy web/api/admin, see below"
   ember_osf_web: "served HTTP 200 about 13 minutes after its start (dist built into the volume); web `/` then answered 200 as well"
   api: "the running container kept the failed process from run 14 because only a mounted file changed (Compose recreates nothing); after `docker restart` it answered 302 on `/`"
   admin: "still `ModuleNotFoundError: debug_toolbar`: admin/base/settings/defaults.py appends debug_toolbar and nplusone to INSTALLED_APPS and MIDDLEWARE at import, reading DEBUG_MODE before local.py runs, so `DEBUG = False` alone is too late; then `400 DisallowedHost` for 127.0.0.1"
   fix: "admin_local.py strips the two apps and middlewares and adds 127.0.0.1/localhost/admin to ALLOWED_HOSTS; after re-render and restart admin answered 302 (run 16 is the clean run)"
 ```
 
-### Run 16 — 2026-11-06, clean run with every fix: `up` passes for the first time
+### Run 16 — 2026-11-06, clean run with every fix: `up` passes without manual repairs
 
 ```toon
 run16:
@@ -287,7 +287,7 @@ What this proves:
 - The core profile starts end to end on Apple Silicon under the hardening baseline, and `up` declares it ready on the loopback URL. Milestone M2's "one command" now reaches the application.
 - The `--network` check found a wildcard listener on port 5000 that is not ours: macOS's AirPlay Receiver (ControlCenter) binds `*:5000` and `*:7000`; our `web` is bound to `127.0.0.1:5000` beside it and answers (the kernel prefers the specific address). The check treated any non-loopback listener on a project port as a failure.
 
-Decision taken: `health --network` fails only for listeners that belong to Docker (our published ports leaking to a non-loopback address, [ADR-02](../decisions/ADR-02_Network_Model.md)); a foreign process on a project port is reported as a warning row (`foreign-listener`) so the operator can move the port with `GRDM_PORT_<SERVICE>` if they want to. Run 17 is recorded below.
+Decision taken: `health --network` keeps failing for listeners that belong to Docker (our published ports leaking to a non-loopback address, [ADR-02](../decisions/ADR-02_Network_Model.md)) and for a wildcard listener on a project port whose owner is not visible (fail closed); a *named* foreign process on a project port is reported as a warning row (`foreign-listener`) so the operator can move the port with `GRDM_PORT_<SERVICE>` if they want to. Run 17 is recorded below.
 
 ### Run 17 — 2026-11-06, foreign listeners reported as warnings: `up` and `health --network` pass, `scan` starts
 
@@ -341,12 +341,13 @@ run18:
     semgrep,1.184.0,4,ok
     gitleaks,8.30.1,1,ok
     zap,stable,3,ok
-  findings_by_severity[5]{severity,count}:
-    CRITICAL,1835
-    HIGH,8291
-    MEDIUM,9772
-    LOW,3899
-    INFO,5
+  findings_by_severity[5]{severity,trivy,zap,total}:
+    CRITICAL,1835,0,1835
+    HIGH,8290,1,8291
+    MEDIUM,9763,9,9772
+    LOW,3886,13,3899
+    INFO,0,5,5
+  milestone_in_report: "M1 — manifest/milestone.json is owner-maintained (SPEC-03 §5.2) and still says M1; the gate rule is report-only either way"
   allow_list: "0 entries, 0 allow-listed; 10126 findings over the M4 threshold (HIGH or above) are reported, not blocking, at M2"
 ```
 
@@ -354,7 +355,7 @@ What this proves:
 
 - **M2's one-command install works on the Mac Studio**: eighteen runs after the first attempt, `./installer/install.sh --yes --no-open --profile core` goes from a clean shell to a ready URL, through the loopback check, the scanners and the report, with exit 0.
 - Every stop between run 1 and run 18 was a fact about an EOL image or an installer detail that only a real start could reveal; each is recorded above with its fix and its document.
-- The vulnerability baseline of the EOL stack is now measured: 1835 CRITICAL and 8291 HIGH findings, almost all from the images (Python 3.5/3.6, node 8/12, JDK 8, Elasticsearch 2/6, mongo 3.4). This is the number M4 and M5 must drive to zero; the allow-list stays empty rather than hiding it.
+- The vulnerability baseline of the EOL stack is now measured: Trivy alone reports 1835 CRITICAL and 8290 HIGH findings (ZAP adds 1 HIGH), almost all from the images (Python 3.5/3.6, node 8/12, JDK 8, Elasticsearch 2/6, mongo 3.4). This is the number M4 and M5 must drive to zero; the allow-list stays empty rather than hiding it.
 
 Next on M2: the Playwright (a tool that drives a real browser to test web pages; see [REF-01](../reference/REF-01_Glossary.md)) acceptance suite (C1–C6) against this running stack, and the osf.io wiki editor page wiring (C4) in RDM-osf.io-dev2027.
 
@@ -601,14 +602,14 @@ run14:
 
 ```toon
 run15:
-  result: "終了コード 40（900 秒で未健康。下記）"
+  result: "終了コード 40 — `up` は初めて通過（0, ok）、`health --network` が失敗（40）: web/api/admin が未健康。下記"
   ember_osf_web: "起動から約 13 分で HTTP 200（dist をボリュームへ組んだ）。web の `/` もその後 200"
   api: "mount したファイルだけが変わったため Compose は何も作り直さず、第 14 回で失敗したプロセスが残っていた。`docker restart` 後は `/` に 302"
   admin: "依然 `ModuleNotFoundError: debug_toolbar`。admin/base/settings/defaults.py は import 時に DEBUG_MODE を読んで debug_toolbar と nplusone を INSTALLED_APPS と MIDDLEWARE に加えるので、local.py の `DEBUG = False` だけでは遅い。続いて 127.0.0.1 に対する `400 DisallowedHost`"
   fix: "admin_local.py で二つのアプリとミドルウェアを外し、ALLOWED_HOSTS に 127.0.0.1/localhost/admin を加える。再描画と再起動の後、admin は 302（第 16 回がクリーンな実行）"
 ```
 
-### 第 16 回 — 2026-11-06、全修正を適用したクリーンな実行: 初めて `up` が通った
+### 第 16 回 — 2026-11-06、全修正を適用したクリーンな実行: 手作業の修復なしで `up` が通った
 
 ```toon
 run16:
@@ -629,7 +630,7 @@ run16:
 - core プロファイルは hardening の基準の下で Apple Silicon 上で端から端まで起動し、`up` はループバックの URL で準備完了を宣言する。節目 M2 の「一発導入」はアプリケーションに到達した。
 - `--network` の検査は 5000 番の、我々のものでないワイルドカードの待ち受けを見つけた。macOS の AirPlay レシーバー（ControlCenter）は `*:5000` と `*:7000` を bind する。我々の `web` はその横で `127.0.0.1:5000` に bind して応答している（カーネルは具体的な番地を優先する）。検査はプロジェクトのポート上のループバック以外の待ち受けをすべて失敗と扱っていた。
 
-決めたこと: `health --network` が失敗にするのは Docker に属する待ち受け（我々の公開ポートがループバック以外へ漏れている場合。[ADR-02](../decisions/ADR-02_Network_Model.md)）だけとする。プロジェクトのポート上の他プロセスは警告の行（`foreign-listener`）として報告し、操作者が望めば `GRDM_PORT_<SERVICE>` でポートを移せるようにする。第 17 回は下へ追記する。
+決めたこと: `health --network` は、Docker に属する待ち受け（我々の公開ポートがループバック以外へ漏れている場合。[ADR-02](../decisions/ADR-02_Network_Model.md)）と、所有者の見えないプロジェクトのポート上のワイルドカードの待ち受け（安全側に失敗）は引き続き失敗にする。プロジェクトのポート上の*名前の分かる*他プロセスは警告の行（`foreign-listener`）として報告し、操作者が望めば `GRDM_PORT_<SERVICE>` でポートを移せるようにする。第 17 回は下へ追記する。
 
 ### 第 17 回 — 2026-11-06、他プロセスの待ち受けを警告に: `up` と `health --network` が合格、`scan` が始まる
 
@@ -683,12 +684,13 @@ run18:
     semgrep,1.184.0,4,ok
     gitleaks,8.30.1,1,ok
     zap,stable,3,ok
-  findings_by_severity[5]{severity,count}:
-    CRITICAL,1835
-    HIGH,8291
-    MEDIUM,9772
-    LOW,3899
-    INFO,5
+  findings_by_severity[5]{severity,trivy,zap,total}:
+    CRITICAL,1835,0,1835
+    HIGH,8290,1,8291
+    MEDIUM,9763,9,9772
+    LOW,3886,13,3899
+    INFO,0,5,5
+  milestone_in_report: "M1 — manifest/milestone.json は所有者が保守し（SPEC-03 §5.2）まだ M1。門の規則はどちらでも報告のみ"
   allow_list: "0 件、許容 0 件。M4 の閾値（HIGH 以上）を超える 10126 件は M2 では報告のみで、停止させない"
 ```
 
@@ -696,7 +698,7 @@ run18:
 
 - **M2 の一発導入は Mac Studio で動く**。最初の試みから 18 回目で、`./installer/install.sh --yes --no-open --profile core` は素のシェルから準備完了の URL まで、ループバック検査・スキャナー・報告書を通して終了コード 0 で到達する。
 - 第 1 回から第 18 回の間の停止はすべて、EOL イメージの事実か、実際に起動しないと分からないインストーラーの細部だった。それぞれ上に修正と文書とともに記録した。
-- EOL スタックの脆弱性の基準値が測れた。CRITICAL 1835 件、HIGH 8291 件で、ほぼすべてがイメージ由来（Python 3.5/3.6、node 8/12、JDK 8、Elasticsearch 2/6、mongo 3.4）。これが M4 と M5 でゼロにすべき数であり、許容リストは隠すためには使わず空のままにする。
+- EOL スタックの脆弱性の基準値が測れた。Trivy 単独で CRITICAL 1835 件、HIGH 8290 件（ZAP が HIGH 1 件を加える）で、ほぼすべてがイメージ由来（Python 3.5/3.6、node 8/12、JDK 8、Elasticsearch 2/6、mongo 3.4）。これが M4 と M5 でゼロにすべき数であり、許容リストは隠すためには使わず空のままにする。
 
 M2 の次: この起動したスタックに対する Playwright 受入（C1〜C6）と、RDM-osf.io-dev2027 側の Wiki エディタページの配線（C4）。
 

@@ -27,7 +27,7 @@
 | Milestone | Goal | Security gate | Status |
 |---|---|---|---|
 | M1 | Docs skeleton, manifest, dev2027 repos exist; reviewed PRs merged to develop | Report + allow-list | ✅ **Done** (PR #19 merged 2026-11-05) |
-| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: installer PRs #21–#30 merged under the ADR-04 standing delegation; real install runs 1–5 recorded in [DEMO-20](../demo/20_core_install_mac_studio.md#english); `up`/`health`/`scan`/`accept` not yet reached (see §2b) |
+| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: one-command install of the core profile succeeded on the Mac Studio in real install run 18 (PR #33, [DEMO-20](../demo/20_core_install_mac_studio.md#english)): build, up, health --network, scan, report all exit 0; Playwright acceptance pending (see §2b) |
 | M3 | 5 subsystems start; one success + one rejection case each | Report + allow-list (fewer entries than M2) | Planned |
 | M4 | Waterbutler, mfr, osf.io on Python 3.13 | Stop on HIGH or above; first AI red-team run | Planned |
 | M5 | ES2 and mongo removed; ES8 + postgres 15 or later; distributable abroad | Zero CRITICAL/HIGH; zero open AI red-team paths | Planned |
@@ -56,8 +56,8 @@
 | Real install on Mac Studio reaches `build` for all six components | ✅ Run 6 (2026-11-06): three built locally, two prebuilt, one overlay |
 | `up` → `health --network` → `scan` → `report` on Mac Studio | ✅ Run 18 (2026-11-06, PR #33): exit 0, ready at the loopback URL; runs 6–17 fixed one start-up fact each (DEMO-20) |
 | edit.mako wiring in the integration repository — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 once a real install reaches `up` | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository; needed for the Wiki acceptance case, not for `health` |
-| Playwright acceptance C1–C6 (selectors and seed data are `TODO(M2)`) | ⏳ Not started on the real host |
-| Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18: 1835 CRITICAL / 8291 HIGH / 9772 MEDIUM / 3899 LOW over 22 targets; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM to triage at M3) |
+| Playwright acceptance C1–C6 (selectors and seed data are `TODO(M2)`) | 🔄 First real run 2026-11-06 against the run-18 stack: seeding works (OSF accounts need a password different from the e-mail; the browser detection had to learn Playwright's newer Chromium layouts), 0 of 12 cases pass — a fixture name mismatch fails C1–C3/C5/C6 at setup and the fakecas password field is not visible for C4; next PR |
+| Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18 (Trivy alone): 1835 CRITICAL / 8290 HIGH / 9763 MEDIUM / 3886 LOW over 22 targets; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM, 13 LOW to triage at M3) |
 | Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
 ### 3. Rules
@@ -80,7 +80,7 @@ This board is the **single source of truth** for milestone progress:
 | 節目 | ゴール | セキュリティ門 | ステータス |
 |---|---|---|---|
 | M1 | docs の骨格・manifest・dev2027 リポジトリ群がある。レビュー済み PR が develop にマージ | 報告＋許容リスト | ✅ **完了**（PR #19 を 2026-11-05 にマージ） |
-| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: インストーラーの PR #21〜#30 は ADR-04 の包括委任でマージ済み。実機導入 1〜5 回目は [DEMO-20](../demo/20_core_install_mac_studio.md#japanese) に記録。`up`/`health`/`scan`/`accept` には未到達（§2b 参照） |
+| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: core プロファイルの一発導入が実機第 18 回で Mac Studio 上で成功（PR #33、[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）: build・up・health --network・scan・report がすべて終了 0。Playwright 受入は未実施（§2b 参照） |
 | M3 | サブシステム 5 本が起動。各 1 本の正常系＋拒否ケース | 報告＋許容リスト（M2 より件数を減らす） | 計画中 |
 | M4 | waterbutler・mfr・osf.io を Python 3.13 へ | HIGH 以上で停止。AI レッドチーム初回 | 計画中 |
 | M5 | ES2・mongo 廃止。ES8＋postgres 15 以降。海外配布可 | CRITICAL/HIGH ゼロ。AI レッドチームの未解決経路ゼロ | 計画中 |
@@ -109,8 +109,8 @@ This board is the **single source of truth** for milestone progress:
 | Mac Studio の実機導入で 6 部品すべてが `build` を通過 | ✅ 第 6 回（2026-11-06）: 3 本はローカルビルド、2 本は prebuilt、1 本はオーバーレイ |
 | Mac Studio で `up` → `health --network` → `scan` → `report` | ✅ 第 18 回（2026-11-06、PR #33）: 終了コード 0、ループバックの URL で準備完了。第 6〜17 回は起動の事実を毎回 1 件ずつ修正（DEMO-20） |
 | 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機導入が `up` に達したらエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない。Wiki の受入ケースに必要で、`health` には不要 |
-| Playwright 受入 C1〜C6（セレクタと種データは `TODO(M2)`） | ⏳ 実機では未着手 |
-| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測: 22 対象で CRITICAL 1835 / HIGH 8291 / MEDIUM 9772 / LOW 3899。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9 は M3 で精査） |
+| Playwright 受入 C1〜C6（セレクタと種データは `TODO(M2)`） | 🔄 2026-11-06 に第 18 回のスタックへ初回実行: 種データ作成は動く（OSF アカウントのパスワードはメールと別にする必要。ブラウザ検出は Playwright の新しい Chromium 配置を学ぶ必要があった）、12 ケース中 0 合格 — fixture 名の不一致で C1〜C3/C5/C6 が setup で失敗、C4 は fakecas のパスワード欄が不可視。次の PR で対応 |
+| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測（Trivy 単独）: 22 対象で CRITICAL 1835 / HIGH 8290 / MEDIUM 9763 / LOW 3886。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9・LOW 13 は M3 で精査） |
 | 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
 ### 3. 規則

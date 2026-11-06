@@ -10,7 +10,7 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
 CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_static_init", "wiki_assets", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}

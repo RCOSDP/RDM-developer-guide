@@ -20,5 +20,11 @@
   "mem_min_mb": 1024,
   "pids_limit": 1024,
   "user": "101:101",
-  "note": "Runs directly as the image's elasticsearch user (uid 101), so the entrypoint skips its chown and gosu steps: gosu (an old Go binary) aborts under Rosetta on Apple Silicon with `runtime: failed to create new OS thread (have 2 already; errno=22)` (real install run 8). The data volume is a bind directory under runtime/volumes/; on a Linux host whose uid is not 101 it needs the same owner step as wiki_static (ADR-06 follow-up, hardening target M4)."
+  "note": "Runs directly as the image's elasticsearch user (uid 101), so the entrypoint skips its chown and gosu steps: gosu (an old Go binary) aborts under Rosetta on Apple Silicon with `runtime: failed to create new OS thread (have 2 already; errno=22)` (real install run 8). The data volume is a bind directory under runtime/volumes/ owned by the host user; the one-shot elasticsearch_data_init chowns it to 101:101 first (PR #33 review r1 R1-01), so Linux/WSL hosts start too.",
+  "depends_on": [
+    {
+      "service": "elasticsearch_data_init",
+      "condition": "service_completed_successfully"
+    }
+  ]
 }

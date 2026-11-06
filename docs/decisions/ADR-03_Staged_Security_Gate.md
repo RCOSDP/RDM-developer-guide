@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.3 — 2026-11-06. **Learned:** the baseline's "no stage, no allow-list" needed one explicit carve-out — recorded, reviewed and shrinking hardening exceptions for EOL images — or every real install would have contradicted the ADR (PR #33 review r1 R1-03). ／ 基本対策の「段階も許容リストもない」には、EOL イメージのための記録・見直し・縮小される堅牢化の例外という明示の切り出しが一つ要った。さもなければ実機導入のたびに ADR と矛盾した（PR #33 レビュー r1 R1-03）。
+  0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** a safety rule that cannot be met on the day it is written is not a rule but a wish; writing the schedule down turns the wish into something we can measure at each milestone. ／ 書いた日に守れない安全規則は規則ではなく願いにすぎず、予定表として書くことで、節目ごとに測れるものになると分かった。
 - Status: Accepted (owner, 2026-11-05). Review date: at the start of M4.
 - Related: [SPEC-03 Security Gate](../spec/03_security_gate.md) · [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](../spec/06_documentation_conventions.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01 Integration Repository Placement](ADR-01_Integration_Repository_Placement.md) · [ADR-02 Network Model](ADR-02_Network_Model.md) · [ADR-04 AI Autonomy and Roles](ADR-04_AI_Autonomy_and_Roles.md) · [docs/README.md](../README.md)
@@ -51,7 +52,7 @@ A variant of C that counted only CRITICAL at M4 was considered and dropped: the 
 ### 3. Decision
 
 1. The gate follows the schedule in [SPEC-03 §5.2](../spec/03_security_gate.md). The current milestone is stored in `manifest/milestone.json` and only the owner changes it.
-2. The *baseline controls* of [SPEC-03 §3](../spec/03_security_gate.md) (random secrets with mode 0600, publish only on `127.0.0.1`, internal network, non-root, no privileged, resource limits, pinned digests, secret scanning in CI) have **no stage and no allow-list**. They fail the gate at every milestone, including M1.
+2. The *baseline controls* of [SPEC-03 §3](../spec/03_security_gate.md) (random secrets with mode 0600, publish only on `127.0.0.1`, internal network, non-root, no privileged, resource limits, pinned digests, secret scanning in CI) have **no stage and no allow-list**. They fail the gate at every milestone, including M1. The non-root, read-only and capability controls admit *bounded hardening exceptions* recorded per service in `manifest/hardening.json` ([SPEC-03 §3.3](../spec/03_security_gate.md#english)): each names the relaxed controls, the upstream reason, a review date and the milestone that removes it, is reported by `scan --baseline`, may not grow after M3, and is not an allow-list entry (PR #33 review r1 R1-03).
 3. The *allow-list* (`manifest/allowlist.json`) is the only way to pass a known finding. Every entry carries a CVE id, component, reason, owner, and expiry date. The entry count is compared with the previous milestone's baseline and **must never increase**. Only the owner approves additions.
 4. From M4, any HIGH or CRITICAL finding not in the allow-list stops `grdm-dev install` with exit code 50 ([SPEC-02](../spec/02_installer_cli.md)).
 5. At M5 and in steady state, CRITICAL and HIGH must be zero, the allow-list may contain no CRITICAL or HIGH entry, and the AI red team ([SPEC-03 §6](../spec/03_security_gate.md)) must report zero unresolved intrusion paths.
@@ -126,7 +127,7 @@ C の変種として、M4 では CRITICAL だけを数える案も検討して�
 ### 3. 決定
 
 1. 門は [SPEC-03 §5.2](../spec/03_security_gate.md) の予定表に従う。現在の節目は `manifest/milestone.json` に置き、変更できるのは所有者だけ。
-2. [SPEC-03 §3](../spec/03_security_gate.md) の「基本対策」（乱数の秘密をモード 0600 で、`127.0.0.1` のみ公開、内部ネットワーク、非 root、privileged なし、資源制限、ダイジェスト固定、CI での秘密スキャン）には**段階も許容リストもない**。M1 を含むすべての節目で門を落とす。
+2. [SPEC-03 §3](../spec/03_security_gate.md) の「基本対策」（乱数の秘密をモード 0600 で、`127.0.0.1` のみ公開、内部ネットワーク、非 root、privileged なし、資源制限、ダイジェスト固定、CI での秘密スキャン）には**段階も許容リストもない**。M1 を含むすべての節目で門を落とす。非 root・読み取り専用・capability の統制には、サービスごとに `manifest/hardening.json` に記録する*限定された堅牢化の例外*がある（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。各項目は緩める統制・上流側の理由・見直し日・除く節目を持ち、`scan --baseline` が報告し、M3 以降は増やせず、許容リストの項目ではない（PR #33 レビュー r1 R1-03）。
 3. 既知の検出を通す唯一の方法は「許容リスト」（`manifest/allowlist.json`）。各項目は CVE 番号、部品、理由、担当、期限を持つ。件数は前の節目の基準と比べ、**決して増えてはならない**。追加の承認は所有者だけ。
 4. M4 から、許容リストにない HIGH・CRITICAL の検出は `grdm-dev install` を終了コード 50 で止める（[SPEC-02](../spec/02_installer_cli.md)）。
 5. M5 と恒常運用では、CRITICAL と HIGH はゼロ、許容リストに CRITICAL・HIGH の項目があってはならず、AI レッドチーム（[SPEC-03 §6](../spec/03_security_gate.md)）が未解決の侵入経路ゼロを報告しなければならない。

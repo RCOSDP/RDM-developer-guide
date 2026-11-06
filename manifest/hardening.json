@@ -35,6 +35,19 @@
     },
     {
       "cap_add": [
+        "CHOWN"
+      ],
+      "controls": [
+        "user",
+        "cap_add"
+      ],
+      "reason": "One-shot owner fix for the named volume elasticsearch_data (PR #33 review r1 R1-01): elasticsearch runs as uid 101 without its entrypoint's chown (gosu aborts under Rosetta), and a fresh bind volume under runtime/volumes/ belongs to the host user, so Linux/WSL hosts whose uid is not 101 need `chown 101:101 /data` once. Runs the elasticsearch:2 image as root with cap_drop ALL and only CAP_CHOWN, then exits (restart: no); read_only and no-new-privileges stay.",
+      "review": "2027-01-31",
+      "service": "elasticsearch_data_init",
+      "target": "M4 (volume provisioning step in the installer, shared with wiki_static_init)"
+    },
+    {
+      "cap_add": [
         "CHOWN",
         "DAC_OVERRIDE",
         "FOWNER",
