@@ -159,15 +159,15 @@ run5:
     modular-file-renderer,linux/amd64,built,cached (dac70e2209f9)
     ember-osf-web,linux/amd64,prebuilt,cached pull
     cas-overlay,linux/amd64,prebuilt,cached pull
-    wiki-frontend,linux/arm64,build-failed,"overlay context assembled; 85 of 86 Dockerfile steps passed; webpack 5.93.0 failed with 2 errors: osfHelpers.js and comment.js require linkify-html, absent from the overlay's package.json"
+    wiki-frontend,linux/arm64,build-failed,"overlay context assembled; failed at Dockerfile step 85 of 86: webpack 5.93.0 stopped with 2 errors: osfHelpers.js and comment.js require linkify-html, absent from the overlay's package.json"
 ```
 
 What this proves:
 
-- The overlay mechanism works end to end up to the bundle step: the merged context (osf.io checkout + wiki-frontend files, wiki-frontend Dockerfile) is assembled, yarn installs from the overlay lock file, and webpack runs over the osf.io JavaScript.
+- The overlay mechanism works up to the bundle step: the merged context (osf.io checkout + wiki-frontend files, wiki-frontend Dockerfile) is assembled, yarn installs from the overlay lock file, and webpack runs over the osf.io JavaScript.
 - The remaining failure is an *integration drift* between two upstreams, not an installer defect: RDM-osf.io develop upgraded linkifyjs 2 → 4 and added linkify-html on 2026-11-01, while the wiki-frontend overlay's `package.json` / `yarn.lock` dated from 2025-06. Because the overlay's lock file wins, the osf.io code could not resolve the new module.
 
-Decision taken: the fix belongs in the integration repository RDM-wiki-frontend-dev2027 (PR #2: linkify-html and sift added; linkifyjs, bootstrap-datepicker, highlight.js and less aligned with osf.io develop; yarn.lock regenerated inside node:21-alpine). Verified before the PR: the same overlay context with the synced files built on this host with `docker buildx build --platform linux/arm64` (webpack 5.93.0, 0 errors, 4 performance warnings) and the image holds `website/static/public/js/wiki-edit-page.<chunkhash>.js`, which is what `wiki_assets` copies. After the merge, the manifest `integration_sha` is updated and run 6 is recorded below. Lesson for [SPEC-05](../spec/05_upstream_tracking.md#english): an overlay's dependency manifest must be diffed against its base at every weekly integration.
+Decision taken: the fix belongs in the integration repository RDM-wiki-frontend-dev2027 (PR #2: linkify-html and sift added; linkifyjs, bootstrap-datepicker, highlight.js and less aligned with osf.io develop; yarn.lock regenerated inside node:21-alpine). Verified before the PR: the same overlay context with the synced files built on this host with `docker buildx build --platform linux/arm64` (webpack 5.93.0, 0 errors, 4 warnings: 1 about the unset `mode`, 3 performance recommendations) and the image holds `website/static/public/js/wiki-edit-page.<chunkhash>.js`, which is what `wiki_assets` copies. After the merge, the manifest `integration_sha` is updated and run 6 will be recorded below. Lesson for [SPEC-05](../spec/05_upstream_tracking.md#english): an overlay's dependency manifest must be diffed against its base at every weekly integration.
 
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
@@ -315,7 +315,7 @@ run5:
     modular-file-renderer,linux/amd64,built,キャッシュ（dac70e2209f9）
     ember-osf-web,linux/amd64,prebuilt,取得済みキャッシュ
     cas-overlay,linux/amd64,prebuilt,取得済みキャッシュ
-    wiki-frontend,linux/arm64,build-failed,"オーバーレイのコンテキストは組み立てられ、Dockerfile 86 段のうち 85 段を通過。webpack 5.93.0 がエラー 2 件で停止: osfHelpers.js と comment.js が要求する linkify-html がオーバーレイ側の package.json にない"
+    wiki-frontend,linux/arm64,build-failed,"オーバーレイのコンテキストは組み立てられ、Dockerfile 86 段のうち 85 段目で失敗: webpack 5.93.0 がエラー 2 件で停止: osfHelpers.js と comment.js が要求する linkify-html がオーバーレイ側の package.json にない"
 ```
 
 これで分かったこと:
@@ -323,7 +323,7 @@ run5:
 - オーバーレイの仕組みは束を作る段の直前まで端から端まで働く。重ねたコンテキスト（osf.io のチェックアウト＋wiki-frontend のファイル、wiki-frontend の Dockerfile）が組み立てられ、yarn はオーバーレイ側のロックファイルから導入し、webpack は osf.io の JavaScript を処理した。
 - 残る失敗はインストーラーの欠陥ではなく、二つの上流の間の*統合のずれ*である。RDM-osf.io の develop は 2026-11-01 に linkifyjs を 2 系から 4 系へ更新し linkify-html を追加したが、wiki-frontend オーバーレイの `package.json` / `yarn.lock` は 2025-06 のままだった。オーバーレイ側のロックファイルが優先されるため、osf.io のコードが新しいモジュールを解決できなかった。
 
-決めたこと: 修正は統合リポジトリ RDM-wiki-frontend-dev2027 側で行う（PR #2: linkify-html と sift を追加、linkifyjs・bootstrap-datepicker・highlight.js・less を osf.io develop に合わせ、yarn.lock を node:21-alpine 内で再生成）。PR の前に検証: 同期後のファイルを置いた同じオーバーレイのコンテキストを本ホストで `docker buildx build --platform linux/arm64` して成功（webpack 5.93.0、エラー 0、性能推奨の警告 4）。イメージには `wiki_assets` が写す `website/static/public/js/wiki-edit-page.<chunkhash>.js` がある。マージ後に manifest の `integration_sha` を更新し、第 6 回を下へ追記する。[SPEC-05](../spec/05_upstream_tracking.md#japanese) への教訓: オーバーレイの依存一覧は、週次の統合のたびに基底と差分を取らなければならない。
+決めたこと: 修正は統合リポジトリ RDM-wiki-frontend-dev2027 側で行う（PR #2: linkify-html と sift を追加、linkifyjs・bootstrap-datepicker・highlight.js・less を osf.io develop に合わせ、yarn.lock を node:21-alpine 内で再生成）。PR の前に検証: 同期後のファイルを置いた同じオーバーレイのコンテキストを本ホストで `docker buildx build --platform linux/arm64` して成功（webpack 5.93.0、エラー 0、警告 4: `mode` 未設定 1 件、性能推奨 3 件）。イメージには `wiki_assets` が写す `website/static/public/js/wiki-edit-page.<chunkhash>.js` がある。マージ後に manifest の `integration_sha` を更新し、第 6 回を下へ追記する。[SPEC-05](../spec/05_upstream_tracking.md#japanese) への教訓: オーバーレイの依存一覧は、週次の統合のたびに基底と差分を取らなければならない。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 
