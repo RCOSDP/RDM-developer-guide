@@ -519,21 +519,29 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
     # MC-15: image_build (ADR-07) only on infra, with a repo-relative context that holds a Dockerfile,
     # a tag, a note, no prebuilt_image and no build_platform (the point is a native build)
     for i, comp in enumerate(components):
-        if not isinstance(comp, dict) or not comp.get("image_build"):
-            continue
+        if not isinstance(comp, dict) or "image_build" not in comp:
+            continue  # key absent: not an image_build component
         label = f"components[{i}]"
         ib = comp["image_build"]
         if comp.get("role") != "infra":
             errors.append(f"MC-15: {label}: image_build is only for infra components")
-        if not isinstance(ib, dict) or not isinstance(ib.get("context"), str) or not isinstance(ib.get("tag"), str):
-            errors.append(f"MC-15: {label}: image_build must be an object with string context and tag")
+        if not isinstance(ib, dict) or not isinstance(ib.get("context"), str) or not isinstance(ib.get("tag"), str) or not ib["context"] or not ib["tag"]:
+            # an empty object or a missing key is an error, never "no image_build" (review PR #34 r1 R1-02)
+            errors.append(f"MC-15: {label}: image_build must be an object with non-empty string context and tag (got {ib!r})")
             continue
         ctxp = ib["context"]
-        if ctxp.startswith("/") or ".." in ctxp.split("/") or not re.match(r"^[A-Za-z0-9_./-]+$", ctxp):
+        if ctxp.startswith("/") or ".." in ctxp.split("/") or not re.fullmatch(r"[A-Za-z0-9_./-]+", ctxp):
             errors.append(f"MC-15: {label}: image_build.context must be a plain repo-relative path (got {ctxp!r})")
-        elif not (REPO_ROOT / ctxp / "Dockerfile").is_file():
-            errors.append(f"MC-15: {label}: image_build.context {ctxp} has no Dockerfile in this repository")
-        if not re.match(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$", ib["tag"]):
+        else:
+            root = REPO_ROOT.resolve()
+            ctx_dir = (REPO_ROOT / ctxp).resolve()
+            dockerfile = (REPO_ROOT / ctxp / "Dockerfile").resolve()
+            inside = all(str(q).startswith(str(root) + "/") for q in (ctx_dir, dockerfile))
+            if not inside:
+                errors.append(f"MC-15: {label}: image_build.context {ctxp} resolves outside this repository (symlink?)")
+            elif not ctx_dir.is_dir() or not dockerfile.is_file():
+                errors.append(f"MC-15: {label}: image_build.context {ctxp} has no Dockerfile in this repository")
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", ib["tag"]):
             errors.append(f"MC-15: {label}: image_build.tag must be a valid image tag (got {ib['tag']!r})")
         if comp.get("prebuilt_image"):
             errors.append(f"MC-15: {label}: image_build and prebuilt_image are exclusive")

@@ -436,7 +436,7 @@ run21:
     HIGH,8290,8030
     MEDIUM,9763,9550
     LOW,3886,3676
-  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — 59 findings (2 HIGH, 52 MEDIUM, 5 LOW) from the Elasticsearch 2.4.6 jars and the Temurin 8 base; the Docker Hub elasticsearch:2 image it replaces carried the bulk of the difference above"
+  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — 58 findings on the image (2 HIGH, 52 MEDIUM, 4 LOW) from the Elasticsearch 2.4.6 jars and the Temurin 8 base, plus 1 LOW on the recipe file installer/images/elasticsearch2/Dockerfile; the Docker Hub elasticsearch:2 image it replaces carried the bulk of the difference above"
 ```
 
 What this proves:
@@ -863,7 +863,7 @@ run21:
     HIGH,8290,8030
     MEDIUM,9763,9550
     LOW,3886,3676
-  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — 59 件（HIGH 2・MEDIUM 52・LOW 5）。Elasticsearch 2.4.6 の jar と Temurin 8 ベース由来。置き換えた Docker Hub の elasticsearch:2 が上の差分の大半を抱えていた"
+  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — イメージに 58 件（HIGH 2・MEDIUM 52・LOW 4）。Elasticsearch 2.4.6 の jar と Temurin 8 ベース由来。加えてレシピの installer/images/elasticsearch2/Dockerfile に LOW 1 件。置き換えた Docker Hub の elasticsearch:2 が上の差分の大半を抱えていた"
 ```
 
 これで分かったこと:

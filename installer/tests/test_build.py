@@ -215,6 +215,7 @@ class BuildTests(unittest.TestCase):
         data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
         data["components"].append(comp("elasticsearch2", "infra", "minimum", None, ["elasticsearch"],
                                        image_build={"context": "installer/images/elasticsearch2", "tag": "2.4.6-1"},
+                                       base_image="eclipse-temurin:8-jre", base_image_digest="sha256:" + "ab" * 32,
                                        note="official image is amd64-only (ADR-07); retired at M5"))
         (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
         ctxdir = self.root / "installer" / "images" / "elasticsearch2"
@@ -238,6 +239,8 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(rows["elasticsearch2"]["image_tag"], "2.4.6-1")
         self.assertEqual(rows["elasticsearch2"]["context"], "installer/images/elasticsearch2")
         self.assertIn("natively", self.err.getvalue())
+        # SPEC-03 §3.4: the pinned base digest travels into the image as a label (review PR #34 r1 R1-03)
+        self.assertIn("org.opencontainers.image.base.digest=sha256:" + "ab" * 32, bx[0])
 
     def test_image_build_without_dockerfile_is_30(self):
         self._with_native_elasticsearch()

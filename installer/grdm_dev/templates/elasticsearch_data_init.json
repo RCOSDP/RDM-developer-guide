@@ -1,0 +1,25 @@
+{
+  "service": "elasticsearch_data_init",
+  "component": "elasticsearch2",
+  "profile": "minimum",
+  "one_shot": true,
+  "command": [
+    "sh",
+    "-c",
+    "set -e; chown -R 1000:1000 /data; ls -ld /data"
+  ],
+  "volumes": [
+    {
+      "volume": "elasticsearch_data",
+      "target": "/data"
+    }
+  ],
+  "tmpfs": [
+    "/tmp"
+  ],
+  "weight": 1,
+  "mem_min_mb": 64,
+  "pids_limit": 64,
+  "note": "One-shot owner step for the named volume elasticsearch_data (PR #34 review r1 R1-01): the native image runs as uid 1000, but a fresh bind directory under runtime/volumes/ belongs to the host user (Linux/WSL hosts whose uid is not 1000) and a data tree left by PR #33 belongs to uid 101; `chown -R 1000:1000 /data` hands both to the service without touching the data. Runs the same grdm-dev/elasticsearch2 image as an explicit root (template run_as 0:0, recorded exception: controls user + cap_add CHOWN only), exits, and elasticsearch waits with service_completed_successfully. Idempotent; no chmod (CAP_FOWNER would be needed). On Docker Desktop the chown is a no-op and harmless.",
+  "run_as": "0:0"
+}

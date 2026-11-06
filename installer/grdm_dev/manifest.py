@@ -124,7 +124,7 @@ class Component:
         """True for an infra component whose image is built from a Dockerfile inside this repository
         (`image_build: {context, tag}`, SPEC-01 §3, ADR-07): EOL middleware that only ships amd64 images is
         built natively for the host instead of emulated."""
-        return bool(self.image_build)
+        return self.image_build is not None
 
     @property
     def is_overlay(self) -> bool:
@@ -281,6 +281,17 @@ def _root_of(ctx_or_path: Any) -> Path:
     return Path(ctx_or_path.root)
 
 
+def _image_build_of(c: dict[str, Any]) -> dict[str, Any] | None:
+    """`image_build` as a validated dict, None when the key is absent. An empty object or a missing key is a
+    ManifestError: it must never silently turn the component into a plain pinned image (PR #34 review r1 R1-02)."""
+    if "image_build" not in c:
+        return None
+    ib = c["image_build"]
+    if not isinstance(ib, dict) or not isinstance(ib.get("context"), str) or not ib["context"] or not isinstance(ib.get("tag"), str) or not ib["tag"]:
+        raise ManifestError([f"MC-15: component {c.get('id')!r}: image_build must be an object with non-empty string context and tag (got {ib!r})"])
+    return dict(ib)
+
+
 def parse(data: dict[str, Any], path: Path | None = None) -> Manifest:
     """Build the dataclasses from already-parsed JSON. Raises ManifestError on a structural problem."""
     try:
@@ -304,7 +315,7 @@ def parse(data: dict[str, Any], path: Path | None = None) -> Manifest:
                     note=c.get("note"),
                     prebuilt_image=c.get("prebuilt_image") or None,
                     overlay_of=c.get("overlay_of") or None,
-                    image_build=dict(c["image_build"]) if c.get("image_build") else None,
+                    image_build=_image_build_of(c),
                     raw=c,
                 )
             )

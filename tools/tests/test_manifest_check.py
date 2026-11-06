@@ -240,6 +240,33 @@ class ValidateManifestTests(unittest.TestCase):
         core["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "1"}; core["note"] = "x"
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
 
+    def test_image_build_empty_object_newline_tag_and_symlink_context_are_rejected(self):
+        """PR #34 review r1 R1-02: presence (not truthiness), full-string tag, resolved containment."""
+        import tempfile, os
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
+        es["image_build"] = {}
+        self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
+        es["image_build"] = {"context": "installer/images/elasticsearch2"}
+        self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
+        es["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "2.4.6-1\n"}
+        self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
+        es["image_build"] = {"context": "/etc", "tag": "1"}
+        self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
+        # a symlinked context pointing outside the repository is refused even though it holds a Dockerfile
+        with tempfile.TemporaryDirectory() as outside:
+            (Path(outside) / "Dockerfile").write_text("FROM scratch\n")
+            link = REPO_ROOT / "installer" / "images" / "escape-test-link"
+            try:
+                os.symlink(outside, link)
+                es["image_build"] = {"context": "installer/images/escape-test-link", "tag": "1"}
+                errs = mc.validate_manifest(data, today=TODAY)
+                self.assertIn("MC-15", codes(errs))
+                self.assertTrue(any("outside this repository" in e for e in errs), errs)
+            finally:
+                if link.is_symlink():
+                    link.unlink()
+
     def test_infra_build_platform_requires_note(self):
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
         infra = [c for c in data["components"] if c["role"] == "infra"]

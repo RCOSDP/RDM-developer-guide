@@ -96,7 +96,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 22)  # core profile (SPEC-02 §4), one-shots osf_init, wiki_static_init, wiki_assets included (elasticsearch is a native image_build, ADR-07)
+        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, elasticsearch_data_init, wiki_static_init, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -115,7 +115,10 @@ class ComposeRenderTests(unittest.TestCase):
             for key in ("mem_limit", "cpus", "pids_limit"):
                 self.assertIn(key, svc, name)
             if "user" in relaxed:
-                self.assertNotIn("user", svc, name)
+                if name == "elasticsearch_data_init":
+                    self.assertEqual(svc["user"], "0:0", name)  # explicit root via template run_as (ADR-07, PR #34 r1 R1-01)
+                else:
+                    self.assertNotIn("user", svc, name)
             else:
                 uid = svc["user"].split(":")[0]
                 self.assertNotEqual(uid, "0", name)
@@ -367,7 +370,9 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertNotIn("cap_add", es); self.assertNotIn("platform", es.get("platform", "linux/amd64") == "linux/amd64" and "x" or "", "")
             self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
             self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
-            self.assertNotIn("elasticsearch_data_init", doc["services"])
+            init = doc["services"]["elasticsearch_data_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
+            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (es["image"], "0:0", ["CHOWN"], "no"))
+            self.assertEqual(es["depends_on"], {"elasticsearch_data_init": {"condition": "service_completed_successfully"}})
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
         finally:
             shutil.rmtree(root, ignore_errors=True)
@@ -494,7 +499,7 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
             "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
@@ -503,7 +508,7 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 26)  # full profile with shibboleth: core 22 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -595,7 +600,7 @@ class ComposeRenderTests(unittest.TestCase):
         for name in ("test_idp", "shibboleth_sp"):
             svc = doc["services"][name]
             relaxed = exceptions.get(name, set())
-            self.assertEqual("user" not in svc, "user" in relaxed, name)
+            self.assertEqual("user" not in svc or svc.get("user") == "0:0", "user" in relaxed, name)
             self.assertEqual(svc["read_only"], "read_only" not in relaxed, name)
             self.assertEqual(rows[name]["exceptions"], ",".join(sorted(relaxed)) if relaxed else "none", name)
         # the SP binds port 80 as root and needs exactly the recorded capability for it; the IdP (uid 1000 on 8080) needs none

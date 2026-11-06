@@ -20,5 +20,11 @@
   "weight": 3,
   "mem_min_mb": 1024,
   "pids_limit": 1024,
-  "note": "grdm-dev/elasticsearch2 (ADR-07): Elasticsearch 2.4.6 built natively in installer/images/elasticsearch2 on Temurin 8, running as uid 1000 (the hardening default) with a read-only root: logs on tmpfs, data on the named volume elasticsearch_data (a bind directory under runtime/volumes/ owned by the host user; uid 1000 matches the usual developer uid on Linux/WSL, the same assumption elasticsearch6 already makes). Replaces the emulated elasticsearch:2 image that needed 38 minutes to start on Apple Silicon (real install run 19) and its owner-init one-shot."
+  "note": "grdm-dev/elasticsearch2 (ADR-07): Elasticsearch 2.4.6 built natively in installer/images/elasticsearch2 on Temurin 8, running as uid 1000 (the hardening default) with a read-only root: logs on tmpfs, data on the named volume elasticsearch_data, handed to uid 1000 first by the one-shot elasticsearch_data_init (a bind directory under runtime/volumes/ belongs to the host user, or to uid 101 after PR #33; PR #34 review r1 R1-01). Replaces the emulated elasticsearch:2 image that needed 38 minutes to start on Apple Silicon (real install run 19) and its owner-init one-shot.",
+  "depends_on": [
+    {
+      "service": "elasticsearch_data_init",
+      "condition": "service_completed_successfully"
+    }
+  ]
 }

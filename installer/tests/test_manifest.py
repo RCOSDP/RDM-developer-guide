@@ -10,7 +10,7 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
 CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_static_init", "wiki_assets", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}
@@ -129,6 +129,14 @@ class ServicesForProfileTests(unittest.TestCase):
         self.assertEqual(es.origin, "image")
         self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
         self.assertTrue(self.man.component("elasticsearch2").is_image_build)
+
+    def test_empty_image_build_is_a_manifest_error(self):
+        """PR #34 review r1 R1-02: `image_build: {}` must not degrade into the plain base image."""
+        data = json.loads(json.dumps(self.man_data)) if hasattr(self, "man_data") else json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
+        es["image_build"] = {}
+        with self.assertRaises(manifest.ManifestError):
+            manifest.parse(data)
 
     def test_minimum(self):
         self.assertEqual(self.names("minimum"), MINIMUM)

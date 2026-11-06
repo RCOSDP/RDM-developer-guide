@@ -26,6 +26,19 @@
     },
     {
       "cap_add": [
+        "CHOWN"
+      ],
+      "controls": [
+        "user",
+        "cap_add"
+      ],
+      "reason": "One-shot owner step for the named volume elasticsearch_data (PR #34 review r1 R1-01): the native grdm-dev/elasticsearch2 image runs as uid 1000, while a fresh bind volume belongs to the host user and a PR #33 data tree to uid 101. Runs the same image as explicit root (template run_as 0:0) with cap_drop ALL and only CAP_CHOWN, `chown -R 1000:1000 /data`, then exits (restart: no); read_only and no-new-privileges stay.",
+      "review": "2027-01-31",
+      "service": "elasticsearch_data_init",
+      "target": "M4 (volume provisioning step in the installer, shared with wiki_static_init)"
+    },
+    {
+      "cap_add": [
         "CHOWN",
         "DAC_OVERRIDE",
         "FOWNER",

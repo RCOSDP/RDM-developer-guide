@@ -30,6 +30,14 @@ RUN set -eux; \
 COPY elasticsearch.yml /out/elasticsearch/config/elasticsearch.yml
 
 FROM ${JRE_IMAGE}
+ARG JRE_IMAGE
+ARG ES_VERSION=2.4.6
+# Provenance labels (SPEC-03 §3.4): the pinned base reference/digest and the upstream release packaged.
+LABEL org.opencontainers.image.base.name="${JRE_IMAGE}" \
+      org.opencontainers.image.base.digest="sha256:377fe8e36a4b1530d9d52020069367ef44313fa891a82ae102b1016a6a3a72f5" \
+      org.opencontainers.image.version="${ES_VERSION}" \
+      org.opencontainers.image.title="grdm-dev/elasticsearch2" \
+      org.opencontainers.image.description="Elasticsearch ${ES_VERSION} (EOL, retired at M5) built natively from the official tarball for the GakuNin RDM developer environment (ADR-07)"
 COPY --from=fetch --chown=1000:1000 /out/elasticsearch /usr/share/elasticsearch
 ENV PATH=/usr/share/elasticsearch/bin:$PATH \
     ES_HEAP_SIZE=512m

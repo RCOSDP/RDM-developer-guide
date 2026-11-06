@@ -802,7 +802,7 @@
         "context": "installer/images/elasticsearch2",
         "tag": "2.4.6-1"
       },
-      "note": "Built natively from the official elasticsearch-2.4.6 tarball (sha256-verified) on a digest-pinned Temurin 8 JRE (installer/images/elasticsearch2, ADR-07): elasticsearch:2 on Docker Hub ships linux/amd64 only, and under Rosetta on Apple Silicon it needed 38 minutes to open port 9200 on a fresh data directory (real install run 19) while the native build starts in 5 seconds. Runs as uid 1000 with a read-only root (no hardening exception, no owner-init container). Retired at M5 with ES8.",
+      "note": "Built natively from the official elasticsearch-2.4.6 tarball (sha256-verified) on a digest-pinned Temurin 8 JRE (installer/images/elasticsearch2, ADR-07): elasticsearch:2 on Docker Hub ships linux/amd64 only, and under Rosetta on Apple Silicon it needed 38 minutes to open port 9200 on a fresh data directory (real install run 19) while the native build starts in 5 seconds. Runs as uid 1000 with a read-only root (no hardening exception for the service itself; the one-shot elasticsearch_data_init hands the data volume to uid 1000 first). Retired at M5 with ES8.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -810,6 +810,7 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
+        "elasticsearch_data_init",
         "elasticsearch"
       ],
       "target_image": {
