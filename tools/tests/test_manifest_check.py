@@ -217,6 +217,17 @@ class ValidateManifestTests(unittest.TestCase):
         data["components"][0]["platforms"] = ["linux/arm64"]
         self.assertIn("MC-10", codes(mc.validate_manifest(data, today=TODAY)))
 
+    def test_infra_build_platform_requires_note(self):
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        infra = [c for c in data["components"] if c["role"] == "infra"]
+        self.assertTrue(infra)
+        comp = infra[0]
+        comp["build_platform"] = "linux/amd64"
+        comp["note"] = None
+        self.assertIn("MC-10", codes(mc.validate_manifest(data, today=TODAY)))
+        comp["note"] = "image is linux/amd64 only (test)"
+        self.assertNotIn("MC-10", codes(mc.validate_manifest(data, today=TODAY)))
+
     def test_duplicate_id_fails(self):
         data = valid_manifest()
         data["components"][1]["id"] = "osf.io"

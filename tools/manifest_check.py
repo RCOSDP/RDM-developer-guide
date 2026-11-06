@@ -28,6 +28,7 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
          upstreams status in merged|reference|candidate and kind cos => reference;
          PR number is a positive integer
   MC-10  profile in minimum|core|full; platforms subset of linux/arm64,linux/amd64;
+         build_platform on infra only together with a non-empty note (PR #32 review r1 R1-01);
          core components list both platforms
   MC-11  upstreams.toon exists and its projection equals the JSON (every component id,
          every upstream field, every adopted PR (repo, number, status), top-level fields,
@@ -505,6 +506,8 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
             errors.append(f"MC-10: {label}: platforms must be a non-empty subset of {sorted(PLATFORMS)} (got {platforms!r})")
         elif role == "core" and set(platforms) != PLATFORMS:
             errors.append(f"MC-10: {label}: core components must list both platforms (got {platforms!r})")
+        if role == "infra" and comp.get("build_platform") and not (isinstance(comp.get("note"), str) and comp.get("note").strip()):
+            errors.append(f"MC-10: {label}: build_platform on an infra component requires a non-empty note saying why its image lacks the other platform (SPEC-01 §3)")
 
     # MC-14
     errors.extend(check_overlays(components))
