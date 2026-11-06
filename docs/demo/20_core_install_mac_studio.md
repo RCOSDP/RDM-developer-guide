@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.5 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything; and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.6 — 2026-11-06. **Learned:** when a component is an overlay, its dependency manifest can drift from the base it is applied to; the base's new modules then fail to resolve inside the overlay's lock file, so SPEC-05 integration must diff the two manifests every week. ／ 部品がオーバーレイのとき、その依存一覧は重ねる先の基底からずれうる。基底が新しく使うモジュールはオーバーレイ側のロックファイルの中で解決できなくなるため、SPEC-05 の統合では毎週二つの一覧の差分を取らなければならない。
+  0.5 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything; and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything. ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
   0.3 — 2026-11-06. **Learned:** CPU emulation can turn an EOL build into a silent hang rather than an error, so hung builds need an operator timeout and a prebuilt fallback until modernization. ／ CPU エミュレーションは EOL のビルドをエラーではなく無言のハングに変えうる。近代化までは、ハングしたビルドに操作者の打ち切りと配布済みイメージの代替が要る。
@@ -136,7 +137,37 @@ What this proves:
 - The cas-overlay fallback works; every remaining failure now comes from how a component is *shaped*, not from CPU or base-image age.
 - wiki-frontend is not a standalone service: its repository holds only `website/static`, `addons/wiki`, webpack 5 configs and a Dockerfile derived from osf.io's. It is an overlay to be applied on the osf.io source tree and it produces a webpack bundle, not a runtime image.
 
-Decision taken: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md). The manifest marks wiki-frontend as `overlay_of: osf.io`; `build` creates a merged context (osf.io checkout + overlay files) and builds a bundle-builder image; `compose render` adds a one-shot `wiki_assets` service that copies the bundle into a named volume mounted read-only by the osf.io services. The osf.io image itself stays built from its own Dockerfile. Run 5 will be recorded below.
+Decision taken: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md). The manifest marks wiki-frontend as `overlay_of: osf.io`; `build` creates a merged context (osf.io checkout + overlay files) and builds a bundle-builder image; `compose render` adds a one-shot `wiki_assets` service that copies the bundle into a named volume mounted read-only by the osf.io services. The osf.io image itself stays built from its own Dockerfile. Run 5 is recorded below.
+
+### Run 5 — 2026-11-06, develop 9b1b643 (after PR #30, wiki-frontend as overlay)
+
+Same host. Changes since run 4: wiki-frontend is `overlay_of: osf.io` (ADR-06); `build` assembles the merged context and `compose render` adds `wiki_static_init` and `wiki_assets`.
+
+```toon
+run5:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 30 (image build failed)
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok (fakecas port 8080 held by another process; 8081 chosen)"
+    build,30,failed
+  images[6]{component,platform,status,note}:
+    osf.io,linux/arm64,built,cached (356a997eb5fe)
+    waterbutler,linux/arm64,built,cached (e9b1ac266374)
+    modular-file-renderer,linux/amd64,built,cached (dac70e2209f9)
+    ember-osf-web,linux/amd64,prebuilt,cached pull
+    cas-overlay,linux/amd64,prebuilt,cached pull
+    wiki-frontend,linux/arm64,build-failed,"overlay context assembled; 85 of 86 Dockerfile steps passed; webpack 5.93.0 failed with 2 errors: osfHelpers.js and comment.js require linkify-html, absent from the overlay's package.json"
+```
+
+What this proves:
+
+- The overlay mechanism works end to end up to the bundle step: the merged context (osf.io checkout + wiki-frontend files, wiki-frontend Dockerfile) is assembled, yarn installs from the overlay lock file, and webpack runs over the osf.io JavaScript.
+- The remaining failure is an *integration drift* between two upstreams, not an installer defect: RDM-osf.io develop upgraded linkifyjs 2 → 4 and added linkify-html on 2026-11-01, while the wiki-frontend overlay's `package.json` / `yarn.lock` dated from 2025-06. Because the overlay's lock file wins, the osf.io code could not resolve the new module.
+
+Decision taken: the fix belongs in the integration repository RDM-wiki-frontend-dev2027 (PR #2: linkify-html and sift added; linkifyjs, bootstrap-datepicker, highlight.js and less aligned with osf.io develop; yarn.lock regenerated inside node:21-alpine). Verified before the PR: the same overlay context with the synced files built on this host with `docker buildx build --platform linux/arm64` (webpack 5.93.0, 0 errors, 4 performance warnings) and the image holds `website/static/public/js/wiki-edit-page.<chunkhash>.js`, which is what `wiki_assets` copies. After the merge, the manifest `integration_sha` is updated and run 6 is recorded below. Lesson for [SPEC-05](../spec/05_upstream_tracking.md#english): an overlay's dependency manifest must be diffed against its base at every weekly integration.
 
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
@@ -262,7 +293,37 @@ run4:
 - cas-overlay の代替は働く。残る失敗はすべて部品の「形」に由来し、CPU やベースイメージの古さではない。
 - wiki-frontend は独立したサービスではない。リポジトリには `website/static`、`addons/wiki`、webpack 5 の設定、osf.io 派生の Dockerfile しかなく、osf.io のソースツリーに重ねて webpack の束を作るオーバーレイである。実行用イメージは作らない。
 
-決めたこと: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)。manifest で wiki-frontend を `overlay_of: osf.io` とし、`build` は重ねたコンテキスト（osf.io のチェックアウト＋オーバーレイ）から束を作るイメージを組み、`compose render` は一回限りの `wiki_assets` サービスを加えて束を名前付きボリュームへ写し、osf.io のサービスが読み取り専用でマウントする。osf.io のイメージ自体は従来どおり自分の Dockerfile で組む。第 5 回は下へ追記する。
+決めたこと: [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)。manifest で wiki-frontend を `overlay_of: osf.io` とし、`build` は重ねたコンテキスト（osf.io のチェックアウト＋オーバーレイ）から束を作るイメージを組み、`compose render` は一回限りの `wiki_assets` サービスを加えて束を名前付きボリュームへ写し、osf.io のサービスが読み取り専用でマウントする。osf.io のイメージ自体は従来どおり自分の Dockerfile で組む。第 5 回は下に記した。
+
+### 第 5 回 — 2026-11-06、develop 9b1b643（PR #30 マージ後、wiki-frontend はオーバーレイ）
+
+同じホスト。第 4 回からの変更: wiki-frontend は `overlay_of: osf.io`（ADR-06）。`build` が重ねたコンテキストを組み立て、`compose render` が `wiki_static_init` と `wiki_assets` を加える。
+
+```toon
+run5:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 30（イメージのビルド失敗）"
+  steps[5]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok（fakecas の 8080 番は別プロセスが使用中のため 8081 番を選択）"
+    build,30,failed
+  images[6]{component,platform,status,note}:
+    osf.io,linux/arm64,built,キャッシュ（356a997eb5fe）
+    waterbutler,linux/arm64,built,キャッシュ（e9b1ac266374）
+    modular-file-renderer,linux/amd64,built,キャッシュ（dac70e2209f9）
+    ember-osf-web,linux/amd64,prebuilt,取得済みキャッシュ
+    cas-overlay,linux/amd64,prebuilt,取得済みキャッシュ
+    wiki-frontend,linux/arm64,build-failed,"オーバーレイのコンテキストは組み立てられ、Dockerfile 86 段のうち 85 段を通過。webpack 5.93.0 がエラー 2 件で停止: osfHelpers.js と comment.js が要求する linkify-html がオーバーレイ側の package.json にない"
+```
+
+これで分かったこと:
+
+- オーバーレイの仕組みは束を作る段の直前まで端から端まで働く。重ねたコンテキスト（osf.io のチェックアウト＋wiki-frontend のファイル、wiki-frontend の Dockerfile）が組み立てられ、yarn はオーバーレイ側のロックファイルから導入し、webpack は osf.io の JavaScript を処理した。
+- 残る失敗はインストーラーの欠陥ではなく、二つの上流の間の*統合のずれ*である。RDM-osf.io の develop は 2026-11-01 に linkifyjs を 2 系から 4 系へ更新し linkify-html を追加したが、wiki-frontend オーバーレイの `package.json` / `yarn.lock` は 2025-06 のままだった。オーバーレイ側のロックファイルが優先されるため、osf.io のコードが新しいモジュールを解決できなかった。
+
+決めたこと: 修正は統合リポジトリ RDM-wiki-frontend-dev2027 側で行う（PR #2: linkify-html と sift を追加、linkifyjs・bootstrap-datepicker・highlight.js・less を osf.io develop に合わせ、yarn.lock を node:21-alpine 内で再生成）。PR の前に検証: 同期後のファイルを置いた同じオーバーレイのコンテキストを本ホストで `docker buildx build --platform linux/arm64` して成功（webpack 5.93.0、エラー 0、性能推奨の警告 4）。イメージには `wiki_assets` が写す `website/static/public/js/wiki-edit-page.<chunkhash>.js` がある。マージ後に manifest の `integration_sha` を更新し、第 6 回を下へ追記する。[SPEC-05](../spec/05_upstream_tracking.md#japanese) への教訓: オーバーレイの依存一覧は、週次の統合のたびに基底と差分を取らなければならない。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 
