@@ -797,7 +797,8 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "build_platform": "linux/amd64",
+      "note": "elasticsearch:2 on Docker Hub ships linux/amd64 only (real install run 6 on Apple Silicon: `no matching manifest for linux/arm64`), so Compose runs it under emulation until M5 removes ES2.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -822,7 +823,8 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "build_platform": "linux/amd64",
+      "note": "docker.elastic.co/elasticsearch/elasticsearch:6.3.1 is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M5 moves to Elasticsearch 8.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -922,7 +924,8 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "build_platform": "linux/amd64",
+      "note": "quay.io/centerforopenscience/sharejs:develop is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 rebuilds it on node LTS.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -947,7 +950,8 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "build_platform": "linux/amd64",
+      "note": "centerforopenscience/unoconv is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 replaces it with unoserver.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -972,7 +976,8 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "build_platform": "linux/amd64",
+      "note": "quay.io/centerforopenscience/fakecas:master is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 rebuilds it on current golang/alpine.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
