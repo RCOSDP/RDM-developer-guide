@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.5 — 2026-11-06. **Learned:** an installer change that depends on a matching change in an integration repository must leave an open item here, or the dependency is only visible in an ADR (PR #30 review r1 R1-03: the wiki editor page must load the new bundle path). ／ 統合リポジトリ側の対応する変更に依存するインストーラーの変更は、ここに残件を残さなければ ADR の中にしか見えないと分かった（PR #30 レビュー r1 R1-03: Wiki エディタのページが新しい束のパスを読む必要がある）。
+- Version / 版: 0.6 — 2026-11-06. **Learned:** the M2 row still said "awaiting owner merge" nine PRs later; a board row must be updated in the same PR that changes what it describes, and a milestone in progress needs its own open-items table (§2b). ／ M2 の行は 9 本の PR を経ても「所有者マージ待ち」のままだった。ボードの行は、その記述の対象を変える PR と同じ PR で更新しなければならず、進行中の節目には専用の残件表（§2b）が要る。
+  0.5 — 2026-11-06. **Learned:** an installer change that depends on a matching change in an integration repository must leave an open item here, or the dependency is only visible in an ADR (PR #30 review r1 R1-03: the wiki editor page must load the new bundle path). ／ 統合リポジトリ側の対応する変更に依存するインストーラーの変更は、ここに残件を残さなければ ADR の中にしか見えないと分かった（PR #30 レビュー r1 R1-03: Wiki エディタのページが新しい束のパスを読む必要がある）。
   0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
   0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
   0.2 — 2026-11-05. **Learned:** the board must say what a CI check covers at the current milestone (Trivy: file system, report-only), or a green run is read as full coverage. ／ ボードは CI の検査が今の節目で何を対象にしているか（Trivy はファイルシステムに対する報告のみ）を書かなければ、緑の結果が全範囲の合格と読まれてしまうと分かった。
@@ -25,7 +26,7 @@
 | Milestone | Goal | Security gate | Status |
 |---|---|---|---|
 | M1 | Docs skeleton, manifest, dev2027 repos exist; reviewed PRs merged to develop | Report + allow-list | ✅ **Done** (PR #19 merged 2026-11-05) |
-| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: PR #21 (installer) Codex r5 pass, awaiting owner merge; real install runs 1–3 recorded in DEMO-20 |
+| M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: installer PRs #21–#30 merged under the ADR-04 standing delegation; real install runs 1–5 recorded in [DEMO-20](../demo/20_core_install_mac_studio.md#english); `up`/`health`/`scan`/`accept` not yet reached (see §2b) |
 | M3 | 5 subsystems start; one success + one rejection case each | Report + allow-list (fewer entries than M2) | Planned |
 | M4 | Waterbutler, mfr, osf.io on Python 3.13 | Stop on HIGH or above; first AI red-team run | Planned |
 | M5 | ES2 and mongo removed; ES8 + postgres 15 or later; distributable abroad | Zero CRITICAL/HIGH; zero open AI red-team paths | Planned |
@@ -45,7 +46,18 @@
 | GitHub Actions (docs, security) | ✅ Running on PR #19 (docs, gitleaks, manifest pass) |
 | Trivy in CI (`security.yml`) | ⏳ At M1 report-only over the repository file system, because no image exists yet ([SPEC-03 §4.1](../spec/03_security_gate.md#english)); image scanning starts with the first build (M2) |
 | Semgrep findings in legacy guide sample code (6: raw HTML in templates ×4, exec ×1, path join ×1) | ⏳ Deferred to the guide rewrite (M2/M3); paths listed in `.semgrepignore` with reasons |
-| 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 in real install run 5 | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository |
+
+### 2b. Open items for M2
+
+| Item | Status |
+|---|---|
+| Installer CLI and templates (SPEC-02), overlay support (ADR-06) | ✅ Merged (PR #21–#30) |
+| Real install on Mac Studio reaches `build` for all six components | 🔄 Runs 1–5 each stopped at one component; run 5 stopped at the wiki-frontend overlay because its JS dependencies lagged RDM-osf.io develop. Fixed in RDM-wiki-frontend-dev2027 PR #2 (Codex r1 pass, merged 2026-11-06); `integration_sha` updated in this PR; run 6 next |
+| `up` → `health --network` → `scan` → `report` on Mac Studio | ⏳ Not yet reached |
+| edit.mako wiring in the integration repository — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 once a real install reaches `up` | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository; needed for the Wiki acceptance case, not for `health` |
+| Playwright acceptance C1–C6 (selectors and seed data are `TODO(M2)`) | ⏳ Not started on the real host |
+| Trivy image scan and allow-list count (fewer than M1) | ⏳ Starts with the first `scan` after `up` |
+| Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
 ### 3. Rules
 
@@ -53,7 +65,7 @@ This board is the **single source of truth** for milestone progress:
 
 1. Every document that mentions a milestone must link to this board.
 2. The "Status" column above is authoritative; status updates require a PR with evidence (demo run or acceptance pass).
-3. "Open items" lists only M1 at this time; future milestones will have their own tables.
+3. "Open items" has one table per milestone that has started (§2 for M1, §2b for M2); later milestones get their own tables when they start.
 
 ---
 
@@ -67,7 +79,7 @@ This board is the **single source of truth** for milestone progress:
 | 節目 | ゴール | セキュリティ門 | ステータス |
 |---|---|---|---|
 | M1 | docs の骨格・manifest・dev2027 リポジトリ群がある。レビュー済み PR が develop にマージ | 報告＋許容リスト | ✅ **完了**（PR #19 を 2026-11-05 にマージ） |
-| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: PR #21（インストーラー）は Codex r5 合格、所有者マージ待ち。実機導入 1〜3 回目は DEMO-20 に記録 |
+| M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: インストーラーの PR #21〜#30 は ADR-04 の包括委任でマージ済み。実機導入 1〜5 回目は [DEMO-20](../demo/20_core_install_mac_studio.md#japanese) に記録。`up`/`health`/`scan`/`accept` には未到達（§2b 参照） |
 | M3 | サブシステム 5 本が起動。各 1 本の正常系＋拒否ケース | 報告＋許容リスト（M2 より件数を減らす） | 計画中 |
 | M4 | waterbutler・mfr・osf.io を Python 3.13 へ | HIGH 以上で停止。AI レッドチーム初回 | 計画中 |
 | M5 | ES2・mongo 廃止。ES8＋postgres 15 以降。海外配布可 | CRITICAL/HIGH ゼロ。AI レッドチームの未解決経路ゼロ | 計画中 |
@@ -87,7 +99,18 @@ This board is the **single source of truth** for milestone progress:
 | GitHub Actions（docs, security） | ✅ PR #19 で稼働（docs・gitleaks・manifest 合格） |
 | CI の Trivy（`security.yml`） | ⏳ M1 ではイメージがまだないため、リポジトリのファイルシステムに対する報告のみ（[SPEC-03 §4.1](../spec/03_security_gate.md#japanese)）。イメージの検査は最初のビルド（M2）から |
 | 旧ガイドのサンプルコードに対する Semgrep 指摘（6 件: テンプレートの生 HTML ×4、exec ×1、path join ×1） | ⏳ ガイド書き直し（M2/M3）で対応。対象パスと理由は `.semgrepignore` に記載 |
-| 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機第 5 回でエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない |
+
+### 2b. M2 の残件
+
+| 項目 | ステータス |
+|---|---|
+| インストーラー CLI とテンプレート（SPEC-02）、オーバーレイ対応（ADR-06） | ✅ マージ済み（PR #21〜#30） |
+| Mac Studio の実機導入で 6 部品すべてが `build` を通過 | 🔄 第 1〜5 回はそれぞれ 1 部品で停止。第 5 回は wiki-frontend オーバーレイの JS 依存が RDM-osf.io develop に追従していなかったため停止。RDM-wiki-frontend-dev2027 PR #2 で修正（Codex r1 合格、2026-11-06 マージ）。本 PR で `integration_sha` を更新し、次は第 6 回 |
+| Mac Studio で `up` → `health --network` → `scan` → `report` | ⏳ 未到達 |
+| 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機導入が `up` に達したらエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない。Wiki の受入ケースに必要で、`health` には不要 |
+| Playwright 受入 C1〜C6（セレクタと種データは `TODO(M2)`） | ⏳ 実機では未着手 |
+| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ⏳ `up` 後の最初の `scan` から |
+| 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
 ### 3. 規則
 
@@ -95,7 +118,7 @@ This board is the **single source of truth** for milestone progress:
 
 1. 節目を言及するすべての文書はこのボードへリンクしなければならない。
 2. 上記の「ステータス」列が権威あるものである。ステータス更新には PR と証跡（実行結果または受入合格）が必要。
-3. 「未解決項目」は現時点で M1 のみ。将来の節目にはそれぞれ専用の表が追加される。
+3. 「残件」は着手した節目ごとに表を持つ（M1 は §2、M2 は §2b）。後の節目は着手時に専用の表を追加する。
 
 ---
 
