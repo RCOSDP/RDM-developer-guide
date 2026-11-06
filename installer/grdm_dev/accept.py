@@ -74,9 +74,13 @@ BROWSERS_PATH = Path(".venv") / ".playwright"
 # Where `playwright install chromium` puts the executable (macOS app bundle, Linux build, headless shell).
 CHROMIUM_GLOBS = (
     "chromium*/chrome-*/Chromium.app/Contents/MacOS/Chromium",
+    # Playwright >= 1.5x ships "Google Chrome for Testing" on macOS and a separate headless shell build
+    # (real acceptance run 1 on the Mac Studio: only these two layouts were present under .venv/.playwright)
+    "chromium*/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "chromium*/chrome-linux*/chrome",
     "chromium*/chrome-*/chrome",
     "chromium*/chrome-*/headless_shell",
+    "chromium_headless_shell*/chrome-headless-shell-*/chrome-headless-shell",
 )
 INSTALL_HINT = 'pip install -e "installer[accept]" && PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium'
 REQUIRED_MODULES = ("pytest", "playwright", "pytest_playwright")
@@ -108,12 +112,15 @@ ZIP_BODY_PREFIX = "resources/"
 QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 
 # Django management call executed inside the `web` container by `--seed`.
-# TODO(M2): confirm on the real app. OSFUser.create_confirmed(username, password, fullname) exists in
-# osf/models/user.py upstream; the institution-admin flag for C6 (admin app permission / group) is
-# unverified and may need `is_staff` plus an institution affiliation instead of `is_superuser`.
+# Confirmed on the real app (acceptance run 3): OSFUser.create_confirmed(username, password, fullname)
+# exists, and OSFUser.set_password refuses a password equal to the e-mail address
+# ("Password cannot be the same as your email address"), so the OSF account gets a derived password;
+# fakecas does not check it (it accepts the e-mail as the password), which is what the browser types.
+# TODO(M2): the institution-admin flag for C6 (admin app permission / group) is unverified and may need
+# `is_staff` plus an institution affiliation instead of `is_superuser`.
 SEED_SNIPPET = (
     "from osf.models import OSFUser; "
-    "u = OSFUser.create_confirmed(username={email!r}, password={email!r}, fullname={fullname!r}); "
+    "u = OSFUser.create_confirmed(username={email!r}, password={osf_password!r}, fullname={fullname!r}); "
     "u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
 )
 CLEANUP_SNIPPET = (
@@ -224,6 +231,12 @@ def chromium_executable(browsers: Path) -> Path | None:
 def make_run_id(now: _dt.datetime | None = None) -> str:
     now = now or _dt.datetime.now(_dt.timezone.utc)
     return f"acc-{now.strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(3)}"
+
+
+def osf_account_password(email: str) -> str:
+    """Password stored on the seeded OSF account: must differ from the e-mail (osf.io rule), is never typed
+    by the browser (fakecas takes the e-mail), and is disposable with the account."""
+    return f"{email}#Acc3pt"
 
 
 def seed_users(run_id: str) -> dict[str, dict[str, str]]:
@@ -619,7 +632,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     seeded = False
     if getattr(args, "seed", False):
         for u in users.values():
-            snippet = SEED_SNIPPET.format(email=u["email"], fullname=u["fullname"], admin=u["admin"])
+            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=osf_account_password(u["email"]), fullname=u["fullname"], admin=u["admin"])
             rc, out = runner(compose_exec(ctx, "web", "python3", "manage.py", "shell", "-c", snippet), env=env, cwd=ctx.root)
             if rc != 0:
                 return fail(exit_codes.SERVICES_UNHEALTHY, f"seed failed for {u['email']}: {out.strip()[-400:]}")

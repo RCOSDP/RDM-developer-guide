@@ -180,7 +180,13 @@ class ComposeRenderTests(unittest.TestCase):
         # the compose file mounts the rewritten settings and the fakecas redirect uses the overridden port
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("./config/osf/local.py:/code/website/settings/local.py:ro", doc["services"]["web"]["volumes"])
-        self.assertIn("-osfhost=127.0.0.1:5050", doc["services"]["fakecas"]["command"])
+        fakecas_cmd = " ".join(doc["services"]["fakecas"]["command"])
+        self.assertIn("-osfhost=127.0.0.1:5050", fakecas_cmd)
+        # the database password reaches fakecas through the environment and the container shell expands it:
+        # a `${KEY}` inside command is escaped to `$$` and would be passed literally (acceptance run 6)
+        self.assertIn("$$POSTGRES_PASSWORD", fakecas_cmd)
+        self.assertNotIn("${POSTGRES_PASSWORD}", fakecas_cmd)
+        self.assertEqual(doc["services"]["fakecas"]["environment"]["POSTGRES_PASSWORD"], "${POSTGRES_PASSWORD}")
         self.assertEqual(doc["services"]["web"]["ports"], ["127.0.0.1:5050:5000"])
 
     def test_missing_env_exits_2_with_hint(self):
@@ -389,6 +395,21 @@ class ComposeRenderTests(unittest.TestCase):
                 self.assertIs(compose["services"][name].get("stdin_open"), True, name)
             for name in ("wb", "mfr", "postgres", "wiki_assets"):
                 self.assertNotIn("stdin_open", compose["services"][name], name)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    # ---- generated files keep their inode on re-render (real acceptance run 2)
+
+    def test_rewrite_keeps_inode_of_existing_file(self):
+        root = make_root()
+        try:
+            target = root / "runtime" / "config" / "osf" / "probe.py"
+            self.assertTrue(compose._write_if_changed(target, "a = 1\n"))
+            inode = target.stat().st_ino
+            self.assertFalse(compose._write_if_changed(target, "a = 1\n"))
+            self.assertTrue(compose._write_if_changed(target, "a = 2\n"))
+            self.assertEqual(target.stat().st_ino, inode)  # a bind-mounted file must not be replaced
+            self.assertEqual(target.read_text(encoding="utf-8"), "a = 2\n")
         finally:
             shutil.rmtree(root, ignore_errors=True)
 

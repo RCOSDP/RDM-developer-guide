@@ -169,6 +169,9 @@ class GuardedRequest:
         pytest.fail(f"{why}: {url!r} is not http://127.0.0.1:<port> (SPEC-04 §3.4, ADR-02)")
 
     def _call(self, verb: str, url: str, **kwargs):
+        # follow_redirects=False returns the first answer (a rejection test wants to see the 302 itself);
+        # its Location is still checked to be a loopback origin before the response is handed back.
+        follow = bool(kwargs.pop("follow_redirects", True))
         kwargs = forced_redirect_kwargs(kwargs)  # ValueError on a non-zero max_redirects
         hop_verb, hop_url, hop_kwargs = verb, url, kwargs
         for hop in range(MAX_REDIRECT_HOPS + 1):
@@ -182,6 +185,8 @@ class GuardedRequest:
                 return resp
             if not is_loopback_origin(target, HTTP_SCHEMES):
                 self._refuse(target, f"API {hop_verb.upper()} {hop_url!r} redirects ({resp.status}) off the machine")
+            if not follow:
+                return resp
             hop_verb, hop_kwargs = redirect_follow_up(hop_verb, resp.status, hop_kwargs)
             hop_url = target
         pytest.fail(f"API {verb.upper()} {url!r}: more than {MAX_REDIRECT_HOPS} redirect hops (SPEC-04 §3.4)")
@@ -246,13 +251,14 @@ def browser_context_args(browser_context_args):
 
 
 @pytest.fixture(autouse=True)
-def external_guard(request):
-    """Attach the loopback guard to the default `context` fixture when a test uses it; fail the test
-    if any guard (browser, websocket, API) saw a URL that would have left the machine."""
+def external_guard():
+    """Collect the loopback-guard offenders of one test and fail it if any guard (browser, websocket,
+    API) saw a URL that would have left the machine. Every browser context is created by our
+    `new_context` below (pytest-playwright's default `context` fixture calls it too), which attaches
+    the guard itself; requesting `context` from here created a fixture cycle
+    (external_guard -> context -> new_context -> external_guard, first real acceptance run)."""
     offenders: list[str] = []
     before = len(_OFFENDERS)
-    if "context" in request.fixturenames:
-        guard_context(request.getfixturevalue("context"), offenders)
     yield offenders
     offenders.extend(_OFFENDERS[before:])
     if offenders:
@@ -297,10 +303,14 @@ def login(base_url, service_url):
     """login(page, user): fakecas flow — web /login -> fakecas form -> back to the dashboard."""
     def _login(page, user: dict[str, str]) -> None:
         page.goto(base_url + sel.PATHS["login"], wait_until="domcontentloaded")
-        # web redirects to fakecas (port FAKECAS). TODO(M2): confirm the redirect lands on the form directly.
+        # web answers 302 to fakecas (/login?service=...), whose page is the form itself (confirmed on the
+        # real stack, acceptance run 5). fakecas identifies the user by e-mail alone: its password field sits
+        # inside a `<section hidden>` and is never shown, so it is filled only when a build makes it visible.
         page.wait_for_selector(sel.FAKECAS["username"], timeout=30_000)
         page.fill(sel.FAKECAS["username"], user["email"])
-        page.fill(sel.FAKECAS["password"], user["password"])
+        pw = page.locator(sel.FAKECAS["password"])
+        if pw.count() and pw.first.is_visible():
+            pw.first.fill(user["password"])
         page.click(sel.FAKECAS["submit"])
         page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
     return _login

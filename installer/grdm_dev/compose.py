@@ -788,9 +788,19 @@ def config_files(host_ports: dict[str, int]) -> dict[str, str]:
 
 
 def _write_if_changed(path: Path, text: str, mode: int = 0o644) -> bool:
+    """Write `text` to `path` when it differs. A new file is created atomically (temp file + rename); an
+    existing file is rewritten **in place** so its inode survives: the generated settings files are
+    bind-mounted one by one into running containers, and a rename would leave those containers with a
+    deleted inode ("No such file or directory: /code/website/settings/local.py" from `docker compose exec`
+    after a re-render, real acceptance run 2). The running process keeps its old settings until it is
+    restarted; `up` recreates a container only when the Compose file itself changed."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.read_text(encoding="utf-8") == text:
-        return False
+    if path.exists():
+        if path.read_text(encoding="utf-8") == text:
+            return False
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return True
     tmp = path.with_name(path.name + ".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:

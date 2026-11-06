@@ -171,6 +171,21 @@ class AcceptTests(unittest.TestCase):
         linux.write_bytes(b"ELF")
         self.assertEqual(accept.chromium_executable(self.root / ".venv" / ".playwright"), linux)
 
+    def test_newer_playwright_layouts_are_found(self):
+        """Playwright >= 1.5x: 'Google Chrome for Testing.app' on macOS and a separate headless-shell build
+        (real acceptance run 1 on the Mac Studio found only these two under .venv/.playwright)."""
+        browsers = self.root / ".venv" / ".playwright"
+        self.chromium.unlink()
+        self.assertIsNone(accept.chromium_executable(browsers))
+        shell = browsers / "chromium_headless_shell-1248" / "chrome-headless-shell-mac-arm64" / "chrome-headless-shell"
+        shell.parent.mkdir(parents=True)
+        shell.write_bytes(b"\xcf\xfa\xed\xfe")
+        self.assertEqual(accept.chromium_executable(browsers), shell)
+        gct = browsers / "chromium-1248" / "chrome-mac-arm64" / "Google Chrome for Testing.app" / "Contents" / "MacOS" / "Google Chrome for Testing"
+        gct.parent.mkdir(parents=True)
+        gct.write_bytes(b"\xcf\xfa\xed\xfe")
+        self.assertEqual(accept.chromium_executable(browsers), gct)  # the full browser wins over the headless shell
+
     def test_integration_precheck_failure_is_40_before_pytest(self):
         runner = FakeRunner(junit=junit_all_green())
         rc, err, _ = self.run_accept(self.args(seed=True), runner, health_check=unhealthy)
