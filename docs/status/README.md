@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.6 — 2026-11-06. **Learned:** the M2 row still said "awaiting owner merge" nine PRs later; a board row must be updated in the same PR that changes what it describes, and a milestone in progress needs its own open-items table (§2b). ／ M2 の行は 9 本の PR を経ても「所有者マージ待ち」のままだった。ボードの行は、その記述の対象を変える PR と同じ PR で更新しなければならず、進行中の節目には専用の残件表（§2b）が要る。
+- Version / 版: 0.7 — 2026-11-06. **Learned:** the M2 open-items table needs the build row and the start-up row kept separate, because build finished at run 6 while start-up took seven more runs. ／ M2 の残件表はビルドの行と起動の行を分けておく必要がある。ビルドは第 6 回で終わり、起動にはさらに 7 回かかった。
+  0.6 — 2026-11-06. **Learned:** the M2 row still said "awaiting owner merge" nine PRs later; a board row must be updated in the same PR that changes what it describes, and a milestone in progress needs its own open-items table (§2b). ／ M2 の行は 9 本の PR を経ても「所有者マージ待ち」のままだった。ボードの行は、その記述の対象を変える PR と同じ PR で更新しなければならず、進行中の節目には専用の残件表（§2b）が要る。
   0.5 — 2026-11-06. **Learned:** an installer change that depends on a matching change in an integration repository must leave an open item here, or the dependency is only visible in an ADR (PR #30 review r1 R1-03: the wiki editor page must load the new bundle path). ／ 統合リポジトリ側の対応する変更に依存するインストーラーの変更は、ここに残件を残さなければ ADR の中にしか見えないと分かった（PR #30 レビュー r1 R1-03: Wiki エディタのページが新しい束のパスを読む必要がある）。
   0.4 — 2026-11-06. **Learned:** a board row must state what happened to a closed pull request (closed without merge, superseded) rather than "no PR", or the history reads wrong (review r1 of PR #22). ／ 閉じた PR は「PR なし」ではなく「マージせず閉鎖」「置き換え」と書かないと履歴が誤って読まれる（PR #22 レビュー r1）。
   0.3 — 2026-11-05. **Learned:** a milestone is marked done only when its PR is merged, so M1 flipped to done at the merge of PR #19 and not when the documents were written. ／ 節目は PR がマージされたときにだけ完了にする。M1 は文書を書いた時点ではなく PR #19 のマージで完了になった。
@@ -52,11 +53,11 @@
 | Item | Status |
 |---|---|
 | Installer CLI and templates (SPEC-02), overlay support (ADR-06) | ✅ Merged (PR #21–#30) |
-| Real install on Mac Studio reaches `build` for all six components | 🔄 Runs 1–5 each stopped at one component; run 5 stopped at the wiki-frontend overlay because its JS dependencies lagged RDM-osf.io develop. Fixed in RDM-wiki-frontend-dev2027 PR #2 (Codex r1 pass, merged 2026-11-06); `integration_sha` updated in this PR; run 6 next |
-| `up` → `health --network` → `scan` → `report` on Mac Studio | ⏳ Not yet reached |
+| Real install on Mac Studio reaches `build` for all six components | ✅ Run 6 (2026-11-06): three built locally, two prebuilt, one overlay |
+| `up` → `health --network` → `scan` → `report` on Mac Studio | ✅ Run 18 (2026-11-06, PR #33): exit 0, ready at the loopback URL; runs 6–17 fixed one start-up fact each (DEMO-20) |
 | edit.mako wiring in the integration repository — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 once a real install reaches `up` | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository; needed for the Wiki acceptance case, not for `health` |
 | Playwright acceptance C1–C6 (selectors and seed data are `TODO(M2)`) | ⏳ Not started on the real host |
-| Trivy image scan and allow-list count (fewer than M1) | ⏳ Starts with the first `scan` after `up` |
+| Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18: 1835 CRITICAL / 8291 HIGH / 9772 MEDIUM / 3899 LOW over 22 targets; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM to triage at M3) |
 | Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
 ### 3. Rules
@@ -105,11 +106,11 @@ This board is the **single source of truth** for milestone progress:
 | 項目 | ステータス |
 |---|---|
 | インストーラー CLI とテンプレート（SPEC-02）、オーバーレイ対応（ADR-06） | ✅ マージ済み（PR #21〜#30） |
-| Mac Studio の実機導入で 6 部品すべてが `build` を通過 | 🔄 第 1〜5 回はそれぞれ 1 部品で停止。第 5 回は wiki-frontend オーバーレイの JS 依存が RDM-osf.io develop に追従していなかったため停止。RDM-wiki-frontend-dev2027 PR #2 で修正（Codex r1 合格、2026-11-06 マージ）。本 PR で `integration_sha` を更新し、次は第 6 回 |
-| Mac Studio で `up` → `health --network` → `scan` → `report` | ⏳ 未到達 |
+| Mac Studio の実機導入で 6 部品すべてが `build` を通過 | ✅ 第 6 回（2026-11-06）: 3 本はローカルビルド、2 本は prebuilt、1 本はオーバーレイ |
+| Mac Studio で `up` → `health --network` → `scan` → `report` | ✅ 第 18 回（2026-11-06、PR #33）: 終了コード 0、ループバックの URL で準備完了。第 6〜17 回は起動の事実を毎回 1 件ずつ修正（DEMO-20） |
 | 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機導入が `up` に達したらエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない。Wiki の受入ケースに必要で、`health` には不要 |
 | Playwright 受入 C1〜C6（セレクタと種データは `TODO(M2)`） | ⏳ 実機では未着手 |
-| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ⏳ `up` 後の最初の `scan` から |
+| Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測: 22 対象で CRITICAL 1835 / HIGH 8291 / MEDIUM 9772 / LOW 3899。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9 は M3 で精査） |
 | 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
 ### 3. 規則

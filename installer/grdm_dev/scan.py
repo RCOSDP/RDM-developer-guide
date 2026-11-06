@@ -115,8 +115,21 @@ def default_runner(cwd: Path) -> Runner:
     return _run
 
 
+def _exe(name: str) -> str:
+    """Executable to run for `name`: PATH first, else the one next to the running interpreter (see default_which)."""
+    found = shutil.which(name)
+    if found:
+        return found
+    local = Path(sys.executable).parent / name
+    return str(local) if local.exists() else name
+
+
 def default_which(name: str) -> bool:
-    return shutil.which(name) is not None
+    """On PATH, or next to the running interpreter: the bootstrap installs semgrep into the same .venv as
+    grdm-dev, and install.sh runs `.venv/bin/grdm-dev` without putting .venv/bin on PATH (real install run 17)."""
+    if shutil.which(name) is not None:
+        return True
+    return (Path(sys.executable).parent / name).exists()
 
 
 # --------------------------------------------------------------------------- manifest files
@@ -655,12 +668,35 @@ def compose_images(compose_path: Path) -> list[str]:
     return out
 
 
-def integration_checkouts(ctx: Context) -> list[Path]:
-    """runtime/src/<repo>/ directories that build.py cloned (SPEC-03 §4.1: lockfiles live there)."""
+def integration_checkouts(ctx: Context) -> tuple[list[Path], list[str]]:
+    """runtime/src/<repo>/ directories that build.py cloned (SPEC-03 §4.1: lockfiles live there), and notes
+    about directories skipped: `_overlay/` (a copy of a base checkout plus overlay files, scanned through its
+    parts) and the stale checkout of a component that is now `prebuilt_image` (nothing is built from it; its
+    pom.xml made Trivy query Maven Central until a 429 in real install run 17)."""
     src = ctx.runtime / "src"
     if not src.is_dir():
-        return []
-    return sorted(p for p in src.iterdir() if p.is_dir() and not p.name.startswith("."))
+        return [], []
+    prebuilt_repos: set[str] = set()
+    try:
+        from . import manifest as _manifest
+        for comp in _manifest.load(ctx).components:
+            if comp.get("prebuilt_image") and comp.get("integration_repo"):
+                prebuilt_repos.add(str(comp["integration_repo"]))
+    except Exception:  # manifest unreadable: scan everything that is there
+        prebuilt_repos = set()
+    out: list[Path] = []
+    notes: list[str] = []
+    for p in sorted(src.iterdir()):
+        if not p.is_dir() or p.name.startswith("."):
+            continue
+        if p.name.startswith("_"):
+            notes.append(f"src/{p.name} skipped (assembled overlay context; its parts are scanned)")
+            continue
+        if p.name in prebuilt_repos:
+            notes.append(f"src/{p.name} skipped (component uses prebuilt_image; the image itself is scanned)")
+            continue
+        out.append(p)
+    return out, notes
 
 
 def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
@@ -688,14 +724,17 @@ def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: st
     if not images:
         notes.append("no compose file and no grdm-dev/* image; image scan skipped (SPEC-03 §4.1 M1 scope)")
 
-    def scan_target(kind: str, target: str, label: str, scanners: str) -> None:
+    def scan_target(kind: str, target: str, label: str, scanners: str, extra: list[str] | None = None) -> None:
         safe = _safe_name(label)
         sbom = reports / f"sbom_{safe}_{ts}.json"
-        rc, out = runner(["trivy", kind, "--quiet", "--format", "cyclonedx", "--output", str(sbom), target])
+        # --offline-scan: never resolve pom.xml parents or dependencies from remote Maven repositories
+        # (Maven Central answered 429 and blocked the host in real install run 17); lockfiles are enough.
+        fs_opts = (["--offline-scan"] if kind == "fs" else []) + list(extra or [])
+        rc, out = runner(["trivy", kind, "--quiet", *fs_opts, "--format", "cyclonedx", "--output", str(sbom), target])
         if rc != 0 or not sbom.exists():
             findings.append(_finding("trivy", "SBOM-FAILED", "HIGH", label, label, f"trivy {kind} SBOM failed (rc {rc})"))
             problems.append(f"sbom {label} rc {rc}")
-        rc, out = runner(["trivy", kind, "--quiet", "--format", "json", "--scanners", scanners, target])
+        rc, out = runner(["trivy", kind, "--quiet", *fs_opts, "--format", "json", "--scanners", scanners, target])
         data = _json_or_empty(out)
         if rc != 0 or data is None:
             findings.append(_finding("trivy", "SCAN-FAILED", "HIGH", label, label,
@@ -707,12 +746,15 @@ def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: st
 
     for img in images:
         scan_target("image", img, img, "vuln")
-    checkouts = integration_checkouts(ctx)
+    checkouts, skipped = integration_checkouts(ctx)
+    notes.extend(skipped)
     for d in checkouts:
         scan_target("fs", str(d), f"src/{d.name}", "vuln,misconfig,secret")
     if not checkouts:
         notes.append("no integration checkout under runtime/src/; lockfile scan covers this repository only")
-    scan_target("fs", ".", "repo", "vuln,misconfig")
+    # The repository itself, without runtime/ (checkouts, reports and volumes live there and are scanned
+    # or excluded above), the bootstrap .venv/ and the generated site/.
+    scan_target("fs", ".", "repo", "vuln,misconfig", ["--skip-dirs", "runtime,.venv,site"])
     targets = len(images) + len(checkouts) + 1
     return findings, _tool("trivy", _tool_version(runner, ["trivy", "--version"]), targets, problems), notes
 
@@ -722,7 +764,7 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     """Semgrep with the four SPEC-03 §4.2 packs and --error: rc 1 means findings, rc 0 clean, any other
     rc or a nonempty `errors` array means the run was incomplete."""
     _require(which, "semgrep")
-    argv = ["semgrep", "scan"]
+    argv = [_exe("semgrep"), "scan"]
     for pack in SEMGREP_PACKS:
         argv += ["--config", pack]
     argv += ["--json", "--quiet", "--metrics=off", "--error", "."]
@@ -731,7 +773,7 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     problems: list[str] = []
     if data is None:
         problems.append(f"no JSON output (rc {rc})")
-        return [], _tool("semgrep", _tool_version(runner, ["semgrep", "--version"]), len(SEMGREP_PACKS), problems)
+        return [], _tool("semgrep", _tool_version(runner, [_exe("semgrep"), "--version"]), len(SEMGREP_PACKS), problems)
     _save_raw(ctx, f"semgrep_{ts}.json", out, secrets or [])
     if rc not in SEMGREP_OK_CODES:
         problems.append(f"semgrep exited {rc} (0 clean, 1 findings; other codes mean the run failed)")
@@ -739,7 +781,7 @@ def run_semgrep(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: 
     if errors:
         msgs = [str((e or {}).get("message", e))[:80] for e in errors[:3] if isinstance(e, (dict, str))]
         problems.append(f"semgrep reported {len(errors)} error(s): " + " | ".join(msgs))
-    return normalize_semgrep(data), _tool("semgrep", _tool_version(runner, ["semgrep", "--version"]), len(SEMGREP_PACKS), problems)
+    return normalize_semgrep(data), _tool("semgrep", _tool_version(runner, [_exe("semgrep"), "--version"]), len(SEMGREP_PACKS), problems)
 
 
 def run_gitleaks(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,

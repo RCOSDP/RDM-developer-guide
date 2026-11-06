@@ -51,6 +51,12 @@ com.docke  4242 user   55u  IPv4 0x1  0t0  TCP 127.0.0.1:5000 (LISTEN)
 com.docke  4242 user   56u  IPv4 0x2  0t0  TCP 127.0.0.1:8000 (LISTEN)
 rapportd    512 user    4u  IPv4 0x3  0t0  TCP *:49152 (LISTEN)
 """
+# macOS AirPlay Receiver (ControlCenter) binds *:5000 beside our loopback-only web (real install run 16)
+LSOF_FOREIGN = """COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+ControlCe   777 user   10u  IPv4 0x9  0t0  TCP *:5000 (LISTEN)
+com.docke  4242 user   55u  IPv4 0x1  0t0  TCP 127.0.0.1:5000 (LISTEN)
+com.docke  4242 user   56u  IPv4 0x2  0t0  TCP 127.0.0.1:8000 (LISTEN)
+"""
 SS_BAD = """State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process
 LISTEN 0      4096   0.0.0.0:5000        0.0.0.0:*     users:(("docker-proxy",pid=99,fd=4))
 LISTEN 0      4096   127.0.0.1:8000      0.0.0.0:*     users:(("docker-proxy",pid=98,fd=4))
@@ -114,7 +120,7 @@ class HealthTests(unittest.TestCase):
             return True, "HTTP 200"
 
         self.assertEqual(self.run_cmd(False, make_runner(PS_OK), prober), exit_codes.OK)
-        self.assertEqual(sorted(probed), ["http://127.0.0.1:5000/", "http://127.0.0.1:8000/"])
+        self.assertEqual(sorted(probed), ["http://127.0.0.1:5000/login/", "http://127.0.0.1:8000/"])  # web probed at /login/ (HTTP_PATHS)
         self.assertIn("services[3]", self.out.getvalue())
 
     def test_unhealthy_service_is_40(self):
@@ -168,6 +174,15 @@ class HealthTests(unittest.TestCase):
         self.assertIn("0.0.0.0:5000", problems[0])
 
     # ---- fail closed (review PR #21 finding 3)
+
+    def test_network_named_foreign_listener_on_project_port_is_a_warning(self):
+        runner = make_runner(PS_OK, LSOF_FOREIGN)
+        self.assertEqual(self.run_cmd(True, runner, system="Darwin"), exit_codes.OK)
+        data, problems = health.check_network(self.ctx, runner, "Darwin")
+        self.assertEqual(problems, [])
+        self.assertEqual(len(data["warnings"]), 1)
+        self.assertIn("foreign-listener: ControlCe listens on *:5000", data["warnings"][0])
+        self.assertIn("GRDM_PORT_<SERVICE>", data["warnings"][0])
 
     def test_network_project_port_without_process_field_is_40(self):
         runner = make_runner(PS_OK, SS_NO_PROCESS)

@@ -20,7 +20,7 @@ import webbrowser
 from . import exit_codes, health, report
 from .context import Context
 
-DEFAULT_TIMEOUT = 300.0
+DEFAULT_TIMEOUT = 900.0  # ember's first build under amd64 emulation and osf.io's start-up migrations exceed 300 s (real install run 10)
 
 
 def default_runner(argv: list[str]) -> tuple[int, str]:

@@ -5,7 +5,10 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.6 — 2026-11-06. **Learned:** when a component is an overlay, its dependency manifest can drift from the base it is applied to; the base's new modules then fail to resolve inside the overlay's lock file, so SPEC-05 integration must diff the two manifests every week. ／ 部品がオーバーレイのとき、その依存一覧は重ねる先の基底からずれうる。基底が新しく使うモジュールはオーバーレイ側のロックファイルの中で解決できなくなるため、SPEC-05 の統合では毎週二つの一覧の差分を取らなければならない。
+- Version / 版: 0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
+  0.8 — 2026-11-06. **Learned:** after the images, the application layer fails for installer reasons that only a real start reveals — settings keys read at import, Compose's stdin and tmpfs semantics, a memory budget larger than the Docker VM, and a database that nobody initialised; and an unhandled 500 in osf.io's development server leaks a database connection. ／ イメージの後、アプリケーション層は実際に起動しないと分からないインストーラー側の理由で失敗する。import 時に読まれる設定キー、Compose の stdin と tmpfs の意味、Docker VM より大きいメモリ予算、誰も初期化していないデータベース。そして osf.io の開発サーバーの未処理の 500 はデータベース接続を漏らす。
+  0.7 — 2026-11-06. **Learned:** once every image builds, the next failures are per-image start-up facts under the hardening baseline and under Rosetta emulation; and a Docker Desktop bind directory lies about ownership (`chown` is a no-op, `test -w` fails, writes succeed), so a container must probe by doing, not by asking. ／ すべてのイメージが組めた後の失敗は、hardening 基準と Rosetta エミュレーションの下でのイメージごとの起動の事実である。また Docker Desktop の bind ディレクトリは所有権について嘘をつく（`chown` は無効、`test -w` は失敗、書込は成功）ので、コンテナは尋ねるのではなく実際に試して確かめなければならない。
+  0.6 — 2026-11-06. **Learned:** when a component is an overlay, its dependency manifest can drift from the base it is applied to; the base's new modules then fail to resolve inside the overlay's lock file, so SPEC-05 integration must diff the two manifests every week. ／ 部品がオーバーレイのとき、その依存一覧は重ねる先の基底からずれうる。基底が新しく使うモジュールはオーバーレイ側のロックファイルの中で解決できなくなるため、SPEC-05 の統合では毎週二つの一覧の差分を取らなければならない。
   0.5 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything; and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a repository can be an overlay rather than a service; the installer must know the shape of each component (built, prebuilt, overlay) before it can build anything. ／ リポジトリはサービスではなくオーバーレイであることがある。インストーラーは組む前に各部品の形（built・prebuilt・overlay）を知っていなければならない。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -167,7 +170,193 @@ What this proves:
 - The overlay mechanism works up to the bundle step: the merged context (osf.io checkout + wiki-frontend files, wiki-frontend Dockerfile) is assembled, yarn installs from the overlay lock file, and webpack runs over the osf.io JavaScript.
 - The remaining failure is an *integration drift* between two upstreams, not an installer defect: RDM-osf.io develop upgraded linkifyjs 2 → 4 and added linkify-html on 2026-11-01, while the wiki-frontend overlay's `package.json` / `yarn.lock` dated from 2025-06. Because the overlay's lock file wins, the osf.io code could not resolve the new module.
 
-Decision taken: the fix belongs in the integration repository RDM-wiki-frontend-dev2027 (PR #2: linkify-html and sift added; linkifyjs, bootstrap-datepicker, highlight.js and less aligned with osf.io develop; yarn.lock regenerated inside node:21-alpine). Verified before the PR: the same overlay context with the synced files built on this host with `docker buildx build --platform linux/arm64` (webpack 5.93.0, 0 errors, 4 warnings: 1 about the unset `mode`, 3 performance recommendations) and the image holds `website/static/public/js/wiki-edit-page.<chunkhash>.js`, which is what `wiki_assets` copies. After the merge, the manifest `integration_sha` is updated and run 6 will be recorded below. Lesson for [SPEC-05](../spec/05_upstream_tracking.md#english): an overlay's dependency manifest must be diffed against its base at every weekly integration.
+Decision taken: the fix belongs in the integration repository RDM-wiki-frontend-dev2027 (PR #2: linkify-html and sift added; linkifyjs, bootstrap-datepicker, highlight.js and less aligned with osf.io develop; yarn.lock regenerated inside node:21-alpine). Verified before the PR: the same overlay context with the synced files built on this host with `docker buildx build --platform linux/arm64` (webpack 5.93.0, 0 errors, 4 warnings: 1 about the unset `mode`, 3 performance recommendations) and the image holds `website/static/public/js/wiki-edit-page.<chunkhash>.js`, which is what `wiki_assets` copies. After the merge, the manifest `integration_sha` was updated (PR #31) and runs 6–8 are recorded below. Lesson for [SPEC-05](../spec/05_upstream_tracking.md#english): an overlay's dependency manifest must be diffed against its base at every weekly integration.
+
+### Runs 6–8 — 2026-11-06, develop 757dc37 + PR #32 and PR #33 branches
+
+Same host. Three short runs, each stopping one step later than the one before.
+
+```toon
+run6:
+  branch: develop 757dc37 (wiki-frontend integration_sha cd96330f after RDM-wiki-frontend-dev2027 PR #2)
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 40 (docker compose up exited 1)
+  build: "all six components passed for the first time (wiki-frontend overlay built; osf.io, waterbutler, mfr cached; ember and cas prebuilt)"
+  up: "`elasticsearch:2` pull failed: no matching manifest for linux/arm64"
+run7:
+  branch: fix/infra-amd64-platform (PR #32: build_platform linux/amd64 on elasticsearch2, elasticsearch6, sharejs, unoconv, fakecas)
+  result: exit 40 (docker compose up exited 1)
+  up: "all nine infra images pulled (the five amd64-only ones under platform pinning); then the bind volumes failed to mount because this run was started from a worktree under /private/tmp, outside Docker Desktop's shared paths — an operator error, not an installer defect; torn down with `docker compose down -v`"
+run8:
+  branch: fix/infra-amd64-platform, started from the main checkout
+  result: exit 40 (docker compose up exited 1)
+  up: "16 of 21 services created; postgres, mongo, rabbitmq, redis, elasticsearch6, fakecas, wb, wb_worker, mfr up; four failures below; web/api/admin/worker never started because they wait for wiki_assets"
+  failures[4]{service,symptom,cause,fix}:
+    wiki_assets,"exit 1: /wiki_static is not writable by 1000","Docker Desktop for macOS presents a bind directory as root:root, ignores `chown`, yet lets any uid write; `test -w` is therefore a false negative","real write probe (create and delete a marker file) instead of `test -w` (PR #33)"
+    cas,"restart loop: Could not create local repository at /root/.m2repo","the prebuilt distribution image starts `mvn jetty:run` with its Maven repository under /root (0700) and writes target/ at start; user 1000:1000 and read-only root block both","hardening exception for cas (user, read_only; no capability) until M4 bakes the war (PR #33)"
+    elasticsearch,"restart loop: runtime: failed to create new OS thread (have 2 already; errno=22)","gosu in the EOL elasticsearch:2 image is an old Go binary that aborts under Rosetta (Docker Desktop's amd64 emulation on Apple Silicon)","run as the image's elasticsearch user (uid 101) so the entrypoint skips chown and gosu; the exception shrinks to read_only only (PR #33)"
+    unoconv,"restart loop: chown: changing ownership of '/home': Operation not permitted","the entrypoint runs `chown -R www-data /home` as root with every capability dropped","CAP_CHOWN added to the unoconv exception (PR #33)"
+```
+
+What this proves:
+
+- The build stage is done for the core profile on Apple Silicon: six components, three built locally, two prebuilt, one overlay.
+- `up` now fails only on how individual EOL images start under two constraints they were never written for: the hardening baseline (non-root, read-only, no capabilities) and amd64 emulation through Rosetta. Each failure is an image-specific fact recorded in `manifest/hardening.json` with a review date and a modernization target.
+- Docker Desktop's file sharing changes the meaning of ownership tests inside containers; a probe must try the real operation.
+
+### Runs 9–12 — 2026-11-06, branch fix/run8-startup (PR #33), started from the main checkout
+
+Same host. Each run fixed what the previous one exposed; `build` passed every time (all cached).
+
+```toon
+run9:
+  fixes_applied: "wiki_assets write probe; elasticsearch as uid 101; unoconv CAP_CHOWN; cas exception"
+  result: exit 40 (not healthy after 300s: web, api, admin, worker, ember_osf_web)
+  state: "17 of 21 up; wiki_assets exited 0 (bundle copied); web KeyError EXTERNAL_EMBER_APPS['preprints']; api/admin/worker `OSError: [Errno 25] Not a tty` from invoke's stdin thread; ember still building"
+run10:
+  fixes_applied: "local.py gains preprints/reviews keys; stdin_open on web/api/admin/worker"
+  result: exit 40 (not healthy after 300s)
+  state: "web/api/worker `Read-only file system: /code/website/static/built/nodeCategories.json`; api/admin/worker `ModuleNotFoundError: debug_toolbar` (DEBUG_MODE=True imports a dev-only package the image lacks); ember OOM-killed twice at its 6.3 GiB limit; docker info shows the Docker VM has 47 GiB while the budget was scaled from the host's 128 GiB"
+run11:
+  fixes_applied: "tmpfs on website/static/built; DEBUG_MODE=False; ember weight 4, 8 GiB floor, JOBS=2; two-pass memory scaling capped by the Docker VM; up timeout 900 s"
+  result: exit 40 (not healthy after 900s: web, api, admin, worker, ember_osf_web)
+  state: "web/api/admin/worker `PermissionError` on the same file: Compose's short `tmpfs` entry mounts 0755 root-owned (docker run --tmpfs gives 1777); ember building without OOM"
+run12:
+  fixes_applied: "tmpfs entries rendered with :mode=1777"
+  result: exit 40 (not healthy after 900s: web, api, admin, ember_osf_web)
+  state: "worker healthy; web answers 500: `relation \"osf_institution\" does not exist` (fresh database, no migrations); each 500 leaked one postgres connection of the development server until `FATAL: too many clients already` (98 of 100 held by web); ember served HTTP 200 about 25 minutes after its start"
+```
+
+What this proves:
+
+- Everything below the osf.io application starts on Apple Silicon under the hardening baseline: 17 services up, both wiki one-shots exited 0 with the bundle in the volume.
+- Three classes of defect were in the installer, not in the images: generated settings missing keys upstream code reads at import; Compose details (stdin, tmpfs mode, memory budget vs Docker VM); and the absence of a database initialisation step that upstream's README leaves to the operator.
+- The osf.io development server leaks a database connection on every request that ends in an unhandled error; `max_connections=500` is a safety margin, the real fix is to make `/` not fail.
+
+Decisions taken (PR #33, [SPEC-02 §4 and §7](../spec/02_installer_cli.md#english)): a one-shot `osf_init` (migrate, institutions, OAuth scopes) that web/api/admin/worker wait for; ember-osf-web builds its `dist/` once into the named volume with a fingerprint of its URL settings and serves it with `ember serve --path` (first build 10–25 minutes under emulation, later starts seconds); ember's backend URLs come from the published loopback ports and `{{AUTH_URL}}`; `up` waits 900 s by default. Runs 13–18 are recorded below.
+
+### Run 13 — 2026-11-06, branch fix/run8-startup with `osf_init`
+
+```toon
+run13:
+  result: exit 40 (docker compose up exited 1: service "osf_init" didn't complete successfully)
+  osf_init: "`manage.py migrate` and `scripts.populate_institutions -e test -a` succeeded at the first attempt (postgres and the emulated elasticsearch:2 were already up from run 12); `scripts.register_oauth_scopes` failed with `Read-only file system: /code/logs/register_oauth_scopes.py.<timestamp>.log` — scripts/utils.py adds a per-run file logger under /code/logs"
+  fix: "tmpfs /code/logs on osf_init, web, api, admin and worker (run 14)"
+```
+
+### Run 14 — 2026-11-06, with tmpfs /code/logs
+
+```toon
+run14:
+  result: exit 40 (not healthy after 900s: web, api, admin, ember_osf_web)
+  osf_init: "exited 0 (migrate, institutions, OAuth scopes)"
+  web: "HTTP 500 on `/`: PROXY_EMBER_APPS forwards the root page to ember_osf_web, which was still building (ConnectionError to ember_osf_web:4200); one postgres connection held, no leak"
+  api_admin: "`DatabaseWrapper objects created in a thread can only be used in that same thread`, also without autoreload: api/base/wsgi.py monkey-patches gevent when website.settings.DEBUG_MODE is False (set so in run 11 to avoid debug_toolbar); SECURE_MODE = not DEBUG_MODE would also have switched the servers to TLS had local.py not pinned it to False"
+  fix: "DEBUG_MODE back to True; Django DEBUG = False per project through api_local.py and a new admin_local.py (mounted at admin/base/settings/local.py); health probes web at /login/, which renders without ember (run 15)"
+```
+
+### Run 15 — 2026-11-06, DEBUG_MODE restored, per-project DEBUG off, web probed at /login/
+
+```toon
+run15:
+  result: exit 40 (not healthy after 900s; see below)
+  ember_osf_web: "served HTTP 200 about 13 minutes after its start (dist built into the volume); web `/` then answered 200 as well"
+  api: "the running container kept the failed process from run 14 because only a mounted file changed (Compose recreates nothing); after `docker restart` it answered 302 on `/`"
+  admin: "still `ModuleNotFoundError: debug_toolbar`: admin/base/settings/defaults.py appends debug_toolbar and nplusone to INSTALLED_APPS and MIDDLEWARE at import, reading DEBUG_MODE before local.py runs, so `DEBUG = False` alone is too late; then `400 DisallowedHost` for 127.0.0.1"
+  fix: "admin_local.py strips the two apps and middlewares and adds 127.0.0.1/localhost/admin to ALLOWED_HOSTS; after re-render and restart admin answered 302 (run 16 is the clean run)"
+```
+
+### Run 16 — 2026-11-06, clean run with every fix: `up` passes for the first time
+
+```toon
+run16:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 40 (stopped at `health --network`)
+  steps[7]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok (memory budget uses the Docker VM's 47.0 GiB, not the host's 128.0 GiB; ember and fakecas keep their ports)"
+    build,0,"ok (all cached)"
+    up,0,"ok — ready: http://127.0.0.1:5000/ (22 services; the three one-shots exited 0)"
+    "health --network",40,"failed: `ControlCe listens on *:5000 (not loopback; project port, owner not visible)`"
+```
+
+What this proves:
+
+- The core profile starts end to end on Apple Silicon under the hardening baseline, and `up` declares it ready on the loopback URL. Milestone M2's "one command" now reaches the application.
+- The `--network` check found a wildcard listener on port 5000 that is not ours: macOS's AirPlay Receiver (ControlCenter) binds `*:5000` and `*:7000`; our `web` is bound to `127.0.0.1:5000` beside it and answers (the kernel prefers the specific address). The check treated any non-loopback listener on a project port as a failure.
+
+Decision taken: `health --network` fails only for listeners that belong to Docker (our published ports leaking to a non-loopback address, [ADR-02](../decisions/ADR-02_Network_Model.md)); a foreign process on a project port is reported as a warning row (`foreign-listener`) so the operator can move the port with `GRDM_PORT_<SERVICE>` if they want to. Run 17 is recorded below.
+
+### Run 17 — 2026-11-06, foreign listeners reported as warnings: `up` and `health --network` pass, `scan` starts
+
+```toon
+run17:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 51 (stopped at `scan`: semgrep not found on PATH)
+  steps[8]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,0,"ok (all cached)"
+    up,0,"ok — ready: http://127.0.0.1:5000/"
+    "health --network",0,"ok with one warning: foreign-listener ControlCe on *:5000 (macOS AirPlay Receiver)"
+    scan,51,"failed: semgrep not found on PATH; trivy 0.75.0 scanned 25 targets first"
+  trivy_findings[4]{severity,count}:
+    CRITICAL,1894
+    HIGH,8620
+    MEDIUM,10047
+    LOW,3955
+  trivy_problems: "sbom/scan of src/RDM-cas-overlay-dev2027 rc 1 (prebuilt component, no checkout); sbom/scan of the repository rc 1"
+```
+
+What this proves:
+
+- The first two gates of M2 are passed on the real host: one command brings the core profile up and the loopback-only rule holds.
+- The vulnerability count of the EOL images (Python 3.5/3.6, node 8/12, JDK 8, ES 2/6, mongo 3.4) is what [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) expected for M1–M3: report and allow-list now, HIGH stops at M4, zero CRITICAL/HIGH at M5.
+- `scan` has two defects of its own: Semgrep (a tool that reads source code looking for dangerous patterns; see [REF-01](../reference/REF-01_Glossary.md)) is not installed by the bootstrap although SPEC-03 runs it locally, and Trivy (a scanner that reads our images and lists the holes it knows about; see [REF-01](../reference/REF-01_Glossary.md)) is pointed at a source directory that a prebuilt component never clones.
+
+Decision taken: the bootstrap installs Semgrep into the same `.venv` as `grdm-dev` and `scan` looks for tools next to its own interpreter; Trivy skips the source directory of prebuilt components and reports why a target was skipped. Run 18 is recorded below (exit 0).
+
+### Run 18 — 2026-11-06, Semgrep in `.venv`, Trivy offline and target-aware: **the whole command succeeds**
+
+```toon
+run18:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 0 — "GakuNin RDM developer environment is ready: http://127.0.0.1:5000/"
+  steps[9]{step,code,status}:
+    "secrets init",0,"skipped (runtime/.env exists)"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok (ports kept; memory budget from the Docker VM's 47.0 GiB)"
+    build,0,"ok (all cached)"
+    up,0,"ok — 22 services, ready on the loopback URL"
+    "health --network",0,"ok (warning: foreign-listener ControlCe on *:5000)"
+    scan,0,"ok — gate report-only: pass"
+    report,0,ok
+  scan_tools[4]{tool,version,targets,result}:
+    trivy,0.75.0,22,"ok (skipped: stale checkouts of the prebuilt cas-overlay and ember-osf-web, the assembled _overlay/ context)"
+    semgrep,1.184.0,4,ok
+    gitleaks,8.30.1,1,ok
+    zap,stable,3,ok
+  findings_by_severity[5]{severity,count}:
+    CRITICAL,1835
+    HIGH,8291
+    MEDIUM,9772
+    LOW,3899
+    INFO,5
+  allow_list: "0 entries, 0 allow-listed; 10126 findings over the M4 threshold (HIGH or above) are reported, not blocking, at M2"
+```
+
+What this proves:
+
+- **M2's one-command install works on the Mac Studio**: eighteen runs after the first attempt, `./installer/install.sh --yes --no-open --profile core` goes from a clean shell to a ready URL, through the loopback check, the scanners and the report, with exit 0.
+- Every stop between run 1 and run 18 was a fact about an EOL image or an installer detail that only a real start could reveal; each is recorded above with its fix and its document.
+- The vulnerability baseline of the EOL stack is now measured: 1835 CRITICAL and 8291 HIGH findings, almost all from the images (Python 3.5/3.6, node 8/12, JDK 8, Elasticsearch 2/6, mongo 3.4). This is the number M4 and M5 must drive to zero; the allow-list stays empty rather than hiding it.
+
+Next on M2: the Playwright (a tool that drives a real browser to test web pages; see [REF-01](../reference/REF-01_Glossary.md)) acceptance suite (C1–C6) against this running stack, and the osf.io wiki editor page wiring (C4) in RDM-osf.io-dev2027.
 
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
@@ -323,7 +512,193 @@ run5:
 - オーバーレイの仕組みは束を作る段の直前まで端から端まで働く。重ねたコンテキスト（osf.io のチェックアウト＋wiki-frontend のファイル、wiki-frontend の Dockerfile）が組み立てられ、yarn はオーバーレイ側のロックファイルから導入し、webpack は osf.io の JavaScript を処理した。
 - 残る失敗はインストーラーの欠陥ではなく、二つの上流の間の*統合のずれ*である。RDM-osf.io の develop は 2026-11-01 に linkifyjs を 2 系から 4 系へ更新し linkify-html を追加したが、wiki-frontend オーバーレイの `package.json` / `yarn.lock` は 2025-06 のままだった。オーバーレイ側のロックファイルが優先されるため、osf.io のコードが新しいモジュールを解決できなかった。
 
-決めたこと: 修正は統合リポジトリ RDM-wiki-frontend-dev2027 側で行う（PR #2: linkify-html と sift を追加、linkifyjs・bootstrap-datepicker・highlight.js・less を osf.io develop に合わせ、yarn.lock を node:21-alpine 内で再生成）。PR の前に検証: 同期後のファイルを置いた同じオーバーレイのコンテキストを本ホストで `docker buildx build --platform linux/arm64` して成功（webpack 5.93.0、エラー 0、警告 4: `mode` 未設定 1 件、性能推奨 3 件）。イメージには `wiki_assets` が写す `website/static/public/js/wiki-edit-page.<chunkhash>.js` がある。マージ後に manifest の `integration_sha` を更新し、第 6 回を下へ追記する。[SPEC-05](../spec/05_upstream_tracking.md#japanese) への教訓: オーバーレイの依存一覧は、週次の統合のたびに基底と差分を取らなければならない。
+決めたこと: 修正は統合リポジトリ RDM-wiki-frontend-dev2027 側で行う（PR #2: linkify-html と sift を追加、linkifyjs・bootstrap-datepicker・highlight.js・less を osf.io develop に合わせ、yarn.lock を node:21-alpine 内で再生成）。PR の前に検証: 同期後のファイルを置いた同じオーバーレイのコンテキストを本ホストで `docker buildx build --platform linux/arm64` して成功（webpack 5.93.0、エラー 0、警告 4: `mode` 未設定 1 件、性能推奨 3 件）。イメージには `wiki_assets` が写す `website/static/public/js/wiki-edit-page.<chunkhash>.js` がある。マージ後に manifest の `integration_sha` を更新し（PR #31）、第 6〜8 回を下に記した。[SPEC-05](../spec/05_upstream_tracking.md#japanese) への教訓: オーバーレイの依存一覧は、週次の統合のたびに基底と差分を取らなければならない。
+
+### 第 6〜8 回 — 2026-11-06、develop 757dc37 ＋ PR #32・PR #33 のブランチ
+
+同じホスト。短い 3 回で、毎回ひとつ先の段で止まった。
+
+```toon
+run6:
+  branch: develop 757dc37（RDM-wiki-frontend-dev2027 PR #2 後の wiki-frontend integration_sha cd96330f）
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 40（docker compose up が 1 で終了）"
+  build: "6 部品すべてが初めて通過（wiki-frontend オーバーレイをビルド。osf.io・waterbutler・mfr はキャッシュ。ember・cas は prebuilt）"
+  up: "`elasticsearch:2` の取得失敗: no matching manifest for linux/arm64"
+run7:
+  branch: fix/infra-amd64-platform（PR #32: elasticsearch2・elasticsearch6・sharejs・unoconv・fakecas に build_platform linux/amd64）
+  result: "終了コード 40（docker compose up が 1 で終了）"
+  up: "基盤イメージ 9 本すべて取得（amd64 専用の 5 本はプラットフォーム固定で）。その後、/private/tmp 配下の作業用 worktree から実行したため bind ボリュームが Docker Desktop の共有パス外になりマウント失敗。操作者の誤りでインストーラーの欠陥ではない。`docker compose down -v` で片付けた"
+run8:
+  branch: fix/infra-amd64-platform（本体チェックアウトから実行）
+  result: "終了コード 40（docker compose up が 1 で終了）"
+  up: "21 サービス中 16 を作成。postgres・mongo・rabbitmq・redis・elasticsearch6・fakecas・wb・wb_worker・mfr は起動。下の 4 件が失敗。web/api/admin/worker は wiki_assets を待つため起動せず"
+  failures[4]{service,symptom,cause,fix}:
+    wiki_assets,"exit 1: /wiki_static is not writable by 1000","macOS の Docker Desktop は bind ディレクトリを root:root として見せ `chown` を無視するが、どの uid でも書ける。したがって `test -w` は偽陰性","`test -w` の代わりに実際に目印ファイルを作って消す書込プローブ（PR #33）"
+    cas,"再起動ループ: Could not create local repository at /root/.m2repo","配布イメージは起動時に `mvn jetty:run` を走らせ、Maven リポジトリは /root（0700）配下、target/ も起動時に書く。user 1000:1000 と読み取り専用ルートの両方が阻む","cas に hardening 例外（user・read_only。capability 追加なし）。M4 で war を焼き込むまで（PR #33）"
+    elasticsearch,"再起動ループ: runtime: failed to create new OS thread (have 2 already; errno=22)","EOL の elasticsearch:2 イメージの gosu は古い Go バイナリで、Rosetta（Apple Silicon 上の Docker Desktop の amd64 エミュレーション）の下で異常終了する","イメージの elasticsearch ユーザー（uid 101）で直接動かし、entrypoint の chown と gosu を飛ばす。例外は read_only だけに縮小（PR #33）"
+    unoconv,"再起動ループ: chown: changing ownership of '/home': Operation not permitted","entrypoint が全 capability を落とした root で `chown -R www-data /home` を実行する","unoconv の例外に CAP_CHOWN を追加（PR #33）"
+```
+
+これで分かったこと:
+
+- Apple Silicon の core プロファイルで、ビルドの段は完了した。6 部品のうち 3 本はローカルでビルド、2 本は prebuilt、1 本はオーバーレイ。
+- `up` の失敗は、EOL の各イメージが想定していなかった二つの制約、すなわち hardening の基準（非 root・読み取り専用・capability なし）と Rosetta による amd64 エミュレーションの下での起動の仕方だけに残った。各失敗はイメージ固有の事実として `manifest/hardening.json` に見直し日と近代化の目標とともに記録した。
+- Docker Desktop のファイル共有はコンテナ内の所有権テストの意味を変える。プローブは実際の操作を試さなければならない。
+
+### 第 9〜12 回 — 2026-11-06、ブランチ fix/run8-startup（PR #33）、本体チェックアウトから実行
+
+同じホスト。毎回、前の回が露わにしたものを直した。`build` は毎回通過（すべてキャッシュ）。
+
+```toon
+run9:
+  fixes_applied: "wiki_assets の書込プローブ。elasticsearch を uid 101 で。unoconv に CAP_CHOWN。cas の例外"
+  result: "終了コード 40（300 秒で未健康: web, api, admin, worker, ember_osf_web）"
+  state: "21 中 17 が起動。wiki_assets は 0 で終了（束を写した）。web は KeyError EXTERNAL_EMBER_APPS['preprints']。api/admin/worker は invoke の stdin スレッドの `OSError: [Errno 25] Not a tty`。ember はビルド中"
+run10:
+  fixes_applied: "local.py に preprints/reviews のキー。web/api/admin/worker に stdin_open"
+  result: "終了コード 40（300 秒で未健康）"
+  state: "web/api/worker は `Read-only file system: /code/website/static/built/nodeCategories.json`。api/admin/worker は `ModuleNotFoundError: debug_toolbar`（DEBUG_MODE=True がイメージに無い開発専用パッケージを import する）。ember は 6.3 GiB の上限で 2 回 OOM。docker info では Docker VM は 47 GiB なのに予算はホストの 128 GiB から算出していた"
+run11:
+  fixes_applied: "website/static/built に tmpfs。DEBUG_MODE=False。ember は weight 4・下限 8 GiB・JOBS=2。二段階のメモリ配分を Docker VM で上限化。up の待ち時間 900 秒"
+  result: "終了コード 40（900 秒で未健康: web, api, admin, worker, ember_osf_web）"
+  state: "web/api/admin/worker は同じファイルで `PermissionError`。Compose の短い `tmpfs` 記法は root 所有の 0755 で mount する（docker run --tmpfs は 1777）。ember は OOM なしでビルド中"
+run12:
+  fixes_applied: "tmpfs の項目を :mode=1777 付きで出力"
+  result: "終了コード 40（900 秒で未健康: web, api, admin, ember_osf_web）"
+  state: "worker は健康。web は 500: `relation \"osf_institution\" does not exist`（新しいデータベースで migration 未実施）。500 のたびに開発サーバーが postgres の接続を 1 本漏らし `FATAL: too many clients already` に至った（100 本中 98 本を web が保持）。ember は起動から約 25 分後に HTTP 200 を返した"
+```
+
+これで分かったこと:
+
+- osf.io アプリケーションより下のものは、hardening の基準の下で Apple Silicon 上ですべて起動する。17 サービスが起動し、wiki の一回限り 2 本は束をボリュームに置いて 0 で終了した。
+- 欠陥の三つの類はイメージではなくインストーラーにあった。上流コードが import 時に読むキーが生成設定に無いこと、Compose の細部（stdin・tmpfs のモード・Docker VM に対するメモリ予算）、そして上流 README が操作者に任せているデータベース初期化の段が無いこと。
+- osf.io の開発サーバーは、未処理のエラーで終わる要求ごとにデータベース接続を 1 本漏らす。`max_connections=500` は安全余裕であり、本当の修正は `/` を失敗させないこと。
+
+決めたこと（PR #33、[SPEC-02 §4・§7](../spec/02_installer_cli.md#japanese)）: web/api/admin/worker が待つ一回限りの `osf_init`（migrate・機関・OAuth スコープ）。ember-osf-web は URL 設定の指紋とともに `dist/` を名前付きボリュームへ一度だけ組み `ember serve --path` で配信（エミュレーション下の初回ビルドは 10〜25 分、以後は数秒）。ember のバックエンド URL は公開したループバックのポートと `{{AUTH_URL}}` から。`up` は既定で 900 秒待つ。第 13〜18 回は下に記す。
+
+### 第 13 回 — 2026-11-06、`osf_init` 入りのブランチ fix/run8-startup
+
+```toon
+run13:
+  result: "終了コード 40（docker compose up が 1: service \"osf_init\" didn't complete successfully）"
+  osf_init: "`manage.py migrate` と `scripts.populate_institutions -e test -a` は初回で成功（postgres とエミュレーション下の elasticsearch:2 は第 12 回から起動していた）。`scripts.register_oauth_scopes` は `Read-only file system: /code/logs/register_oauth_scopes.py.<timestamp>.log` で失敗。scripts/utils.py が /code/logs に実行ごとのログファイルを作る"
+  fix: "osf_init・web・api・admin・worker に tmpfs /code/logs（第 14 回）"
+```
+
+### 第 14 回 — 2026-11-06、tmpfs /code/logs 付き
+
+```toon
+run14:
+  result: "終了コード 40（900 秒で未健康: web, api, admin, ember_osf_web）"
+  osf_init: "0 で終了（migrate・機関・OAuth スコープ）"
+  web: "`/` で HTTP 500: PROXY_EMBER_APPS がトップページを ember_osf_web へ転送するが、ember はまだビルド中（ember_osf_web:4200 への ConnectionError）。postgres 接続は 1 本のまま、漏れなし"
+  api_admin: "`DatabaseWrapper objects created in a thread can only be used in that same thread`。autoreload を切っても同じ。api/base/wsgi.py は website.settings.DEBUG_MODE が False のとき gevent をモンキーパッチする（第 11 回で debug_toolbar を避けるため False にしていた）。local.py で False に固定していなければ SECURE_MODE = not DEBUG_MODE がサーバーを TLS に切り替えてもいた"
+  fix: "DEBUG_MODE を True に戻す。Django の DEBUG はプロジェクトごとに api_local.py と新設の admin_local.py（admin/base/settings/local.py に mount）で False。health は web を ember 無しで描画できる /login/ で探査（第 15 回）"
+```
+
+### 第 15 回 — 2026-11-06、DEBUG_MODE を戻し、プロジェクトごとの DEBUG を切り、web は /login/ で探査
+
+```toon
+run15:
+  result: "終了コード 40（900 秒で未健康。下記）"
+  ember_osf_web: "起動から約 13 分で HTTP 200（dist をボリュームへ組んだ）。web の `/` もその後 200"
+  api: "mount したファイルだけが変わったため Compose は何も作り直さず、第 14 回で失敗したプロセスが残っていた。`docker restart` 後は `/` に 302"
+  admin: "依然 `ModuleNotFoundError: debug_toolbar`。admin/base/settings/defaults.py は import 時に DEBUG_MODE を読んで debug_toolbar と nplusone を INSTALLED_APPS と MIDDLEWARE に加えるので、local.py の `DEBUG = False` だけでは遅い。続いて 127.0.0.1 に対する `400 DisallowedHost`"
+  fix: "admin_local.py で二つのアプリとミドルウェアを外し、ALLOWED_HOSTS に 127.0.0.1/localhost/admin を加える。再描画と再起動の後、admin は 302（第 16 回がクリーンな実行）"
+```
+
+### 第 16 回 — 2026-11-06、全修正を適用したクリーンな実行: 初めて `up` が通った
+
+```toon
+run16:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 40（`health --network` で停止）"
+  steps[7]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok（メモリ予算はホストの 128.0 GiB でなく Docker VM の 47.0 GiB を使う。ember と fakecas はポートを維持）"
+    build,0,"ok（すべてキャッシュ）"
+    up,0,"ok — ready: http://127.0.0.1:5000/（22 サービス。一回限りの 3 本は 0 で終了）"
+    "health --network",40,"failed: `ControlCe listens on *:5000 (not loopback; project port, owner not visible)`"
+```
+
+これで分かったこと:
+
+- core プロファイルは hardening の基準の下で Apple Silicon 上で端から端まで起動し、`up` はループバックの URL で準備完了を宣言する。節目 M2 の「一発導入」はアプリケーションに到達した。
+- `--network` の検査は 5000 番の、我々のものでないワイルドカードの待ち受けを見つけた。macOS の AirPlay レシーバー（ControlCenter）は `*:5000` と `*:7000` を bind する。我々の `web` はその横で `127.0.0.1:5000` に bind して応答している（カーネルは具体的な番地を優先する）。検査はプロジェクトのポート上のループバック以外の待ち受けをすべて失敗と扱っていた。
+
+決めたこと: `health --network` が失敗にするのは Docker に属する待ち受け（我々の公開ポートがループバック以外へ漏れている場合。[ADR-02](../decisions/ADR-02_Network_Model.md)）だけとする。プロジェクトのポート上の他プロセスは警告の行（`foreign-listener`）として報告し、操作者が望めば `GRDM_PORT_<SERVICE>` でポートを移せるようにする。第 17 回は下へ追記する。
+
+### 第 17 回 — 2026-11-06、他プロセスの待ち受けを警告に: `up` と `health --network` が合格、`scan` が始まる
+
+```toon
+run17:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 51（`scan` で停止: semgrep が PATH にない）"
+  steps[8]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,ok
+    build,0,"ok（すべてキャッシュ）"
+    up,0,"ok — ready: http://127.0.0.1:5000/"
+    "health --network",0,"ok。警告 1 件: foreign-listener ControlCe on *:5000（macOS の AirPlay レシーバー）"
+    scan,51,"failed: semgrep が PATH にない。その前に trivy 0.75.0 が 25 対象を検査"
+  trivy_findings[4]{severity,count}:
+    CRITICAL,1894
+    HIGH,8620
+    MEDIUM,10047
+    LOW,3955
+  trivy_problems: "src/RDM-cas-overlay-dev2027 の sbom/scan が rc 1（prebuilt 部品で checkout が無い）。リポジトリ自身の sbom/scan が rc 1"
+```
+
+これで分かったこと:
+
+- M2 の最初の二つの門は実機で通った。一つのコマンドで core プロファイルが起動し、ループバック限定の規則が守られている。
+- EOL イメージ群（Python 3.5/3.6、node 8/12、JDK 8、ES 2/6、mongo 3.4）の脆弱性件数は、[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) が M1〜M3 に想定したとおりである。今は報告と許容リスト、M4 で HIGH 停止、M5 で CRITICAL/HIGH ゼロ。
+- `scan` 自体に欠陥が二つある。SPEC-03 はローカルでも Semgrep を動かすのにブートストラップが Semgrep を入れていないこと、prebuilt 部品が決して clone しないソースディレクトリに Trivy を向けていること。
+
+決めたこと: ブートストラップは Semgrep を `grdm-dev` と同じ `.venv` に入れ、`scan` は自分のインタープリタの隣でも道具を探す。Trivy は prebuilt 部品のソースディレクトリを飛ばし、飛ばした理由を報告する。第 18 回は下に記した（終了コード 0）。
+
+### 第 18 回 — 2026-11-06、Semgrep を `.venv` に、Trivy はオフラインで対象を選ぶ: **コマンド全体が成功**
+
+```toon
+run18:
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 0 — GakuNin RDM developer environment is ready: http://127.0.0.1:5000/"
+  steps[9]{step,code,status}:
+    "secrets init",0,"skipped（runtime/.env があるため）"
+    doctor,0,ok
+    plan,0,ok
+    "compose render",0,"ok（ポートは維持。メモリ予算は Docker VM の 47.0 GiB から）"
+    build,0,"ok（すべてキャッシュ）"
+    up,0,"ok — 22 サービス、ループバックの URL で準備完了"
+    "health --network",0,"ok（警告: foreign-listener ControlCe on *:5000）"
+    scan,0,"ok — 門は報告のみ: 合格"
+    report,0,ok
+  scan_tools[4]{tool,version,targets,result}:
+    trivy,0.75.0,22,"ok（飛ばしたもの: prebuilt の cas-overlay と ember-osf-web の古い checkout、組み立てた _overlay/ の文脈）"
+    semgrep,1.184.0,4,ok
+    gitleaks,8.30.1,1,ok
+    zap,stable,3,ok
+  findings_by_severity[5]{severity,count}:
+    CRITICAL,1835
+    HIGH,8291
+    MEDIUM,9772
+    LOW,3899
+    INFO,5
+  allow_list: "0 件、許容 0 件。M4 の閾値（HIGH 以上）を超える 10126 件は M2 では報告のみで、停止させない"
+```
+
+これで分かったこと:
+
+- **M2 の一発導入は Mac Studio で動く**。最初の試みから 18 回目で、`./installer/install.sh --yes --no-open --profile core` は素のシェルから準備完了の URL まで、ループバック検査・スキャナー・報告書を通して終了コード 0 で到達する。
+- 第 1 回から第 18 回の間の停止はすべて、EOL イメージの事実か、実際に起動しないと分からないインストーラーの細部だった。それぞれ上に修正と文書とともに記録した。
+- EOL スタックの脆弱性の基準値が測れた。CRITICAL 1835 件、HIGH 8291 件で、ほぼすべてがイメージ由来（Python 3.5/3.6、node 8/12、JDK 8、Elasticsearch 2/6、mongo 3.4）。これが M4 と M5 でゼロにすべき数であり、許容リストは隠すためには使わず空のままにする。
+
+M2 の次: この起動したスタックに対する Playwright 受入（C1〜C6）と、RDM-osf.io-dev2027 側の Wiki エディタページの配線（C4）。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 

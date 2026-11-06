@@ -6,35 +6,20 @@
   },
   "exceptions": [
     {
-      "cap_add": [
-        "CHOWN",
-        "DAC_OVERRIDE",
-        "FOWNER",
-        "SETGID",
-        "SETUID"
-      ],
       "controls": [
         "user",
-        "cap_add"
+        "read_only"
       ],
-      "reason": "The official postgres entrypoint starts as root, fixes ownership of the data directory (bind-mounted under runtime/volumes/), runs the init scripts, then drops to the postgres user with gosu. A fixed user: breaks first start on Linux hosts where the bind mount is owned by the developer.",
+      "reason": "The prebuilt cas-overlay distribution image (manifest prebuilt_image, until M4) starts with `mvn -pl cas-server-webapp jetty:run`: Maven reads its local repository from /root/.m2repo (mode 0700, owned by root) and writes the webapp's target/ directory at start, so a fixed user: 1000:1000 fails with `Could not create local repository at /root/.m2repo` and a read-only root blocks the build output (real install run 8). No capability is added back; jetty binds 8080 inside the container only.",
       "review": "2027-01-31",
-      "service": "postgres",
-      "target": "M5 (postgres:15 with a pre-created data volume)"
+      "service": "cas",
+      "target": "M4 (modernized Dockerfile that bakes the war and runs jetty as non-root)"
     },
     {
-      "cap_add": [
-        "CHOWN",
-        "DAC_OVERRIDE",
-        "SETGID",
-        "SETUID"
-      ],
       "controls": [
-        "user",
-        "read_only",
-        "cap_add"
+        "read_only"
       ],
-      "reason": "elasticsearch:2 (end of life) starts as root, chowns its data directory and writes logs and plugin state under /usr/share/elasticsearch before dropping to the elasticsearch user.",
+      "reason": "elasticsearch:2 (end of life) writes logs and plugin state under /usr/share/elasticsearch at start-up. It now runs as the image's elasticsearch user (uid 101, template user:) instead of root, because the entrypoint's gosu aborts under Rosetta on Apple Silicon (real install run 8); user and cap_add are therefore no longer relaxed.",
       "review": "2027-01-31",
       "service": "elasticsearch",
       "target": "M5 (removed with ES8)"
@@ -70,6 +55,23 @@
       "cap_add": [
         "CHOWN",
         "DAC_OVERRIDE",
+        "FOWNER",
+        "SETGID",
+        "SETUID"
+      ],
+      "controls": [
+        "user",
+        "cap_add"
+      ],
+      "reason": "The official postgres entrypoint starts as root, fixes ownership of the data directory (bind-mounted under runtime/volumes/), runs the init scripts, then drops to the postgres user with gosu. A fixed user: breaks first start on Linux hosts where the bind mount is owned by the developer.",
+      "review": "2027-01-31",
+      "service": "postgres",
+      "target": "M5 (postgres:15 with a pre-created data volume)"
+    },
+    {
+      "cap_add": [
+        "CHOWN",
+        "DAC_OVERRIDE",
         "SETGID",
         "SETUID"
       ],
@@ -82,16 +84,6 @@
       "review": "2027-01-31",
       "service": "rabbitmq",
       "target": "M5 (current stable with RABBITMQ_CONFIG_FILE on a volume)"
-    },
-    {
-      "controls": [
-        "user",
-        "read_only"
-      ],
-      "reason": "centerforopenscience/unoconv runs LibreOffice as root and writes its profile and lock files inside the image; the shared /tmp volume is needed to exchange files with mfr.",
-      "review": "2027-01-31",
-      "service": "unoconv",
-      "target": "M4 (unoserver, mfr PR #9)"
     },
     {
       "cap_add": [
@@ -120,6 +112,20 @@
       "review": "2027-01-31",
       "service": "test_idp",
       "target": "M4"
+    },
+    {
+      "cap_add": [
+        "CHOWN"
+      ],
+      "controls": [
+        "user",
+        "read_only",
+        "cap_add"
+      ],
+      "reason": "centerforopenscience/unoconv runs LibreOffice as root and writes its profile and lock files inside the image; the shared /tmp volume is needed to exchange files with mfr. Its entrypoint runs `chown -R www-data:www-data /home` before exec, which fails with cap_drop ALL and restarts the container forever (real install run 8), so CAP_CHOWN is added back.",
+      "review": "2027-01-31",
+      "service": "unoconv",
+      "target": "M4 (unoserver, mfr PR #9)"
     },
     {
       "cap_add": [
