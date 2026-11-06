@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.10 — 2026-11-06. **Learned:** a warm success is not a cold-start success: with fresh volumes the emulated Elasticsearch 2 took 38 minutes to open its port and the database initialisation gave up; the same program on a native arm64 JRE starts in 5 seconds, so EOL amd64-only middleware must be built natively instead of emulated (review r1 of PR #33 asked for the cold start). ／ 温まった状態の成功はコールドスタートの成功ではない。新しいボリュームではエミュレーション下の Elasticsearch 2 がポートを開くまで 38 分かかり、データベース初期化が諦めた。同じプログラムは arm64 ネイティブの JRE で 5 秒で起動するので、amd64 しか無い EOL ミドルウェアはエミュレーションでなくネイティブで組む（PR #33 のレビュー r1 がコールドスタートを求めた）。
+- Version / 版: 0.11 — 2026-11-06. **Learned:** the cold start passes once the one emulated service that could not start natively is built natively (ADR-07): 31 minutes from empty volumes to a scanned, reported environment, bounded by the ember build and the migrations. ／ ネイティブで起動できなかった唯一のエミュレーションのサービスをネイティブで組む（ADR-07）と、コールドスタートは通る。空のボリュームから検査・報告済みの環境まで 31 分で、上限は ember のビルドと migration。
+  0.10 — 2026-11-06. **Learned:** a warm success is not a cold-start success: with fresh volumes the emulated Elasticsearch 2 took 38 minutes to open its port and the database initialisation gave up; the same program on a native arm64 JRE starts in 5 seconds, so EOL amd64-only middleware must be built natively instead of emulated (review r1 of PR #33 asked for the cold start). ／ 温まった状態の成功はコールドスタートの成功ではない。新しいボリュームではエミュレーション下の Elasticsearch 2 がポートを開くまで 38 分かかり、データベース初期化が諦めた。同じプログラムは arm64 ネイティブの JRE で 5 秒で起動するので、amd64 しか無い EOL ミドルウェアはエミュレーションでなくネイティブで組む（PR #33 のレビュー r1 がコールドスタートを求めた）。
   0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
   0.8 — 2026-11-06. **Learned:** after the images, the application layer fails for installer reasons that only a real start reveals — settings keys read at import, Compose's stdin and tmpfs semantics, a memory budget larger than the Docker VM, and a database that nobody initialised; and an unhandled 500 in osf.io's development server leaks a database connection. ／ イメージの後、アプリケーション層は実際に起動しないと分からないインストーラー側の理由で失敗する。import 時に読まれる設定キー、Compose の stdin と tmpfs の意味、Docker VM より大きいメモリ予算、誰も初期化していないデータベース。そして osf.io の開発サーバーの未処理の 500 はデータベース接続を漏らす。
   0.7 — 2026-11-06. **Learned:** once every image builds, the next failures are per-image start-up facts under the hardening baseline and under Rosetta emulation; and a Docker Desktop bind directory lies about ownership (`chown` is a no-op, `test -w` fails, writes succeed), so a container must probe by doing, not by asking. ／ すべてのイメージが組めた後の失敗は、hardening 基準と Rosetta エミュレーションの下でのイメージごとの起動の事実である。また Docker Desktop の bind ディレクトリは所有権について嘘をつく（`chown` は無効、`test -w` は失敗、書込は成功）ので、コンテナは尋ねるのではなく実際に試して確かめなければならない。
@@ -413,6 +414,37 @@ What this proves:
 - With Elasticsearch finally up, the cold start completes through `up` and the loopback check: the database initialisation, the wiki bundle and the ember build all work from empty volumes.
 - The cold start therefore completes end to end: `up`, `health --network`, `scan` and `report` all exit 0 on fresh volumes once Elasticsearch has started. The `scan` stop was self-inflicted (an operator's copy of `runtime/` inside the repository) and exposed two hardening points that are now in place: `runtime.*/` is ignored, and a Semgrep rule timeout is recorded as a coverage warning instead of failing the gate closed.
 
+### Run 21 — 2026-11-06, cold start with the native Elasticsearch 2 image (ADR-07): **30 minutes from empty volumes to ready, exit 0**
+
+```toon
+run21:
+  preparation: "`docker compose down -v`; runtime/ moved out of the repository (images kept); branch feat/native-elasticsearch2-image on develop f37a029"
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: exit 0 — "GakuNin RDM developer environment is ready: http://127.0.0.1:5000/" (04:53:51 → 05:24:34 UTC, 30 min 43 s)
+  steps[9]{step,code,status}:
+    doctor,0,ok
+    plan,0,ok
+    "secrets init",0,"ok (new runtime/.env)"
+    "compose render",0,ok
+    build,0,"ok — grdm-dev/elasticsearch2:2.4.6-1 built natively from installer/images/elasticsearch2 (cached layers), the rest cached"
+    up,0,"ok — containers created 04:54:40; elasticsearch `started` 04:54:49 (6 s after its container started); osf_init exited 0 at 04:59:45 (all migrations + institutions + OAuth scopes, 5 min); web/api/admin/worker started 04:59:46; ember served at 05:18:54 (24 min build, in parallel)"
+    "health --network",0,"ok (warning: foreign-listener ControlCe on *:5000)"
+    scan,0,"ok — gate report-only: pass; trivy 22 targets, semgrep 4, gitleaks 1, zap 3; no timeouts"
+    report,0,ok
+  trivy_totals_vs_run_18[4]{severity,run18_trivy,run21_trivy}:
+    CRITICAL,1835,1769
+    HIGH,8290,8030
+    MEDIUM,9763,9550
+    LOW,3886,3676
+  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — 59 findings (2 HIGH, 52 MEDIUM, 5 LOW) from the Elasticsearch 2.4.6 jars and the Temurin 8 base; the Docker Hub elasticsearch:2 image it replaces carried the bulk of the difference above"
+```
+
+What this proves:
+
+- A **cold start works end to end**: with nothing but the images cached, one command reaches a ready, scanned, reported environment in 31 minutes on Apple Silicon. The remaining wall time is the ember build (24 min, now in parallel) and the osf.io migrations (5 min).
+- The native Elasticsearch 2 starts in 6 seconds where the emulated one needed 38 minutes (run 19), runs as uid 1000 on a read-only root with no hardening exception and no owner-init container, and carries fewer known vulnerabilities than the official amd64 image.
+- Milestone M2's install criterion ([status board](../status/README.md#english)) is met on the Mac Studio for the core profile, warm and cold. What remains for M2 is the Playwright acceptance.
+
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
 ---
@@ -808,6 +840,37 @@ run20:
 
 - Elasticsearch がようやく起動すると、コールドスタートは `up` とループバック検査を通る。データベース初期化、wiki の束、ember のビルドはいずれも空のボリュームから動く。
 - したがってコールドスタートは端から端まで完了する。Elasticsearch が起動した後は、新しいボリューム上で `up`・`health --network`・`scan`・`report` がすべて終了 0。`scan` の停止は自分で招いたもの（操作者がリポジトリ内に置いた `runtime/` の写し）で、いま入れた二つの堅牢化点を露わにした。`runtime.*/` を無視すること、Semgrep のルールのタイムアウトは門を安全側に落とすのでなく網羅性の警告として記録すること。
+
+### 第 21 回 — 2026-11-06、ネイティブ Elasticsearch 2 イメージ（ADR-07）でのコールドスタート: **空のボリュームから準備完了まで 30 分、終了コード 0**
+
+```toon
+run21:
+  preparation: "`docker compose down -v`。runtime/ をリポジトリ外へ退避（イメージは保持）。ブランチ feat/native-elasticsearch2-image（develop f37a029 上）"
+  command: ./installer/install.sh --yes --no-open --profile core
+  result: "終了コード 0 — GakuNin RDM developer environment is ready: http://127.0.0.1:5000/（04:53:51 → 05:24:34 UTC、30 分 43 秒）"
+  steps[9]{step,code,status}:
+    doctor,0,ok
+    plan,0,ok
+    "secrets init",0,"ok（新しい runtime/.env）"
+    "compose render",0,ok
+    build,0,"ok — grdm-dev/elasticsearch2:2.4.6-1 を installer/images/elasticsearch2 からネイティブに組む（層はキャッシュ）。他もキャッシュ"
+    up,0,"ok — コンテナ作成 04:54:40。elasticsearch は 04:54:49 に `started`（コンテナ起動から 6 秒）。osf_init は 04:59:45 に 0 で終了（全 migration＋機関＋OAuth スコープ、5 分）。web/api/admin/worker は 04:59:46 に起動。ember は 05:18:54 に配信開始（24 分のビルド、並行）"
+    "health --network",0,"ok（警告: foreign-listener ControlCe on *:5000）"
+    scan,0,"ok — 門は報告のみ: 合格。trivy 22 対象、semgrep 4、gitleaks 1、zap 3。タイムアウトなし"
+    report,0,ok
+  trivy_totals_vs_run_18[4]{severity,run18_trivy,run21_trivy}:
+    CRITICAL,1835,1769
+    HIGH,8290,8030
+    MEDIUM,9763,9550
+    LOW,3886,3676
+  elasticsearch2_image: "grdm-dev/elasticsearch2:2.4.6-1 — 59 件（HIGH 2・MEDIUM 52・LOW 5）。Elasticsearch 2.4.6 の jar と Temurin 8 ベース由来。置き換えた Docker Hub の elasticsearch:2 が上の差分の大半を抱えていた"
+```
+
+これで分かったこと:
+
+- **コールドスタートが端から端まで動く**。イメージのキャッシュ以外は何も無い状態から、一つのコマンドで Apple Silicon 上 31 分で準備完了・検査済み・報告済みの環境に達する。残る所要時間は ember のビルド（24 分、いまは並行）と osf.io の migration（5 分）。
+- ネイティブの Elasticsearch 2 はエミュレーションで 38 分かかったところ（第 19 回）を 6 秒で起動し、uid 1000・読み取り専用ルートで堅牢化の例外も所有者初期化コンテナも無く動き、公式の amd64 イメージより既知の脆弱性が少ない。
+- 節目 M2 の導入基準（[進捗ボード](../status/README.md#japanese)）は、core プロファイルについて Mac Studio 上で温・冷ともに満たした。M2 に残るのは Playwright 受入。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 
