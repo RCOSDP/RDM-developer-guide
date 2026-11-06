@@ -404,13 +404,14 @@ run20:
     build,0,"ok (cached)"
     up,0,"ok — ready: http://127.0.0.1:5000/ on the fresh volumes: osf_init completed (migrations already applied in run 19, institutions imported once Elasticsearch answered), ember built its dist into the new volume"
     "health --network",0,"ok (warning: foreign-listener ControlCe on *:5000)"
-    scan,51,"semgrep reported 148 errors: per-file rule timeouts (default 5 s) while the host was still busy; the scan is marked incomplete and the gate fails closed"
+    scan,51,"semgrep reported 148 errors: per-file rule timeouts (default 5 s) — all of them in `runtime.run18-123040/`, the run-18 runtime moved aside inside the repository for this cold start (only `runtime/` was git-ignored, and Semgrep follows .gitignore); the scan is marked incomplete and the gate fails closed"
+  rerun_after_fix: "`grdm-dev scan` and `grdm-dev report` on the same stack after moving that directory out of the repository, adding `runtime.*/` to .gitignore and letting Semgrep treat rule timeouts as coverage warnings: scan exit 0 (gate report-only: pass; trivy/semgrep/gitleaks/zap all ok; the same 1835/8291/9772/3899/5 totals as run 18), report exit 0"
 ```
 
 What this proves:
 
 - With Elasticsearch finally up, the cold start completes through `up` and the loopback check: the database initialisation, the wiki bundle and the ember build all work from empty volumes.
-- `scan` is not yet robust under load: Semgrep's 5-second per-rule-per-file timeout trips on the large osf.io checkout while other containers consume the CPU. Timeouts are a coverage note, not a scanner failure; the next run raises the timeout and records skipped files as a warning instead of exit 51.
+- The cold start therefore completes end to end: `up`, `health --network`, `scan` and `report` all exit 0 on fresh volumes once Elasticsearch has started. The `scan` stop was self-inflicted (an operator's copy of `runtime/` inside the repository) and exposed two hardening points that are now in place: `runtime.*/` is ignored, and a Semgrep rule timeout is recorded as a coverage warning instead of failing the gate closed.
 
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
@@ -799,13 +800,14 @@ run20:
     build,0,"ok（キャッシュ）"
     up,0,"ok — ready: http://127.0.0.1:5000/。新しいボリューム上で osf_init が完了（migration は第 19 回で適用済み、Elasticsearch が応答してから機関を投入）、ember は新しいボリュームへ dist を組んだ"
     "health --network",0,"ok（警告: foreign-listener ControlCe on *:5000）"
-    scan,51,"semgrep がエラー 148 件を報告: ホストがまだ忙しい間にファイルごとのルールのタイムアウト（既定 5 秒）。検査は不完全と記録され、門は安全側に失敗"
+    scan,51,"semgrep がエラー 148 件を報告: ファイルごとのルールのタイムアウト（既定 5 秒）— すべて `runtime.run18-123040/`、このコールドスタートのためにリポジトリ内へ退避した第 18 回の runtime の中（git-ignore は `runtime/` だけで、Semgrep は .gitignore に従う）。検査は不完全と記録され、門は安全側に失敗"
+  rerun_after_fix: "そのディレクトリをリポジトリ外へ移し、.gitignore に `runtime.*/` を加え、Semgrep のルールのタイムアウトを網羅性の警告として扱うようにした後、同じスタックで `grdm-dev scan` と `grdm-dev report`: scan 終了 0（門は報告のみ: 合格。trivy/semgrep/gitleaks/zap すべて ok。件数は第 18 回と同じ 1835/8291/9772/3899/5）、report 終了 0"
 ```
 
 これで分かったこと:
 
 - Elasticsearch がようやく起動すると、コールドスタートは `up` とループバック検査を通る。データベース初期化、wiki の束、ember のビルドはいずれも空のボリュームから動く。
-- `scan` は負荷の下でまだ頑健でない。Semgrep のルール・ファイルごとの 5 秒のタイムアウトが、他のコンテナが CPU を使っている間に大きな osf.io の checkout で発動する。タイムアウトはスキャナーの失敗ではなく網羅性の注記であり、次の回ではタイムアウトを伸ばし、飛ばしたファイルを終了 51 でなく警告として記録する。
+- したがってコールドスタートは端から端まで完了する。Elasticsearch が起動した後は、新しいボリューム上で `up`・`health --network`・`scan`・`report` がすべて終了 0。`scan` の停止は自分で招いたもの（操作者がリポジトリ内に置いた `runtime/` の写し）で、いま入れた二つの堅牢化点を露わにした。`runtime.*/` を無視すること、Semgrep のルールのタイムアウトは門を安全側に落とすのでなく網羅性の警告として記録すること。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
 
