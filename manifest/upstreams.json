@@ -576,7 +576,7 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
-      "integration_sha": "bf2cd67051025416de028f6edd16c83d3fc8ba79",
+      "integration_sha": "09eb0a9f4af623760a15e100790381560b9e8ce0",
       "integration_repo": "RDM-y-websocket-dev2027",
       "note": "Built from the pinned checkout, which enforces JWT authentication (RDM-osf.io#797), with the recipe in this repository instead of the integration repository's Dockerfile: dependencies come from the checkout's package-lock.json (npm ci) and the running image has no npm or yarn (SPEC-01 build_dockerfile).",
       "platforms": [

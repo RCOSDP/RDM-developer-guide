@@ -139,7 +139,7 @@ class ServicesForProfileTests(unittest.TestCase):
             self.assertIsNone(self.man.component(cid).get("build_platform"), cid)
         self.assertTrue(services["rabbitmq"].image.startswith("rabbitmq:3-management@sha256:"))
         # PR #37 review r1 R1-01: the image must be built from the commit that enforces JWT authentication
-        self.assertEqual(services["y_websocket"].image, "grdm-dev/y-websocket:bf2cd6705102")
+        self.assertEqual(services["y_websocket"].image, "grdm-dev/y-websocket:09eb0a9f4af6")
         hardening = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))
         self.assertNotIn("elasticsearch6", {e["service"] for e in hardening["exceptions"]})
 

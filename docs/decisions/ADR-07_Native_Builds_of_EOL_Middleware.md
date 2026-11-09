@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-10. **Learned:** a rebuilt image is only as safe as the commit and dependency set it is built from, so the image must be tested at the authenticating commit with its lockfile and frozen modules, and a data-volume upgrade needs a restorable snapshot rather than an image reference to go back to (PR #37 review r1). ／ 組み直したイメージの安全性は、組む元のコミットと依存の組で決まる。認証を含むコミットとロックファイル、固定したモジュールでそのイメージを試験しなければならず、データボリュームの更新には戻る先のイメージ参照でなく復元できる snapshot が要る（PR #37 レビュー r1）。
+- Version / 版: 0.4 — 2026-11-10. **Learned:** a reproducible lockfile can preserve a fixable vulnerability, so the fix belongs in the lockfile of the component and is pinned here, and the upgrade path stays reachable before authentication because the browser client depends on the 4401 close (PR #37 review r2). ／ 再現可能なロックは修正可能な脆弱性も固定しうるので、修正はその部品のロックで行ってここで固定する。ブラウザのクライアントが 4401 の close に依存するため、upgrade の経路は認証の前でも到達できる（PR #37 レビュー r2）。
+  0.3 — 2026-11-10. **Learned:** a rebuilt image is only as safe as the commit and dependency set it is built from, so the image must be tested at the authenticating commit with its lockfile and frozen modules, and a data-volume upgrade needs a restorable snapshot rather than an image reference to go back to (PR #37 review r1). ／ 組み直したイメージの安全性は、組む元のコミットと依存の組で決まる。認証を含むコミットとロックファイル、固定したモジュールでそのイメージを試験しなければならず、データボリュームの更新には戻る先のイメージ参照でなく復元できる snapshot が要る（PR #37 レビュー r1）。
   0.2 — 2026-11-10. **Learned:** a lower CVE count proves nothing about the client on the other end of a socket: a current LibreOffice scanned far cleaner yet could not serve MFR's 6.1 UNO client, so each image change needs its real client path proven. ／ CVE の件数が減ってもソケットの相手のクライアントについては何も証明しない。現行の LibreOffice は検出がはるかに少なかったが MFR の 6.1 の UNO クライアントには応えられなかった。イメージの変更ごとに実際のクライアントの経路を証明する必要がある。
   0.1 — 2026-11-06. **Learned:** a cold start measures what a warm host hides: an emulated JDK 8 service spends tens of minutes initialising every time its data directory is new, and no timeout makes that acceptable; the program itself starts in seconds when it runs natively (real install run 19, PR #33 review r1). ／ コールドスタートは温まったホストが隠すものを測る。エミュレーションされた JDK 8 のサービスはデータディレクトリが新しいたびに数十分を初期化に費やし、どんなタイムアウトでもそれは許容できない。プログラム自体はネイティブで動かせば数秒で起動する（実機第 19 回、PR #33 レビュー r1）。
 - Status: Proposed for the owner's approval, 2026-11-06 (M2). Review date: start of M5 (Elasticsearch 2 retired); the rule itself stays for any later EOL middleware.
@@ -54,19 +55,19 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. Image vulnerability reduction (2026-11-10)
 
-Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `bf2cd67051025416de028f6edd16c83d3fc8ba79`.
+Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `09eb0a9f4af623760a15e100790381560b9e8ce0`, the head of the integration repository's `security/ws-update` branch (`bf2cd67051025416de028f6edd16c83d3fc8ba79` plus `ws` 6.2.6 in the lockfile).
 
 ```toon
 results[6]{image,before,after,outcome,proof}:
   elasticsearch6,37/236,2/50,"adopted: OSS 6.8.23 on Temurin 11 (image_build)","osf.io's django-elasticsearch-metrics wrote a template, documents and an aggregation on both architectures; a copy of a 6.3.1 data volume upgraded and validated; rollback demonstrated (§6)"
   fakecas,1/57,0/2,"adopted: pinned commit with current Go and frozen modules (image_build)","login form, ticket validation, login redirect, and 404 for an unknown ticket against postgres on both architectures; two uncached builds gave the same binary hash"
-  y-websocket,1/12,0/2,"adopted: JWT-enforcing commit, npm ci from its lockfile, no npm or yarn at run time, Node 24 LTS (build_dockerfile)","no, bad-signature, expired, wrong-document, no-exp, alg-none and duplicate tokens closed 4401 with zero frames; a valid token converged two Yjs providers; a missing secret refuses to start; both architectures"
+  y-websocket,1/12,0/0,"adopted: JWT-enforcing commit with ws 6.2.6, npm ci from its lockfile, no npm or yarn at run time, Node 24 LTS (build_dockerfile)","no, bad-signature, expired, wrong-document, no-exp, alg-none and duplicate tokens closed 4401 with zero frames; a valid token converged two Yjs providers; a missing secret refuses to start; both architectures"
   rabbitmq,0/7,0/7,"digest pinned; 3.13.7 is already the newest image of the 3-management tag","same image as the running one"
   unoconv,147/1140,147/1140,"blocked; candidate measured 1/73 was not adopted","see below"
   sharejs,394/1588,394/1588,"blocked; trial measured 3/51 was not adopted","see below"
 ```
 
-The two y-websocket findings are `ws` 6.2.2 from the commit's `package-lock.json` (fixed in 6.2.4); the lockfile is used as committed, so raising it is a change for the integration repository. The two fakecas findings are `dgrijalva/jwt-go` and `labstack/echo` v3, which upstream's module requires and which have no fixed version in that line. The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty, jackson, snakeyaml, bouncycastle and Elasticsearch itself) plus `apt` in the JRE base; Elastic published no later 6.8 release (6.8.24 answers 404), and M5 removes this line.
+A rejected y-websocket upgrade still passes `handleUpgrade` and is then closed with 4401, and this stays: a browser cannot read the reason of an HTTP 401 on a WebSocket upgrade, SPEC-04 C4 and S1 require 4401 with zero frames, and the wiki client's token recovery keys on that code. Refusing earlier would be a joint change to the client and SPEC-04; the two `ws` advisories on that path are fixed by 6.2.6. The two fakecas findings are `dgrijalva/jwt-go` and `labstack/echo` v3, which upstream's module requires and which have no fixed version in that line. The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty, jackson, snakeyaml, bouncycastle and Elasticsearch itself) plus `apt` in the JRE base; Elastic published no later 6.8 release (6.8.24 answers 404), and M5 removes this line.
 
 **unoconv is blocked.** LibreOffice from Debian 12 (7.4) and Debian 13 (25.2) accepts MFR's connection, but every `loadComponentFromURL` from MFR's LibreOffice 6.1 UNO client ends with `Binary URP bridge disposed during call`, on arm64 and amd64, hardened or not, and even with no arguments. The same probe converts against the old image, and a client of the listener's own version converts against the hardened listener. The fix belongs to the client side (MFR on a newer LibreOffice, or the unoserver move planned for M4), so no recipe was added and the service keeps its image and its hardening entry.
 
@@ -126,19 +127,19 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. イメージの脆弱性削減（2026-11-10）
 
-件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `bf2cd67051025416de028f6edd16c83d3fc8ba79` である。
+件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `09eb0a9f4af623760a15e100790381560b9e8ce0` で、統合リポジトリの `security/ws-update` ブランチの先頭である（`bf2cd67051025416de028f6edd16c83d3fc8ba79` にロックの `ws` 6.2.6 を加えたもの）。
 
 ```toon
 results[6]{image,before,after,outcome,proof}:
   elasticsearch6,37/236,2/50,"採用: Temurin 11 上の OSS 6.8.23（image_build）","osf.io の django-elasticsearch-metrics が両アーキテクチャでテンプレート・文書・集計を実行。6.3.1 のデータボリュームの写しを更新して検証し、復旧も実証（§6）"
   fakecas,1/57,0/2,"採用: 固定コミットを現行の Go と固定したモジュールで組む（image_build）","両アーキテクチャで postgres に対しログイン画面、チケット検証、ログイン後の転送、未知のチケットの 404。キャッシュなしの 2 回のビルドでバイナリのハッシュが一致"
-  y-websocket,1/12,0/2,"採用: JWT を強制するコミット、ロックファイルからの npm ci、実行時に npm・yarn 無し、Node 24 LTS（build_dockerfile）","トークン無し・署名不正・期限切れ・別文書・exp 無し・alg none・重複は 4401 で閉じフレーム 0。有効なトークンで 2 つの Yjs プロバイダが収束。秘密鍵無しでは起動拒否。両アーキテクチャ"
+  y-websocket,1/12,0/0,"採用: ws 6.2.6 を含む JWT を強制するコミット、ロックファイルからの npm ci、実行時に npm・yarn 無し、Node 24 LTS（build_dockerfile）","トークン無し・署名不正・期限切れ・別文書・exp 無し・alg none・重複は 4401 で閉じフレーム 0。有効なトークンで 2 つの Yjs プロバイダが収束。秘密鍵無しでは起動拒否。両アーキテクチャ"
   rabbitmq,0/7,0/7,"ダイジェストを固定。3.13.7 は 3-management タグの最新イメージ","動作中のものと同じイメージ"
   unoconv,147/1140,147/1140,"阻害要因あり。候補の実測 1/73 は不採用","下記"
   sharejs,394/1588,394/1588,"阻害要因あり。試作の実測 3/51 は不採用","下記"
 ```
 
-y-websocket の 2 件はコミットの `package-lock.json` が固定する `ws` 6.2.2 である（6.2.4 で修正）。ロックファイルはコミットのまま使うので、上げるのは統合リポジトリ側の変更になる。fakecas の 2 件は上流のモジュールが要する `dgrijalva/jwt-go` と `labstack/echo` v3 で、その系統に修正版は無い。elasticsearch6 に残る検出は 6.8.23 のリリースに含まれる jar（netty・jackson・snakeyaml・bouncycastle・Elasticsearch 本体）と JRE ベースの `apt` である。Elastic は後続の 6.8 を出しておらず（6.8.24 は 404）、M5 でこの系統ごと除く。
+拒否された y-websocket の upgrade は `handleUpgrade` を通った後で 4401 で閉じ、この動作は維持する。ブラウザは WebSocket の upgrade に対する HTTP 401 の理由を読めず、SPEC-04 の C4 と S1 は 4401 とフレーム 0 を求め、wiki のクライアントのトークン回復はこのコードで動く。より前で拒否するにはクライアントと SPEC-04 を一緒に変える必要がある。その経路にある `ws` の勧告 2 件は 6.2.6 で修正した。fakecas の 2 件は上流のモジュールが要する `dgrijalva/jwt-go` と `labstack/echo` v3 で、その系統に修正版は無い。elasticsearch6 に残る検出は 6.8.23 のリリースに含まれる jar（netty・jackson・snakeyaml・bouncycastle・Elasticsearch 本体）と JRE ベースの `apt` である。Elastic は後続の 6.8 を出しておらず（6.8.24 は 404）、M5 でこの系統ごと除く。
 
 **unoconv は阻害要因あり。** Debian 12（7.4）と Debian 13（25.2）の LibreOffice は MFR の接続を受けるが、MFR の LibreOffice 6.1 の UNO クライアントからの `loadComponentFromURL` はすべて `Binary URP bridge disposed during call` で終わる。arm64 でも amd64 でも、堅牢化の有無にかかわらず、引数が無くても同じである。同じ検証は旧イメージでは変換でき、リスナーと同じ版のクライアントは堅牢化したリスナーで変換できる。直す場所はクライアント側（MFR を新しい LibreOffice にするか、M4 予定の unoserver への移行）なので、レシピは追加せず、サービスのイメージと堅牢化の項目はそのままとする。
 
