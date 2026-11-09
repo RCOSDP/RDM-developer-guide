@@ -65,6 +65,7 @@ import math
 import os
 import re
 import socket
+import stat
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -378,14 +379,18 @@ def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[s
     """The owner each writable bind volume needs, and the services that must wait for it being set.
 
     Returns ({volume: "uid:gid"}, {service: [volumes]}). The owner is the fixed `user:` of the services
-    that mount the volume writable. A service with the `user` control relaxed (postgres, mongo, rabbitmq,
-    unoconv) starts as root and sets its own ownership, so its volumes are not ours to touch: chowning
-    postgres_data to anything but its own uid would break it. Two different owners for one volume are a
-    template error (ValueError, exit 20 upstream)."""
+    that mount the volume writable. A service with the `user` control relaxed starts as root and may set
+    its own ownership, so it never decides an owner: chowning postgres_data to anything but its own uid
+    would break it. It still waits when it shares a volume that has an owner (unoconv on wb_tmp). Two
+    different owners for one volume are a template error (ValueError, exit 20 upstream)."""
     owners: dict[str, str] = {}
     writers: dict[str, list[str]] = {}
+    relaxed_services: list[_manifest.Service] = []
     for svc in services:
-        if svc.name == OWNER_INIT_SERVICE or "user" in set(hardening.get(svc.name, {}).get("controls", [])):
+        if svc.name == OWNER_INIT_SERVICE:
+            continue
+        if "user" in set(hardening.get(svc.name, {}).get("controls", [])):
+            relaxed_services.append(svc)
             continue
         user = str(svc.template.get("user", "1000:1000"))
         for mount in svc.template.get("volumes", []):
@@ -395,16 +400,41 @@ def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[s
             if owners.setdefault(name, user) != user:
                 raise ValueError(f"volume {name}: services need different owners ({owners[name]} and {user}, service {svc.name})")
             writers.setdefault(svc.name, []).append(name)
+    for svc in relaxed_services:
+        shared = [m["volume"] for m in svc.template.get("volumes", []) if m.get("volume") in owners and not m.get("ro")]
+        if shared:
+            writers[svc.name] = shared
     return owners, writers
 
 
 def _owner_init_command(owners: dict[str, str]) -> list[str]:
-    """Hand every volume to its owner. An already-correct top directory is left alone: a second `up` must not
-    walk into a service's private 0700 directories, which a root with only CAP_CHOWN cannot enter (they would
-    fail the step and block the whole stack). A different owner means a fresh host-owned directory or an older
-    tree, which `chown -R` hands over. On Docker Desktop for Mac every path reads root:root and chown is a no-op."""
+    """Hand every volume to its owner (SPEC-02 §4, the migration and retry contract).
+
+    Every `up` walks the whole tree; there is no marker and no shortcut on the top directory, so a run that
+    stopped half way is finished by the next one, and a correct top directory cannot hide wrong descendants.
+    A root with only CAP_CHOWN is subject to file permissions and cannot enter another uid's 0700 directory,
+    but it may take ownership of it and then enter as its owner: the loop does that one level per pass, only for
+    directories "other" cannot read, with -prune because GNU find does not act on a directory it cannot open
+    (measured). It needs GNU coreutils: the elasticsearch2 base has uutils chown, which returned 0 without
+    changing such a directory (measured), so the step runs on the postgres image. Files go to the target uid while the tree is still open, a walk
+    proves none was missed, and directories go last and deepest first, because a private directory handed back cannot be
+    walked or reached through again by this process (the next run reopens it). A failure stops the step, naming the path, and writers
+    never start. A filesystem that does not keep ownership (a macOS VM share reads root:root whatever chown
+    does) is detected on the top directory and left alone. Nothing follows symlinks or leaves the volume."""
     steps = "".join(f'fix {owner} {OWNER_INIT_MOUNT}/{name}; ' for name, owner in owners.items())
-    return ["sh", "-c", f'set -e; fix() {{ [ "$(stat -c %u:%g "$2")" = "$1" ] || chown -R "$1" "$2"; }}; {steps}ls -ld {OWNER_INIT_MOUNT}/*']
+    different = '\\( ! -user "$u" -o ! -group "$g" \\)'
+    private = "-type d ! -user 0 ! -perm -005 -prune"
+    function = (
+        'fix() { chown -h "$1" "$2"; '
+        'if [ "$(stat -c %u:%g "$2")" != "$1" ]; then echo "$2: this filesystem does not keep ownership"; return 0; fi; '
+        'u=${1%:*}; g=${1#*:}; '
+        f'while [ -n "$(find "$2" -xdev {private} | head -n 1)" ]; do find "$2" -xdev {private} -exec chown -h 0:0 {{}} + ; done; '
+        f'find "$2" -xdev ! -type d {different} -exec chown -h "$1" {{}} + ; '
+        f'left=$(find "$2" -xdev ! -type d {different} | head -n 1); '
+        'if [ -n "$left" ]; then echo "volume_owner_init: $left is not $1; run up again, or reset to start over" >&2; exit 1; fi; '
+        f'find "$2" -xdev -depth -type d {different} -exec chown -h "$1" {{}} + ; }}; '
+    )
+    return ["sh", "-c", f"set -e; {function}{steps}ls -ld {OWNER_INIT_MOUNT}/*"]
 
 
 def with_owner_init(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> list[_manifest.Service]:
@@ -959,6 +989,45 @@ def detect_docker_cpus(runner) -> float | None:
 
 
 
+def volume_path_problems(root: Path, runtime: Path, names: list[str] | None = None) -> list[str]:
+    """Why runtime/volumes/ (or one of `names`, default every entry) must not be mounted or deleted.
+
+    A root container follows the bind source on the host side, so restricting the path inside the
+    container restricts nothing (PR #36 review r1 R1-01): a symlink here would hand an unrelated directory
+    to the owner step or to `reset`. Refused: a symlinked runtime/ or volumes root, a root that resolves
+    outside the checkout, a symlinked volume, and a volume on another filesystem (a host mount nested
+    in the tree; deeper ones are not crossed because `find` runs with -xdev)."""
+    base = runtime / VOLUMES_DIR
+    for path in (runtime, base):
+        if path.is_symlink():
+            return [f"{path} is a symbolic link"]
+    if not base.exists():
+        return []
+    expected = root.resolve() / runtime.name / VOLUMES_DIR
+    if base.resolve() != expected:
+        return [f"{base} resolves to {base.resolve()}, outside {expected.parent}"]
+    problems: list[str] = []
+    try:
+        entries = names if names is not None else sorted(p.name for p in base.iterdir())
+        base_dev = base.stat().st_dev
+    except OSError as exc:
+        return [f"cannot inspect {base}: {exc}"]
+    for name in entries:
+        path = base / name
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            problems.append(f"cannot inspect {path}: {exc}")
+            continue
+        if stat.S_ISLNK(info.st_mode):
+            problems.append(f"{path} is a symbolic link")
+        elif stat.S_ISDIR(info.st_mode) and info.st_dev != base_dev:
+            problems.append(f"{path} is a separate mount")
+    return problems
+
+
 def _ensure_volume_dir(vol_dir: Path) -> None:
     """Create a host-side bind volume directory with mode 0755 the first time only.
 
@@ -1017,6 +1086,10 @@ def run(
         }
     except (_manifest.ManifestError, ValueError, OSError) as exc:
         return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
+
+    bad_paths = volume_path_problems(ctx.root, ctx.runtime, volumes_of(services))
+    if bad_paths:
+        return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
 
     service_names = [s.name for s in services]
     try:

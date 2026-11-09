@@ -1,6 +1,6 @@
 {
   "service": "volume_owner_init",
-  "component": "elasticsearch2",
+  "component": "postgres",
   "profile": "minimum",
   "one_shot": true,
   "command": [
@@ -12,6 +12,6 @@
   "weight": 1,
   "mem_min_mb": 64,
   "pids_limit": 64,
-  "note": "Generic owner step for every writable bind volume, replacing the per-volume elasticsearch_data_init and wiki_static_init. A fresh directory under runtime/volumes/ belongs to the host user, so on a Linux or WSL2 host a non-root writer cannot use it unless the host uid happens to match (redis is uid 999, the others 1000). `compose render` fills `volumes` and `command` from the profile (compose.with_owner_init): each volume goes to the `user:` of the services that mount it writable, and those services wait with service_completed_successfully. Services that keep root and fix their own ownership (postgres, mongo, rabbitmq, unoconv; the `user` control in manifest/hardening.json) are left alone. It runs the elasticsearch2 image because that is the one locally built image every profile has. Explicit root (run_as 0:0) with cap_drop ALL and only CAP_CHOWN, read-only root, no-new-privileges, one hardening exception. On Docker Desktop for Mac chown is a no-op and the step changes nothing. Idempotent.",
+  "note": "Generic owner step for every writable bind volume, replacing the per-volume elasticsearch_data_init and wiki_static_init. A fresh directory under runtime/volumes/ belongs to the host user, so on a Linux or WSL2 host a non-root writer cannot use it unless the host uid happens to match (redis is uid 999, the others 1000). `compose render` fills `volumes` and `command` from the profile (compose.with_owner_init): each volume goes to the `user:` of the services that mount it writable, and those services wait with service_completed_successfully. Services that keep root (the `user` control in manifest/hardening.json) never decide an owner: postgres, mongo and rabbitmq keep theirs, while unoconv shares wb_tmp with its uid-1000 writers and waits for this step. It runs the postgres image, which every profile has, because the step needs GNU coreutils: the elasticsearch2 base ships uutils chown, which returned 0 without changing another uid's private directory (measured). Explicit root (run_as 0:0) with cap_drop ALL and only CAP_CHOWN, read-only root, no-new-privileges, one hardening exception. A filesystem that does not keep ownership (macOS VM shares) is detected and left alone. Every run walks the whole volume, so a stopped run is finished by the next one (SPEC-02 §4).",
   "run_as": "0:0"
 }

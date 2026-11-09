@@ -9,7 +9,7 @@ is never required by unit tests (SPEC-02 §10).
 Exit codes: 10 when the host itself is unsupported (OS, CPU, memory, Python), 11 when Docker is
 missing, not running, or lacks the Compose / buildx plugin, 13 when a prerequisite of the build is
 missing (git, read access to the private integration repositories, amd64 emulation on Linux arm64,
-a checkout path Docker cannot use), 51 when a scanner is missing. Warnings (best-effort host, low
+a checkout the Docker engine cannot see, or one that cannot keep 0600), 51 when a scanner is missing. Warnings (best-effort host, low
 memory, little disk) do not change the exit code unless `--strict` is given, which turns them
 into exit 10 so CI can insist on an official host.
 
@@ -35,6 +35,9 @@ REPO_ACCESS_HINT = (
     "登録して、Git に読み取り権限を与えてください。トークンを URL や runtime/.env に書かないでください"
 )
 _NETWORK_ERRORS = ("could not resolve host", "failed to connect", "network is unreachable", "timed out", "operation timed out")
+
+
+DOCKER_SHARED_ENV = "GRDM_DOCKER_SHARED"  # macOS: "1" skips the engine check when it cannot be run
 
 
 def register(subparsers) -> None:
@@ -102,7 +105,36 @@ def check_memory_floors(services: list, info: host.HostInfo, vm_gib: float | Non
     info.supported = False
 
 
-def preflight(ctx: Context, runner, probe: host.Probe, info: host.HostInfo, memory_gib: float | None) -> None:
+def visibility_argv(image: str, repo_root: str) -> list[str]:
+    """List a known file through a read-only bind mount of this checkout: what the engine sees, as `up` will mount it."""
+    return ["docker", "run", "--rm", "--pull", "missing", "--network", "none", "--read-only", "--cap-drop", "ALL",
+            "--security-opt", "no-new-privileges:true", "--entrypoint", "ls", "-v", f"{repo_root}/manifest:/probe:ro", image, "/probe/upstreams.json"]
+
+
+def check_engine_visibility(probe: host.Probe, info: host.HostInfo, runner, image: str) -> None:
+    """macOS: can the Docker VM see this checkout? Asked of the engine, because sharing differs between Docker
+    Desktop and Colima and a bind mount from an unshared path is silently empty. Uses a pinned image `up` needs."""
+    if info.os_name != "macos" or not probe.repo_root or not info.docker_running:
+        return
+    if probe.env.get(DOCKER_SHARED_ENV) == "1":
+        info.warnings.append(f"{DOCKER_SHARED_ENV}=1: not checking that the Docker VM can see {probe.repo_root} / {DOCKER_SHARED_ENV}=1 のため Docker VM から {probe.repo_root} が見えるか確かめていません")
+        return
+    rc, out = runner(visibility_argv(image, probe.repo_root))
+    if rc == 0:
+        return
+    if rc != 125 and "no such file" in (out or "").lower():
+        info.prerequisite_problems.append(
+            f"the Docker engine cannot see {probe.repo_root}, so bind mounts would be silently empty; share that path with the Docker VM or clone the repository under a shared one / "
+            f"Docker エンジンから {probe.repo_root} が見えないため bind mount が黙って空になります。そのパスを Docker VM と共有するか、共有された場所へ clone してください"
+        )
+    else:
+        info.warnings.append(
+            f"could not ask the Docker engine whether it sees {probe.repo_root}; if services start empty, share that path (set {DOCKER_SHARED_ENV}=1 to skip this check) / "
+            f"Docker エンジンに {probe.repo_root} が見えるか確かめられませんでした。サービスの中身が空なら、そのパスを共有してください（{DOCKER_SHARED_ENV}=1 でこの確認を省けます）"
+        )
+
+
+def preflight(ctx: Context, runner, long_runner, probe: host.Probe, info: host.HostInfo, memory_gib: float | None) -> None:
     if not ctx.manifest_path.exists():
         return  # not a checkout of this repository (`doctor --root` elsewhere): only the host checks apply
     try:
@@ -114,6 +146,9 @@ def preflight(ctx: Context, runner, probe: host.Probe, info: host.HostInfo, memo
         return
     if info.docker_running:
         check_memory_floors(services, info, compose.detect_docker_memory_gib(runner), memory_gib, profile)
+        postgres = next((s.image for s in services if s.name == "postgres"), None)
+        if postgres:
+            check_engine_visibility(probe, info, long_runner, postgres)
     amd64 = [s.name for s in services if "amd64" in str(man.component(s.component).get("build_platform") or "")]
     host.check_amd64_emulation(probe, info, amd64)
     if probe.tools is not None and probe.tools.get("git"):
@@ -121,10 +156,11 @@ def preflight(ctx: Context, runner, probe: host.Probe, info: host.HostInfo, memo
 
 
 def run(ctx: Context, args, runner=None, probe=None) -> int:
+    long_runner = runner or build.default_runner  # no 15 s limit: the visibility check may pull its image
     runner = runner or host.default_runner
     probe = probe or host.Probe.from_system(root=ctx.root, runner=runner)
     info = host.detect(runner=runner, probe=probe, root=ctx.root)
-    preflight(ctx, runner, probe, info, getattr(args, "memory_gib", None))
+    preflight(ctx, runner, long_runner, probe, info, getattr(args, "memory_gib", None))
     data = host.as_report(info)
     data["strict"] = bool(getattr(args, "strict", False))
     report.emit(ctx, "doctor", data)

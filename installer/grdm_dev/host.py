@@ -18,8 +18,10 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -80,6 +82,7 @@ class Probe:
     tools: Optional[dict[str, bool]] = None  # name -> found, for REQUIRED_TOOLS + SCANNER_TOOLS; None = not probed
     repo_root: str = ""                 # resolved repository root; "" = not probed
     binfmt_amd64: Optional[bool] = None  # Linux: an enabled amd64 handler in binfmt_misc; None = unknown
+    repo_modes_enforced: Optional[bool] = None  # WSL2: the checkout's filesystem keeps chmod 0600; None = unknown
 
     @classmethod
     def from_system(cls, root: Path | None = None, runner: Runner | None = None) -> "Probe":
@@ -101,6 +104,8 @@ class Probe:
             repo_root=str(root.resolve()),
             binfmt_amd64=_binfmt_amd64() if system == "Linux" else None,
         )
+        if classify_os(p)[0] == "wsl2":
+            p.repo_modes_enforced = _modes_enforced(root)
         return p
 
 
@@ -160,6 +165,26 @@ def _binfmt_amd64() -> Optional[bool]:
     if not Path("/proc/sys/fs/binfmt_misc").is_dir():
         return None
     return any(_read_text(path).splitlines()[:1] == ["enabled"] for path in BINFMT_AMD64_FILES)
+
+
+def _modes_enforced(root: Path) -> Optional[bool]:
+    """Does this filesystem keep a chmod? The fact behind `runtime/.env` at 0600, wherever it is mounted: a
+    Windows drive without the `metadata` option reports 0777. None when no file can be created to find out."""
+    try:
+        fd, name = tempfile.mkstemp(prefix=".grdm-mode-probe-", dir=root)
+    except OSError:
+        return None
+    os.close(fd)
+    try:
+        os.chmod(name, 0o600)
+        return stat.S_IMODE(os.stat(name).st_mode) == 0o600
+    except OSError:
+        return None
+    finally:
+        try:
+            os.unlink(name)
+        except OSError:
+            pass
 
 
 def _disk_free_bytes(root: Path) -> Optional[int]:
@@ -307,26 +332,17 @@ def check_tools(probe: Probe, info: HostInfo) -> None:
 
 
 def check_repo_path(probe: Probe, info: HostInfo) -> None:
-    """Reject checkouts Docker cannot use properly (exit 13). Nothing when the path was not probed."""
-    root = probe.repo_root
-    if not root:
+    """WSL2: the checkout must be on a filesystem that keeps file modes (exit 13). Decided by a chmod that is
+    read back, so a Linux disk mounted under /mnt passes and a Windows drive mounted elsewhere does not."""
+    if info.os_name != "wsl2":
         return
-    if info.os_name == "wsl2" and (root == "/mnt" or root.startswith("/mnt/")):
-        # A Windows drive (drvfs) has no POSIX modes, so runtime/.env cannot be 0600 (SPEC-03 §3.1, BASE-ENV-MODE).
+    if probe.repo_modes_enforced is False:
         info.prerequisite_problems.append(
-            f"repository is on a Windows drive ({root}), where file modes such as 0600 on runtime/.env do not work; clone it inside WSL, for example under ~/ / "
-            f"リポジトリが Windows のドライブ上にあります（{root}）。runtime/.env の 0600 などのファイルモードが効きません。WSL の中（例: ~/ の下）へ clone してください"
+            f"the filesystem of {probe.repo_root} does not keep file modes, so runtime/.env cannot be 0600 (a Windows drive?); clone the repository inside WSL, for example under ~/ / "
+            f"{probe.repo_root} のファイルシステムはファイルモードを保持しないため runtime/.env を 0600 にできません（Windows のドライブ?）。WSL の中（例: ~/ の下）へ clone してください"
         )
-    if info.os_name == "macos":
-        home = probe.env.get("HOME", "").rstrip("/")
-        if root.startswith("/Volumes/"):
-            info.warnings.append(f"{root} must be shared with the Docker VM, or bind mounts will be empty / {root} を Docker VM と共有していないと bind mount が空になります")
-        elif not home or not (root == home or root.startswith(home + "/")):
-            # Measured on Colima (real engine, 2026-11-10): a bind mount from /private/tmp is silently empty, one under $HOME is not.
-            info.prerequisite_problems.append(
-                f"repository at {root} is outside your home directory, which the Docker VM may not share (bind mounts would be silently empty); clone it under {home or '~'}/ / "
-                f"リポジトリ {root} はホームディレクトリの外にあり、Docker VM と共有されていない可能性があります（bind mount が黙って空になります）。{home or '~'}/ の下へ clone してください"
-            )
+    elif probe.repo_modes_enforced is None and probe.repo_root:
+        info.warnings.append(f"could not test file modes in {probe.repo_root} / {probe.repo_root} のファイルモードを確かめられませんでした")
 
 
 def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> None:

@@ -8,6 +8,7 @@ import io
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -22,11 +23,11 @@ from test_host import GIB, docker_runner, macos_probe, ubuntu_probe
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_OK = {"git": True, "trivy": True, "gitleaks": True, "semgrep": True}
 WSL = dict(release="5.15.153.1-microsoft-standard-WSL2", proc_version="Linux version 5.15.153.1-microsoft-standard-WSL2 (root@...)")
-SECRET_URL = "fatal: unable to access 'https://x-access-token:s3cr3t-token@github.com/RCOSDP/RDM-osf.io-dev2027.git/'"
+SECRET_URL = "fatal: unable to access 'https://x-access-token:s3cr3t-token@example.invalid/org/repo.git/'"
 HOME = "/Users/dev"
 
 
-def preflight_runner(ls_remote=(0, "abc\tHEAD\n"), vm_bytes=64 * GIB, **docker):
+def preflight_runner(ls_remote=(0, "abc\tHEAD\n"), vm_bytes=64 * GIB, visible=(0, "/probe/upstreams.json\n"), **docker):
     """docker_runner, plus `docker info` and `git ls-remote` (one answer, or a function of the repository)."""
     base = docker_runner(**docker)
     calls = []
@@ -37,6 +38,8 @@ def preflight_runner(ls_remote=(0, "abc\tHEAD\n"), vm_bytes=64 * GIB, **docker):
             return 0, f"{vm_bytes}\n"
         if "ls-remote" in argv:
             return ls_remote(argv) if callable(ls_remote) else ls_remote
+        if argv[:2] == ["docker", "run"]:
+            return visible
         return base(argv)
 
     run.calls = calls
@@ -251,30 +254,71 @@ class ArmEmulationTests(PreflightBase):
 
 
 class RepoPathTests(PreflightBase):
-    def test_wsl2_under_home_passes(self):
-        code, _, _ = self.doctor(ubuntu_probe(**WSL, memory_bytes=64 * GIB, tools=dict(TOOLS_OK), repo_root="/home/dev/rdm"), preflight_runner())
+    NO_SUCH_FILE = (2, "ls: cannot access '/probe/upstreams.json': No such file or directory\n")
+
+    def wsl(self, **over):
+        base = dict(memory_bytes=64 * GIB, tools=dict(TOOLS_OK), repo_root="/home/dev/rdm", repo_modes_enforced=True)
+        base.update(over)
+        return ubuntu_probe(**WSL, **base)
+
+    def test_wsl2_filesystem_that_keeps_modes_passes(self):
+        self.assertEqual(self.doctor(self.wsl(), preflight_runner())[0], exit_codes.OK)
+
+    def test_wsl2_linux_disk_under_mnt_passes(self):
+        self.assertEqual(self.doctor(self.wsl(repo_root="/mnt/data/rdm", repo_modes_enforced=True), preflight_runner())[0], exit_codes.OK)
+
+    def test_wsl2_filesystem_that_drops_modes_is_exit_13_wherever_it_is_mounted(self):
+        for where in ("/mnt/c/Users/dev/rdm", "/win/rdm"):
+            with self.subTest(where):
+                code, _, err = self.doctor(self.wsl(repo_root=where, repo_modes_enforced=False), preflight_runner())
+                self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
+                self.assertIn("0600", err)
+
+    def test_wsl2_unknown_modes_is_a_warning(self):
+        code, out, _ = self.doctor(self.wsl(repo_modes_enforced=None), preflight_runner())
         self.assertEqual(code, exit_codes.OK)
+        self.assertIn("could not test file modes", out)
 
-    def test_wsl2_on_a_windows_drive_is_exit_13(self):
-        code, _, err = self.doctor(ubuntu_probe(**WSL, memory_bytes=64 * GIB, tools=dict(TOOLS_OK), repo_root="/mnt/c/Users/dev/rdm"), preflight_runner())
-        self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
-        self.assertIn("0600", err)
+    def test_mode_probe_reads_a_real_chmod_back_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertIs(host._modes_enforced(Path(td)), True)
+            self.assertEqual(list(Path(td).iterdir()), [])
+            with mock.patch.object(host.os, "stat", return_value=mock.Mock(st_mode=0o100777)):
+                self.assertIs(host._modes_enforced(Path(td)), False)
+        self.assertIsNone(host._modes_enforced(Path("/nonexistent/grdm")))
 
-    def test_plain_ubuntu_may_live_under_mnt(self):
-        self.assertEqual(self.doctor(self.ubuntu(repo_root="/mnt/data/rdm"), preflight_runner())[0], exit_codes.OK)
+    def test_macos_path_the_engine_sees_passes_wherever_it_is(self):
+        runner = preflight_runner()
+        for where in ("/Users/dev/rdm", "/private/tmp/rdm", "/opt/rdm"):
+            with self.subTest(where):
+                self.assertEqual(self.doctor(self.mac(repo_root=where), runner)[0], exit_codes.OK)
+        argv = next(c for c in runner.calls if c[:2] == ["docker", "run"])
+        self.assertIn("/opt/rdm/manifest:/probe:ro", [c for c in runner.calls if c[:2] == ["docker", "run"]][-1])
+        self.assertIn("--read-only", argv)
+        self.assertEqual(argv[argv.index("--network") + 1], "none")
+        self.assertEqual(argv[argv.index("--cap-drop") + 1], "ALL")
 
-    def test_mac_outside_home_is_exit_13(self):
-        code, _, err = self.doctor(self.mac(repo_root="/private/tmp/rdm"), preflight_runner())
+    def test_macos_path_the_engine_cannot_see_is_exit_13(self):
+        code, _, err = self.doctor(self.mac(repo_root="/Users/dev/rdm"), preflight_runner(visible=self.NO_SUCH_FILE))
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
         self.assertIn("silently empty", err)
 
-    def test_mac_home_prefix_is_not_enough(self):
-        self.assertEqual(self.doctor(self.mac(repo_root=f"{HOME}-other/rdm"), preflight_runner())[0], exit_codes.PREFLIGHT_FAILED)
-
-    def test_mac_external_volume_is_a_warning(self):
-        code, out, _ = self.doctor(self.mac(repo_root="/Volumes/ssd/rdm"), preflight_runner())
+    def test_macos_check_that_cannot_run_is_a_warning_naming_the_override(self):
+        code, out, _ = self.doctor(self.mac(), preflight_runner(visible=(125, "Unable to find image; pull failed")))
         self.assertEqual(code, exit_codes.OK)
-        self.assertIn("must be shared", out)
+        self.assertIn("GRDM_DOCKER_SHARED=1", out)
+
+    def test_macos_override_skips_the_engine(self):
+        runner = preflight_runner(visible=self.NO_SUCH_FILE)
+        code, out, _ = self.doctor(self.mac(env={"HOME": HOME, doctor.DOCKER_SHARED_ENV: "1"}), runner)
+        self.assertEqual(code, exit_codes.OK)
+        self.assertEqual([c for c in runner.calls if c[:2] == ["docker", "run"]], [])
+        self.assertIn("not checking", out)
+
+    def test_engine_question_is_macos_only(self):
+        runner = preflight_runner(visible=self.NO_SUCH_FILE)
+        self.assertEqual(self.doctor(self.ubuntu(), runner)[0], exit_codes.OK)
+        self.assertEqual([c for c in runner.calls if c[:2] == ["docker", "run"]], [])
 
 
 class OwnerInitTests(unittest.TestCase):
@@ -330,9 +374,19 @@ class OwnerInitTests(unittest.TestCase):
         for name in ("redis", "elasticsearch", "elasticsearch6", "wb", "wb_worker", "mfr", "ember_osf_web", "wiki_assets", "web"):
             self.assertEqual(services[name]["depends_on"]["volume_owner_init"], wait, name)
 
-    def test_a_correct_owner_is_not_walked_again(self):
+    def test_unoconv_can_use_the_shared_directory_and_waits(self):
+        services = self.render()
+        unoconv = services["unoconv"]
+        self.assertIn("DAC_OVERRIDE", unoconv["cap_add"])
+        self.assertEqual(unoconv["cap_drop"], ["ALL"])
+        self.assertEqual(unoconv["depends_on"]["volume_owner_init"], {"condition": "service_completed_successfully"})
+        self.assertIn("fix 1000:1000 /volumes/wb_tmp", services["volume_owner_init"]["command"][2])  # unoconv does not decide the owner
+
+    def test_no_shortcut_on_the_top_directory(self):
         cmd = self.render()["volume_owner_init"]["command"][2]
-        self.assertIn('[ "$$(stat -c %u:%g "$$2")" = "$$1" ] || chown -R "$$1" "$$2"', cmd)
+        self.assertNotIn("chown -R", cmd)
+        self.assertIn("-xdev", cmd)
+        self.assertIn("chown -h", cmd)
 
     def test_conflicting_owners_are_rejected(self):
         svc = lambda name, user: manifest.Service(name=name, component="c", role="r", image="i", profile="core", build=None,  # noqa: E731
@@ -349,28 +403,281 @@ class OwnerInitTests(unittest.TestCase):
         reader = manifest.Service(name="r", component="c", role="r", image="i", profile="core", build=None, template={})
         self.assertEqual(compose.with_owner_init([reader], {}), [reader])
 
-    @unittest.skipUnless(shutil.which("sh"), "no shell")
-    def test_the_shell_step_really_chowns_only_when_the_owner_differs(self):
-        """The generated script, run for real against a fake `chown` on PATH."""
+
+
+FAKE_FS = r"""#!PYTHON
+# find, chown and stat over a JSON model of a tree, matching GNU find and chown measured on a real kernel: {path: [uid, gid, mode]}. Directories are the entries that
+# have children or mode bit 0o40000. The caller is root with only CAP_CHOWN: file permissions apply to it.
+import json, os, sys
+
+STATE = os.environ["FS_STATE"]
+FAIL_ONCE = os.environ.get("FS_FAIL_ONCE", "")
+tool = os.path.basename(sys.argv[0])
+fs = json.load(open(STATE))
+
+
+def save():
+    json.dump(fs, open(STATE, "w"))
+
+
+def reachable(path):
+    # Root with only CAP_CHOWN: every ancestor must be searchable through its owner or "other" bits.
+    parent = os.path.dirname(path)
+    while parent in fs:
+        uid, _, mode = fs[parent]
+        if ((mode >> 6) & 1) == 0 if uid == 0 else (mode & 1) == 0:
+            return False
+        parent = os.path.dirname(parent)
+    return True
+
+
+def chown(owner, path):
+    if os.environ.get("FS_NO_OWNERSHIP"):
+        return
+    if not reachable(path):
+        print(f"chown: cannot access {path}: Permission denied", file=sys.stderr)
+        sys.exit(1)
+    fs[path][:2] = [int(x) for x in owner.split(":")]
+    save()
+
+
+def children(path):
+    return sorted(p for p in fs if os.path.dirname(p) == path)
+
+
+def is_dir(path):
+    return bool(children(path)) or fs[path][2] & 0o40000
+
+
+if tool == "stat":
+    uid, gid, _ = fs[sys.argv[-1]]
+    print("0:0" if os.environ.get("FS_NO_OWNERSHIP") else f"{uid}:{gid}")
+elif tool == "chown":
+    for path in sys.argv[3:]:
+        if path == FAIL_ONCE and os.path.exists(STATE + ".fail"):
+            os.unlink(STATE + ".fail")
+            sys.exit(1)
+        chown(sys.argv[2], path)
+elif tool == "find":
+    args = sys.argv[2:]
+    opening = "-perm" in args
+    only_dirs = not opening and "-type" in args and args[args.index("-type") - 1] != "!"
+    only_files = not opening and "-type" in args and args[args.index("-type") - 1] == "!"
+    u, g = (int(args[args.index("-user") + 1]), None) if opening else (int(args[args.index("-user") + 1]), int(args[args.index("-group") + 1]))
+    batch = []
+    code = 0
+
+    def walk(path):
+        global code
+        uid, gid, mode = fs[path]
+        if opening:
+            if is_dir(path) and uid != 0 and (mode & 5) != 5:
+                batch.append(path)
+                return  # -prune: GNU find does not open it
+        elif (uid != u or gid != g) and not (only_dirs and not is_dir(path)) and not (only_files and is_dir(path)):
+            batch.append(path)
+        if is_dir(path):
+            allowed = (mode >> 6) & 5 == 5 if fs[path][0] == 0 else (mode & 5) == 5
+            if not allowed:
+                print(f"find: {path}: Permission denied", file=sys.stderr)
+                code = 1
+                return
+            for child in children(path):
+                walk(child)
+
+    walk(sys.argv[1])
+    if "-depth" in args:
+        batch.reverse()  # children before their directory
+    if "-exec" in args:
+        owner = args[args.index("-exec") + 3]
+        for path in batch:
+            if path == FAIL_ONCE and os.path.exists(STATE + ".fail"):
+                os.unlink(STATE + ".fail")
+                sys.exit(1)
+            chown(owner, path)
+    else:
+        print("\n".join(batch))
+    sys.exit(code)
+"""
+
+DIR = 0o40000
+
+
+class OwnerStepContractTests(unittest.TestCase):
+    """The generated script over a model of Linux permissions (the model is proven against a real kernel by hand)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        (base / "bin").mkdir()
+        for tool in ("find", "chown", "stat"):
+            (base / "bin" / tool).write_text(FAKE_FS.replace("#!PYTHON", f"#!{sys.executable}"))
+            (base / "bin" / tool).chmod(0o755)
+        (base / "bin" / "ls").write_text("#!/bin/sh\nexit 0\n")
+        (base / "bin" / "ls").chmod(0o755)
+        self.base = base
+        self.state = base / "state.json"
+        self.script = compose._owner_init_command({"data": "1000:1000"})[2]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_step(self, tree, **env):
+        if tree is not None:
+            self.state.write_text(json.dumps(tree))
+        proc = subprocess.run(["/bin/sh", "-c", self.script], capture_output=True, text=True,
+                              env={"PATH": f"{self.base / 'bin'}:/bin:/usr/bin", "FS_STATE": str(self.state), **env})
+        return proc, json.loads(self.state.read_text())
+
+    def owners(self, fs):
+        return {p: tuple(v[:2]) for p, v in fs.items()}
+
+    def assert_all_owned(self, fs):
+        self.assertEqual(set(self.owners(fs).values()), {(1000, 1000)}, fs)
+
+    def test_fresh_host_owned_tree(self):
+        proc, fs = self.run_step({"/volumes/data": [501, 20, DIR | 0o755], "/volumes/data/f": [501, 20, 0o644]})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_private_descendants_of_another_uid(self):
+        proc, fs = self.run_step({
+            "/volumes/data": [101, 101, DIR | 0o700],
+            "/volumes/data/private": [101, 101, DIR | 0o700],
+            "/volumes/data/private/deep": [999, 999, DIR | 0o700],
+            "/volumes/data/private/deep/secret": [999, 999, 0o600],
+        })
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+        self.assertEqual(fs["/volumes/data/private/deep"][2], DIR | 0o700)  # never chmods
+
+    def test_directories_are_handed_back_deepest_first(self):
+        self.assertIn('-xdev -depth -type d', self.script)
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/a": [999, 999, DIR | 0o700], "/volumes/data/a/b": [999, 999, DIR | 0o700], "/volumes/data/a/b/c": [999, 999, DIR | 0o700]}
+        proc, fs = self.run_step(tree)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_a_second_run_reopens_directories_it_handed_back(self):
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/p": [1000, 1000, DIR | 0o700], "/volumes/data/p/wrong": [999, 999, 0o600]}
+        proc, fs = self.run_step(tree)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+        proc, fs = self.run_step(None)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_mixed_ownership_under_a_correct_top_directory(self):
+        proc, fs = self.run_step({
+            "/volumes/data": [1000, 1000, DIR | 0o755],
+            "/volumes/data/ok": [1000, 1000, 0o644],
+            "/volumes/data/wrong": [999, 1000, 0o644],
+            "/volumes/data/group": [1000, 0, 0o644],
+        })
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_failure_stops_and_a_retry_finishes_the_tree(self):
+        tree = {"/volumes/data": [101, 101, DIR | 0o700], "/volumes/data/a": [101, 101, 0o600], "/volumes/data/b": [101, 101, 0o600]}
+        self.state.with_name("state.json.fail").write_text("")
+        env = {"FS_FAIL_ONCE": "/volumes/data/b"}
+        proc, fs = self.run_step(tree, **env)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(self.owners(fs)["/volumes/data/b"], (101, 101))  # really stopped part way
+        proc, fs = self.run_step(None, **env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_a_run_interrupted_after_opening_a_directory_is_repaired(self):
+        proc, fs = self.run_step({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/p": [0, 0, DIR | 0o700], "/volumes/data/p/f": [1000, 1000, 0o600]})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assert_all_owned(fs)
+
+    def test_an_unreachable_directory_fails_loudly(self):
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/sealed": [101, 101, DIR | 0o000], "/volumes/data/sealed/f": [101, 101, 0o600]}
+        proc, _ = self.run_step(tree)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/sealed", proc.stderr)
+
+    def test_a_filesystem_that_ignores_ownership_is_left_alone(self):
+        tree = {"/volumes/data": [0, 0, DIR | 0o755], "/volumes/data/f": [0, 0, 0o644]}
+        proc, fs = self.run_step(tree, FS_NO_OWNERSHIP="1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(fs, tree)
+        self.assertIn("does not keep ownership", proc.stdout)
+
+
+class VolumePathTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "repo"
+        self.runtime = self.root / "runtime"
+        self.volumes = self.runtime / "volumes"
+        self.outside = Path(self.tmp.name) / "outside"
+        self.outside.mkdir()
+        (self.outside / "sentinel").write_text("keep")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def problems(self, names=None):
+        return compose.volume_path_problems(self.root, self.runtime, names)
+
+    def test_a_plain_tree_and_a_missing_tree_are_fine(self):
+        self.runtime.mkdir(parents=True)
+        self.assertEqual(self.problems(), [])
+        (self.volumes / "redis_data").mkdir(parents=True)
+        self.assertEqual(self.problems(), [])
+        self.assertEqual(self.problems(["redis_data", "not_yet"]), [])
+
+    def test_symlinked_volumes_root_is_refused(self):
+        self.runtime.mkdir(parents=True)
+        self.volumes.symlink_to(self.outside)
+        self.assertIn("symbolic link", self.problems()[0])
+
+    def test_symlinked_runtime_is_refused(self):
+        self.root.mkdir()
+        self.runtime.symlink_to(self.outside)
+        self.assertIn("symbolic link", self.problems()[0])
+
+    def test_escaping_parent_is_refused(self):
+        (self.outside / "volumes").mkdir()
+        self.root.mkdir()
+        self.runtime.mkdir()
+        # a tree whose own components are real directories but whose root differs from the checkout
+        other = Path(self.tmp.name) / "elsewhere"
+        (other / "runtime" / "volumes").mkdir(parents=True)
+        self.assertIn("outside", compose.volume_path_problems(self.root, other / "runtime")[0])
+
+    def test_symlinked_volume_is_refused(self):
+        self.volumes.mkdir(parents=True)
+        (self.volumes / "redis_data").symlink_to(self.outside)
+        self.assertIn("symbolic link", self.problems()[0])
+        self.assertIn("symbolic link", self.problems(["redis_data"])[0])
+
+    def test_a_dangling_symlink_is_refused(self):
+        self.volumes.mkdir(parents=True)
+        (self.volumes / "redis_data").symlink_to(self.outside / "gone")
+        self.assertIn("symbolic link", self.problems()[0])
+
+    def test_nested_mount_is_refused(self):
+        (self.volumes / "redis_data").mkdir(parents=True)
+        real = self.volumes.stat()
+        fake = mock.Mock(st_mode=(self.volumes / "redis_data").lstat().st_mode, st_dev=real.st_dev + 1)
+        with mock.patch.object(Path, "lstat", return_value=fake):
+            self.assertIn("separate mount", self.problems()[0])
+
+    def test_compose_render_refuses_a_symlinked_volume_before_writing(self):
         from test_compose import make_root, render
 
         root = make_root()
         self.addCleanup(shutil.rmtree, root, ignore_errors=True)
-        render(root, memory_gib=64.0)
-        cmd = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))["services"]["volume_owner_init"]["command"][2]
-        script = cmd.replace("$$", "$")
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            (base / "bin").mkdir()
-            log = base / "log"
-            for name, body in (("chown", f'echo "$@" >> {log}\n'), ("stat", 'case "$3" in */redis_data) echo 999:999;; *) echo 501:20;; esac\n'), ("ls", "exit 0\n")):
-                (base / "bin" / name).write_text(f"#!/bin/sh\n{body}")
-                (base / "bin" / name).chmod(0o755)
-            proc = subprocess.run(["/bin/sh", "-c", script], env={"PATH": f"{base / 'bin'}:/bin:/usr/bin"}, capture_output=True, text=True)
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            lines = log.read_text().splitlines()
-        self.assertFalse([line for line in lines if "redis_data" in line])  # 999:999 already
-        self.assertIn("-R 1000:1000 /volumes/elasticsearch_data", lines)
+        (root / "runtime" / "volumes").mkdir(parents=True)
+        (root / "runtime" / "volumes" / "redis_data").symlink_to(self.outside)
+        rc, _, err, _ = render(root, memory_gib=64.0)
+        self.assertEqual(rc, exit_codes.PREFLIGHT_FAILED)
+        self.assertIn("redis_data", err)
+        self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
 
 
 class ResetTests(unittest.TestCase):
@@ -409,7 +716,7 @@ class ResetTests(unittest.TestCase):
         code, _ = self.reset(self.runner())
         self.assertEqual(code, exit_codes.OK)
         argv = self.wipe()
-        self.assertEqual(argv[-6:], [self.IMAGE, "find", "/volumes", "-mindepth", "1", "-delete"])
+        self.assertEqual(argv[-7:], [self.IMAGE, "find", "/volumes", "-xdev", "-mindepth", "1", "-delete"])
         self.assertIn(f"{self.volumes}:/volumes", argv)
         self.assertIn("--read-only", argv)
         self.assertEqual(argv[argv.index("--network") + 1], "none")
@@ -445,6 +752,40 @@ class ResetTests(unittest.TestCase):
         self.assertIn("--yes", err)
         self.assertEqual(self.calls, [])
         self.assertTrue(self.volumes.exists())
+
+    def assert_nothing_destructive(self):
+        self.assertEqual(self.calls, [])  # neither `down --volumes` nor the root wipe was submitted
+
+    def test_symlinked_volumes_root_is_refused_before_anything_runs(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "sentinel").write_text("keep")
+        shutil.rmtree(self.volumes)
+        self.volumes.symlink_to(outside)
+        code, err = self.reset(self.runner())
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assertIn("symbolic link", err)
+        self.assert_nothing_destructive()
+        self.assertEqual((outside / "sentinel").read_text(), "keep")
+
+    def test_symlinked_volume_is_refused_before_anything_runs(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.volumes / "linked").symlink_to(outside)
+        code, _ = self.reset(self.runner())
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assert_nothing_destructive()
+
+    def test_symlinked_volume_stops_up_with_exit_13(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.volumes / "linked").symlink_to(outside)
+        out, err = io.StringIO(), io.StringIO()
+        args = argparse.Namespace(lifecycle_action="up", no_open=True, timeout=1.0)
+        with redirect_stdout(out), redirect_stderr(err):
+            code = lifecycle.run(self.ctx, args, runner=self.runner())
+        self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
+        self.assert_nothing_destructive()
 
     def test_no_rendered_file_means_no_container(self):
         (self.root / "runtime" / "docker-compose.yml").unlink()

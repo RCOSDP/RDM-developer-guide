@@ -372,7 +372,7 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
             self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
             init = doc["services"]["volume_owner_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
-            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (es["image"], "0:0", ["CHOWN"], "no"))
+            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (doc["services"]["postgres"]["image"], "0:0", ["CHOWN"], "no"))
             self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}})
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
         finally:

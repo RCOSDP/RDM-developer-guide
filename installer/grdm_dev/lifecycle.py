@@ -97,6 +97,10 @@ def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT
     missing = _require_compose(ctx)
     if missing is not None:
         return missing
+    # the owner step runs as root against whatever these paths point at when `up` starts (PR #36 review r1 R1-01)
+    bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
+    if bad_paths:
+        return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
     runner = runner or streaming_runner
     rc, out = runner(health.compose_base(ctx) + ["up", "-d", "--remove-orphans"])
     if rc != 0:
@@ -138,7 +142,7 @@ def wipe_argv(image: str, volumes_dir: Path, platform: str | None) -> list[str]:
             "--cap-drop", "ALL", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "--security-opt", "no-new-privileges:true"]
     if platform:
         argv += ["--platform", platform]
-    return argv + ["-v", f"{volumes_dir}:/volumes", image, "find", "/volumes", "-mindepth", "1", "-delete"]
+    return argv + ["-v", f"{volumes_dir}:/volumes", image, "find", "/volumes", "-xdev", "-mindepth", "1", "-delete"]
 
 
 def _owner_init_service(ctx: Context) -> dict:
@@ -157,6 +161,10 @@ def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
             return report.error(ctx, exit_codes.USAGE, "reset needs a confirmation; add --yes when no terminal is attached")
         sys.stderr.write("[grdm-dev] reset cancelled\n")
         return exit_codes.OK
+    # Before anything destructive: `down --volumes` is the first such step, the root wipe the second (R1-01).
+    bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
+    if bad_paths:
+        return report.error(ctx, exit_codes.RESET_FAILED, "refusing to delete: " + "; ".join(bad_paths))
     if health.compose_path(ctx).exists():
         rc = run_down(ctx, runner=runner, volumes=True)
         if rc != exit_codes.OK:

@@ -780,7 +780,8 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
-        "postgres"
+        "postgres",
+        "volume_owner_init"
       ],
       "target_image": {
         "M4": null,
@@ -809,7 +810,6 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
-        "volume_owner_init",
         "elasticsearch"
       ],
       "target_image": {
