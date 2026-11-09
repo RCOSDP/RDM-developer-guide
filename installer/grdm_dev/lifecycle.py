@@ -5,6 +5,9 @@ up     `docker compose up -d`, then wait for health (exit 40 on timeout), then o
        terminal. Idempotent: healthy services are left alone by Compose.
 down   `docker compose down` — containers stop, volumes stay.
 reset  down, then delete runtime/volumes/ after ctx.confirm(). Non-interactive without --yes → exit 2.
+       On Linux the files belong to the containers' uids, so the host user cannot remove them: the contents
+       are deleted by a root container with only DAC_OVERRIDE and FOWNER, on the local owner-init image, and
+       the emptied directory is removed from the host. Exit 14 when that still fails.
 
 Helpers for other modules: running_services(ctx) and recreate(ctx) (used by secrets rotate).
 `recreate` is `docker compose up -d --force-recreate`: a plain `restart` keeps the containers' old
@@ -13,11 +16,13 @@ Runner: `runner(argv) -> (rc, stdout)`; tests inject a fake and never need Docke
 """
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import webbrowser
+from pathlib import Path
 
-from . import exit_codes, health, report
+from . import compose, exit_codes, health, report
 from .context import Context
 
 DEFAULT_TIMEOUT = 1800.0  # cold start: ember's first build under amd64 emulation took 13-25 min and osf_init runs migrations (real install runs 10-18; PR #33 review r1)
@@ -126,6 +131,25 @@ def run_down(ctx: Context, runner=None, volumes: bool = False) -> int:
     return exit_codes.OK
 
 
+def wipe_argv(image: str, volumes_dir: Path, platform: str | None) -> list[str]:
+    """Delete the contents of runtime/volumes/ as root with only the two capabilities removal needs.
+    `--pull never`: the image is ours, built by `build`; no network, read-only root, no new privileges."""
+    argv = ["docker", "run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--user", "0:0",
+            "--cap-drop", "ALL", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "--security-opt", "no-new-privileges:true"]
+    if platform:
+        argv += ["--platform", platform]
+    return argv + ["-v", f"{volumes_dir}:/volumes", image, "find", "/volumes", "-mindepth", "1", "-delete"]
+
+
+def _owner_init_service(ctx: Context) -> dict:
+    """The owner-init service of the rendered file, {} when there is none to use."""
+    try:
+        data = json.loads(health.compose_path(ctx).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return (data.get("services") or {}).get(compose.OWNER_INIT_SERVICE) or {}
+
+
 def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
     volumes_dir = ctx.runtime / "volumes"
     if not ctx.confirm(f"Stop all services and delete {volumes_dir} (all data)?", default=False):
@@ -139,7 +163,14 @@ def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
             return rc
     removed = False
     if volumes_dir.exists():
-        (rmtree or shutil.rmtree)(volumes_dir)
+        owner_init = _owner_init_service(ctx)
+        if owner_init.get("image"):
+            # rc is not decisive: without the image, nothing was ever written by a container and the host can delete it all.
+            (runner or streaming_runner)(wipe_argv(str(owner_init["image"]), volumes_dir, owner_init.get("platform")))
+        try:
+            (rmtree or shutil.rmtree)(volumes_dir)
+        except OSError as exc:
+            return report.error(ctx, exit_codes.RESET_FAILED, f"could not delete {volumes_dir}: {exc}; remove it with `sudo rm -rf {volumes_dir}` / {volumes_dir} を削除できません。`sudo rm -rf {volumes_dir}` で消してください")
         removed = True
     report.emit(ctx, "reset", {"volumes_dir": str(volumes_dir), "removed": removed})
     return exit_codes.OK

@@ -7,9 +7,13 @@ Everything that touches the machine goes through two seams so unit tests never n
 * `runner(argv) -> (returncode, stdout)` — runs `docker ...`. Tests pass a fake.
 
 `detect()` turns those facts into a `HostInfo`; `as_report()` flattens it for TOON/JSON.
+
+A hand-built `Probe` leaves `tools` and `repo_root` empty: those preflights are then "not probed" and
+skipped, so a test exercises only the checks it set up. `Probe.from_system()` always fills them.
 """
 from __future__ import annotations
 
+import math
 import os
 import platform
 import re
@@ -33,6 +37,14 @@ SUBPROCESS_TIMEOUT = 15
 
 # Official hosts (SPEC-02 §8). Anything else is best-effort: a warning, not a problem.
 OFFICIAL = {("macos", "arm64"), ("ubuntu", "amd64"), ("ubuntu", "arm64"), ("wsl2", "amd64")}
+
+# Tools other than Docker that `install` needs (SPEC-02 §2.2). A missing `git` stops the build (exit 13 from
+# doctor); a missing scanner stops `scan` with exit 51 at the very end, so doctor reports it before the build.
+REQUIRED_TOOLS = ("git",)
+SCANNER_TOOLS = ("trivy", "gitleaks", "semgrep")
+WITHOUT_SCAN_ENV = "GRDM_WITHOUT_SCAN"  # install.sh's opt-out of the [scan] extra: semgrep is then absent on purpose
+BINFMT_AMD64_FILES = ("/proc/sys/fs/binfmt_misc/qemu-x86_64", "/proc/sys/fs/binfmt_misc/rosetta")
+ENABLE_AMD64_EMULATION = "docker run --privileged --rm tonistiigi/binfmt --install amd64"
 
 
 def default_runner(argv: list[str]) -> tuple[int, str]:
@@ -65,6 +77,9 @@ class Probe:
     memory_bytes: Optional[int] = None
     disk_free_bytes: Optional[int] = None
     docker_path: Optional[str] = None   # shutil.which("docker")
+    tools: Optional[dict[str, bool]] = None  # name -> found, for REQUIRED_TOOLS + SCANNER_TOOLS; None = not probed
+    repo_root: str = ""                 # resolved repository root; "" = not probed
+    binfmt_amd64: Optional[bool] = None  # Linux: an enabled amd64 handler in binfmt_misc; None = unknown
 
     @classmethod
     def from_system(cls, root: Path | None = None, runner: Runner | None = None) -> "Probe":
@@ -82,6 +97,9 @@ class Probe:
             memory_bytes=_memory_bytes(runner or default_runner, system),
             disk_free_bytes=_disk_free_bytes(root),
             docker_path=shutil.which("docker"),
+            tools=_probe_tools(),
+            repo_root=str(root.resolve()),
+            binfmt_amd64=_binfmt_amd64() if system == "Linux" else None,
         )
         return p
 
@@ -103,6 +121,8 @@ class HostInfo:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     platform_string: str = ""           # linux/arm64 | linux/amd64 (empty when arch is other)
+    prerequisite_problems: list[str] = field(default_factory=list)  # exit 13: git, repository access, emulation, checkout path
+    scanner_problems: list[str] = field(default_factory=list)       # exit 51: `scan` could not run
 
 
 # --- raw readers -------------------------------------------------------------------------------
@@ -127,6 +147,19 @@ def _memory_bytes(runner: Runner, system: str) -> Optional[int]:
         if rc == 0 and out.strip().isdigit():
             return int(out.strip())
     return None
+
+
+def _probe_tools() -> dict[str, bool]:
+    from .scan import default_which  # also finds a tool next to the interpreter (semgrep in .venv/bin)
+
+    return {name: default_which(name) for name in (*REQUIRED_TOOLS, *SCANNER_TOOLS)}
+
+
+def _binfmt_amd64() -> Optional[bool]:
+    """True when an amd64 handler is registered and enabled, False when none is, None when unreadable."""
+    if not Path("/proc/sys/fs/binfmt_misc").is_dir():
+        return None
+    return any(_read_text(path).splitlines()[:1] == ["enabled"] for path in BINFMT_AMD64_FILES)
 
 
 def _disk_free_bytes(root: Path) -> Optional[int]:
@@ -227,6 +260,92 @@ def check_docker(runner: Runner, info: HostInfo) -> None:
         info.problems.append("docker buildx plugin missing / Docker buildx プラグインがありません")
 
 
+# --- preflight ---------------------------------------------------------------------------------
+
+def memory_hint(os_name: str, need_gib: float) -> str:
+    """How to give the Docker engine more memory here. On WSL2 the limit is `.wslconfig`: Docker Desktop's
+    Resources page has no memory control under the WSL 2 backend."""
+    need = int(math.ceil(need_gib))
+    if os_name == "wsl2":
+        return (f"set `memory={need}GB` under `[wsl2]` in %UserProfile%\\.wslconfig on Windows, then run `wsl --shutdown` / "
+                f"Windows の %UserProfile%\\.wslconfig の `[wsl2]` に `memory={need}GB` を書き、`wsl --shutdown` を実行してください")
+    if os_name == "macos":
+        return (f"give the Docker VM at least {need} GiB (Docker Desktop: Settings > Resources; Colima: `colima start --memory {need}`) / "
+                f"Docker VM に {need} GiB 以上を割り当ててください（Docker Desktop: Settings > Resources、Colima: `colima start --memory {need}`）")
+    return f"this host needs at least {need} GiB of memory / このホストには {need} GiB 以上のメモリが必要です"
+
+
+def _tool_hint(os_name: str, tool: str) -> str:
+    if tool == "semgrep":
+        return "./installer/install.sh puts it in .venv"
+    if os_name == "macos":
+        return f"brew install {tool}"
+    return {"git": "sudo apt install -y git",
+            "trivy": "https://trivy.dev/latest/getting-started/installation/",
+            "gitleaks": "https://github.com/gitleaks/gitleaks/releases"}[tool]
+
+
+def check_tools(probe: Probe, info: HostInfo) -> None:
+    """git -> prerequisite_problems; scanners -> scanner_problems (SPEC-02 §2.2). Nothing when not probed."""
+    if probe.tools is None:
+        return
+    for tool in REQUIRED_TOOLS:
+        if not probe.tools.get(tool):
+            hint = _tool_hint(info.os_name, tool)
+            info.prerequisite_problems.append(f"{tool} not found; install it: {hint} / {tool} が見つかりません。導入してください: {hint}")
+    for tool in SCANNER_TOOLS:
+        if probe.tools.get(tool):
+            continue
+        if tool == "semgrep" and probe.env.get(WITHOUT_SCAN_ENV) == "1":
+            info.warnings.append(f"semgrep left out by {WITHOUT_SCAN_ENV}=1; `scan` will exit 51 / {WITHOUT_SCAN_ENV}=1 により semgrep がありません。`scan` は終了 51 になります")
+            continue
+        hint = _tool_hint(info.os_name, tool)
+        info.scanner_problems.append(
+            f"{tool} not found, so `scan` would exit 51 after the whole build; install it: {hint} / "
+            f"{tool} が見つかりません。ビルド全体の後で `scan` が終了 51 になります。導入してください: {hint}"
+        )
+
+
+def check_repo_path(probe: Probe, info: HostInfo) -> None:
+    """Reject checkouts Docker cannot use properly (exit 13). Nothing when the path was not probed."""
+    root = probe.repo_root
+    if not root:
+        return
+    if info.os_name == "wsl2" and (root == "/mnt" or root.startswith("/mnt/")):
+        # A Windows drive (drvfs) has no POSIX modes, so runtime/.env cannot be 0600 (SPEC-03 §3.1, BASE-ENV-MODE).
+        info.prerequisite_problems.append(
+            f"repository is on a Windows drive ({root}), where file modes such as 0600 on runtime/.env do not work; clone it inside WSL, for example under ~/ / "
+            f"リポジトリが Windows のドライブ上にあります（{root}）。runtime/.env の 0600 などのファイルモードが効きません。WSL の中（例: ~/ の下）へ clone してください"
+        )
+    if info.os_name == "macos":
+        home = probe.env.get("HOME", "").rstrip("/")
+        if root.startswith("/Volumes/"):
+            info.warnings.append(f"{root} must be shared with the Docker VM, or bind mounts will be empty / {root} を Docker VM と共有していないと bind mount が空になります")
+        elif not home or not (root == home or root.startswith(home + "/")):
+            # Measured on Colima (real engine, 2026-11-10): a bind mount from /private/tmp is silently empty, one under $HOME is not.
+            info.prerequisite_problems.append(
+                f"repository at {root} is outside your home directory, which the Docker VM may not share (bind mounts would be silently empty); clone it under {home or '~'}/ / "
+                f"リポジトリ {root} はホームディレクトリの外にあり、Docker VM と共有されていない可能性があります（bind mount が黙って空になります）。{home or '~'}/ の下へ clone してください"
+            )
+
+
+def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> None:
+    """Linux arm64 only: `services` run as linux/amd64 and need a binfmt handler (QEMU). Docker Desktop brings its own."""
+    if info.arch != "arm64" or info.os_name not in ("ubuntu", "linux-other") or not services or probe.tools is None:
+        return
+    names = ", ".join(services)
+    if probe.binfmt_amd64 is None:
+        info.warnings.append(
+            f"cannot read binfmt_misc; {names} need amd64 emulation. If they stop with `exec format error`, run: {ENABLE_AMD64_EMULATION} / "
+            f"binfmt_misc を読めません。{names} には amd64 エミュレーションが要ります。`exec format error` で止まったら実行してください: {ENABLE_AMD64_EMULATION}"
+        )
+    elif not probe.binfmt_amd64:
+        info.prerequisite_problems.append(
+            f"amd64 emulation is not enabled but {names} need it; run this (and again after a reboot): {ENABLE_AMD64_EMULATION} / "
+            f"amd64 エミュレーションが無効ですが {names} に必要です。次を実行してください（再起動のたびに必要）: {ENABLE_AMD64_EMULATION}"
+        )
+
+
 # --- entry points ------------------------------------------------------------------------------
 
 def detect(runner: Runner | None = None, probe: Probe | None = None, root: Path | None = None) -> HostInfo:
@@ -259,6 +378,7 @@ def detect(runner: Runner | None = None, probe: Probe | None = None, root: Path 
     if info.memory_bytes is not None and info.memory_bytes < MIN_MEMORY_BYTES:
         info.problems.append(
             f"memory {_fmt_gib(info.memory_bytes)} is below the 8 GiB minimum / メモリ {_fmt_gib(info.memory_bytes)} は最低 8 GiB 未満です"
+            + (f"; {memory_hint('wsl2', 8)}" if info.os_name == "wsl2" else "")
         )
 
     # Host warnings (best-effort hosts, SPEC-02 §8)
@@ -289,6 +409,9 @@ def detect(runner: Runner | None = None, probe: Probe | None = None, root: Path 
     before = len(info.problems)
     check_docker(runner, info)
     info.docker_ok = len(info.problems) == before
+
+    check_tools(probe, info)
+    check_repo_path(probe, info)
     return info
 
 

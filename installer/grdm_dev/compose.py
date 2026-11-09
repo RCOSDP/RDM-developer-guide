@@ -66,10 +66,11 @@ import os
 import re
 import socket
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
-from . import exit_codes, manifest as _manifest, report
+from . import exit_codes, host, manifest as _manifest, report
 from .context import Context
 from .plan import (
     DEFAULT_PORTS,
@@ -92,6 +93,8 @@ PROJECT_NAME = "grdm-dev"
 COMPOSE_FILE = "docker-compose.yml"
 CONFIG_DIR = "config"
 VOLUMES_DIR = "volumes"
+OWNER_INIT_SERVICE = "volume_owner_init"  # one-shot: hands every writable bind volume to its non-root owner
+OWNER_INIT_MOUNT = "/volumes"
 DEFAULT_MEMORY_GIB = 16.0
 DEFAULT_CPUS = 4.0
 MEMORY_SHARE = 0.70          # fraction of host memory handed out as the sum of mem_limit
@@ -310,6 +313,15 @@ def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str
 class MemoryBudgetError(ValueError):
     """The memory floors of the profile do not fit the budget (exit 10, host unsupported)."""
 
+    def __init__(self, message: str, need_gib: float):
+        super().__init__(message)
+        self.need_gib = need_gib
+
+
+def memory_floor_need_gib(services: list[_manifest.Service]) -> float:
+    """Memory the engine must have for this profile's `mem_min_mb` floors to fit the budget."""
+    return sum(int(s.template.get("mem_min_mb", 128)) for s in services) / 1024 / MEMORY_SHARE
+
 
 def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float, allow_overcommit: bool = False) -> dict[str, dict[str, Any]]:
     budget_mb = memory_gib * 1024 * MEMORY_SHARE
@@ -321,12 +333,12 @@ def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: 
     floors = {s.name: int(s.template.get("mem_min_mb", 128)) for s in services}
     weights = {s.name: float(s.template.get("weight", 1)) for s in services}
     if sum(floors.values()) > budget_mb and not allow_overcommit:
-        need_gib = sum(floors.values()) / 1024 / MEMORY_SHARE
+        need_gib = memory_floor_need_gib(services)
         raise MemoryBudgetError(
             f"the {len(services)} services of this profile need at least {sum(floors.values())} MiB of memory floors, "
-            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Give the Docker engine "
-            f"at least {need_gib:.0f} GiB (Docker Desktop: Settings > Resources), choose a smaller --profile, or pass "
-            f"--memory-gib to overcommit knowingly (PR #33 review r1 R1-04)")
+            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Choose a smaller --profile, "
+            f"pass --memory-gib to overcommit knowingly (PR #33 review r1 R1-04), or give the Docker engine at least {need_gib:.0f} GiB",
+            need_gib)
     mem: dict[str, int] = {}
     pinned: set[str] = set()
     while True:
@@ -360,6 +372,57 @@ def _mount(entry: dict[str, Any]) -> str:
     if "config_dir" in entry:
         return f"./{CONFIG_DIR}/{entry['config_dir']}:{target}{suffix}"
     raise ValueError(f"unknown volume entry {entry!r}")
+
+
+def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The owner each writable bind volume needs, and the services that must wait for it being set.
+
+    Returns ({volume: "uid:gid"}, {service: [volumes]}). The owner is the fixed `user:` of the services
+    that mount the volume writable. A service with the `user` control relaxed (postgres, mongo, rabbitmq,
+    unoconv) starts as root and sets its own ownership, so its volumes are not ours to touch: chowning
+    postgres_data to anything but its own uid would break it. Two different owners for one volume are a
+    template error (ValueError, exit 20 upstream)."""
+    owners: dict[str, str] = {}
+    writers: dict[str, list[str]] = {}
+    for svc in services:
+        if svc.name == OWNER_INIT_SERVICE or "user" in set(hardening.get(svc.name, {}).get("controls", [])):
+            continue
+        user = str(svc.template.get("user", "1000:1000"))
+        for mount in svc.template.get("volumes", []):
+            name = mount.get("volume")
+            if not name or mount.get("ro"):
+                continue
+            if owners.setdefault(name, user) != user:
+                raise ValueError(f"volume {name}: services need different owners ({owners[name]} and {user}, service {svc.name})")
+            writers.setdefault(svc.name, []).append(name)
+    return owners, writers
+
+
+def _owner_init_command(owners: dict[str, str]) -> list[str]:
+    """Hand every volume to its owner. An already-correct top directory is left alone: a second `up` must not
+    walk into a service's private 0700 directories, which a root with only CAP_CHOWN cannot enter (they would
+    fail the step and block the whole stack). A different owner means a fresh host-owned directory or an older
+    tree, which `chown -R` hands over. On Docker Desktop for Mac every path reads root:root and chown is a no-op."""
+    steps = "".join(f'fix {owner} {OWNER_INIT_MOUNT}/{name}; ' for name, owner in owners.items())
+    return ["sh", "-c", f'set -e; fix() {{ [ "$(stat -c %u:%g "$2")" = "$1" ] || chown -R "$1" "$2"; }}; {steps}ls -ld {OWNER_INIT_MOUNT}/*']
+
+
+def with_owner_init(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> list[_manifest.Service]:
+    """Fill the generic owner-init one-shot from the profile and make every writer wait for it. No-op without it."""
+    if not any(s.name == OWNER_INIT_SERVICE for s in services):
+        return services
+    owners, writers = volume_owners(services, hardening)
+    out: list[_manifest.Service] = []
+    for svc in services:
+        if svc.name == OWNER_INIT_SERVICE:
+            mounts = [{"volume": name, "target": f"{OWNER_INIT_MOUNT}/{name}"} for name in owners]
+            out.append(replace(svc, template={**svc.template, "volumes": mounts, "command": _owner_init_command(owners)}))
+        elif svc.name in writers:
+            depends = [*svc.template.get("depends_on", []), {"service": OWNER_INIT_SERVICE, "condition": "service_completed_successfully"}]
+            out.append(replace(svc, template={**svc.template, "depends_on": depends}))
+        else:
+            out.append(svc)
+    return out
 
 
 def escape_compose_dollar(text: str) -> str:
@@ -486,6 +549,7 @@ def render_compose(
 ) -> dict[str, Any]:
     egress = list(egress or [])
     service_platforms = service_platforms or {}
+    services = with_owner_init(services, hardening)
     extras = {"AUTH_URL": auth_url(auth, host_ports)}
     in_profile = {s.name for s in services}
     container_ports = {s.name: int(s.template.get("container_port", DEFAULT_PORTS.get(s.name, 0))) for s in services}
@@ -876,6 +940,21 @@ def detect_docker_memory_gib(runner) -> float | None:
     return total / (1024 ** 3) if total > 0 else None
 
 
+def detect_docker_cpus(runner) -> float | None:
+    """CPUs of the Docker engine's VM (`docker info --format {{.NCPU}}`), or None when unknown. Read-only."""
+    try:
+        rc, out = runner(["docker", "info", "--format", "{{.NCPU}}"])
+    except Exception:  # a runner that only knows `docker compose ps` (tests) or a missing docker
+        return None
+    if rc != 0:
+        return None
+    try:
+        count = int(str(out).strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return float(count) if count > 0 else None
+
+
 # --------------------------------------------------------------------------- entry point
 
 
@@ -978,7 +1057,9 @@ def run(
             if vm_gib and host_gib and vm_gib < host_gib:
                 sys.stderr.write(f"[grdm-dev] compose render: memory budget uses the Docker VM's {vm_gib:.1f} GiB, not the host's {host_gib:.1f} GiB\n")
     if cpus is None:
-        cpus = getattr(args, "cpus", None) or float(os.cpu_count() or 0) or DEFAULT_CPUS
+        # Docker Desktop and Colima run containers in a VM with fewer CPUs than the host; Compose rejects a
+        # `cpus:` above what the engine has, so the engine's own count wins over the host's.
+        cpus = getattr(args, "cpus", None) or detect_docker_cpus(runner) or float(os.cpu_count() or 0) or DEFAULT_CPUS
     platform_string = platform_string or getattr(args, "platform", None) or detect_platform()
 
     try:
@@ -997,7 +1078,10 @@ def run(
         allow_overcommit=explicit_memory,
       )
     except MemoryBudgetError as exc:
-        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}")
+        os_name, _ = host.classify_os(host.Probe.from_system(root=ctx.root, runner=runner))
+        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}; {host.memory_hint(os_name, exc.need_gib)}")
+    except ValueError as exc:  # two owners for one volume (a template error)
+        return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
     configs = config_files(host_ports)
     for text in [compose_text, *configs.values()]:

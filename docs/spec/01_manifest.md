@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.10 — 2026-11-10. **Learned:** per-volume init containers multiplied hardening exceptions and still missed redis and the other uid-1000 volumes, so one generic owner step, derived from each volume's writers, replaces them (cross-OS audit, 2026-11-10). ／ ボリュームごとの init コンテナは堅牢化の例外を増やすだけで redis や他の uid 1000 のボリュームを取りこぼしていた。各ボリュームの書き手から導く一つの汎用の所有者設定の段に置き換えると分かった（OS 横断の監査、2026-11-10）。
 - Version / 版: 0.9 — 2026-11-06. **Learned:** an infra component may need an image this repository builds itself when the official one is amd64-only and unusable under emulation (`image_build`, MC-15, ADR-07; real install run 19). ／ 公式イメージが amd64 のみでエミュレーションでは使えないとき、infra の部品には本リポジトリ自身が組むイメージが要る（`image_build`、MC-15、ADR-07。実機第 19 回）。
   0.8 — 2026-11-06. **Learned:** a third-party infra image can be single-architecture too; `build_platform` is therefore allowed on `infra` with a note, so `compose render` pins the platform and `up` does not fail on Apple Silicon (real install run 6). ／ 第三者の基盤イメージも単一アーキテクチャのことがある。`infra` にも `note` 付きで `build_platform` を認め、`compose render` がプラットフォームを固定して Apple Silicon の `up` が失敗しないようにした（実機第 6 回）。
   0.7 — 2026-11-06. **Learned:** a repository with a Dockerfile is not necessarily a component that can be built from its own checkout (wiki-frontend's Dockerfile is osf.io's and its image holds only a webpack bundle), so the manifest needs `overlay_of`, the overlay image is tagged with both commits (`<base_sha12>-<overlay_sha12>`), and its services are one-shot copiers into a named volume (MC-14, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)); and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ Dockerfile があるリポジトリが必ず自分の checkout から組める部品とは限らない（wiki-frontend の Dockerfile は osf.io のもので、そのイメージは webpack の束しか持たない）ため、manifest には `overlay_of` が要り、オーバーレイのイメージは両コミット（`<ベース sha12>-<オーバーレイ sha12>`）をタグに持ち、そのサービスは名前付きボリュームへ写す一回限りのものになる（MC-14、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -51,7 +52,7 @@ The top level has `schema_version` (integer, currently `1`), `generated_at` (ISO
 |---|---|---|
 | `id` | string | Short name, same as in [SPEC-00 §2](00_overview.md#2-component-map). Unique. |
 | `role` | `core` \| `infra` \| `subsystem` | What kind of component. COS repositories are not components; they appear as `upstreams[]` entries with `kind: cos`. |
-| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`; `wiki_static_init` and `wiki_assets` for the overlay `wiki-frontend`). Never empty. |
+| `services[]` | list | The Compose service names the component provides, as used in [SPEC-02 §4](02_installer_cli.md#english) (for example `web`, `api`, `admin`, `worker` for `osf.io`; `wiki_assets` for the overlay `wiki-frontend`). Never empty. |
 | `integration_repo` | string or `null` | Name of the private integration repository, `RDM-<name>-dev2027`. Name only, never a URL. `null` for `infra`. |
 | `integration_branch` | string or `null` | Always `develop`; `null` for `infra`. |
 | `integration_sha` | string (40 hex) or null | The commit at the tip of the integration branch `develop` that this manifest pins. `grdm-dev build` and `compose render` use it for image tags. May be `null` until the strict reconstruction PRs are merged; required for M2 acceptance. |
@@ -187,7 +188,7 @@ checks[14]{id,rule,severity}:
 |---|---|---|
 | `id` | 文字列 | 短い名前。[SPEC-00 §2](00_overview.md#2-部品の地図) と同じ。重複しない。 |
 | `role` | `core` \| `infra` \| `subsystem` | 部品の種類。COS のリポジトリは部品ではなく、`kind: cos` の `upstreams[]` 要素として現れる。 |
-| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`。オーバーレイ `wiki-frontend` は `wiki_static_init` と `wiki_assets`）。空にしない。 |
+| `services[]` | 配列 | その部品が提供する Compose のサービス名。[SPEC-02 §4](02_installer_cli.md#japanese) と同じ名前（例: `osf.io` は `web`、`api`、`admin`、`worker`。オーバーレイ `wiki-frontend` は `wiki_assets`）。空にしない。 |
 | `integration_repo` | 文字列または `null` | 非公開の統合リポジトリの名前 `RDM-<name>-dev2027`。名前だけで URL は書かない。`infra` は `null`。 |
 | `integration_branch` | 文字列または `null` | 常に `develop`。`infra` は `null`。 |
 | `integration_sha` | 文字列（40 桁の 16 進）または `null` | このマニフェストが固定する統合ブランチ `develop` の先端のコミット。`grdm-dev build` と `compose render` はこの値をイメージのタグに使う。厳密再構築 PR のマージ前は `null` でよいが、M2 の受入では必須。 |

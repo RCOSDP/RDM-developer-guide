@@ -96,7 +96,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, elasticsearch_data_init, wiki_static_init, wiki_assets included
+        self.assertEqual(len(services), 22)  # core profile (SPEC-02 §4), one-shots osf_init, volume_owner_init, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -115,7 +115,7 @@ class ComposeRenderTests(unittest.TestCase):
             for key in ("mem_limit", "cpus", "pids_limit"):
                 self.assertIn(key, svc, name)
             if "user" in relaxed:
-                if name == "elasticsearch_data_init":
+                if name == "volume_owner_init":
                     self.assertEqual(svc["user"], "0:0", name)  # explicit root via template run_as (ADR-07, PR #34 r1 R1-01)
                 else:
                     self.assertNotIn("user", svc, name)
@@ -371,9 +371,9 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertNotIn("cap_add", es); self.assertNotIn("platform", es.get("platform", "linux/amd64") == "linux/amd64" and "x" or "", "")
             self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
             self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
-            init = doc["services"]["elasticsearch_data_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
+            init = doc["services"]["volume_owner_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
             self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (es["image"], "0:0", ["CHOWN"], "no"))
-            self.assertEqual(es["depends_on"], {"elasticsearch_data_init": {"condition": "service_completed_successfully"}})
+            self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}})
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
         finally:
             shutil.rmtree(root, ignore_errors=True)
@@ -505,16 +505,17 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "volume_owner_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
-            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
+            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
+            "volume_owner_init": {"condition": "service_completed_successfully"}})
         rc, _, _, _ = render(root, profile="full", auth="shibboleth")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 26)  # full profile with shibboleth: core 22 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -841,29 +842,18 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("$$src", wa["command"][2])
         self.assertIn("$$dst", wa["command"][2])
         self.assertNotRegex(wa["command"][2], r"(?<!\$)\$(?!\$)")  # every `$` is doubled
-        self.assertEqual(wa["depends_on"], {"wiki_static_init": {"condition": "service_completed_successfully"}})
+        self.assertEqual(wa["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}})
         self.assertEqual(wa["volumes"], ["wiki_static:/wiki_static"])
-        # R1-02: a fresh bind volume is host-owned; the init one-shot chowns it with CAP_CHOWN only, then exits
-        init = doc["services"]["wiki_static_init"]
-        self.assertEqual(init["image"], wa["image"])
-        self.assertEqual(init["restart"], "no")
-        self.assertNotIn("user", init)  # runs as root under a documented hardening exception
-        self.assertEqual(init["cap_drop"], ["ALL"])
-        self.assertEqual(init["cap_add"], ["CHOWN"])
-        self.assertIs(init["read_only"], True)
-        self.assertIn("no-new-privileges:true", init["security_opt"])
-        self.assertIn("chown 1000:1000 /wiki_static", init["command"][2])
+        # R1-02: a fresh bind volume is host-owned; the owner step chowns it with CAP_CHOWN only, then exits
+        init = doc["services"]["volume_owner_init"]
+        self.assertIn("wiki_static:/volumes/wiki_static", init["volumes"])
+        self.assertIn("fix 1000:1000 /volumes/wiki_static", init["command"][2])
         # R2-01/R3: the container never chmods (CAP_CHOWN only cannot chmod a dir owned by another uid);
         # the host-side volume directory mode is set by compose render instead.
-        cmd = init["command"][2]
-        self.assertNotIn("chmod", cmd)
-        self.assertIn("chown 1000:1000 /wiki_static", cmd)
+        self.assertNotIn("chmod", init["command"][2])
         vol_dir = root / "runtime" / "volumes" / "wiki_static"
         if vol_dir.exists():
             self.assertEqual(oct(vol_dir.stat().st_mode & 0o777), "0o755")
-        self.assertEqual(init["volumes"], ["wiki_static:/wiki_static"])
-        self.assertEqual(init["labels"]["org.gakunin-rdm.hardening-exception"], "cap_add,user")
-        self.assertNotIn("depends_on", init)
         self.assertEqual(wa["user"], "1000:1000")  # baseline controls apply to the one-shot like any service
         self.assertEqual(wa["cap_drop"], ["ALL"])
         self.assertIs(wa["read_only"], True)
@@ -992,7 +982,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn('cp -R "$$src"/. "$$dst"/', cmd[2])  # `config` prints a round-trippable file, so `$$` stays escaped
         self.assertNotIn('""', cmd[2])  # review r1 saw `ls "" >/dev/null; find "" ...` here
         self.assertEqual(parsed["services"]["web"]["depends_on"]["wiki_assets"]["condition"], "service_completed_successfully")
-        self.assertEqual(parsed["services"]["wiki_static_init"]["cap_add"], ["CHOWN"])
+        self.assertEqual(parsed["services"]["volume_owner_init"]["cap_add"], ["CHOWN"])
 
     def test_minimum_profile_keeps_the_short_depends_on_form_without_wiki_assets(self):
         root = make_root()
@@ -1000,12 +990,12 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertNotIn("wiki_assets", doc["services"])
-        self.assertNotIn("wiki_static_init", doc["services"])
         # wiki_assets is dropped (not in the profile); osf_init stays, so the long form remains with the
         # plain dependencies rendered as service_started (real install run 12: osf_init added)
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
-            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"}})
+            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
+            "volume_owner_init": {"condition": "service_completed_successfully"}})
 
     def test_escape_compose_dollar(self):
         self.assertEqual(compose.escape_compose_dollar('ls "$src"; echo ${X} $$'), 'ls "$$src"; echo $${X} $$$$')

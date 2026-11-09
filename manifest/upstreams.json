@@ -533,7 +533,7 @@
       "integration_branch": "develop",
       "integration_sha": "cd96330f01e2e4b719912350487f3290f7b3b24a",
       "integration_repo": "RDM-wiki-frontend-dev2027",
-      "note": "overlay_of osf.io (ADR-06): the Dockerfile is a derivative of osf.io's and COPYs osf.io paths (addons/*, admin/, website/) that this repository does not contain, so it cannot be built alone (real install run 4). The image is built from the osf.io checkout with this repository's files copied over it, using this Dockerfile, and tagged <osf_sha12>-<wiki_sha12>. It skips the application's pip install, collectstatic and pybabel and only runs `yarn run webpack-prod`, so it is a bundle builder, not a runtime: wiki_static_init chowns the named volume wiki_static (root, CAP_CHOWN only, hardening.json) and the one-shot wiki_assets copies website/static/public/js/ (wiki-edit-page.<chunkhash>.js, vendor.<hash>.js, webpack-assets.json, alias wiki-edit-page.js) into it; web/api/admin/worker mount it read-only at /code/website/static/public/js/wiki/. integration_sha cd96330f is RDM-wiki-frontend-dev2027 develop after PR #2 (2026-11-06): package.json/yarn.lock synced with RDM-osf.io develop (linkify-html, linkifyjs 4, sift, bootstrap-datepicker, highlight.js, less) because real install run 5 failed when osf.io's JavaScript required linkify-html that the overlay's lock file did not have; the overlay's dependency manifest must be diffed against osf.io's at every integration (SPEC-05). Follow-up (PR #30 review r1 R1-03): RDM-osf.io-dev2027 addons/wiki/templates/edit.mako must reference /static/public/js/wiki/wiki-edit-page.js instead of /static/js/pages/wiki-edit-page.js; to be verified in the browser once a real install reaches `up` (M2).",
+      "note": "overlay_of osf.io (ADR-06): the Dockerfile is a derivative of osf.io's and COPYs osf.io paths (addons/*, admin/, website/) that this repository does not contain, so it cannot be built alone (real install run 4). The image is built from the osf.io checkout with this repository's files copied over it, using this Dockerfile, and tagged <osf_sha12>-<wiki_sha12>. It skips the application's pip install, collectstatic and pybabel and only runs `yarn run webpack-prod`, so it is a bundle builder, not a runtime: volume_owner_init chowns the named volume wiki_static (root, CAP_CHOWN only, hardening.json) and the one-shot wiki_assets copies website/static/public/js/ (wiki-edit-page.<chunkhash>.js, vendor.<hash>.js, webpack-assets.json, alias wiki-edit-page.js) into it; web/api/admin/worker mount it read-only at /code/website/static/public/js/wiki/. integration_sha cd96330f is RDM-wiki-frontend-dev2027 develop after PR #2 (2026-11-06): package.json/yarn.lock synced with RDM-osf.io develop (linkify-html, linkifyjs 4, sift, bootstrap-datepicker, highlight.js, less) because real install run 5 failed when osf.io's JavaScript required linkify-html that the overlay's lock file did not have; the overlay's dependency manifest must be diffed against osf.io's at every integration (SPEC-05). Follow-up (PR #30 review r1 R1-03): RDM-osf.io-dev2027 addons/wiki/templates/edit.mako must reference /static/public/js/wiki/wiki-edit-page.js instead of /static/js/pages/wiki-edit-page.js; to be verified in the browser once a real install reaches `up` (M2).",
       "overlay_of": "osf.io",
       "platforms": [
         "linux/arm64",
@@ -542,7 +542,6 @@
       "profile": "core",
       "role": "core",
       "services": [
-        "wiki_static_init",
         "wiki_assets"
       ],
       "target_image": {
@@ -802,7 +801,7 @@
         "context": "installer/images/elasticsearch2",
         "tag": "2.4.6-1"
       },
-      "note": "Built natively from the official elasticsearch-2.4.6 tarball (sha256-verified) on a digest-pinned Temurin 8 JRE (installer/images/elasticsearch2, ADR-07): elasticsearch:2 on Docker Hub ships linux/amd64 only, and under Rosetta on Apple Silicon it needed 38 minutes to open port 9200 on a fresh data directory (real install run 19) while the native build starts in 5 seconds. Runs as uid 1000 with a read-only root (no hardening exception for the service itself; the one-shot elasticsearch_data_init hands the data volume to uid 1000 first). Retired at M5 with ES8.",
+      "note": "Built natively from the official elasticsearch-2.4.6 tarball (sha256-verified) on a digest-pinned Temurin 8 JRE (installer/images/elasticsearch2, ADR-07): elasticsearch:2 on Docker Hub ships linux/amd64 only, and under Rosetta on Apple Silicon it needed 38 minutes to open port 9200 on a fresh data directory (real install run 19) while the native build starts in 5 seconds. Runs as uid 1000 with a read-only root (no hardening exception for the service itself; the one-shot volume_owner_init hands the data volume to uid 1000 first). Retired at M5 with ES8.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -810,7 +809,7 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
-        "elasticsearch_data_init",
+        "volume_owner_init",
         "elasticsearch"
       ],
       "target_image": {

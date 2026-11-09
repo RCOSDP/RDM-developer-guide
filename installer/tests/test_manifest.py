@@ -10,9 +10,9 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "elasticsearch_data_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "volume_owner_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
-CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_static_init", "wiki_assets", "mongo",
+CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_assets", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}
 FULL_FAKECAS = CORE | {"rdmcp", "aipf_mcp_data_grdm", "oasys"}
 FULL_SHIBBOLETH = (FULL_FAKECAS - {"fakecas"}) | {"shibboleth_sp", "test_idp"}
@@ -238,7 +238,7 @@ class OverlayTests(unittest.TestCase):
         wiki = self.man.component("wiki-frontend")
         self.assertTrue(wiki.is_overlay)
         self.assertEqual(wiki.overlay_of, "osf.io")
-        self.assertEqual(wiki.services, ["wiki_static_init", "wiki_assets"])
+        self.assertEqual(wiki.services, ["wiki_assets"])
         self.assertEqual(wiki.integration_repo, "RDM-wiki-frontend-dev2027")
         self.assertRegex(wiki.sha12, r"^[0-9a-f]{12}$")  # keeps its own pinned commit
         self.assertIs(self.man.overlay_for("osf.io"), wiki)
@@ -263,8 +263,6 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(svc.build.overlay_of, "osf.io")
         self.assertEqual(svc.build.base_repo, "RDM-osf.io-dev2027")
         self.assertEqual(svc.build.base_sha12, osf.sha12)
-        init = services["wiki_static_init"]
-        self.assertEqual((init.image, init.origin, init.is_one_shot), (svc.image, "overlay", True))
         for name in ("web", "api", "admin", "worker"):
             self.assertEqual(services[name].image, f"grdm-dev/osf.io:{osf.sha12}", name)
             self.assertEqual(services[name].origin, "built", name)
