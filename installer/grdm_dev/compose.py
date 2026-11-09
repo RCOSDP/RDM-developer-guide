@@ -1039,13 +1039,15 @@ def host_mount_points() -> list[str] | None:
     return None
 
 
-def volume_root_identity(runtime: Path) -> tuple[int, int] | None:
-    """(device, inode) of the volumes root as it is now, or None when absent: the same path may be a different directory later."""
+def volume_root_identity(runtime: Path) -> tuple[int, int, int] | None:
+    """(device, inode, file type) of the volumes root as it is now, or None when absent: the same path may be
+    something else later. The type counts because a filesystem can give a replacement the inode just freed (seen
+    on ext4 in CI); a replacement directory that reuses the inode is within the limit stated in SPEC-02 §3."""
     try:
         info = (runtime / VOLUMES_DIR).lstat()
     except OSError:
         return None
-    return info.st_dev, info.st_ino
+    return info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode)
 
 
 def volume_path_problems(root: Path, runtime: Path, names: list[str] | None = None) -> list[str]:
