@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.5 — 2026-11-10. **Learned:** per-volume init containers multiplied hardening exceptions and still missed redis and the other uid-1000 volumes, so one generic owner step, derived from each volume's writers, replaces them (cross-OS audit, 2026-11-10). ／ ボリュームごとの init コンテナは堅牢化の例外を増やすだけで redis や他の uid 1000 のボリュームを取りこぼしていた。各ボリュームの書き手から導く一つの汎用の所有者設定の段に置き換えると分かった（OS 横断の監査、2026-11-10）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a component can be a repository whose image is only a build tool: wiki-frontend is an overlay built from the osf.io tree plus its files, and its single service `wiki_assets` runs once to copy the wiki editor bundle into a volume, so the inventory shows that service, not a `wiki` server ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)); and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 部品のイメージがビルド道具にすぎないこともあると分かった。wiki-frontend は osf.io の木に自分のファイルを重ねて組むオーバーレイで、唯一のサービス `wiki_assets` は Wiki エディタの束をボリュームへ写すために一度だけ動く。一覧には `wiki` サーバでなくそのサービスを載せる（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.3 — 2026-11-06. **Learned:** a component can be a repository whose image is only a build tool: wiki-frontend is an overlay built from the osf.io tree plus its files, and its single service `wiki_assets` runs once to copy the wiki editor bundle into a volume, so the inventory shows that service, not a `wiki` server ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ 部品のイメージがビルド道具にすぎないこともあると分かった。wiki-frontend は osf.io の木に自分のファイルを重ねて組むオーバーレイで、唯一のサービス `wiki_assets` は Wiki エディタの束をボリュームへ写すために一度だけ動く。一覧には `wiki` サーバでなくそのサービスを載せる（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
 - Version / 版: 0.3 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -87,7 +88,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,"wiki_static_init,wiki_assets",RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
@@ -249,7 +250,7 @@ components[20]{id,role,services,integration_repo,profile}:
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
   ember-osf-web,core,ember_osf_web,RDM-ember-osf-web-dev2027,core
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
-  wiki-frontend,core,"wiki_static_init,wiki_assets",RDM-wiki-frontend-dev2027,core
+  wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
   elasticsearch2,infra,elasticsearch,null,minimum
   elasticsearch6,infra,elasticsearch6,null,core

@@ -63,13 +63,17 @@ from __future__ import annotations
 import json
 import math
 import os
+import platform
 import re
 import socket
+import stat
+import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
-from . import exit_codes, manifest as _manifest, report
+from . import exit_codes, host, manifest as _manifest, report
 from .context import Context
 from .plan import (
     DEFAULT_PORTS,
@@ -92,6 +96,12 @@ PROJECT_NAME = "grdm-dev"
 COMPOSE_FILE = "docker-compose.yml"
 CONFIG_DIR = "config"
 VOLUMES_DIR = "volumes"
+OWNER_INIT_SERVICE = "volume_owner_init"  # one-shot: hands every writable bind volume to its non-root owner
+OWNER_INIT_MOUNT = "/volumes"
+ACCESS_CHECK_PREFIX = "volume_access_check_"  # one-shots, one per owner uid: write a probe file as that uid
+# Mounts that present every path as root:root and ignore chown: Docker Desktop (fakeowner, fuse.grpcfuse),
+# Colima and Lima (virtiofs measured; 9p, fuse.sshfs). Anywhere else a chown without effect is a failure.
+OWNERSHIP_IGNORING_FILESYSTEMS = ("virtiofs", "fakeowner", "fuse.grpcfuse", "fuse.sshfs", "9p")
 DEFAULT_MEMORY_GIB = 16.0
 DEFAULT_CPUS = 4.0
 MEMORY_SHARE = 0.70          # fraction of host memory handed out as the sum of mem_limit
@@ -310,6 +320,15 @@ def substitute(value: Any, host_ports: dict[str, int], container_ports: dict[str
 class MemoryBudgetError(ValueError):
     """The memory floors of the profile do not fit the budget (exit 10, host unsupported)."""
 
+    def __init__(self, message: str, need_gib: float):
+        super().__init__(message)
+        self.need_gib = need_gib
+
+
+def memory_floor_need_gib(services: list[_manifest.Service]) -> float:
+    """Memory the engine must have for this profile's `mem_min_mb` floors to fit the budget."""
+    return sum(int(s.template.get("mem_min_mb", 128)) for s in services) / 1024 / MEMORY_SHARE
+
 
 def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: float, allow_overcommit: bool = False) -> dict[str, dict[str, Any]]:
     budget_mb = memory_gib * 1024 * MEMORY_SHARE
@@ -321,12 +340,12 @@ def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: 
     floors = {s.name: int(s.template.get("mem_min_mb", 128)) for s in services}
     weights = {s.name: float(s.template.get("weight", 1)) for s in services}
     if sum(floors.values()) > budget_mb and not allow_overcommit:
-        need_gib = sum(floors.values()) / 1024 / MEMORY_SHARE
+        need_gib = memory_floor_need_gib(services)
         raise MemoryBudgetError(
             f"the {len(services)} services of this profile need at least {sum(floors.values())} MiB of memory floors, "
-            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Give the Docker engine "
-            f"at least {need_gib:.0f} GiB (Docker Desktop: Settings > Resources), choose a smaller --profile, or pass "
-            f"--memory-gib to overcommit knowingly (PR #33 review r1 R1-04)")
+            f"but the budget is {int(budget_mb)} MiB ({MEMORY_SHARE:.0%} of {memory_gib:.1f} GiB). Choose a smaller --profile, "
+            f"pass --memory-gib to overcommit knowingly (PR #33 review r1 R1-04), or give the Docker engine at least {need_gib:.0f} GiB",
+            need_gib)
     mem: dict[str, int] = {}
     pinned: set[str] = set()
     while True:
@@ -360,6 +379,128 @@ def _mount(entry: dict[str, Any]) -> str:
     if "config_dir" in entry:
         return f"./{CONFIG_DIR}/{entry['config_dir']}:{target}{suffix}"
     raise ValueError(f"unknown volume entry {entry!r}")
+
+
+def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The owner each writable bind volume needs, and the services that must wait for it being set.
+
+    Returns ({volume: "uid:gid"}, {service: [volumes]}). The owner is the fixed `user:` of the services
+    that mount the volume writable. A service with the `user` control relaxed starts as root and may set
+    its own ownership, so it never decides an owner: chowning postgres_data to anything but its own uid
+    would break it. It still waits when it shares a volume that has an owner (unoconv on wb_tmp). Two
+    different owners for one volume are a template error (ValueError, exit 20 upstream)."""
+    owners: dict[str, str] = {}
+    writers: dict[str, list[str]] = {}
+    relaxed_services: list[_manifest.Service] = []
+    for svc in services:
+        if svc.name == OWNER_INIT_SERVICE or svc.name.startswith(ACCESS_CHECK_PREFIX):
+            continue
+        if "user" in set(hardening.get(svc.name, {}).get("controls", [])):
+            relaxed_services.append(svc)
+            continue
+        user = str(svc.template.get("user", "1000:1000"))
+        for mount in svc.template.get("volumes", []):
+            name = mount.get("volume")
+            if not name or mount.get("ro"):
+                continue
+            if owners.setdefault(name, user) != user:
+                raise ValueError(f"volume {name}: services need different owners ({owners[name]} and {user}, service {svc.name})")
+            writers.setdefault(svc.name, []).append(name)
+    for svc in relaxed_services:
+        shared = [m["volume"] for m in svc.template.get("volumes", []) if m.get("volume") in owners and not m.get("ro")]
+        if shared:
+            writers[svc.name] = shared
+    return owners, writers
+
+
+def _owner_init_command(owners: dict[str, str]) -> list[str]:
+    """Hand every volume to its owner (SPEC-02 §4, the migration and retry contract).
+
+    Every `up` walks the whole tree; there is no marker and no shortcut on the top directory, so a run that
+    stopped half way is finished by the next one, and a correct top directory cannot hide wrong descendants.
+    A root with only CAP_CHOWN is subject to file permissions and cannot enter another uid's 0700 directory,
+    but it may take ownership of it and then enter as its owner: the loop does that one level per pass, only for
+    directories "other" cannot read, with -prune because GNU find does not act on a directory it cannot open
+    (measured), and stops if a pass makes no progress. It needs GNU coreutils: the elasticsearch2 base has uutils
+    chown, which returned 0 without changing such a directory (measured), so the step runs on the postgres image.
+    A walk that fails must stop the step, so no `find` is piped (a pipeline reports the last command, and a
+    `while` condition ignores `set -e`); its whole output is captured and its status checked (R4-01).
+    A chown that exits 0 proves nothing, so every result is read back: files by a walk while the tree is open,
+    directories one by one, deepest first, while their parent is still open (a private directory handed back
+    cannot be reached again by this process; the next run reopens it).
+
+    A top directory that keeps its old owner after chown stops the step, unless its mount is one of
+    OWNERSHIP_IGNORING_FILESYSTEMS, the VM shares that present every path as root:root (measured on Colima
+    virtiofs: chown exits 0, stat still reads 0:0). Even then only the volume_access_check_* one-shots, which
+    run as the real uid and walk the existing tree, establish that the writers can use it. Nothing follows symlinks or leaves the volume."""
+    steps = "".join(f'fix {owner} {OWNER_INIT_MOUNT}/{name}; ' for name, owner in owners.items())
+    different = '\\( ! -user "$u" -o ! -group "$g" \\)'
+    private = "-type d ! -user 0 ! -perm -005 -prune"
+    ignoring = "|".join(OWNERSHIP_IGNORING_FILESYSTEMS)
+    failed = 'echo "volume_owner_init: cannot walk $2" >&2; exit 1;'
+    # awk prints the filesystem type: the field after the "-" separator of the line whose mount point is $2
+    fstype = """$(awk -v m="$2" '$5 == m { for (i = 7; i <= NF; i++) if ($i == "-") t = $(i + 1) } END { print t }' /proc/self/mountinfo)"""
+    back = """for d; do chown -h "$0" "$d"; if [ "$(stat -c %u:%g "$d")" != "$0" ]; then echo "volume_owner_init: $d stayed $(stat -c %u:%g "$d") after chown to $0" >&2; exit 1; fi; done"""
+    function = (
+        'fix() { chown -h "$1" "$2"; '
+        's=$(stat -c %u:%g "$2"); if [ "$s" != "$1" ]; then t=' + fstype + '; case "$t" in '
+        f'{ignoring}) echo "$2: $t does not keep ownership; volume_access_check decides whether the writers can use it"; return 0;; '
+        '*) echo "volume_owner_init: $2 stayed $s after chown to $1 on filesystem [$t]" >&2; exit 1;; esac; fi; '
+        'u=${1%:*}; g=${1#*:}; prev=; '
+        f'while :; do now=$(find "$2" -xdev {private}) || {{ {failed} }}; [ -n "$now" ] || break; '
+        'if [ "$now" = "$prev" ]; then echo "volume_owner_init: cannot take ownership of $now" >&2; exit 1; fi; prev=$now; '
+        f'find "$2" -xdev {private} -exec chown -h 0:0 {{}} + ; done; '
+        f'find "$2" -xdev ! -type d {different} -exec chown -h "$1" {{}} + ; '
+        f'left=$(find "$2" -xdev ! -type d {different}) || {{ {failed} }}; '
+        'if [ -n "$left" ]; then echo "volume_owner_init: $left is not $1; run up again, or reset to start over" >&2; exit 1; fi; '
+        f"""find "$2" -xdev -depth -type d {different} -exec sh -c '{back}' "$1" {{}} + ; }}; """
+    )
+    return ["sh", "-c", f"set -e; {function}{steps}ls -ld {OWNER_INIT_MOUNT}/*"]
+
+
+def _access_check_command(volumes: list[str]) -> list[str]:
+    """As the writer's own uid: prove it can create a file in each volume and use what is already there.
+
+    The probe file comes from mktemp, which creates a new name exclusively and never follows a symlink, and
+    only that file is removed, so nothing existing can be truncated (PR #36 review r3 R3-02). The walk asks the
+    kernel about access (GNU find -readable, -writable, -executable), changing nothing: a writable root says
+    nothing about a private child (R3-01). A directory must be enterable, listable and writable; a file readable.
+    -prune because GNU find does not act on a directory it cannot open (measured)."""
+    paths = " ".join(f"{OWNER_INIT_MOUNT}/{name}" for name in volumes)
+    denied = r"\( -type d \( ! -readable -o ! -executable -o ! -writable \) -prune -o ! -type d ! -type l ! -readable \)"
+    return ["sh", "-c", (
+        f'set -e; for v in {paths}; do p=$(mktemp "$v/.grdm-write-probe.XXXXXX"); rm -f -- "$p"; '
+        f'bad=$(find "$v" -xdev {denied} -print) || {{ echo "volume_access_check: cannot walk $v" >&2; exit 1; }}; '
+        'if [ -n "$bad" ]; then echo "volume_access_check: uid $(id -u) cannot use $bad" >&2; exit 1; fi; '
+        'echo "$v: usable by $(id -u)"; done'
+    )]
+
+
+def with_owner_init(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> list[_manifest.Service]:
+    """Fill the owner step and the per-uid access checks from the profile; every writer waits for both. No-op without the step."""
+    if not any(s.name == OWNER_INIT_SERVICE for s in services):
+        return services
+    owners, writers = volume_owners(services, hardening)
+    finished = "service_completed_successfully"
+    wait_owner = {"service": OWNER_INIT_SERVICE, "condition": finished}
+    checks = {svc.template.get("user"): svc.name for svc in services if svc.name.startswith(ACCESS_CHECK_PREFIX)}
+    out: list[_manifest.Service] = []
+    for svc in services:
+        if svc.name == OWNER_INIT_SERVICE:
+            mounts = [{"volume": name, "target": f"{OWNER_INIT_MOUNT}/{name}"} for name in owners]
+            out.append(replace(svc, template={**svc.template, "volumes": mounts, "command": _owner_init_command(owners)}))
+        elif svc.name.startswith(ACCESS_CHECK_PREFIX):
+            names = [name for name, owner in owners.items() if owner == svc.template.get("user")]
+            if names:  # a uid that owns nothing in this profile has nothing to prove
+                mounts = [{"volume": name, "target": f"{OWNER_INIT_MOUNT}/{name}"} for name in names]
+                out.append(replace(svc, template={**svc.template, "volumes": mounts, "command": _access_check_command(names), "depends_on": [wait_owner]}))
+        elif svc.name in writers:
+            needed = sorted({checks[owners[v]] for v in writers[svc.name] if owners[v] in checks})
+            depends = [*svc.template.get("depends_on", []), wait_owner, *({"service": c, "condition": finished} for c in needed)]
+            out.append(replace(svc, template={**svc.template, "depends_on": depends}))
+        else:
+            out.append(svc)
+    return out
 
 
 def escape_compose_dollar(text: str) -> str:
@@ -486,6 +627,7 @@ def render_compose(
 ) -> dict[str, Any]:
     egress = list(egress or [])
     service_platforms = service_platforms or {}
+    services = with_owner_init(services, hardening)
     extras = {"AUTH_URL": auth_url(auth, host_ports)}
     in_profile = {s.name for s in services}
     container_ports = {s.name: int(s.template.get("container_port", DEFAULT_PORTS.get(s.name, 0))) for s in services}
@@ -876,8 +1018,104 @@ def detect_docker_memory_gib(runner) -> float | None:
     return total / (1024 ** 3) if total > 0 else None
 
 
+def detect_docker_cpus(runner) -> float | None:
+    """CPUs of the Docker engine's VM (`docker info --format {{.NCPU}}`), or None when unknown. Read-only."""
+    try:
+        rc, out = runner(["docker", "info", "--format", "{{.NCPU}}"])
+    except Exception:  # a runner that only knows `docker compose ps` (tests) or a missing docker
+        return None
+    if rc != 0:
+        return None
+    try:
+        count = int(str(out).strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return float(count) if count > 0 else None
+
+
 # --------------------------------------------------------------------------- entry point
 
+
+
+def host_mount_points() -> list[str] | None:
+    """Every mount point of this host, from the mount table; None when the table cannot be read.
+    A same-filesystem bind mount has no device-number difference, so only the table reveals it."""
+    system = platform.system()
+    try:
+        if system == "Linux":
+            with open("/proc/self/mountinfo", encoding="utf-8", errors="surrogateescape") as fh:
+                return [re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), line.split()[4]) for line in fh if len(line.split()) > 4]
+        if system == "Darwin":
+            out = subprocess.run(["/sbin/mount"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=15, check=True).stdout
+            points = [m.group(1) for m in re.finditer(r"^.+? on (.+) \(", out, re.MULTILINE)]
+            return points or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return None
+
+
+def volume_root_identity(runtime: Path) -> tuple[int, int, int] | None:
+    """(device, inode, file type) of the volumes root as it is now, or None when absent: the same path may be
+    something else later. The type counts because a filesystem can give a replacement the inode just freed (seen
+    on ext4 in CI); a replacement directory that reuses the inode is within the limit stated in SPEC-02 §3."""
+    try:
+        info = (runtime / VOLUMES_DIR).lstat()
+    except OSError:
+        return None
+    return info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode)
+
+
+def volume_path_problems(root: Path, runtime: Path, names: list[str] | None = None) -> list[str]:
+    """Why runtime/volumes/ (or one of `names`, default every entry) must not be mounted or deleted.
+
+    A root container follows the bind source on the host side, so restricting the path inside the
+    container restricts nothing (PR #36 review r1 R1-01): a symlink here would hand an unrelated directory
+    to the owner step or to `reset`. Refused: a symlinked runtime/ or volumes root, a root that resolves
+    outside the checkout, a symlinked volume, runtime/ or the volumes root being a mount, and any mount at
+    any depth inside the tree, by the host mount table (same-filesystem bind mounts included), because the
+    host fallback of `reset` is an ordinary rmtree. A table that cannot be read refuses too.
+
+    This is a snapshot: Docker resolves the bind later and no check can close that window, so the checkout
+    is assumed not to be changed concurrently by someone else (SPEC-02 §3). `reset` repeats it at each step."""
+    base = runtime / VOLUMES_DIR
+    for path in (runtime, base):
+        if path.is_symlink():
+            return [f"{path} is a symbolic link"]
+    mounts = host_mount_points()
+    if mounts is None:
+        return ["the host mount table cannot be read, so mounts inside runtime/volumes cannot be excluded"]
+    top = str(runtime.resolve())
+    inside = str(runtime.resolve() / VOLUMES_DIR)
+    data_prefix = "/System/Volumes/Data"  # macOS lists firmlinked paths under it
+    for point in mounts:
+        point = point[len(data_prefix):] if point.startswith(data_prefix + "/") else point
+        if point == top or point == inside or point.startswith(inside + "/"):
+            return [f"{point} is a mount inside the runtime tree"]
+    if not base.exists():
+        return []
+    expected = root.resolve() / runtime.name / VOLUMES_DIR
+    if base.resolve() != expected:
+        return [f"{base} resolves to {base.resolve()}, outside {expected.parent}"]
+    problems: list[str] = []
+    try:
+        entries = names if names is not None else sorted(p.name for p in base.iterdir())
+        base_dev = base.stat().st_dev
+    except OSError as exc:
+        return [f"cannot inspect {base}: {exc}"]
+    for name in entries:
+        path = base / name
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            problems.append(f"cannot inspect {path}: {exc}")
+            continue
+        if stat.S_ISLNK(info.st_mode):
+            problems.append(f"{path} is a symbolic link")
+        elif stat.S_ISDIR(info.st_mode) and info.st_dev != base_dev:
+            problems.append(f"{path} is a separate mount")
+    return problems
 
 
 def _ensure_volume_dir(vol_dir: Path) -> None:
@@ -939,6 +1177,10 @@ def run(
     except (_manifest.ManifestError, ValueError, OSError) as exc:
         return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
 
+    bad_paths = volume_path_problems(ctx.root, ctx.runtime, volumes_of(services))
+    if bad_paths:
+        return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
+
     service_names = [s.name for s in services]
     try:
         raw_egress = getattr(args, "egress", None)
@@ -978,7 +1220,9 @@ def run(
             if vm_gib and host_gib and vm_gib < host_gib:
                 sys.stderr.write(f"[grdm-dev] compose render: memory budget uses the Docker VM's {vm_gib:.1f} GiB, not the host's {host_gib:.1f} GiB\n")
     if cpus is None:
-        cpus = getattr(args, "cpus", None) or float(os.cpu_count() or 0) or DEFAULT_CPUS
+        # Docker Desktop and Colima run containers in a VM with fewer CPUs than the host; Compose rejects a
+        # `cpus:` above what the engine has, so the engine's own count wins over the host's.
+        cpus = getattr(args, "cpus", None) or detect_docker_cpus(runner) or float(os.cpu_count() or 0) or DEFAULT_CPUS
     platform_string = platform_string or getattr(args, "platform", None) or detect_platform()
 
     try:
@@ -997,7 +1241,10 @@ def run(
         allow_overcommit=explicit_memory,
       )
     except MemoryBudgetError as exc:
-        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}")
+        os_name, _ = host.classify_os(host.Probe.from_system(root=ctx.root, runner=runner))
+        return report.error(ctx, exit_codes.HOST_UNSUPPORTED, f"memory: {exc}; {host.memory_hint(os_name, exc.need_gib)}")
+    except ValueError as exc:  # two owners for one volume (a template error)
+        return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
     configs = config_files(host_ports)
     for text in [compose_text, *configs.values()]:

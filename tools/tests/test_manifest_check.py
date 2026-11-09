@@ -502,7 +502,7 @@ class OverlayTests(unittest.TestCase):
         comps = {c["id"]: c for c in data["components"]}
         wiki = comps["wiki-frontend"]
         self.assertEqual(wiki["overlay_of"], "osf.io")
-        self.assertEqual(wiki["services"], ["wiki_static_init", "wiki_assets"])
+        self.assertEqual(wiki["services"], ["wiki_assets"])
         self.assertEqual(wiki["profile"], "core")
         self.assertNotIn("prebuilt_image", comps["osf.io"])
         self.assertRegex(wiki["integration_sha"], r"^[0-9a-f]{40}$")

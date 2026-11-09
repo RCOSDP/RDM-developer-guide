@@ -36,13 +36,14 @@ def default_run_step(ctx: Context, argv: list[str]) -> int:
     return int(mod.run(ctx, args))
 
 
-def plan_steps(ctx: Context, *, platform: str | None, no_open: bool) -> list[tuple[str, list[str]]]:
+def plan_steps(ctx: Context, *, platform: str | None, no_open: bool, memory_gib: float | None = None) -> list[tuple[str, list[str]]]:
     from .secrets import env_path
 
-    steps: list[tuple[str, list[str]]] = [("doctor", ["doctor"]), ("plan", ["plan"])]
+    memory = ["--memory-gib", f"{memory_gib:g}"] if memory_gib else []
+    steps: list[tuple[str, list[str]]] = [("doctor", ["doctor"] + memory), ("plan", ["plan"])]
     if not env_path(ctx).exists():
         steps.append(("secrets init", ["secrets", "init"]))
-    steps.append(("compose render", ["compose", "render"]))
+    steps.append(("compose render", ["compose", "render"] + memory))
     build = ["build"] + (["--platform", platform] if platform else [])
     steps.append(("build", build))
     steps.append(("up", ["up"] + (["--no-open"] if no_open else [])))
@@ -56,6 +57,7 @@ def register(subparsers) -> None:
     p = subparsers.add_parser("install", help="doctor → plan → secrets → compose → build → up → health → scan → report")
     p.add_argument("--platform", help="comma-separated platforms for build (default: host platform)")
     p.add_argument("--no-open", dest="no_open", action="store_true", help="do not open the browser after up")
+    p.add_argument("--memory-gib", type=float, help="passed to doctor and compose render: overcommit knowingly when the profile's memory floors do not fit")
     p.set_defaults(_module=sys.modules[__name__])
 
 
@@ -64,7 +66,8 @@ def run(ctx: Context, args, run_step: Callable[[Context, list[str]], int] | None
     from .secrets import env_path
 
     run_step = run_step or default_run_step
-    steps = plan_steps(ctx, platform=getattr(args, "platform", None), no_open=bool(getattr(args, "no_open", False)))
+    steps = plan_steps(ctx, platform=getattr(args, "platform", None), no_open=bool(getattr(args, "no_open", False)),
+                       memory_gib=getattr(args, "memory_gib", None))
     skipped_secrets = env_path(ctx).exists()
     rows: list[dict] = []
     if skipped_secrets:

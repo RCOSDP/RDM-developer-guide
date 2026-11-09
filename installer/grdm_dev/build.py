@@ -58,6 +58,7 @@ stderr while collecting them, so a long build stays visible. Tests inject a fake
 """
 from __future__ import annotations
 
+import os
 import platform as _platform
 import shutil
 import subprocess
@@ -76,10 +77,13 @@ DEFAULT_PROFILE = "core"
 
 
 def default_runner(argv: list[str]) -> tuple[int, str]:
-    """Run argv, stream every output line to stderr, return (returncode, collected output)."""
+    """Run argv, stream every output line to stderr, return (returncode, collected output).
+
+    Git may not ask for credentials: a clone of a private repository without access fails at once (exit 30)
+    instead of waiting at a prompt; `doctor` has already explained how to give access."""
     lines: list[str] = []
     try:
-        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
     except OSError as exc:
         return 127, str(exc)
     assert proc.stdout is not None
