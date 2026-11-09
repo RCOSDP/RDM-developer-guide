@@ -10,9 +10,9 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "volume_owner_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
-CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_assets", "mongo",
+CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_assets", "volume_access_check_999", "mongo",
                   "sharejs", "elasticsearch6", "redis", "y_websocket"}
 FULL_FAKECAS = CORE | {"rdmcp", "aipf_mcp_data_grdm", "oasys"}
 FULL_SHIBBOLETH = (FULL_FAKECAS - {"fakecas"}) | {"shibboleth_sp", "test_idp"}

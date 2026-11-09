@@ -38,6 +38,7 @@ _NETWORK_ERRORS = ("could not resolve host", "failed to connect", "network is un
 
 
 DOCKER_SHARED_ENV = "GRDM_DOCKER_SHARED"  # macOS: "1" skips the engine check when it cannot be run
+_MOUNT_REJECTED = ("mounts denied", "not shared from the host", "not known to docker", "invalid mount", "bind source path does not exist")
 
 
 def register(subparsers) -> None:
@@ -113,7 +114,9 @@ def visibility_argv(image: str, repo_root: str) -> list[str]:
 
 def check_engine_visibility(probe: host.Probe, info: host.HostInfo, runner, image: str) -> None:
     """macOS: can the Docker VM see this checkout? Asked of the engine, because sharing differs between Docker
-    Desktop and Colima and a bind mount from an unshared path is silently empty. Uses a pinned image `up` needs."""
+    Desktop and Colima and a bind mount from an unshared path is silently empty. Uses the postgres image `up` needs.
+    The engine refusing the mount, or the mount coming up empty, is exit 13; a probe that could not run (no image,
+    no network) has established nothing and says so as a warning."""
     if info.os_name != "macos" or not probe.repo_root or not info.docker_running:
         return
     if probe.env.get(DOCKER_SHARED_ENV) == "1":
@@ -122,7 +125,8 @@ def check_engine_visibility(probe: host.Probe, info: host.HostInfo, runner, imag
     rc, out = runner(visibility_argv(image, probe.repo_root))
     if rc == 0:
         return
-    if rc != 125 and "no such file" in (out or "").lower():
+    text = (out or "").lower()
+    if any(marker in text for marker in _MOUNT_REJECTED) or (rc != 125 and "no such file" in text):
         info.prerequisite_problems.append(
             f"the Docker engine cannot see {probe.repo_root}, so bind mounts would be silently empty; share that path with the Docker VM or clone the repository under a shared one / "
             f"Docker エンジンから {probe.repo_root} が見えないため bind mount が黙って空になります。そのパスを Docker VM と共有するか、共有された場所へ clone してください"

@@ -308,6 +308,12 @@ class RepoPathTests(PreflightBase):
         self.assertEqual(code, exit_codes.OK)
         self.assertIn("GRDM_DOCKER_SHARED=1", out)
 
+    def test_macos_mount_the_engine_refuses_is_exit_13(self):
+        denied = (125, "docker: Error response from daemon: Mounts denied:\nThe path /Volumes/x is not shared from the host and is not known to Docker.\n")
+        code, _, err = self.doctor(self.mac(repo_root="/Volumes/x/rdm"), preflight_runner(visible=denied))
+        self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
+        self.assertIn("cannot see", err)
+
     def test_macos_override_skips_the_engine(self):
         runner = preflight_runner(visible=self.NO_SUCH_FILE)
         code, out, _ = self.doctor(self.mac(env={"HOME": HOME, doctor.DOCKER_SHARED_ENV: "1"}), runner)
@@ -382,6 +388,23 @@ class OwnerInitTests(unittest.TestCase):
         self.assertEqual(unoconv["depends_on"]["volume_owner_init"], {"condition": "service_completed_successfully"})
         self.assertIn("fix 1000:1000 /volumes/wb_tmp", services["volume_owner_init"]["command"][2])  # unoconv does not decide the owner
 
+    def test_access_checks_write_as_each_owner_and_gate_the_writers(self):
+        services = self.render()
+        wait = {"condition": "service_completed_successfully"}
+        check_1000, check_999 = services["volume_access_check_1000"], services["volume_access_check_999"]
+        self.assertEqual((check_1000["user"], check_999["user"]), ("1000:1000", "999:999"))
+        self.assertEqual(check_999["volumes"], ["redis_data:/volumes/redis_data"])
+        self.assertIn("wb_tmp:/volumes/wb_tmp", check_1000["volumes"])
+        for check in (check_1000, check_999):
+            self.assertEqual(check["depends_on"], {"volume_owner_init": wait})
+            self.assertEqual(check["cap_drop"], ["ALL"])
+            self.assertNotIn("cap_add", check)
+            self.assertIs(check["read_only"], True)
+            self.assertEqual(check["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        self.assertEqual(services["redis"]["depends_on"]["volume_access_check_999"], wait)
+        self.assertEqual(services["unoconv"]["depends_on"]["volume_access_check_1000"], wait)
+        self.assertNotIn("volume_access_check_1000", services["redis"]["depends_on"])
+
     def test_no_shortcut_on_the_top_directory(self):
         cmd = self.render()["volume_owner_init"]["command"][2]
         self.assertNotIn("chown -R", cmd)
@@ -432,7 +455,7 @@ def reachable(path):
 
 
 def chown(owner, path):
-    if os.environ.get("FS_NO_OWNERSHIP"):
+    if os.environ.get("FS_NO_OWNERSHIP") or path == os.environ.get("FS_SILENT_CHOWN"):
         return
     if not reachable(path):
         print(f"chown: cannot access {path}: Permission denied", file=sys.stderr)
@@ -488,6 +511,10 @@ elif tool == "find":
     walk(sys.argv[1])
     if "-depth" in args:
         batch.reverse()  # children before their directory
+    if "-exec" in args and args[args.index("-exec") + 1] == "sh":
+        start = args.index("-exec") + 1
+        import subprocess
+        sys.exit(subprocess.run(args[start:args.index("{}")] + batch).returncode or code)
     if "-exec" in args:
         owner = args[args.index("-exec") + 3]
         for path in batch:
@@ -510,6 +537,8 @@ class OwnerStepContractTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         base = Path(self.tmp.name)
         (base / "bin").mkdir()
+        (base / "bin" / "awk").write_text('#!/bin/sh\necho "$FS_TYPE"\n')
+        (base / "bin" / "awk").chmod(0o755)
         for tool in ("find", "chown", "stat"):
             (base / "bin" / tool).write_text(FAKE_FS.replace("#!PYTHON", f"#!{sys.executable}"))
             (base / "bin" / tool).chmod(0o755)
@@ -599,12 +628,39 @@ class OwnerStepContractTests(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("/volumes/data/sealed", proc.stderr)
 
-    def test_a_filesystem_that_ignores_ownership_is_left_alone(self):
+    def test_a_known_vm_share_is_left_to_the_access_check(self):
         tree = {"/volumes/data": [0, 0, DIR | 0o755], "/volumes/data/f": [0, 0, 0o644]}
-        proc, fs = self.run_step(tree, FS_NO_OWNERSHIP="1")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(fs, tree)
-        self.assertIn("does not keep ownership", proc.stdout)
+        for fstype in compose.OWNERSHIP_IGNORING_FILESYSTEMS:
+            with self.subTest(fstype):
+                proc, fs = self.run_step(tree, FS_NO_OWNERSHIP="1", FS_TYPE=fstype)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(fs, tree)
+                self.assertIn("does not keep ownership", proc.stdout)
+
+    def test_an_ineffective_chown_elsewhere_stops_the_step(self):
+        for fstype in ("ext4", "xfs", ""):
+            with self.subTest(fstype):
+                proc, _ = self.run_step({"/volumes/data": [0, 0, DIR | 0o755]}, FS_NO_OWNERSHIP="1", FS_TYPE=fstype)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertIn("after chown", proc.stderr)
+
+    def test_an_ineffective_chown_of_a_directory_is_caught(self):
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/p": [999, 999, DIR | 0o700], "/volumes/data/p/f": [999, 999, 0o600]}
+        proc, fs = self.run_step(tree, FS_SILENT_CHOWN="/volumes/data/p")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/p", proc.stderr)
+
+    def test_an_ineffective_chown_of_a_nested_directory_is_caught_by_read_back(self):
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/p": [0, 0, DIR | 0o755], "/volumes/data/p/q": [0, 0, DIR | 0o755]}
+        proc, fs = self.run_step(tree, FS_SILENT_CHOWN="/volumes/data/p/q")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/p/q stayed 0:0", proc.stderr)
+
+    def test_an_ineffective_chown_of_a_file_is_caught(self):
+        tree = {"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/f": [999, 999, 0o644]}
+        proc, _ = self.run_step(tree, FS_SILENT_CHOWN="/volumes/data/f")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/f", proc.stderr)
 
 
 class VolumePathTests(unittest.TestCase):
@@ -659,6 +715,47 @@ class VolumePathTests(unittest.TestCase):
         self.volumes.mkdir(parents=True)
         (self.volumes / "redis_data").symlink_to(self.outside / "gone")
         self.assertIn("symbolic link", self.problems()[0])
+
+    def with_mounts(self, *points):
+        return mock.patch.object(compose, "host_mount_points", return_value=list(points))
+
+    def test_a_same_device_bind_mount_at_any_depth_is_refused(self):
+        (self.volumes / "wb_tmp" / "deep").mkdir(parents=True)
+        with self.with_mounts("/", str(self.volumes.resolve() / "wb_tmp" / "deep")):
+            self.assertIn("mount inside", self.problems()[0])
+
+    def test_runtime_or_volumes_root_being_a_mount_is_refused(self):
+        self.volumes.mkdir(parents=True)
+        for point in (self.runtime, self.volumes):
+            with self.subTest(point.name), self.with_mounts("/", str(point.resolve())):
+                self.assertIn("mount inside", self.problems()[0])
+
+    def test_mounts_elsewhere_do_not_matter(self):
+        self.volumes.mkdir(parents=True)
+        with self.with_mounts("/", str(self.volumes.resolve()) + "-other", str(self.root.resolve().parent)):
+            self.assertEqual(self.problems(), [])
+
+    def test_an_unreadable_mount_table_refuses(self):
+        self.volumes.mkdir(parents=True)
+        with mock.patch.object(compose, "host_mount_points", return_value=None):
+            self.assertIn("cannot be read", self.problems()[0])
+
+    def test_macos_mount_table_is_parsed(self):
+        out = "/dev/disk3s1s1 on / (apfs, sealed)\n/dev/disk3s5 on /System/Volumes/Data (apfs, local)\nmap auto_home on /System/Volumes/Data/home with space (autofs)\n"
+        with mock.patch.object(compose.platform, "system", return_value="Darwin"), \
+                mock.patch.object(compose.subprocess, "run", return_value=mock.Mock(stdout=out)):
+            self.assertEqual(compose.host_mount_points(), ["/", "/System/Volumes/Data", "/System/Volumes/Data/home with space"])
+
+    def test_macos_data_prefix_is_compared_too(self):
+        (self.volumes / "a").mkdir(parents=True)
+        with self.with_mounts("/System/Volumes/Data" + str(self.volumes.resolve() / "a")):
+            self.assertIn("mount inside", self.problems()[0])
+
+    def test_linux_mount_table_decodes_escapes(self):
+        text = "36 35 98:0 / /mnt/with\\040space rw - ext3 /dev/root rw\n"
+        with mock.patch.object(compose.platform, "system", return_value="Linux"), \
+                mock.patch("builtins.open", mock.mock_open(read_data=text)):
+            self.assertEqual(compose.host_mount_points(), ["/mnt/with space"])
 
     def test_nested_mount_is_refused(self):
         (self.volumes / "redis_data").mkdir(parents=True)
@@ -786,6 +883,61 @@ class ResetTests(unittest.TestCase):
             code = lifecycle.run(self.ctx, args, runner=self.runner())
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
         self.assert_nothing_destructive()
+
+    def substitute_volumes(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "sentinel").write_text("keep")
+        shutil.rmtree(self.volumes)
+        self.volumes.symlink_to(outside)
+
+    def test_substitution_during_down_stops_before_the_wipe(self):
+        def run(argv):
+            self.calls.append(argv)
+            if "down" in argv:
+                self.substitute_volumes()
+            return 0, ""
+        code, err = self.reset(run)
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assertEqual([c for c in self.calls if c[:2] == ["docker", "run"]], [])
+        self.assertEqual((self.root / "outside" / "sentinel").read_text(), "keep")
+        self.assertIn("changed during reset", err)
+
+    def test_substitution_during_the_wipe_stops_before_host_deletion(self):
+        deleted = []
+
+        def run(argv):
+            self.calls.append(argv)
+            if argv[:2] == ["docker", "run"]:
+                self.substitute_volumes()
+            return 0, ""
+        code, _ = self.reset(run, rmtree=deleted.append)
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assertEqual(deleted, [])
+
+    def test_a_different_directory_with_the_same_path_is_refused(self):
+        def run(argv):
+            self.calls.append(argv)
+            if "down" in argv:
+                shutil.rmtree(self.volumes)
+                self.volumes.mkdir()
+                (self.volumes / "filler").write_text("x")  # keeps the old inode number from being reused
+            return 0, ""
+        with mock.patch.object(compose, "volume_root_identity", side_effect=[(1, 1), (1, 2), (1, 2)]):
+            code, err = self.reset(run)
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assertIn("changed during reset", err)
+
+    def test_a_mount_found_after_down_stops_the_wipe(self):
+        real = compose.host_mount_points()
+
+        def run(argv):
+            self.calls.append(argv)
+            return 0, ""
+        with mock.patch.object(compose, "host_mount_points", side_effect=[real, [str(self.volumes.resolve() / "x")]]):
+            code, _ = self.reset(run)
+        self.assertEqual(code, exit_codes.RESET_FAILED)
+        self.assertEqual([c for c in self.calls if c[:2] == ["docker", "run"]], [])
 
     def test_no_rendered_file_means_no_container(self):
         (self.root / "runtime" / "docker-compose.yml").unlink()

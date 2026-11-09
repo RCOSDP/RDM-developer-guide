@@ -96,7 +96,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 22)  # core profile (SPEC-02 §4), one-shots osf_init, volume_owner_init, wiki_assets included
+        self.assertEqual(len(services), 24)  # core profile (SPEC-02 §4), one-shots osf_init, volume_owner_init, volume_access_check_*, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -373,7 +373,7 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
             init = doc["services"]["volume_owner_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
             self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (doc["services"]["postgres"]["image"], "0:0", ["CHOWN"], "no"))
-            self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}})
+            self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
         finally:
             shutil.rmtree(root, ignore_errors=True)
@@ -505,17 +505,17 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "volume_owner_init", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
             "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
-            "volume_owner_init": {"condition": "service_completed_successfully"}})
+            "volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
         rc, _, _, _ = render(root, profile="full", auth="shibboleth")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 26)  # full profile with shibboleth: core 22 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 28)  # full profile with shibboleth: core 24 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -842,7 +842,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("$$src", wa["command"][2])
         self.assertIn("$$dst", wa["command"][2])
         self.assertNotRegex(wa["command"][2], r"(?<!\$)\$(?!\$)")  # every `$` is doubled
-        self.assertEqual(wa["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}})
+        self.assertEqual(wa["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
         self.assertEqual(wa["volumes"], ["wiki_static:/wiki_static"])
         # R1-02: a fresh bind volume is host-owned; the owner step chowns it with CAP_CHOWN only, then exits
         init = doc["services"]["volume_owner_init"]
@@ -995,7 +995,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
             "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
-            "volume_owner_init": {"condition": "service_completed_successfully"}})
+            "volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
 
     def test_escape_compose_dollar(self):
         self.assertEqual(compose.escape_compose_dollar('ls "$src"; echo ${X} $$'), 'ls "$$src"; echo $${X} $$$$')

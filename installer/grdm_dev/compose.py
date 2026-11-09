@@ -63,9 +63,11 @@ from __future__ import annotations
 import json
 import math
 import os
+import platform
 import re
 import socket
 import stat
+import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -96,6 +98,10 @@ CONFIG_DIR = "config"
 VOLUMES_DIR = "volumes"
 OWNER_INIT_SERVICE = "volume_owner_init"  # one-shot: hands every writable bind volume to its non-root owner
 OWNER_INIT_MOUNT = "/volumes"
+ACCESS_CHECK_PREFIX = "volume_access_check_"  # one-shots, one per owner uid: write a probe file as that uid
+# Mounts that present every path as root:root and ignore chown: Docker Desktop (fakeowner, fuse.grpcfuse),
+# Colima and Lima (virtiofs measured; 9p, fuse.sshfs). Anywhere else a chown without effect is a failure.
+OWNERSHIP_IGNORING_FILESYSTEMS = ("virtiofs", "fakeowner", "fuse.grpcfuse", "fuse.sshfs", "9p")
 DEFAULT_MEMORY_GIB = 16.0
 DEFAULT_CPUS = 4.0
 MEMORY_SHARE = 0.70          # fraction of host memory handed out as the sum of mem_limit
@@ -387,7 +393,7 @@ def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[s
     writers: dict[str, list[str]] = {}
     relaxed_services: list[_manifest.Service] = []
     for svc in services:
-        if svc.name == OWNER_INIT_SERVICE:
+        if svc.name == OWNER_INIT_SERVICE or svc.name.startswith(ACCESS_CHECK_PREFIX):
             continue
         if "user" in set(hardening.get(svc.name, {}).get("controls", [])):
             relaxed_services.append(svc)
@@ -415,40 +421,67 @@ def _owner_init_command(owners: dict[str, str]) -> list[str]:
     A root with only CAP_CHOWN is subject to file permissions and cannot enter another uid's 0700 directory,
     but it may take ownership of it and then enter as its owner: the loop does that one level per pass, only for
     directories "other" cannot read, with -prune because GNU find does not act on a directory it cannot open
-    (measured). It needs GNU coreutils: the elasticsearch2 base has uutils chown, which returned 0 without
-    changing such a directory (measured), so the step runs on the postgres image. Files go to the target uid while the tree is still open, a walk
-    proves none was missed, and directories go last and deepest first, because a private directory handed back cannot be
-    walked or reached through again by this process (the next run reopens it). A failure stops the step, naming the path, and writers
-    never start. A filesystem that does not keep ownership (a macOS VM share reads root:root whatever chown
-    does) is detected on the top directory and left alone. Nothing follows symlinks or leaves the volume."""
+    (measured), and stops if a pass makes no progress. It needs GNU coreutils: the elasticsearch2 base has uutils
+    chown, which returned 0 without changing such a directory (measured), so the step runs on the postgres image.
+    A chown that exits 0 proves nothing, so every result is read back: files by a walk while the tree is open,
+    directories one by one, deepest first, while their parent is still open (a private directory handed back
+    cannot be reached again by this process; the next run reopens it).
+
+    A top directory that keeps its old owner after chown stops the step, unless its mount is one of
+    OWNERSHIP_IGNORING_FILESYSTEMS, the VM shares that present every path as root:root (measured on Colima
+    virtiofs: chown exits 0, stat still reads 0:0). Even then only the volume_access_check_* one-shots, which
+    write as the real uid, establish that the writers can use it. Nothing follows symlinks or leaves the volume."""
     steps = "".join(f'fix {owner} {OWNER_INIT_MOUNT}/{name}; ' for name, owner in owners.items())
     different = '\\( ! -user "$u" -o ! -group "$g" \\)'
     private = "-type d ! -user 0 ! -perm -005 -prune"
+    ignoring = "|".join(OWNERSHIP_IGNORING_FILESYSTEMS)
+    # awk prints the filesystem type: the field after the "-" separator of the line whose mount point is $2
+    fstype = """$(awk -v m="$2" '$5 == m { for (i = 7; i <= NF; i++) if ($i == "-") t = $(i + 1) } END { print t }' /proc/self/mountinfo)"""
+    back = """for d; do chown -h "$0" "$d"; if [ "$(stat -c %u:%g "$d")" != "$0" ]; then echo "volume_owner_init: $d stayed $(stat -c %u:%g "$d") after chown to $0" >&2; exit 1; fi; done"""
     function = (
         'fix() { chown -h "$1" "$2"; '
-        'if [ "$(stat -c %u:%g "$2")" != "$1" ]; then echo "$2: this filesystem does not keep ownership"; return 0; fi; '
-        'u=${1%:*}; g=${1#*:}; '
-        f'while [ -n "$(find "$2" -xdev {private} | head -n 1)" ]; do find "$2" -xdev {private} -exec chown -h 0:0 {{}} + ; done; '
+        'if [ "$(stat -c %u:%g "$2")" != "$1" ]; then t=' + fstype + '; case "$t" in '
+        f'{ignoring}) echo "$2: $t does not keep ownership; volume_access_check decides whether the writers can use it"; return 0;; '
+        '*) echo "volume_owner_init: $2 stayed $(stat -c %u:%g "$2") after chown to $1 on filesystem [$t]" >&2; exit 1;; esac; fi; '
+        'u=${1%:*}; g=${1#*:}; prev=; '
+        f'while now=$(find "$2" -xdev {private} | head -n 1); [ -n "$now" ]; do '
+        'if [ "$now" = "$prev" ]; then echo "volume_owner_init: cannot take ownership of $now" >&2; exit 1; fi; prev=$now; '
+        f'find "$2" -xdev {private} -exec chown -h 0:0 {{}} + ; done; '
         f'find "$2" -xdev ! -type d {different} -exec chown -h "$1" {{}} + ; '
         f'left=$(find "$2" -xdev ! -type d {different} | head -n 1); '
         'if [ -n "$left" ]; then echo "volume_owner_init: $left is not $1; run up again, or reset to start over" >&2; exit 1; fi; '
-        f'find "$2" -xdev -depth -type d {different} -exec chown -h "$1" {{}} + ; }}; '
+        f"""find "$2" -xdev -depth -type d {different} -exec sh -c '{back}' "$1" {{}} + ; }}; """
     )
     return ["sh", "-c", f"set -e; {function}{steps}ls -ld {OWNER_INIT_MOUNT}/*"]
 
 
+def _access_check_command(volumes: list[str]) -> list[str]:
+    """Create and remove a file in each volume as the writer's own uid: the only proof that it can write."""
+    paths = " ".join(f"{OWNER_INIT_MOUNT}/{name}" for name in volumes)
+    return ["sh", "-c", f'set -e; for v in {paths}; do p="$v/.grdm-write-probe"; : > "$p"; rm -f "$p"; echo "$v: writable as $(id -u)"; done']
+
+
 def with_owner_init(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> list[_manifest.Service]:
-    """Fill the generic owner-init one-shot from the profile and make every writer wait for it. No-op without it."""
+    """Fill the owner step and the per-uid access checks from the profile; every writer waits for both. No-op without the step."""
     if not any(s.name == OWNER_INIT_SERVICE for s in services):
         return services
     owners, writers = volume_owners(services, hardening)
+    finished = "service_completed_successfully"
+    wait_owner = {"service": OWNER_INIT_SERVICE, "condition": finished}
+    checks = {svc.template.get("user"): svc.name for svc in services if svc.name.startswith(ACCESS_CHECK_PREFIX)}
     out: list[_manifest.Service] = []
     for svc in services:
         if svc.name == OWNER_INIT_SERVICE:
             mounts = [{"volume": name, "target": f"{OWNER_INIT_MOUNT}/{name}"} for name in owners]
             out.append(replace(svc, template={**svc.template, "volumes": mounts, "command": _owner_init_command(owners)}))
+        elif svc.name.startswith(ACCESS_CHECK_PREFIX):
+            names = [name for name, owner in owners.items() if owner == svc.template.get("user")]
+            if names:  # a uid that owns nothing in this profile has nothing to prove
+                mounts = [{"volume": name, "target": f"{OWNER_INIT_MOUNT}/{name}"} for name in names]
+                out.append(replace(svc, template={**svc.template, "volumes": mounts, "command": _access_check_command(names), "depends_on": [wait_owner]}))
         elif svc.name in writers:
-            depends = [*svc.template.get("depends_on", []), {"service": OWNER_INIT_SERVICE, "condition": "service_completed_successfully"}]
+            needed = sorted({checks[owners[v]] for v in writers[svc.name] if owners[v] in checks})
+            depends = [*svc.template.get("depends_on", []), wait_owner, *({"service": c, "condition": finished} for c in needed)]
             out.append(replace(svc, template={**svc.template, "depends_on": depends}))
         else:
             out.append(svc)
@@ -989,18 +1022,58 @@ def detect_docker_cpus(runner) -> float | None:
 
 
 
+def host_mount_points() -> list[str] | None:
+    """Every mount point of this host, from the mount table; None when the table cannot be read.
+    A same-filesystem bind mount has no device-number difference, so only the table reveals it."""
+    system = platform.system()
+    try:
+        if system == "Linux":
+            with open("/proc/self/mountinfo", encoding="utf-8", errors="surrogateescape") as fh:
+                return [re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), line.split()[4]) for line in fh if len(line.split()) > 4]
+        if system == "Darwin":
+            out = subprocess.run(["/sbin/mount"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=15, check=True).stdout
+            points = [m.group(1) for m in re.finditer(r"^.+? on (.+) \(", out, re.MULTILINE)]
+            return points or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return None
+
+
+def volume_root_identity(runtime: Path) -> tuple[int, int] | None:
+    """(device, inode) of the volumes root as it is now, or None when absent: the same path may be a different directory later."""
+    try:
+        info = (runtime / VOLUMES_DIR).lstat()
+    except OSError:
+        return None
+    return info.st_dev, info.st_ino
+
+
 def volume_path_problems(root: Path, runtime: Path, names: list[str] | None = None) -> list[str]:
     """Why runtime/volumes/ (or one of `names`, default every entry) must not be mounted or deleted.
 
     A root container follows the bind source on the host side, so restricting the path inside the
     container restricts nothing (PR #36 review r1 R1-01): a symlink here would hand an unrelated directory
     to the owner step or to `reset`. Refused: a symlinked runtime/ or volumes root, a root that resolves
-    outside the checkout, a symlinked volume, and a volume on another filesystem (a host mount nested
-    in the tree; deeper ones are not crossed because `find` runs with -xdev)."""
+    outside the checkout, a symlinked volume, runtime/ or the volumes root being a mount, and any mount at
+    any depth inside the tree, by the host mount table (same-filesystem bind mounts included), because the
+    host fallback of `reset` is an ordinary rmtree. A table that cannot be read refuses too.
+
+    This is a snapshot: Docker resolves the bind later and no check can close that window, so the checkout
+    is assumed not to be changed concurrently by someone else (SPEC-02 §3). `reset` repeats it at each step."""
     base = runtime / VOLUMES_DIR
     for path in (runtime, base):
         if path.is_symlink():
             return [f"{path} is a symbolic link"]
+    mounts = host_mount_points()
+    if mounts is None:
+        return ["the host mount table cannot be read, so mounts inside runtime/volumes cannot be excluded"]
+    top = str(runtime.resolve())
+    inside = str(runtime.resolve() / VOLUMES_DIR)
+    data_prefix = "/System/Volumes/Data"  # macOS lists firmlinked paths under it
+    for point in mounts:
+        point = point[len(data_prefix):] if point.startswith(data_prefix + "/") else point
+        if point == top or point == inside or point.startswith(inside + "/"):
+            return [f"{point} is a mount inside the runtime tree"]
     if not base.exists():
         return []
     expected = root.resolve() / runtime.name / VOLUMES_DIR

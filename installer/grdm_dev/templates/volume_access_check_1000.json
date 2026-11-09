@@ -1,0 +1,17 @@
+{
+  "service": "volume_access_check_1000",
+  "component": "postgres",
+  "profile": "minimum",
+  "one_shot": true,
+  "command": [
+    "true"
+  ],
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "1000:1000",
+  "weight": 1,
+  "mem_min_mb": 64,
+  "pids_limit": 64,
+  "note": "Writes and removes a probe file as uid 1000 in every volume owned by that uid, after volume_owner_init: the only evidence that the writers can use a volume, above all on a VM share where ownership is not kept. compose render fills volumes and command; the writers wait for it. Non-root, no hardening exception."
+}

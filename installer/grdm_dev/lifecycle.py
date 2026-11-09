@@ -161,20 +161,34 @@ def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
             return report.error(ctx, exit_codes.USAGE, "reset needs a confirmation; add --yes when no terminal is attached")
         sys.stderr.write("[grdm-dev] reset cancelled\n")
         return exit_codes.OK
-    # Before anything destructive: `down --volumes` is the first such step, the root wipe the second (R1-01).
-    bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
-    if bad_paths:
-        return report.error(ctx, exit_codes.RESET_FAILED, "refusing to delete: " + "; ".join(bad_paths))
+    # Checked again at each destructive step (R2-01): `down --volumes`, the root wipe, the host deletion.
+    identity = compose.volume_root_identity(ctx.runtime)
+
+    def refused() -> str | None:
+        bad = compose.volume_path_problems(ctx.root, ctx.runtime)
+        if compose.volume_root_identity(ctx.runtime) != identity:
+            bad = [f"{volumes_dir} changed during reset", *bad]
+        return "; ".join(bad) or None
+
+    problem = refused()
+    if problem:
+        return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
     if health.compose_path(ctx).exists():
         rc = run_down(ctx, runner=runner, volumes=True)
         if rc != exit_codes.OK:
             return rc
     removed = False
-    if volumes_dir.exists():
+    if volumes_dir.exists() or volumes_dir.is_symlink():
+        problem = refused()
+        if problem:
+            return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
         owner_init = _owner_init_service(ctx)
         if owner_init.get("image"):
             # rc is not decisive: without the image, nothing was ever written by a container and the host can delete it all.
             (runner or streaming_runner)(wipe_argv(str(owner_init["image"]), volumes_dir, owner_init.get("platform")))
+            problem = refused()
+            if problem:
+                return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
         try:
             (rmtree or shutil.rmtree)(volumes_dir)
         except OSError as exc:

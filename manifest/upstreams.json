@@ -781,7 +781,9 @@
       "role": "infra",
       "services": [
         "postgres",
-        "volume_owner_init"
+        "volume_owner_init",
+        "volume_access_check_1000",
+        "volume_access_check_999"
       ],
       "target_image": {
         "M4": null,
