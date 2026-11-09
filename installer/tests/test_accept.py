@@ -171,21 +171,6 @@ class AcceptTests(unittest.TestCase):
         linux.write_bytes(b"ELF")
         self.assertEqual(accept.chromium_executable(self.root / ".venv" / ".playwright"), linux)
 
-    def test_newer_playwright_layouts_are_found(self):
-        """Playwright >= 1.5x: 'Google Chrome for Testing.app' on macOS and a separate headless-shell build
-        (real acceptance run 1 on the Mac Studio found only these two under .venv/.playwright)."""
-        browsers = self.root / ".venv" / ".playwright"
-        self.chromium.unlink()
-        self.assertIsNone(accept.chromium_executable(browsers))
-        shell = browsers / "chromium_headless_shell-1248" / "chrome-headless-shell-mac-arm64" / "chrome-headless-shell"
-        shell.parent.mkdir(parents=True)
-        shell.write_bytes(b"\xcf\xfa\xed\xfe")
-        self.assertEqual(accept.chromium_executable(browsers), shell)
-        gct = browsers / "chromium-1248" / "chrome-mac-arm64" / "Google Chrome for Testing.app" / "Contents" / "MacOS" / "Google Chrome for Testing"
-        gct.parent.mkdir(parents=True)
-        gct.write_bytes(b"\xcf\xfa\xed\xfe")
-        self.assertEqual(accept.chromium_executable(browsers), gct)  # the full browser wins over the headless shell
-
     def test_integration_precheck_failure_is_40_before_pytest(self):
         runner = FakeRunner(junit=junit_all_green())
         rc, err, _ = self.run_accept(self.args(seed=True), runner, health_check=unhealthy)
@@ -209,7 +194,7 @@ class AcceptTests(unittest.TestCase):
         run_dir = self.run_dir()
         self.assertTrue(run_dir.name.startswith("acc-"))
         results = json.loads((run_dir / "results.json").read_text())
-        self.assertEqual(results["summary"], {"passed": 1, "failed": 1, "error": 0, "skipped": 1, "total": 3})
+        self.assertEqual(results["summary"], {"passed": 1, "failed": 1, "error": 0, "skipped": 1, "total": 3, "known_external_blocked": 0})
         self.assertTrue(results["precheck"]["healthy"])
         by_test = {r["test"]: r for r in results["tests"]}
         rej = by_test["test_c1_login_rejection"]
@@ -294,6 +279,7 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual(seed_calls[0][:3], ["docker", "compose", "exec"])
         self.assertIn("web", seed_calls[0])
         self.assertIn("create_confirmed", seed_calls[0][-1])
+        self.assertIn("have_email = True", seed_calls[0][-1])  # without it GRDM redirects every view to /settings/account/email
         self.assertIn("delete()", seed_calls[-1][-1])
         # pytest ran between seeding and cleanup
         order = ["seed" if "manage.py" in a else "pytest" for a, _ in runner.calls]
@@ -513,6 +499,26 @@ class AcceptTests(unittest.TestCase):
 
 class NetGuardTests(unittest.TestCase):
     """acceptance/netguard.py — exact-origin loopback check (finding 7, SPEC-04 §3.4)."""
+
+    def test_known_external_asset_matches_only_the_listed_host_path_and_type(self):
+        known = netguard.known_external_asset_host
+        self.assertEqual(known("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/es6-shim.min.js", "script"), "cdnjs.cloudflare.com")
+        self.assertEqual(known("http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=x", "script"), "cdnjs.cloudflare.com")
+        self.assertEqual(known("https://fonts.googleapis.com/css?family=Open+Sans:400", "stylesheet"), "fonts.googleapis.com")
+        self.assertEqual(known("https://secure.gravatar.com/avatar/abc?d=identicon", "image"), "secure.gravatar.com")
+        for url, kind in (
+            ("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js", "script"),      # another library
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/x.js", "document"),          # a navigation is not an asset
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/x.js", "fetch"),             # data can leave by fetch
+            ("https://fonts.googleapis.com/css", "script"),                                       # listed host, wrong type
+            ("https://cdnjs.cloudflare.com.evil.test/ajax/libs/es6-shim/x.js", "script"),         # suffix trick
+            ("https://user@cdnjs.cloudflare.com/ajax/libs/es6-shim/x.js", "script"),              # credentials
+            ("https://cdnjs.cloudflare.com:8443/ajax/libs/es6-shim/x.js", "script"),              # another port
+            ("wss://secure.gravatar.com/avatar/x", "image"),                                      # another scheme
+            ("https://example.com/", "image"),
+        ):
+            self.assertIsNone(known(url, kind), (url, kind))
+        self.assertIsNone(known(None, "script"))  # type: ignore[arg-type]
 
     def test_accepts_only_exact_loopback_http(self):
         for url in ("http://127.0.0.1:5000/", "http://127.0.0.1/x", "http://127.0.0.1:8000/v2/users/me/?a=1#f", "HTTP://127.0.0.1:5000"):

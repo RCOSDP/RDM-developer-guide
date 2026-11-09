@@ -1,0 +1,454 @@
+.F.FFFFFFFEF.                                                            [100%]
+==================================== ERRORS ====================================
+_____________ ERROR at teardown of test_c6_admin_success[chromium] _____________
+
+request = <SubRequest 'external_guard' for <Function test_c6_admin_success[chromium]>>
+
+    @pytest.fixture(autouse=True)
+    def external_guard(request):
+        """Collect the loopback-guard offenders of one test and fail it if any guard (browser, websocket,
+        API) saw a URL that would have left the machine. Every browser context is created by our
+        `new_context` below (pytest-playwright's default `context` fixture calls it too), which attaches
+        the guard itself; requesting `context` from here created a fixture cycle
+        (external_guard -> context -> new_context -> external_guard, first real acceptance run)."""
+        offenders: list[str] = []
+        before = len(_OFFENDERS)
+        known_before = len(_KNOWN_EXTERNAL)
+        yield offenders
+        offenders.extend(_OFFENDERS[before:])
+        request.node.user_properties.append(("known_external_blocked", len(_KNOWN_EXTERNAL) - known_before))
+        if offenders:
+>           pytest.fail(f"request(s) would have left the machine: {offenders[:5]}")
+E           Failed: request(s) would have left the machine: ['http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css']
+
+installer/acceptance/conftest.py:274: Failed
+=================================== FAILURES ===================================
+___________________ test_c2_create_project_success[chromium] ___________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = <function api_write.<locals>._write at 0x109732f00>
+run_id = 'acc-20261109T131240Z-00dff9'
+record_property = <function record_property.<locals>.append_property at 0x109733270>
+
+    @pytest.mark.case("success")
+    def test_c2_create_project_success(logged_in_page, base_url, api_url, api_write, run_id, record_property):
+        """A new project created in the UI appears with its title and the user as admin."""
+        page = logged_in_page
+        title = f"acceptance C2 {run_id}"
+        page.goto(base_url + sel.PATHS["new_project"], wait_until="domcontentloaded")
+        page.click(sel.WEB["create_project_button"])
+>       page.fill(sel.WEB["create_project_title"], title)
+
+installer/acceptance/test_c2_create_project.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.14/site-packages/playwright/sync_api/_generated.py:17698: in fill
+    self._sync(
+.venv/lib/python3.14/site-packages/playwright/_impl/_page.py:932: in fill
+    return await self._main_frame.fill(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/playwright/_impl/_frame.py:641: in fill
+    await self._fill(**locals_to_params(locals()))
+.venv/lib/python3.14/site-packages/playwright/_impl/_frame.py:653: in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x1092ed010>
+cb = <function Channel.send.<locals>.<lambda> at 0x109731d20>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Page.fill: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for locator("input#projectName, input[name='title']")
+
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+____________________ test_c3_file_upload_success[chromium] _____________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>, project = 'etrvf'
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+tmp_txt = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
+run_id = 'acc-20261109T131240Z-00dff9'
+record_property = <function record_property.<locals>.append_property at 0x10aca9220>
+
+    @pytest.mark.case("success")
+    def test_c3_file_upload_success(logged_in_page, project, service_url, tmp_txt, run_id, record_property):
+        """Upload 1 MiB through waterbutler, download it back, bytes must be identical."""
+        ctx = logged_in_page.context
+        wb = service_url("wb")
+>       entity = upload(ctx, wb, project, f"c3-{run_id}.txt", tmp_txt)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c3_file_upload.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+wb_url = 'http://127.0.0.1:7777', node_id = 'etrvf'
+name = 'c3-acc-20261109T131240Z-00dff9.txt'
+data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
+
+    def upload(context, wb_url: str, node_id: str, name: str, data: bytes):
+        """PUT bytes to waterbutler with the session cookie; returns the waterbutler file entity (dict).
+    
+        TODO(M2): confirm waterbutler accepts the `osf` session cookie forwarded by Playwright and that
+        the response is 201 with data.attributes.path / links.download.
+        """
+        resp = api(context).put(wb_url + sel.WATERBUTLER["upload"].format(node_id=node_id, name=name),
+                                data=data, headers={"Content-Type": "application/octet-stream"})
+>       assert resp.status in (200, 201), f"upload failed: {resp.status} {resp.text()[:300]}"
+E       AssertionError: upload failed: 401 {"message_short": "Unauthorized", "message_long": "You must <a href=\"/login/?next=http://web:5000/api/v1/etrvf/osfstorage/6af1c701c38b200015a219ae/children/?user_id=nxvcg&payload=eyJ0aW1lIjogMTc5NDIzMDExN30%3D&signature=***\">log in<\/a> 
+E       assert 401 in (200, 201)
+E        +  where 401 = <APIResponse url='http://127.0.0.1:7777/v1/resources/etrvf/providers/osfstorage/?kind=file&name=c3-acc-20261109T131240Z-00dff9.txt' status=401 status_text='Unauthorized'>.status
+
+installer/acceptance/test_c3_file_upload.py:19: AssertionError
+___________________ test_c3_file_upload_rejection[chromium] ____________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>, project = '4jm8q'
+context_b = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+tmp_txt = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
+run_id = 'acc-20261109T131240Z-00dff9'
+api_context = <function api_context.<locals>._new at 0x10a8638a0>
+record_property = <function record_property.<locals>.append_property at 0x10a863cc0>
+
+    @pytest.mark.case("rejection")
+    def test_c3_file_upload_rejection(logged_in_page, project, context_b, service_url, tmp_txt, run_id, api_context,
+                                      record_property):
+        """Anonymous GET of a private file -> 401/403; a signed-in NON-contributor (user_b) PUT -> 403."""
+        ctx = logged_in_page.context
+        wb = service_url("wb")
+>       entity = upload(ctx, wb, project, f"c3-private-{run_id}.txt", tmp_txt[:1024])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c3_file_upload.py:49: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+wb_url = 'http://127.0.0.1:7777', node_id = '4jm8q'
+name = 'c3-private-acc-20261109T131240Z-00dff9.txt'
+data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock dat'
+
+    def upload(context, wb_url: str, node_id: str, name: str, data: bytes):
+        """PUT bytes to waterbutler with the session cookie; returns the waterbutler file entity (dict).
+    
+        TODO(M2): confirm waterbutler accepts the `osf` session cookie forwarded by Playwright and that
+        the response is 201 with data.attributes.path / links.download.
+        """
+        resp = api(context).put(wb_url + sel.WATERBUTLER["upload"].format(node_id=node_id, name=name),
+                                data=data, headers={"Content-Type": "application/octet-stream"})
+>       assert resp.status in (200, 201), f"upload failed: {resp.status} {resp.text()[:300]}"
+E       AssertionError: upload failed: 401 {"message_short": "Unauthorized", "message_long": "You must <a href=\"/login/?next=http://web:5000/api/v1/4jm8q/osfstorage/6af1c705c38b200015a219b4/children/?user_id=nxvcg&payload=eyJ0aW1lIjogMTc5NDIzMDEyM30%3D&signature=***\">log in<\/a> 
+E       assert 401 in (200, 201)
+E        +  where 401 = <APIResponse url='http://127.0.0.1:7777/v1/resources/4jm8q/providers/osfstorage/?kind=file&name=c3-private-acc-20261109T131240Z-00dff9.txt' status=401 status_text='Unauthorized'>.status
+
+installer/acceptance/test_c3_file_upload.py:19: AssertionError
+____________________ test_c4_wiki_collab_success[chromium] _____________________
+
+two_contexts = (<Page url='http://127.0.0.1:5000/aynvc/wiki/home/?edit&view&menu'>, <Page url='http://127.0.0.1:5000/dashboard'>)
+login = <function login.<locals>._login at 0x10acf5b10>
+user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
+user_b = {'email': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = <function api_write.<locals>._write at 0x10a861170>
+add_contributor = <function add_contributor.<locals>._add at 0x10a861a60>
+run_id = 'acc-20261109T131240Z-00dff9'
+record_property = <function record_property.<locals>.append_property at 0x10a8637f0>
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+        login(page_a, user_a)
+        login(page_b, user_b)
+    
+        created = api_write(page_a.context, "POST", api_url + sel.API["nodes"], {
+            "data": {"type": "nodes", "attributes": {"title": "acceptance C4", "category": "project", "public": False}}
+        })
+        assert created.status == 201, created.text()[:200]
+        node_id = created.json()["data"]["id"]
+        try:
+            add_contributor(page_a.context, node_id, user_id_of(page_b.context, api_url), "write")
+    
+>           resp_a = _open_editor(page_a, base_url, node_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c4_wiki_collab.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:26: in _open_editor
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+.venv/lib/python3.14/site-packages/playwright/sync_api/_generated.py:21370: in wait_for_selector
+    self._sync(
+.venv/lib/python3.14/site-packages/playwright/_impl/_page.py:431: in wait_for_selector
+    return await self._main_frame.wait_for_selector(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x1092ed010>
+cb = <function Channel.send.<locals>.<lambda> at 0x109a71d20>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.
+E           Call log:
+E             - waiting for locator(".CodeMirror textarea, textarea#editor") to be visible
+
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+___________________ test_c4_wiki_collab_rejection[chromium] ____________________
+
+two_contexts = (<Page url='http://127.0.0.1:5000/mw2t7/wiki/home/?edit&view&menu'>, <Page url='about:blank'>)
+login = <function login.<locals>._login at 0x10a6ae090>
+user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
+base_url = 'http://127.0.0.1:5000', project = 'mw2t7'
+record_property = <function record_property.<locals>.append_property at 0x1098ab740>
+
+    @pytest.mark.case("rejection")
+    def test_c4_wiki_collab_rejection(two_contexts, login, user_a, base_url, project, record_property):
+        """A logged-out context connecting to the wiki websocket is closed with code 4401."""
+        page_a, page_anon = two_contexts
+        login(page_a, user_a)
+>       _open_editor(page_a, base_url, project)
+
+installer/acceptance/test_c4_wiki_collab.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:26: in _open_editor
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+.venv/lib/python3.14/site-packages/playwright/sync_api/_generated.py:21370: in wait_for_selector
+    self._sync(
+.venv/lib/python3.14/site-packages/playwright/_impl/_page.py:431: in wait_for_selector
+    return await self._main_frame.wait_for_selector(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:78: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0x1092ed010>
+cb = <function Channel.send.<locals>.<lambda> at 0x109c29220>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.
+E           Call log:
+E             - waiting for locator(".CodeMirror textarea, textarea#editor") to be visible
+
+.venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:636: TimeoutError
+____________________ test_c5_file_preview_success[chromium] ____________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>, project = 'nkm63'
+base_url = 'http://127.0.0.1:5000'
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+tmp_pdf = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+run_id = 'acc-20261109T131240Z-00dff9'
+record_property = <function record_property.<locals>.append_property at 0x10a6efcc0>
+
+    @pytest.mark.case("success")
+    def test_c5_file_preview_success(logged_in_page, project, base_url, service_url, tmp_pdf, run_id, record_property):
+        """An uploaded PDF renders inside the mfr iframe (mfr answers 200 for the render request)."""
+        page = logged_in_page
+>       entity = upload(page.context, service_url("wb"), project, f"c5-{run_id}.pdf", tmp_pdf)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c5_file_preview.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+wb_url = 'http://127.0.0.1:7777', node_id = 'nkm63'
+name = 'c5-acc-20261109T131240Z-00dff9.pdf'
+data = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+
+    def upload(context, wb_url: str, node_id: str, name: str, data: bytes):
+        """PUT bytes to waterbutler with the session cookie; returns the waterbutler file entity (dict).
+    
+        TODO(M2): confirm waterbutler accepts the `osf` session cookie forwarded by Playwright and that
+        the response is 201 with data.attributes.path / links.download.
+        """
+        resp = api(context).put(wb_url + sel.WATERBUTLER["upload"].format(node_id=node_id, name=name),
+                                data=data, headers={"Content-Type": "application/octet-stream"})
+>       assert resp.status in (200, 201), f"upload failed: {resp.status} {resp.text()[:300]}"
+E       AssertionError: upload failed: 401 {"message_short": "Unauthorized", "message_long": "You must <a href=\"/login/?next=http://web:5000/api/v1/nkm63/osfstorage/6af1c78fc38b200015a219c7/children/?user_id=nxvcg&payload=eyJ0aW1lIjogMTc5NDIzMDI1OX0%3D&signature=***\">log in<\/a> 
+E       assert 401 in (200, 201)
+E        +  where 401 = <APIResponse url='http://127.0.0.1:7777/v1/resources/nkm63/providers/osfstorage/?kind=file&name=c5-acc-20261109T131240Z-00dff9.pdf' status=401 status_text='Unauthorized'>.status
+
+installer/acceptance/test_c3_file_upload.py:19: AssertionError
+___________________ test_c5_file_preview_rejection[chromium] ___________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>, project = 'vxdkw'
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+tmp_pdf = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+run_id = 'acc-20261109T131240Z-00dff9'
+api_context = <function api_context.<locals>._new at 0x109887e20>
+record_property = <function record_property.<locals>.append_property at 0x1098868d0>
+
+    @pytest.mark.case("rejection")
+    def test_c5_file_preview_rejection(logged_in_page, project, service_url, tmp_pdf, run_id, api_context, record_property):
+        """The preview URL of a private file without a session -> 401/403."""
+        page = logged_in_page
+        wb = service_url("wb")
+>       entity = upload(page.context, wb, project, f"c5-private-{run_id}.pdf", tmp_pdf)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c5_file_preview.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+wb_url = 'http://127.0.0.1:7777', node_id = 'vxdkw'
+name = 'c5-private-acc-20261109T131240Z-00dff9.pdf'
+data = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+
+    def upload(context, wb_url: str, node_id: str, name: str, data: bytes):
+        """PUT bytes to waterbutler with the session cookie; returns the waterbutler file entity (dict).
+    
+        TODO(M2): confirm waterbutler accepts the `osf` session cookie forwarded by Playwright and that
+        the response is 201 with data.attributes.path / links.download.
+        """
+        resp = api(context).put(wb_url + sel.WATERBUTLER["upload"].format(node_id=node_id, name=name),
+                                data=data, headers={"Content-Type": "application/octet-stream"})
+>       assert resp.status in (200, 201), f"upload failed: {resp.status} {resp.text()[:300]}"
+E       AssertionError: upload failed: 401 {"message_short": "Unauthorized", "message_long": "You must <a href=\"/login/?next=http://web:5000/api/v1/vxdkw/osfstorage/6af1c797c38b200015a219cd/children/?user_id=nxvcg&payload=eyJ0aW1lIjogMTc5NDIzMDI2N30%3D&signature=***\">log in<\/a> 
+E       assert 401 in (200, 201)
+E        +  where 401 = <APIResponse url='http://127.0.0.1:7777/v1/resources/vxdkw/providers/osfstorage/?kind=file&name=c5-private-acc-20261109T131240Z-00dff9.pdf' status=401 status_text='Unauthorized'>.status
+
+installer/acceptance/test_c3_file_upload.py:19: AssertionError
+_______________________ test_c6_admin_success[chromium] ________________________
+
+page = <Page url='http://127.0.0.1:8001/institutions/1/users/'>
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+admin_user = {'email': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test'}
+record_property = <function record_property.<locals>.append_property at 0x10a88a6c0>
+
+    @pytest.mark.case("success")
+    def test_c6_admin_success(page, service_url, admin_user, record_property):
+        """The institution admin signs in to the admin app and sees the institution's user list."""
+        admin_url = service_url("admin")
+        _admin_login(page, admin_url, admin_user)
+        # TODO(M2): the institution id of the seeded admin; "1" assumes the first institution created by --seed.
+        resp = page.goto(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), wait_until="domcontentloaded")
+        record_property("http_status", resp.status if resp else None)
+>       assert resp is not None and resp.status == 200, f"institution users page returned {resp and resp.status}"
+E       AssertionError: institution users page returned 404
+E       assert (<Response url='http://127.0.0.1:8001/institutions/1/users/' request=<Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'>> is not None and 404 == 200)
+E        +  where 404 = <Response url='http://127.0.0.1:8001/institutions/1/users/' request=<Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'>>.status
+
+installer/acceptance/test_c6_admin.py:27: AssertionError
+______________________ test_c6_admin_rejection[chromium] _______________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/dashboard/'>
+service_url = <function service_url.<locals>._url at 0x1095acb40>
+api_url = 'http://127.0.0.1:8000'
+record_property = <function record_property.<locals>.append_property at 0x10992b690>
+
+    @pytest.mark.case("rejection")
+    def test_c6_admin_rejection(logged_in_page, service_url, api_url, record_property):
+        """An ordinary user opening the admin URL -> 403 or redirect to login; the API answers exactly 403."""
+        client = api(logged_in_page.context)
+        admin_url = service_url("admin")
+        screen = client.get(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), max_redirects=0)
+>       assert screen.status in (301, 302, 303, 307, 403), f"admin screen answered {screen.status} to an ordinary user"
+E       AssertionError: admin screen answered 404 to an ordinary user
+E       assert 404 in (301, 302, 303, 307, 403)
+E        +  where 404 = <APIResponse url='http://127.0.0.1:8001/institutions/1/users/' status=404 status_text='Not Found'>.status
+
+installer/acceptance/test_c6_admin.py:37: AssertionError
+=============================== warnings summary ===============================
+test_c1_login.py::test_c1_login_success[chromium]
+  test_c1_login.py:10: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_success[chromium]
+  test_c2_create_project.py:11: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_rejection[chromium]
+  test_c2_create_project.py:39: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+  test_c3_file_upload.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+  test_c3_file_upload.py:43: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:37: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:67: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+  test_c5_file_preview.py:16: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]
+  test_c5_file_preview.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_success[chromium]
+  test_c6_admin.py:19: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_rejection[chromium]
+  test_c6_admin.py:31: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c1_login.py::test_c1_login_rejection
+  test_c1_login.py:20: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR installer/acceptance/test_c6_admin.py::test_c6_admin_success[chromium]
+FAILED installer/acceptance/test_c2_create_project.py::test_c2_create_project_success[chromium]
+FAILED installer/acceptance/test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+FAILED installer/acceptance/test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+FAILED installer/acceptance/test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+FAILED installer/acceptance/test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+FAILED installer/acceptance/test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+FAILED installer/acceptance/test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]
+FAILED installer/acceptance/test_c6_admin.py::test_c6_admin_success[chromium]
+FAILED installer/acceptance/test_c6_admin.py::test_c6_admin_rejection[chromium]
+9 failed, 3 passed, 10 deselected, 12 warnings, 1 error in 200.23s (0:03:20)

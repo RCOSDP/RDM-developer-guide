@@ -1,0 +1,27 @@
+accept:
+  run_id: acc-20261109T131214Z-f2ee77
+  base_url: "http://127.0.0.1:5000"
+  started: "2026-11-09T13:12:14Z"
+  duration_ms: 19419
+  only: C1
+  seeded: true
+  precheck:
+    healthy: true
+    services: 23
+  pytest_returncode: 0
+  evidence_dir: docs/demo/runs/acc-20261109T131214Z-f2ee77
+  tracing: off
+  trace_quarantine: null
+  expected_scenarios[1]:
+    - C1
+  incomplete_scenarios[0]:
+  summary:
+    passed: 2
+    failed: 0
+    error: 0
+    skipped: 0
+    total: 2
+    known_external_blocked: 7
+  tests[2]{id,name,case,test,status,duration_ms,http_status,evidence,known_external_blocked}:
+    C1,Login via fakecas,success,"test_c1_login_success[chromium]",passed,5393,200,null,7
+    C1,Login via fakecas,rejection,test_c1_login_rejection,passed,375,401,null,0

@@ -116,12 +116,14 @@ QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 # exists, and OSFUser.set_password refuses a password equal to the e-mail address
 # ("Password cannot be the same as your email address"), so the OSF account gets a derived password;
 # fakecas does not check it (it accepts the e-mail as the password), which is what the browser types.
+# GRDM's OSFUser.have_email defaults to False and create_confirmed leaves it there; every @must_be_logged_in
+# view then redirects to /settings/account/email, so the dashboard is never reached (acceptance run 8).
 # TODO(M2): the institution-admin flag for C6 (admin app permission / group) is unverified and may need
 # `is_staff` plus an institution affiliation instead of `is_superuser`.
 SEED_SNIPPET = (
     "from osf.models import OSFUser; "
     "u = OSFUser.create_confirmed(username={email!r}, password={osf_password!r}, fullname={fullname!r}); "
-    "u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
+    "u.have_email = True; u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
 )
 CLEANUP_SNIPPET = (
     "from osf.models import OSFUser; "
@@ -530,6 +532,7 @@ def collect_results(run_dir: Path) -> list[dict]:
                     "test": r.get("nodeid", "").rsplit("::", 1)[-1], "status": r.get("status", "error"),
                     "duration_ms": int(r.get("duration_ms", 0)), "http_status": r.get("http_status"),
                     "evidence": r.get("evidence") or _evidence_path(run_dir, r.get("nodeid", "")),
+                    "known_external_blocked": int(r.get("known_external_blocked", 0)),
                 })
             return rows
         except (ValueError, AttributeError):
@@ -562,7 +565,7 @@ def collect_results(run_dir: Path) -> list[dict]:
                     http_status = prop.get("value")
         rows.append({"id": sid, "name": name, "case": case, "test": tc.get("name", ""), "status": status,
                      "duration_ms": int(float(tc.get("time", "0") or 0) * 1000), "http_status": http_status,
-                     "evidence": _evidence_path(run_dir, nodeid)})
+                     "evidence": _evidence_path(run_dir, nodeid), "known_external_blocked": 0})
     return rows
 
 
@@ -658,6 +661,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     finished = _dt.datetime.now(_dt.timezone.utc)
     summary = {s: sum(1 for r in rows if r["status"] == s) for s in ("passed", "failed", "error", "skipped")}
     summary["total"] = len(rows)
+    summary["known_external_blocked"] = sum(int(r.get("known_external_blocked", 0)) for r in rows)  # SPEC-04 §3 rule 4
     missing_cases = incomplete_scenarios(rows, expected)
     data = {
         "run_id": run_id,

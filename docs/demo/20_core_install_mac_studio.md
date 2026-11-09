@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.11 — 2026-11-06. **Learned:** the cold start passes once the one emulated service that could not start natively is built natively (ADR-07): 31 minutes from empty volumes to a scanned, reported environment, bounded by the ember build and the migrations. ／ ネイティブで起動できなかった唯一のエミュレーションのサービスをネイティブで組む（ADR-07）と、コールドスタートは通る。空のボリュームから検査・報告済みの環境まで 31 分で、上限は ember のビルドと migration。
+- Version / 版: 0.12 — 2026-11-10. **Learned:** a stack that starts and passes health can still have a broken trust link: osf.io kept its upstream default HMAC key while WaterButler signed with a generated one, and only a real upload exposed it. ／ 起動してヘルス検査に通る環境でも、信頼の連携が壊れていることがある。osf.io は上流の既定の HMAC 鍵のまま、WaterButler は生成した鍵で署名しており、実際のアップロードで初めて露見した。
+  0.11 — 2026-11-06. **Learned:** the cold start passes once the one emulated service that could not start natively is built natively (ADR-07): 31 minutes from empty volumes to a scanned, reported environment, bounded by the ember build and the migrations. ／ ネイティブで起動できなかった唯一のエミュレーションのサービスをネイティブで組む（ADR-07）と、コールドスタートは通る。空のボリュームから検査・報告済みの環境まで 31 分で、上限は ember のビルドと migration。
   0.10 — 2026-11-06. **Learned:** a warm success is not a cold-start success: with fresh volumes the emulated Elasticsearch 2 took 38 minutes to open its port and the database initialisation gave up; the same program on a native arm64 JRE starts in 5 seconds, so EOL amd64-only middleware must be built natively instead of emulated (review r1 of PR #33 asked for the cold start). ／ 温まった状態の成功はコールドスタートの成功ではない。新しいボリュームではエミュレーション下の Elasticsearch 2 がポートを開くまで 38 分かかり、データベース初期化が諦めた。同じプログラムは arm64 ネイティブの JRE で 5 秒で起動するので、amd64 しか無い EOL ミドルウェアはエミュレーションでなくネイティブで組む（PR #33 のレビュー r1 がコールドスタートを求めた）。
   0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
   0.8 — 2026-11-06. **Learned:** after the images, the application layer fails for installer reasons that only a real start reveals — settings keys read at import, Compose's stdin and tmpfs semantics, a memory budget larger than the Docker VM, and a database that nobody initialised; and an unhandled 500 in osf.io's development server leaks a database connection. ／ イメージの後、アプリケーション層は実際に起動しないと分からないインストーラー側の理由で失敗する。import 時に読まれる設定キー、Compose の stdin と tmpfs の意味、Docker VM より大きいメモリ予算、誰も初期化していないデータベース。そして osf.io の開発サーバーの未処理の 500 はデータベース接続を漏らす。
@@ -447,6 +448,22 @@ What this proves:
 
 Evidence (run 1): full log kept in the session scratchpad only (contains package download noise, no secrets). The `runtime/` directory on the Mac Studio holds `.env` (0600), the rendered Compose file and two built images; it is git-ignored.
 
+### Acceptance runs — 2026-11-09/10, stack of run 22 (osf.io 389415a4)
+
+| Run id | Scope | Result |
+|---|---|---|
+| [`acc-20261109T131214Z-f2ee77`](runs/acc-20261109T131214Z-f2ee77/results.toon) | C1 | 2 of 2 pass |
+| [`acc-20261109T131240Z-00dff9`](runs/acc-20261109T131240Z-00dff9/results.toon) | Core C1–C6 | 3 of 12 pass |
+| [`acc-20261109T170208Z-9ebf01`](runs/acc-20261109T170208Z-9ebf01/results.toon) | C3 after the HMAC fix | 2 of 2 pass |
+
+What the runs found:
+
+- **Login.** Seeded users had `have_email=False`, so GRDM redirected them to the e-mail settings page and the dashboard never loaded. The seed now sets it to true.
+- **Upload (C3, C5).** WaterButler received 401 from every signed callback to web. `/api/v1/files/auth/` answered 200, so the JWE/JWT link was fine. Measured by hash of the values: web's `DEFAULT_HMAC_SECRET` was still the upstream default `changeme`, while WaterButler signed with generated keys, two different ones. osf.io has one verifier, so both WaterButler signers and osf.io now use `WATERBUTLER_HMAC_SECRET`, and `OSFSTORAGE_HMAC_SECRET` is no longer generated. This also removes a weakness: with the default key, anyone able to reach web could forge a callback.
+- **External assets.** Known assets stay blocked and are only counted ([SPEC-04](../spec/04_acceptance_tests.md#english)). Google Analytics is removed from the built ember configuration.
+
+Open after these runs: C2, C4, C5 and C6 still fail (selectors, wiki bundle wiring, preview, admin path).
+
 ---
 
 <a id="japanese"></a>
@@ -873,6 +890,22 @@ run21:
 - 節目 M2 の導入基準（[進捗ボード](../status/README.md#japanese)）は、core プロファイルについて Mac Studio 上で温・冷ともに満たした。M2 に残るのは Playwright 受入。
 
 証跡（第 1 回）: 全ログはセッションの作業領域にのみ保管（パッケージ取得の出力が大半で、秘密は含まない）。Mac Studio の `runtime/` には `.env`（0600）、生成した Compose ファイル、ビルド済みイメージ 2 つがあり、git では無視される。
+
+### 受入試験の実行 — 2026-11-09/10、第 22 回のスタック（osf.io 389415a4）
+
+| 実行 ID | 範囲 | 結果 |
+|---|---|---|
+| [`acc-20261109T131214Z-f2ee77`](runs/acc-20261109T131214Z-f2ee77/results.toon) | C1 | 2 件中 2 件合格 |
+| [`acc-20261109T131240Z-00dff9`](runs/acc-20261109T131240Z-00dff9/results.toon) | コア C1〜C6 | 12 件中 3 件合格 |
+| [`acc-20261109T170208Z-9ebf01`](runs/acc-20261109T170208Z-9ebf01/results.toon) | HMAC 修正後の C3 | 2 件中 2 件合格 |
+
+分かったこと:
+
+- **ログイン。** 種データのユーザーは `have_email=False` で、GRDM がメール設定画面へ転送し、ダッシュボードが表示されなかった。種データで true に設定した。
+- **アップロード（C3、C5）。** web への署名付きコールバックがすべて 401 になっていた。`/api/v1/files/auth/` は 200 で、JWE/JWT の連携は正常だった。値のハッシュで比較すると、web の `DEFAULT_HMAC_SECRET` は上流の既定値 `changeme` のままで、WaterButler は生成した 2 種類の別の鍵で署名していた。osf.io の検証器は 1 つなので、WaterButler の 2 つの署名と osf.io を `WATERBUTLER_HMAC_SECRET` に統一し、`OSFSTORAGE_HMAC_SECRET` は生成しないようにした。既定の鍵では web に届く者がコールバックを偽造できたため、この弱点も解消した。
+- **外部資産。** 既知の資産は遮断を続け、件数のみ記録する（[SPEC-04](../spec/04_acceptance_tests.md#japanese)）。Google Analytics はビルド後の ember の設定から削除した。
+
+この時点の残件: C2、C4、C5、C6 は未合格（セレクタ、wiki バンドルの配線、プレビュー、管理画面のパス）。
 
 ---
 

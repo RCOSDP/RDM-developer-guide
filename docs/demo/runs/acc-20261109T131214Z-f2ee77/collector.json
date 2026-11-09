@@ -1,0 +1,24 @@
+[
+  {
+    "nodeid": "test_c1_login.py::test_c1_login_success[chromium]",
+    "id": "C1",
+    "name": "Login via fakecas",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 5393,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 7
+  },
+  {
+    "nodeid": "test_c1_login.py::test_c1_login_rejection",
+    "id": "C1",
+    "name": "Login via fakecas",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 375,
+    "http_status": 401,
+    "evidence": null,
+    "known_external_blocked": 0
+  }
+]

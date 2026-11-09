@@ -33,6 +33,7 @@ from acceptance.netguard import (
     WS_SCHEMES,
     forced_redirect_kwargs,
     is_loopback_origin,
+    known_external_asset_host,
     redirect_follow_up,
     redirect_target,
 )
@@ -45,6 +46,8 @@ _SESSION_START = time.monotonic()
 _RESULTS: dict[str, dict[str, Any]] = {}
 # Every non-loopback URL any guard saw during the session; the autouse guard fails the test on it.
 _OFFENDERS: list[str] = []
+# Hosts of the KNOWN_EXTERNAL_ASSETS requests that were aborted (SPEC-04 §3 rule 4): counted, not failing.
+_KNOWN_EXTERNAL: list[str] = []
 
 
 # --- environment ---------------------------------------------------------------------------------
@@ -218,7 +221,11 @@ def guard_context(context, offenders: list[str] | None = None) -> None:
         if is_loopback_origin(route.request.url, HTTP_SCHEMES):
             route.continue_()
         else:
-            seen.append(route.request.url)
+            host = known_external_asset_host(route.request.url, route.request.resource_type)
+            if host:
+                _KNOWN_EXTERNAL.append(host)
+            else:
+                seen.append(route.request.url)
             route.abort("blockedbyclient")
 
     def _ws_route(ws):
@@ -251,7 +258,7 @@ def browser_context_args(browser_context_args):
 
 
 @pytest.fixture(autouse=True)
-def external_guard():
+def external_guard(request):
     """Collect the loopback-guard offenders of one test and fail it if any guard (browser, websocket,
     API) saw a URL that would have left the machine. Every browser context is created by our
     `new_context` below (pytest-playwright's default `context` fixture calls it too), which attaches
@@ -259,8 +266,10 @@ def external_guard():
     (external_guard -> context -> new_context -> external_guard, first real acceptance run)."""
     offenders: list[str] = []
     before = len(_OFFENDERS)
+    known_before = len(_KNOWN_EXTERNAL)
     yield offenders
     offenders.extend(_OFFENDERS[before:])
+    request.node.user_properties.append(("known_external_blocked", len(_KNOWN_EXTERNAL) - known_before))
     if offenders:
         pytest.fail(f"request(s) would have left the machine: {offenders[:5]}")
 
@@ -431,12 +440,14 @@ def pytest_runtest_makereport(item, call):
         "id": _marker_arg(item, "scenario", 0),
         "name": _marker_arg(item, "scenario", 1),
         "case": _marker_arg(item, "case", 0),
-        "status": "passed", "duration_ms": 0, "http_status": None, "evidence": None,
+        "status": "passed", "duration_ms": 0, "http_status": None, "evidence": None, "known_external_blocked": 0,
     })
     rec["duration_ms"] += int(rep.duration * 1000)
     for k, v in rep.user_properties:
         if k == "http_status":
             rec["http_status"] = v
+        elif k == "known_external_blocked":
+            rec["known_external_blocked"] = v
     if rep.when == "call" or rep.outcome != "passed":
         if rep.skipped:
             rec["status"] = "skipped"

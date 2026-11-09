@@ -613,6 +613,7 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
         "WATERBUTLER_JWE_SALT = environ['WATERBUTLER_JWE_SALT']",
         "WATERBUTLER_JWE_SECRET = environ['WATERBUTLER_JWE_SECRET']",
         "WATERBUTLER_JWT_SECRET = environ['WATERBUTLER_JWT_SECRET']",
+        "DEFAULT_HMAC_SECRET = environ['WATERBUTLER_HMAC_SECRET']",
         "",
         "",
         "class CeleryConfig(defaults.CeleryConfig):",

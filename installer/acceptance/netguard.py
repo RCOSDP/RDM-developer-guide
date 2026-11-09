@@ -23,6 +23,16 @@ WEBSOCKET_ROUTE_REQUIREMENT = (
     "Playwright >= 1.48 (pytest-playwright >= 0.6) is required; run: pip install -e \"installer[accept]\" "
     "&& PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium"
 )
+# Third-party assets the GRDM pages of today load from fixed places (SPEC-04 §3 rule 4): (host, path prefix,
+# Playwright resource type). They are aborted like every other external request; only the verdict differs:
+# counted instead of failing the test. Anything else off the machine still fails. The list can only shrink
+# and must be empty at M5; a new entry needs a SPEC-04 change.
+KNOWN_EXTERNAL_ASSETS: tuple[tuple[str, str, str], ...] = (
+    ("cdnjs.cloudflare.com", "/ajax/libs/es6-shim/", "script"),
+    ("cdnjs.cloudflare.com", "/ajax/libs/mathjax/", "script"),
+    ("fonts.googleapis.com", "/css", "stylesheet"),
+    ("secure.gravatar.com", "/avatar/", "image"),
+)
 HTTP_SCHEMES: tuple[str, ...] = ("http",)
 WS_SCHEMES: tuple[str, ...] = ("ws",)
 ALL_SCHEMES: tuple[str, ...] = HTTP_SCHEMES + WS_SCHEMES
@@ -56,6 +66,21 @@ def is_loopback_origin(url: str, schemes: tuple[str, ...] = HTTP_SCHEMES) -> boo
     """
     origin = origin_of(url, schemes)
     return origin is not None and origin[1] == LOOPBACK_HOST
+
+
+def known_external_asset_host(url: str, resource_type: str) -> str | None:
+    """The host of `url` when it is an entry of KNOWN_EXTERNAL_ASSETS requested as that resource type, else
+    None. Only the host is returned so results never carry a query string or a per-user avatar hash."""
+    try:
+        u = urlsplit(url)
+    except (ValueError, AttributeError, TypeError):
+        return None
+    if u.scheme not in ("http", "https") or not u.hostname or u.netloc.lower() != u.hostname:
+        return None  # a port or credentials in the URL is not the asset the list names
+    for host, prefix, kind in KNOWN_EXTERNAL_ASSETS:
+        if u.hostname == host and u.path.startswith(prefix) and resource_type == kind:
+            return host
+    return None
 
 
 def same_origin(url: str, other: str, schemes: tuple[str, ...] = ALL_SCHEMES) -> bool:

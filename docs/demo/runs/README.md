@@ -1,11 +1,12 @@
 # Acceptance Run Records / 受入実行の記録
 
-> **Summary:** Each run of `grdm-dev accept` writes its evidence into a folder here, named by run id. Nothing is here yet; the first records arrive at milestone M2.
-> **概要:** `grdm-dev accept` を実行するたびに、その証跡が実行 ID 名のフォルダとしてここに書かれます。まだ記録はなく、最初の記録は節目 M2 で作られます。
+> **Summary:** Each run of `grdm-dev accept` writes its evidence into a folder here, named by run id. Only runs cited by DEMO-20 are committed.
+> **概要:** `grdm-dev accept` を実行するたびに、その証跡が実行 ID 名のフォルダとしてここに書かれます。リポジトリには DEMO-20 が引用する実行だけを置きます。
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-05. **Learned:** traces are raw and may hold secrets, so the public evidence folder keeps only screenshots and masked text (PR #21 review r2). ／ トレースは生で秘密を含み得るため、公開の証跡フォルダにはスクリーンショットとマスク済みの文字だけを置く（PR #21 レビュー r2）。
+- Version / 版: 0.3 — 2026-11-10. **Learned:** only the runs a record cites are kept in the repository; the others stay local. ／ リポジトリに残すのは記録が引用する実行だけで、他は手元に置く。
+  0.2 — 2026-11-05. **Learned:** traces are raw and may hold secrets, so the public evidence folder keeps only screenshots and masked text (PR #21 review r2). ／ トレースは生で秘密を含み得るため、公開の証跡フォルダにはスクリーンショットとマスク済みの文字だけを置く（PR #21 レビュー r2）。
   0.1 — 2026-11-05. **Learned:** the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。
 - Normative source: [SPEC-04 Acceptance Tests](../../spec/04_acceptance_tests.md)
 - Related: [docs/demo/README.md](../README.md) · [docs/status/README.md](../../status/README.md)
@@ -32,7 +33,7 @@ Records are written by `grdm-dev accept`; do not edit them by hand. No secrets a
 
 ### Current state
 
-No runs yet. The first records are expected at milestone M2 (core services on Mac Studio).
+Runs cited by [DEMO-20](../20_core_install_mac_studio.md#english) are kept here.
 
 ---
 
@@ -56,7 +57,7 @@ No runs yet. The first records are expected at milestone M2 (core services on Ma
 
 ### いまの状態
 
-まだ実行はありません。最初の記録は節目 M2（Mac Studio でコアを起動）で作られる見込みです。
+[DEMO-20](../20_core_install_mac_studio.md#japanese) が引用する実行をここに置いています。
 
 ---
 
