@@ -423,6 +423,8 @@ def _owner_init_command(owners: dict[str, str]) -> list[str]:
     directories "other" cannot read, with -prune because GNU find does not act on a directory it cannot open
     (measured), and stops if a pass makes no progress. It needs GNU coreutils: the elasticsearch2 base has uutils
     chown, which returned 0 without changing such a directory (measured), so the step runs on the postgres image.
+    A walk that fails must stop the step, so no `find` is piped (a pipeline reports the last command, and a
+    `while` condition ignores `set -e`); its whole output is captured and its status checked (R4-01).
     A chown that exits 0 proves nothing, so every result is read back: files by a walk while the tree is open,
     directories one by one, deepest first, while their parent is still open (a private directory handed back
     cannot be reached again by this process; the next run reopens it).
@@ -435,20 +437,21 @@ def _owner_init_command(owners: dict[str, str]) -> list[str]:
     different = '\\( ! -user "$u" -o ! -group "$g" \\)'
     private = "-type d ! -user 0 ! -perm -005 -prune"
     ignoring = "|".join(OWNERSHIP_IGNORING_FILESYSTEMS)
+    failed = 'echo "volume_owner_init: cannot walk $2" >&2; exit 1;'
     # awk prints the filesystem type: the field after the "-" separator of the line whose mount point is $2
     fstype = """$(awk -v m="$2" '$5 == m { for (i = 7; i <= NF; i++) if ($i == "-") t = $(i + 1) } END { print t }' /proc/self/mountinfo)"""
     back = """for d; do chown -h "$0" "$d"; if [ "$(stat -c %u:%g "$d")" != "$0" ]; then echo "volume_owner_init: $d stayed $(stat -c %u:%g "$d") after chown to $0" >&2; exit 1; fi; done"""
     function = (
         'fix() { chown -h "$1" "$2"; '
-        'if [ "$(stat -c %u:%g "$2")" != "$1" ]; then t=' + fstype + '; case "$t" in '
+        's=$(stat -c %u:%g "$2"); if [ "$s" != "$1" ]; then t=' + fstype + '; case "$t" in '
         f'{ignoring}) echo "$2: $t does not keep ownership; volume_access_check decides whether the writers can use it"; return 0;; '
-        '*) echo "volume_owner_init: $2 stayed $(stat -c %u:%g "$2") after chown to $1 on filesystem [$t]" >&2; exit 1;; esac; fi; '
+        '*) echo "volume_owner_init: $2 stayed $s after chown to $1 on filesystem [$t]" >&2; exit 1;; esac; fi; '
         'u=${1%:*}; g=${1#*:}; prev=; '
-        f'while now=$(find "$2" -xdev {private} | head -n 1); [ -n "$now" ]; do '
+        f'while :; do now=$(find "$2" -xdev {private}) || {{ {failed} }}; [ -n "$now" ] || break; '
         'if [ "$now" = "$prev" ]; then echo "volume_owner_init: cannot take ownership of $now" >&2; exit 1; fi; prev=$now; '
         f'find "$2" -xdev {private} -exec chown -h 0:0 {{}} + ; done; '
         f'find "$2" -xdev ! -type d {different} -exec chown -h "$1" {{}} + ; '
-        f'left=$(find "$2" -xdev ! -type d {different} | head -n 1); '
+        f'left=$(find "$2" -xdev ! -type d {different}) || {{ {failed} }}; '
         'if [ -n "$left" ]; then echo "volume_owner_init: $left is not $1; run up again, or reset to start over" >&2; exit 1; fi; '
         f"""find "$2" -xdev -depth -type d {different} -exec sh -c '{back}' "$1" {{}} + ; }}; """
     )
@@ -467,7 +470,7 @@ def _access_check_command(volumes: list[str]) -> list[str]:
     denied = r"\( -type d \( ! -readable -o ! -executable -o ! -writable \) -prune -o ! -type d ! -type l ! -readable \)"
     return ["sh", "-c", (
         f'set -e; for v in {paths}; do p=$(mktemp "$v/.grdm-write-probe.XXXXXX"); rm -f -- "$p"; '
-        f'bad=$(find "$v" -xdev {denied} -print | head -n 1); '
+        f'bad=$(find "$v" -xdev {denied} -print) || {{ echo "volume_access_check: cannot walk $v" >&2; exit 1; }}; '
         'if [ -n "$bad" ]; then echo "volume_access_check: uid $(id -u) cannot use $bad" >&2; exit 1; fi; '
         'echo "$v: usable by $(id -u)"; done'
     )]

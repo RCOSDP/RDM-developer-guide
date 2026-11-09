@@ -438,6 +438,17 @@ FAIL_ONCE = os.environ.get("FS_FAIL_ONCE", "")
 tool = os.path.basename(sys.argv[0])
 fs = json.load(open(STATE))
 
+# FS_FIND_FAULT: this kind of listing walk fails part way, as an I/O error would; it prints nothing and exits 1
+fault = os.environ.get("FS_FIND_FAULT")
+listing = "-exec" not in sys.argv
+if tool == "find" and listing and (
+    (fault == "open" and "-perm" in sys.argv)
+    or (fault == "verify" and "-perm" not in sys.argv and "-readable" not in sys.argv)
+    or (fault == "access" and "-readable" in sys.argv)
+):
+    print("find: Input/output error", file=sys.stderr)
+    sys.exit(1)
+
 
 def save():
     json.dump(fs, open(STATE, "w"))
@@ -472,6 +483,8 @@ def is_dir(path):
     return bool(children(path)) or fs[path][2] & 0o40000
 
 
+if tool == "stat" and os.environ.get("FS_STAT_FAULT"):
+    sys.exit(1)
 if tool == "stat":
     uid, gid, _ = fs[sys.argv[-1]]
     print("0:0" if os.environ.get("FS_NO_OWNERSHIP") else f"{uid}:{gid}")
@@ -649,6 +662,19 @@ class OwnerStepContractTests(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("/volumes/data/sealed", proc.stderr)
 
+    def test_a_failing_walk_while_opening_directories_stops_the_step(self):
+        proc, _ = self.run_step({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/f": [1000, 1000, 0o644]}, FS_FIND_FAULT="open")
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_a_failing_stat_is_not_taken_for_a_share_without_ownership(self):
+        proc, _ = self.run_step({"/volumes/data": [0, 0, DIR | 0o755]}, FS_STAT_FAULT="1", FS_TYPE="virtiofs")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("does not keep ownership", proc.stdout)
+
+    def test_a_failing_verification_walk_stops_the_step(self):
+        proc, _ = self.run_step({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/f": [1000, 1000, 0o644]}, FS_FIND_FAULT="verify")
+        self.assertNotEqual(proc.returncode, 0)
+
     def test_a_known_vm_share_is_left_to_the_access_check(self):
         tree = {"/volumes/data": [0, 0, DIR | 0o755], "/volumes/data/f": [0, 0, 0o644]}
         for fstype in compose.OWNERSHIP_IGNORING_FILESYSTEMS:
@@ -710,6 +736,11 @@ class AccessCheckTests(OwnerStepContractTests):
         proc, _ = self.check({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/d": [999, 999, DIR | 0o755]})
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("/volumes/data/d", proc.stderr)
+
+    def test_a_failing_walk_is_not_reported_as_usable(self):
+        proc, _ = self.run_step({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/f": [1000, 1000, 0o644]}, FS_UID="1000", FS_FIND_FAULT="access")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("usable by", proc.stdout)
 
     def test_a_usable_tree_passes(self):
         proc, _ = self.check({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/d": [1000, 1000, DIR | 0o700], "/volumes/data/d/f": [1000, 1000, 0o600], "/volumes/data/ro": [1000, 1000, 0o444]})
