@@ -481,6 +481,27 @@ elif tool == "chown":
             os.unlink(STATE + ".fail")
             sys.exit(1)
         chown(sys.argv[2], path)
+elif tool == "mktemp":
+    print("/nonexistent/.grdm-write-probe.model")
+elif tool == "find" and "-readable" in sys.argv:
+    # the access check, as an unprivileged uid: access() per entry, -prune on a directory that fails
+    me = int(os.environ["FS_UID"])
+
+    def can(path, bits):
+        uid, _, mode = fs[path]
+        return ((mode >> 6) if uid == me else mode) & bits == bits
+
+    def walk(path):
+        if is_dir(path):
+            if not can(path, 7):
+                print(path)
+                return
+            for child in children(path):
+                walk(child)
+        elif not can(path, 4):
+            print(path)
+
+    walk(sys.argv[1])
 elif tool == "find":
     args = sys.argv[2:]
     opening = "-perm" in args
@@ -539,7 +560,7 @@ class OwnerStepContractTests(unittest.TestCase):
         (base / "bin").mkdir()
         (base / "bin" / "awk").write_text('#!/bin/sh\necho "$FS_TYPE"\n')
         (base / "bin" / "awk").chmod(0o755)
-        for tool in ("find", "chown", "stat"):
+        for tool in ("find", "chown", "stat", "mktemp"):
             (base / "bin" / tool).write_text(FAKE_FS.replace("#!PYTHON", f"#!{sys.executable}"))
             (base / "bin" / tool).chmod(0o755)
         (base / "bin" / "ls").write_text("#!/bin/sh\nexit 0\n")
@@ -661,6 +682,89 @@ class OwnerStepContractTests(unittest.TestCase):
         proc, _ = self.run_step(tree, FS_SILENT_CHOWN="/volumes/data/f")
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("/volumes/data/f", proc.stderr)
+
+
+class AccessCheckTests(OwnerStepContractTests):
+    """R3-01: the writer's view of the existing tree, on the same model as the owner step."""
+
+    def setUp(self):
+        super().setUp()
+        self.script = compose._access_check_command(["data"])[2]
+
+    def check(self, tree):
+        return self.run_step(tree, FS_UID="1000")
+
+    def test_a_private_child_under_a_writable_root_is_refused(self):
+        tree = {"/volumes/data": [0, 0, DIR | 0o777], "/volumes/data/private": [999, 999, DIR | 0o700], "/volumes/data/private/f": [999, 999, 0o600]}
+        proc, fs = self.check(tree)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/private", proc.stderr)
+        self.assertEqual(fs, tree)  # asks, never changes
+
+    def test_an_unreadable_file_is_refused(self):
+        proc, _ = self.check({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/f": [999, 999, 0o600]})
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/f", proc.stderr)
+
+    def test_a_read_only_directory_is_refused(self):
+        proc, _ = self.check({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/d": [999, 999, DIR | 0o755]})
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("/volumes/data/d", proc.stderr)
+
+    def test_a_usable_tree_passes(self):
+        proc, _ = self.check({"/volumes/data": [1000, 1000, DIR | 0o755], "/volumes/data/d": [1000, 1000, DIR | 0o700], "/volumes/data/d/f": [1000, 1000, 0o600], "/volumes/data/ro": [1000, 1000, 0o444]})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("usable by", proc.stdout)
+
+    # the owner-step scenarios do not apply to this script
+    for _name in [n for n in dir(OwnerStepContractTests) if n.startswith("test_")]:
+        locals()[_name] = None
+    del _name
+
+
+class AccessProbeFileTests(unittest.TestCase):
+    """R3-02: the generated shell against a real directory, with real mktemp and rm; find is stubbed (BSD find has no -readable)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = Path(self.tmp.name).resolve()
+        self.volume = self.base / "volumes" / "data"
+        self.volume.mkdir(parents=True)
+        (self.base / "bin").mkdir()
+        (self.base / "bin" / "find").write_text("#!/bin/sh\nexit 0\n")
+        (self.base / "bin" / "find").chmod(0o755)
+        self.script = compose._access_check_command(["data"])[2].replace(compose.OWNER_INIT_MOUNT, str(self.base / "volumes"))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_check(self):
+        proc = subprocess.run(["/bin/sh", "-c", self.script], capture_output=True, text=True, env={"PATH": f"{self.base / 'bin'}:/bin:/usr/bin"})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    def test_an_existing_file_with_the_old_fixed_name_is_untouched(self):
+        existing = self.volume / ".grdm-write-probe"
+        existing.write_text("KEEP")
+        self.run_check()
+        self.assertEqual(existing.read_text(), "KEEP")
+
+    def test_an_existing_symlink_and_its_target_are_untouched(self):
+        sentinel = self.base / "sentinel"
+        sentinel.write_text("KEEP")
+        link = self.volume / ".grdm-write-probe"
+        link.symlink_to(sentinel)
+        self.run_check()
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(sentinel.read_text(), "KEEP")
+
+    def test_only_the_new_probe_file_is_removed(self):
+        (self.volume / "data").write_text("x")
+        self.run_check()
+        self.assertEqual(sorted(p.name for p in self.volume.iterdir()), ["data"])
+
+    def test_the_probe_is_created_exclusively(self):
+        self.assertIn('mktemp "$v/.grdm-write-probe.XXXXXX"', self.script)
+        self.assertNotIn(': > "', self.script)
 
 
 class VolumePathTests(unittest.TestCase):

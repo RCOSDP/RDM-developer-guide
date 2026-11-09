@@ -430,7 +430,7 @@ def _owner_init_command(owners: dict[str, str]) -> list[str]:
     A top directory that keeps its old owner after chown stops the step, unless its mount is one of
     OWNERSHIP_IGNORING_FILESYSTEMS, the VM shares that present every path as root:root (measured on Colima
     virtiofs: chown exits 0, stat still reads 0:0). Even then only the volume_access_check_* one-shots, which
-    write as the real uid, establish that the writers can use it. Nothing follows symlinks or leaves the volume."""
+    run as the real uid and walk the existing tree, establish that the writers can use it. Nothing follows symlinks or leaves the volume."""
     steps = "".join(f'fix {owner} {OWNER_INIT_MOUNT}/{name}; ' for name, owner in owners.items())
     different = '\\( ! -user "$u" -o ! -group "$g" \\)'
     private = "-type d ! -user 0 ! -perm -005 -prune"
@@ -456,9 +456,21 @@ def _owner_init_command(owners: dict[str, str]) -> list[str]:
 
 
 def _access_check_command(volumes: list[str]) -> list[str]:
-    """Create and remove a file in each volume as the writer's own uid: the only proof that it can write."""
+    """As the writer's own uid: prove it can create a file in each volume and use what is already there.
+
+    The probe file comes from mktemp, which creates a new name exclusively and never follows a symlink, and
+    only that file is removed, so nothing existing can be truncated (PR #36 review r3 R3-02). The walk asks the
+    kernel about access (GNU find -readable, -writable, -executable), changing nothing: a writable root says
+    nothing about a private child (R3-01). A directory must be enterable, listable and writable; a file readable.
+    -prune because GNU find does not act on a directory it cannot open (measured)."""
     paths = " ".join(f"{OWNER_INIT_MOUNT}/{name}" for name in volumes)
-    return ["sh", "-c", f'set -e; for v in {paths}; do p="$v/.grdm-write-probe"; : > "$p"; rm -f "$p"; echo "$v: writable as $(id -u)"; done']
+    denied = r"\( -type d \( ! -readable -o ! -executable -o ! -writable \) -prune -o ! -type d ! -type l ! -readable \)"
+    return ["sh", "-c", (
+        f'set -e; for v in {paths}; do p=$(mktemp "$v/.grdm-write-probe.XXXXXX"); rm -f -- "$p"; '
+        f'bad=$(find "$v" -xdev {denied} -print | head -n 1); '
+        'if [ -n "$bad" ]; then echo "volume_access_check: uid $(id -u) cannot use $bad" >&2; exit 1; fi; '
+        'echo "$v: usable by $(id -u)"; done'
+    )]
 
 
 def with_owner_init(services: list[_manifest.Service], hardening: dict[str, dict[str, Any]]) -> list[_manifest.Service]:
