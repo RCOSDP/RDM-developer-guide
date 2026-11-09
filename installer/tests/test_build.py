@@ -249,6 +249,34 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(self.run_cmd(ctx, FakeRunner()), exit_codes.BUILD_FAILED)
         self.assertIn("no Dockerfile", self.err.getvalue())
 
+    def _with_waterbutler_recipe(self, create=True):
+        data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
+        data["components"][1]["build_dockerfile"] = "installer/images/waterbutler/Dockerfile"
+        data["components"][1]["base_image_digest"] = "sha256:" + "cd" * 32
+        data["components"][1]["note"] = "recipe replaces the integration Dockerfile"
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
+        if create:
+            recipe = self.root / "installer" / "images" / "waterbutler" / "Dockerfile"
+            recipe.parent.mkdir(parents=True)
+            recipe.write_text("FROM scratch\n")
+
+    def test_build_dockerfile_builds_the_checkout_with_the_repository_recipe(self):
+        """SPEC-01 §3 build_dockerfile (MC-16): the context stays the pinned checkout, only -f changes."""
+        self._with_waterbutler_recipe()
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK, self.err.getvalue())
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"] and any("waterbutler" in a for a in c)][0]
+        self.assertEqual(bx[bx.index("-f") + 1], str(self.root / "installer" / "images" / "waterbutler" / "Dockerfile"))
+        self.assertTrue(bx[-1].endswith("RDM-waterbutler-dev2027"), bx[-1])
+        self.assertIn("org.opencontainers.image.base.digest=sha256:" + "cd" * 32, bx)
+
+    def test_build_dockerfile_missing_recipe_is_30(self):
+        self._with_waterbutler_recipe(create=False)
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, FakeRunner()), exit_codes.BUILD_FAILED)
+        self.assertIn("build_dockerfile", self.err.getvalue())
+
     def test_image_build_push_uses_the_registry_tag(self):
         self._with_native_elasticsearch()
         ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)

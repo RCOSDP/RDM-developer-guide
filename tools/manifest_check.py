@@ -29,6 +29,8 @@ Checks implemented (ids from docs/spec/01_manifest.md §5):
          PR number is a positive integer
   MC-15  image_build {context, tag} only on infra, context is a repo-relative directory with a Dockerfile,
          tag is a valid image tag, note required, exclusive with prebuilt_image and build_platform (ADR-07)
+  MC-16  build_dockerfile only with integration_repo, a plain repo-relative file in this repository, note required,
+         exclusive with prebuilt_image and overlay_of (ADR-07)
   MC-10  profile in minimum|core|full; platforms subset of linux/arm64,linux/amd64;
          build_platform on infra only together with a non-empty note (PR #32 review r1 R1-01);
          core components list both platforms
@@ -165,6 +167,7 @@ STRUCT_COMPONENT: dict[str, tuple[str, str]] = {
     "prebuilt_image": ("MC-06", "str|null"),
     "overlay_of": ("MC-14", "str|null"),
     "image_build": ("MC-15", "obj"),
+    "build_dockerfile": ("MC-16", "str"),
     "note": ("MC-01", "str|null"),
 }
 STRUCT_UPSTREAM: dict[str, tuple[str, str]] = {
@@ -549,6 +552,26 @@ def validate_manifest(data: Any, today: _dt.date | None = None) -> list[str]:
             errors.append(f"MC-15: {label}: image_build components are built for the host platform; drop build_platform")
         if not (isinstance(comp.get("note"), str) and comp["note"].strip()):
             errors.append(f"MC-15: {label}: image_build requires a note (why the official image cannot be used, until which milestone)")
+
+    # MC-16: build_dockerfile, this repository's recipe over a pinned integration checkout
+    for i, comp in enumerate(components):
+        if not isinstance(comp, dict) or "build_dockerfile" not in comp:
+            continue
+        label = f"components[{i}]"
+        path = comp["build_dockerfile"]
+        if not comp.get("integration_repo"):
+            errors.append(f"MC-16: {label}: build_dockerfile needs an integration_repo checkout as its context")
+        if comp.get("prebuilt_image") or comp.get("overlay_of"):
+            errors.append(f"MC-16: {label}: build_dockerfile is exclusive with prebuilt_image and overlay_of")
+        if not (isinstance(comp.get("note"), str) and comp["note"].strip()):
+            errors.append(f"MC-16: {label}: build_dockerfile requires a note (why the integration repository's Dockerfile is replaced)")
+        if not isinstance(path, str) or path.startswith("/") or ".." in path.split("/") or not re.fullmatch(r"[A-Za-z0-9_./-]+", path):
+            errors.append(f"MC-16: {label}: build_dockerfile must be a plain repo-relative path (got {path!r})")
+            continue
+        root = REPO_ROOT.resolve()
+        resolved = (REPO_ROOT / path).resolve()
+        if not str(resolved).startswith(str(root) + "/") or not resolved.is_file():
+            errors.append(f"MC-16: {label}: build_dockerfile {path} is not a file in this repository")
 
     # MC-08
     for (urepo, ubranch), shas in sorted(sha_by_repo_branch.items()):

@@ -267,6 +267,30 @@ class ValidateManifestTests(unittest.TestCase):
                 if link.is_symlink():
                     link.unlink()
 
+    def test_build_dockerfile_rules_mc16(self):
+        """SPEC-01 §3 build_dockerfile: a checkout to build, a real file here, a note, no prebuilt or overlay."""
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
+        self.assertNotIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)))
+        comp = [c for c in data["components"] if c["id"] == "y-websocket"][0]
+        good = comp["build_dockerfile"]
+        for bad_path in ("installer/images/does-not-exist/Dockerfile", "../outside", "/etc/passwd", 7):
+            comp["build_dockerfile"] = bad_path
+            self.assertIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)), bad_path)
+        comp["build_dockerfile"] = good
+        note, comp["note"] = comp["note"], None
+        self.assertIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)))
+        comp["note"] = note
+        comp["overlay_of"] = "osf.io"
+        self.assertIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)))
+        del comp["overlay_of"]
+        comp["prebuilt_image"] = PREBUILT_REF
+        self.assertIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)))
+        del comp["prebuilt_image"]
+        infra = [c for c in data["components"] if c["role"] == "infra"][0]
+        infra["build_dockerfile"] = good
+        infra["note"] = "x"
+        self.assertIn("MC-16", codes(mc.validate_manifest(data, today=TODAY)))
+
     def test_infra_build_platform_requires_note(self):
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
         infra = [c for c in data["components"] if c["role"] == "infra"]
