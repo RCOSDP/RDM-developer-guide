@@ -576,9 +576,9 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
-      "integration_sha": "93251589af25bb65a1397d55a9e787d55d56e9aa",
+      "integration_sha": "bf2cd67051025416de028f6edd16c83d3fc8ba79",
       "integration_repo": "RDM-y-websocket-dev2027",
-      "note": "Built from the pinned checkout with the recipe in this repository instead of the integration repository's Dockerfile, so the running image has no npm or yarn and no development dependencies (SPEC-01 build_dockerfile).",
+      "note": "Built from the pinned checkout, which enforces JWT authentication (RDM-osf.io#797), with the recipe in this repository instead of the integration repository's Dockerfile: dependencies come from the checkout's package-lock.json (npm ci) and the running image has no npm or yarn (SPEC-01 build_dockerfile).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -986,7 +986,7 @@
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": "Built natively from upstream commit 9a9ddd73b225 (sha256-verified source archive) with a current Go on a digest-pinned Alpine (installer/images/fakecas, ADR-07): the published quay.io image was linux/amd64 only and compiled with an old Go.",
+      "note": "Built natively from upstream commit 9a9ddd73b225 (sha256-verified source archive) with a current Go on a digest-pinned Alpine (installer/images/fakecas, ADR-07): the published quay.io image was linux/amd64 only and compiled with an old Go. Module versions are frozen by go.mod and go.sum beside the Dockerfile.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -1003,7 +1003,7 @@
       "upstreams": [],
       "image_build": {
         "context": "installer/images/fakecas",
-        "tag": "9a9ddd73b225-1"
+        "tag": "9a9ddd73b225-2"
       }
     }
   ],

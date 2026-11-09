@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-10. **Learned:** a lower CVE count proves nothing about the client on the other end of a socket: a current LibreOffice scanned far cleaner yet could not serve MFR's 6.1 UNO client, so each image change needs its real client path proven. ／ CVE の件数が減ってもソケットの相手のクライアントについては何も証明しない。現行の LibreOffice は検出がはるかに少なかったが MFR の 6.1 の UNO クライアントには応えられなかった。イメージの変更ごとに実際のクライアントの経路を証明する必要がある。
+- Version / 版: 0.3 — 2026-11-10. **Learned:** a rebuilt image is only as safe as the commit and dependency set it is built from, so the image must be tested at the authenticating commit with its lockfile and frozen modules, and a data-volume upgrade needs a restorable snapshot rather than an image reference to go back to (PR #37 review r1). ／ 組み直したイメージの安全性は、組む元のコミットと依存の組で決まる。認証を含むコミットとロックファイル、固定したモジュールでそのイメージを試験しなければならず、データボリュームの更新には戻る先のイメージ参照でなく復元できる snapshot が要る（PR #37 レビュー r1）。
+  0.2 — 2026-11-10. **Learned:** a lower CVE count proves nothing about the client on the other end of a socket: a current LibreOffice scanned far cleaner yet could not serve MFR's 6.1 UNO client, so each image change needs its real client path proven. ／ CVE の件数が減ってもソケットの相手のクライアントについては何も証明しない。現行の LibreOffice は検出がはるかに少なかったが MFR の 6.1 の UNO クライアントには応えられなかった。イメージの変更ごとに実際のクライアントの経路を証明する必要がある。
   0.1 — 2026-11-06. **Learned:** a cold start measures what a warm host hides: an emulated JDK 8 service spends tens of minutes initialising every time its data directory is new, and no timeout makes that acceptable; the program itself starts in seconds when it runs natively (real install run 19, PR #33 review r1). ／ コールドスタートは温まったホストが隠すものを測る。エミュレーションされた JDK 8 のサービスはデータディレクトリが新しいたびに数十分を初期化に費やし、どんなタイムアウトでもそれは許容できない。プログラム自体はネイティブで動かせば数秒で起動する（実機第 19 回、PR #33 レビュー r1）。
 - Status: Proposed for the owner's approval, 2026-11-06 (M2). Review date: start of M5 (Elasticsearch 2 retired); the rule itself stays for any later EOL middleware.
 - Records a decision for: [SPEC-01 §3](../spec/01_manifest.md#english) (`image_build`, MC-15) · [SPEC-02 §3](../spec/02_installer_cli.md#english) (`build` of repo-local images) · [SPEC-03 §3.3](../spec/03_security_gate.md#english) (exception list)
@@ -30,8 +31,8 @@ The same shape — an EOL (end of life: software its maker no longer fixes; see 
 
 1. **Manifest** (the file that lists every component with its pinned commit; see [REF-01](../reference/REF-01_Glossary.md)). An `infra` component may carry `image_build: {"context": "<repo-relative directory>", "tag": "<recipe version>"}` ([SPEC-01 §3](../spec/01_manifest.md#english), rule MC-15): the directory holds a `Dockerfile`, the tag names the recipe (bump it when the Dockerfile changes), a `note` says why the official image cannot be used and until which milestone, and `prebuilt_image` / `build_platform` are excluded. `base_image` and `base_image_digest` name the digest-pinned base the Dockerfile starts from.
 2. **Build.** `grdm-dev build` builds such a component from the repository directory for the host platform (or `--platform`), tags it `grdm-dev/<id>:<tag>`, records it in the build report with status `built`, and `--push` publishes `ghcr.io/rcosdp/<id>:<tag>`; `compose render` writes that reference as `image:`, `scan` scans it like any other image. No clone, no integration repository: the component stays `infra`.
-3. **Dockerfile rules.** The artefact is the upstream's official release (tarball, deb or jar) fetched by URL with a checksum that is verified in the build; the base image is digest-pinned; the fetch runs in a `--platform=$BUILDPLATFORM` stage so that `curl`, `sha256sum` and `tar` never run under emulation (tar fails with "Function not implemented" under Rosetta); the final stage only copies files, runs as uid 1000 and needs no writable root except declared `tmpfs`/volumes. The image is a development artefact: no plugins, no site-specific configuration.
-4. **Scope.** First applied to `elasticsearch2` (`installer/images/elasticsearch2/`, tag `2.4.6-1`). The elasticsearch hardening exception (`read_only`) of PR #33 is removed: the native image runs as uid 1000 on a read-only root, like elasticsearch 6. The one-shot `elasticsearch_data_init` stays, now on the native image as an explicit root with `CAP_CHOWN` only, because the bind-mounted data directory belongs to the host user (or to uid 101 after PR #33) and image layers cannot change a mounted tree (review r1 R1-01). Other amd64-only infra images stay under emulation until they become a start-up problem or reach their modernization milestone; each switch is one PR with its own run record. `elasticsearch6` (`6.8.23-1`) and `fakecas` (`9a9ddd73b225-1`) moved on 2026-11-10 (§5); `elasticsearch6` also lost its `read_only` hardening entry.
+3. **Dockerfile rules.** The artefact is the upstream's official release (tarball, deb or jar) fetched by URL with a checksum that is verified in the build; the base image is digest-pinned; the fetch runs in a `--platform=$BUILDPLATFORM` stage so that `curl`, `sha256sum` and `tar` never run under emulation (tar fails with "Function not implemented" under Rosetta); the final stage only copies files, runs as uid 1000 and needs no writable root except declared `tmpfs`/volumes. The image is a development artefact: no plugins, no site-specific configuration. `fakecas` is the recorded exception for a project with no release artefact: it is compiled from a checksum-verified commit archive with frozen `go.mod`/`go.sum`, and runs as uid 65534 as its service template always has.
+4. **Scope.** First applied to `elasticsearch2` (`installer/images/elasticsearch2/`, tag `2.4.6-1`). The elasticsearch hardening exception (`read_only`) of PR #33 is removed: the native image runs as uid 1000 on a read-only root, like elasticsearch 6. The one-shot `elasticsearch_data_init` stays, now on the native image as an explicit root with `CAP_CHOWN` only, because the bind-mounted data directory belongs to the host user (or to uid 101 after PR #33) and image layers cannot change a mounted tree (review r1 R1-01); that step later became the generic `volume_owner_init` ([SPEC-03 §3.3](../spec/03_security_gate.md#english)). Other amd64-only infra images stay under emulation until they become a start-up problem or reach their modernization milestone; each switch is one PR with its own run record. `elasticsearch6` (`6.8.23-1`) and `fakecas` (`9a9ddd73b225-2`) moved on 2026-11-10 (§5); `elasticsearch6` also lost its `read_only` hardening entry.
 5. **Retirement.** `target_image` keeps naming the milestone that removes the middleware (ES 2 → M5). A native build is a bridge, not a reason to keep EOL software.
 
 ### 3. Options considered
@@ -53,23 +54,35 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. Image vulnerability reduction (2026-11-10)
 
-Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64; "after" images were measured on arm64, and elasticsearch6 and fakecas also on amd64 with the same counts.
+Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `bf2cd67051025416de028f6edd16c83d3fc8ba79`.
 
 ```toon
 results[6]{image,before,after,outcome,proof}:
-  elasticsearch6,37/236,2/50,"adopted: OSS 6.8.23 on Temurin 11 (image_build)","osf.io's django-elasticsearch-metrics wrote a template, documents and an aggregation; a 6.3.1 data volume was recovered with its 3 documents"
-  fakecas,1/57,0/2,"adopted: pinned commit with current Go (image_build)","login form, ticket validation, login redirect, and 404 for an unknown ticket against postgres"
-  y-websocket,1/12,0/0,"adopted: recipe without npm or yarn on Node 24 LTS (build_dockerfile)","two Yjs providers converged through the hardened server"
+  elasticsearch6,37/236,2/50,"adopted: OSS 6.8.23 on Temurin 11 (image_build)","osf.io's django-elasticsearch-metrics wrote a template, documents and an aggregation on both architectures; a copy of a 6.3.1 data volume upgraded and validated; rollback demonstrated (§6)"
+  fakecas,1/57,0/2,"adopted: pinned commit with current Go and frozen modules (image_build)","login form, ticket validation, login redirect, and 404 for an unknown ticket against postgres on both architectures; two uncached builds gave the same binary hash"
+  y-websocket,1/12,0/2,"adopted: JWT-enforcing commit, npm ci from its lockfile, no npm or yarn at run time, Node 24 LTS (build_dockerfile)","no, bad-signature, expired, wrong-document, no-exp, alg-none and duplicate tokens closed 4401 with zero frames; a valid token converged two Yjs providers; a missing secret refuses to start; both architectures"
   rabbitmq,0/7,0/7,"digest pinned; 3.13.7 is already the newest image of the 3-management tag","same image as the running one"
   unoconv,147/1140,147/1140,"blocked; candidate measured 1/73 was not adopted","see below"
   sharejs,394/1588,394/1588,"blocked; trial measured 3/51 was not adopted","see below"
 ```
 
-The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty, jackson, snakeyaml, bouncycastle and Elasticsearch itself) plus `apt` in the JRE base; Elastic published no later 6.8 release (6.8.24 answers 404), and M5 removes this line.
+The two y-websocket findings are `ws` 6.2.2 from the commit's `package-lock.json` (fixed in 6.2.4); the lockfile is used as committed, so raising it is a change for the integration repository. The two fakecas findings are `dgrijalva/jwt-go` and `labstack/echo` v3, which upstream's module requires and which have no fixed version in that line. The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty, jackson, snakeyaml, bouncycastle and Elasticsearch itself) plus `apt` in the JRE base; Elastic published no later 6.8 release (6.8.24 answers 404), and M5 removes this line.
 
 **unoconv is blocked.** LibreOffice from Debian 12 (7.4) and Debian 13 (25.2) accepts MFR's connection, but every `loadComponentFromURL` from MFR's LibreOffice 6.1 UNO client ends with `Binary URP bridge disposed during call`, on arm64 and amd64, hardened or not, and even with no arguments. The same probe converts against the old image, and a client of the listener's own version converts against the hardened listener. The fix belongs to the client side (MFR on a newer LibreOffice, or the unoserver move planned for M4), so no recipe was added and the service keeps its image and its hardening entry.
 
 **sharejs is blocked.** The unchanged dependency set installs on Node 22 and 24 and the HTTP/WebSocket server starts, but its mongodb 1.4.40 driver never calls back over TLS (`mongodb://…?ssl=true` against `requireSSL`): no connection error, no document written, no `sub` reply. The old image passes the same probe. Fixing it means replacing the driver underneath `livedb-mongo`, which is a code change rather than a rebuild; retirement remains a separate decision.
+
+### 6. Upgrading an existing Elasticsearch 6.3.1 data volume
+
+The data under `runtime/volumes/elasticsearch6_data` moves from 6.3.1 (default distribution) to 6.8.23 (OSS) when the new image starts on it. Reverting the image reference does not recover it: once 6.8.23 has written the directory, go back by restoring a snapshot taken before the upgrade ([Elastic 6.8 upgrade guide](https://www.elastic.co/guide/en/elasticsearch/reference/6.8/setup-upgrade.html)). Metrics are development data, so a developer may also choose to discard the directory. Otherwise, with `E=http://<address of the node>:9200`:
+
+1. **Record the old cluster.** `curl $E/` (version and `build_flavor`), `curl "$E/_cat/plugins?v"`, `curl "$E/_cat/templates?h=name"` and `curl "$E/_cluster/state/metadata?filter_path=metadata.licenses.license.type,metadata.ml.jobs,metadata.ml.datafeeds"`.
+2. **Stop the writers.** Stop `web`, `api`, `admin` and `worker`, then `elasticsearch6`.
+3. **Take and verify a snapshot.** Start a one-off `docker.elastic.co/elasticsearch/elasticsearch:6.3.1` with `--platform linux/amd64`, `--user 1000:1000`, the data directory mounted, an empty directory owned by uid 1000 mounted at `/snapshots`, and `-e discovery.type=single-node -e xpack.security.enabled=false -e path.repo=/snapshots`. Then `PUT $E/_snapshot/preupgrade` with `{"type":"fs","settings":{"location":"/snapshots/preupgrade"}}`, `POST $E/_snapshot/preupgrade/_verify`, and `PUT "$E/_snapshot/preupgrade/before-6-8?wait_for_completion=true"` with `{"indices":"*","include_global_state":true}`. Require `"state":"SUCCESS"` and `"failed":0`. Stop the container.
+4. **Upgrade a disposable copy.** Copy the data directory to a new directory owned by uid 1000, start the 6.8.23 image on the copy as the `elasticsearch6` template does, and check the templates, the document counts and an aggregation. Only then start the real service on the real directory.
+5. **On failure, restore to a clean 6.3.1.** Empty the data directory, start the one-off 6.3.1 container of step 3 on it, register the repository with `"readonly":true`, `POST "$E/_snapshot/preupgrade/before-6-8/_restore?wait_for_completion=true"` with `{"indices":"*","include_global_state":true}`, repeat the checks, and stay on the previous revision of this repository.
+
+Demonstrated on 2026-11-10 with throwaway containers and volumes, never the running stack. The 6.3.1 cluster was the default distribution with x-pack modules, plugins `ingest-geoip` and `ingest-user-agent`, no ML jobs or datafeeds, and 15 X-Pack or Logstash templates beside the application's. Three documents written through osf.io's client were snapshotted (`SUCCESS`, 1 shard, 0 failed); a copy upgraded to 6.8.23 returned the template, 3 documents and the aggregation; a clean 6.3.1 restored from the snapshot returned the same. On 6.8.23 OSS the unknown `licenses` metadata is logged and skipped. The x-pack templates stay in the upgraded copy; nothing uses them. A cluster with ML jobs, security users or other X-Pack state was not tested, so step 1 decides whether this procedure applies.
 
 ---
 
@@ -90,8 +103,8 @@ The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty,
 
 1. **manifest。** `infra` の部品は `image_build: {"context": "<リポジトリ相対のディレクトリ>", "tag": "<レシピの版>"}` を持てる（[SPEC-01 §3](../spec/01_manifest.md#japanese)、規則 MC-15）。ディレクトリには `Dockerfile` があり、tag はレシピの版（Dockerfile を変えたら上げる）、`note` には公式イメージが使えない理由とどの節目までかを書き、`prebuilt_image` と `build_platform` は併用できない。`base_image` と `base_image_digest` は Dockerfile が出発点にするダイジェスト固定のベースを指す。
 2. **ビルド。** `grdm-dev build` はその部品をリポジトリのディレクトリからホストのプラットフォーム（または `--platform`）向けに組み、`grdm-dev/<id>:<tag>` のタグを付け、ビルド報告に `built` として記録し、`--push` では `ghcr.io/rcosdp/<id>:<tag>` へ公開する。`compose render` はその参照を `image:` に書き、`scan` は他のイメージと同じに検査する。clone も統合リポジトリも無く、部品は `infra` のままである。
-3. **Dockerfile の規則。** 成果物は上流の公式リリース（tarball・deb・jar）で、URL から取得しビルド中にチェックサムを検証する。ベースイメージはダイジェスト固定。取得は `--platform=$BUILDPLATFORM` の段で行い、`curl`・`sha256sum`・`tar` をエミュレーション下で動かさない（tar は Rosetta 下で「Function not implemented」で失敗する）。最終段はファイルを写すだけで、uid 1000 で動き、宣言した `tmpfs`/ボリューム以外に書込可能なルートを要しない。イメージは開発用の成果物であり、プラグインもサイト固有の設定も持たない。
-4. **範囲。** まず `elasticsearch2`（`installer/images/elasticsearch2/`、tag `2.4.6-1`）に適用する。PR #33 の elasticsearch の堅牢化例外（`read_only`）は取り除く。ネイティブのイメージは elasticsearch 6 と同じく uid 1000・読み取り専用ルートで動く。一回限りの `elasticsearch_data_init` は残し、ネイティブイメージを明示の root・`CAP_CHOWN` のみで動かす。bind マウントしたデータディレクトリはホストの利用者（PR #33 の後は uid 101）の所有で、イメージの層ではマウントした木を変えられないからである（レビュー r1 R1-01）。他の amd64 のみの基盤イメージは、起動の問題になるか近代化の節目に達するまでエミュレーションのままとし、切り替えは一つずつ PR と実機記録を伴って行う。`elasticsearch6`（`6.8.23-1`）と `fakecas`（`9a9ddd73b225-1`）は 2026-11-10 に移行した（§5）。`elasticsearch6` の `read_only` の堅牢化項目も消えた。
+3. **Dockerfile の規則。** 成果物は上流の公式リリース（tarball・deb・jar）で、URL から取得しビルド中にチェックサムを検証する。ベースイメージはダイジェスト固定。取得は `--platform=$BUILDPLATFORM` の段で行い、`curl`・`sha256sum`・`tar` をエミュレーション下で動かさない（tar は Rosetta 下で「Function not implemented」で失敗する）。最終段はファイルを写すだけで、uid 1000 で動き、宣言した `tmpfs`/ボリューム以外に書込可能なルートを要しない。イメージは開発用の成果物であり、プラグインもサイト固有の設定も持たない。`fakecas` はリリース成果物の無いプロジェクトとして記録した例外で、チェックサムを検証したコミットのアーカイブから、固定した `go.mod`/`go.sum` でコンパイルし、サービス定義のとおり uid 65534 で動く。
+4. **範囲。** まず `elasticsearch2`（`installer/images/elasticsearch2/`、tag `2.4.6-1`）に適用する。PR #33 の elasticsearch の堅牢化例外（`read_only`）は取り除く。ネイティブのイメージは elasticsearch 6 と同じく uid 1000・読み取り専用ルートで動く。一回限りの `elasticsearch_data_init` は残し、ネイティブイメージを明示の root・`CAP_CHOWN` のみで動かす。bind マウントしたデータディレクトリはホストの利用者（PR #33 の後は uid 101）の所有で、イメージの層ではマウントした木を変えられないからである（レビュー r1 R1-01）。この段は後に汎用の `volume_owner_init` になった（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。他の amd64 のみの基盤イメージは、起動の問題になるか近代化の節目に達するまでエミュレーションのままとし、切り替えは一つずつ PR と実機記録を伴って行う。`elasticsearch6`（`6.8.23-1`）と `fakecas`（`9a9ddd73b225-2`）は 2026-11-10 に移行した（§5）。`elasticsearch6` の `read_only` の堅牢化項目も消えた。
 5. **退役。** `target_image` は引き続きそのミドルウェアを除く節目を指す（ES 2 → M5）。ネイティブビルドは橋であり、EOL ソフトウェアを残す理由ではない。
 
 ### 3. 検討した選択肢
@@ -113,23 +126,35 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. イメージの脆弱性削減（2026-11-10）
 
-件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは amd64、「後」は arm64 で測り、elasticsearch6 と fakecas は amd64 でも同じ件数だった。
+件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `bf2cd67051025416de028f6edd16c83d3fc8ba79` である。
 
 ```toon
 results[6]{image,before,after,outcome,proof}:
-  elasticsearch6,37/236,2/50,"採用: Temurin 11 上の OSS 6.8.23（image_build）","osf.io の django-elasticsearch-metrics がテンプレート・文書・集計を実行。6.3.1 のデータボリュームを文書 3 件とともに回復"
-  fakecas,1/57,0/2,"採用: 固定コミットを現行の Go で組む（image_build）","postgres に対しログイン画面、チケット検証、ログイン後の転送、未知のチケットの 404"
-  y-websocket,1/12,0/0,"採用: Node 24 LTS 上の npm・yarn 無しのレシピ（build_dockerfile）","堅牢化したサーバー経由で 2 つの Yjs プロバイダが収束"
+  elasticsearch6,37/236,2/50,"採用: Temurin 11 上の OSS 6.8.23（image_build）","osf.io の django-elasticsearch-metrics が両アーキテクチャでテンプレート・文書・集計を実行。6.3.1 のデータボリュームの写しを更新して検証し、復旧も実証（§6）"
+  fakecas,1/57,0/2,"採用: 固定コミットを現行の Go と固定したモジュールで組む（image_build）","両アーキテクチャで postgres に対しログイン画面、チケット検証、ログイン後の転送、未知のチケットの 404。キャッシュなしの 2 回のビルドでバイナリのハッシュが一致"
+  y-websocket,1/12,0/2,"採用: JWT を強制するコミット、ロックファイルからの npm ci、実行時に npm・yarn 無し、Node 24 LTS（build_dockerfile）","トークン無し・署名不正・期限切れ・別文書・exp 無し・alg none・重複は 4401 で閉じフレーム 0。有効なトークンで 2 つの Yjs プロバイダが収束。秘密鍵無しでは起動拒否。両アーキテクチャ"
   rabbitmq,0/7,0/7,"ダイジェストを固定。3.13.7 は 3-management タグの最新イメージ","動作中のものと同じイメージ"
   unoconv,147/1140,147/1140,"阻害要因あり。候補の実測 1/73 は不採用","下記"
   sharejs,394/1588,394/1588,"阻害要因あり。試作の実測 3/51 は不採用","下記"
 ```
 
-elasticsearch6 に残る検出は 6.8.23 のリリースに含まれる jar（netty・jackson・snakeyaml・bouncycastle・Elasticsearch 本体）と JRE ベースの `apt` である。Elastic は後続の 6.8 を出しておらず（6.8.24 は 404）、M5 でこの系統ごと除く。
+y-websocket の 2 件はコミットの `package-lock.json` が固定する `ws` 6.2.2 である（6.2.4 で修正）。ロックファイルはコミットのまま使うので、上げるのは統合リポジトリ側の変更になる。fakecas の 2 件は上流のモジュールが要する `dgrijalva/jwt-go` と `labstack/echo` v3 で、その系統に修正版は無い。elasticsearch6 に残る検出は 6.8.23 のリリースに含まれる jar（netty・jackson・snakeyaml・bouncycastle・Elasticsearch 本体）と JRE ベースの `apt` である。Elastic は後続の 6.8 を出しておらず（6.8.24 は 404）、M5 でこの系統ごと除く。
 
 **unoconv は阻害要因あり。** Debian 12（7.4）と Debian 13（25.2）の LibreOffice は MFR の接続を受けるが、MFR の LibreOffice 6.1 の UNO クライアントからの `loadComponentFromURL` はすべて `Binary URP bridge disposed during call` で終わる。arm64 でも amd64 でも、堅牢化の有無にかかわらず、引数が無くても同じである。同じ検証は旧イメージでは変換でき、リスナーと同じ版のクライアントは堅牢化したリスナーで変換できる。直す場所はクライアント側（MFR を新しい LibreOffice にするか、M4 予定の unoserver への移行）なので、レシピは追加せず、サービスのイメージと堅牢化の項目はそのままとする。
 
 **sharejs は阻害要因あり。** 依存をそのままにすると Node 22 と 24 でインストールでき HTTP/WebSocket サーバーも起動するが、mongodb 1.4.40 ドライバーは TLS（`requireSSL` への `mongodb://…?ssl=true`）でコールバックを返さない。接続エラーも文書の書き込みも `sub` の応答も無い。旧イメージは同じ検証に合格する。直すには `livedb-mongo` の下のドライバーを置き換える必要があり、組み直しではなくコードの変更である。退役は別の判断として残す。
+
+### 6. 既存の Elasticsearch 6.3.1 データボリュームの更新
+
+新しいイメージを起動すると、`runtime/volumes/elasticsearch6_data` のデータは 6.3.1（default 配布）から 6.8.23（OSS）へ移る。イメージ参照を戻しても復旧にはならない。6.8.23 が一度ディレクトリに書いたら、戻るには更新前に取った snapshot を復元する（[Elastic 6.8 更新ガイド](https://www.elastic.co/guide/en/elasticsearch/reference/6.8/setup-upgrade.html)）。メトリクスは開発用のデータなので、開発者はディレクトリを捨てることも選べる。そうしない場合は、`E=http://<ノードのアドレス>:9200` として次の手順による。
+
+1. **旧クラスタを記録する。** `curl $E/`（版と `build_flavor`）、`curl "$E/_cat/plugins?v"`、`curl "$E/_cat/templates?h=name"`、`curl "$E/_cluster/state/metadata?filter_path=metadata.licenses.license.type,metadata.ml.jobs,metadata.ml.datafeeds"`。
+2. **書き手を止める。** `web`・`api`・`admin`・`worker` を止め、次に `elasticsearch6` を止める。
+3. **snapshot を取り確認する。** 一回限りの `docker.elastic.co/elasticsearch/elasticsearch:6.3.1` を `--platform linux/amd64`・`--user 1000:1000` で起動する。データディレクトリと、`/snapshots` に uid 1000 所有の空ディレクトリをマウントし、`-e discovery.type=single-node -e xpack.security.enabled=false -e path.repo=/snapshots` を渡す。`PUT $E/_snapshot/preupgrade` に `{"type":"fs","settings":{"location":"/snapshots/preupgrade"}}`、`POST $E/_snapshot/preupgrade/_verify`、`PUT "$E/_snapshot/preupgrade/before-6-8?wait_for_completion=true"` に `{"indices":"*","include_global_state":true}` を送り、`"state":"SUCCESS"` と `"failed":0` を確かめてコンテナを止める。
+4. **使い捨ての写しを更新する。** データディレクトリを uid 1000 所有の新しいディレクトリへ写し、`elasticsearch6` のテンプレートと同じ設定で 6.8.23 のイメージを写しの上で起動し、テンプレート・文書数・集計を確かめる。その後で初めて本来のディレクトリでサービスを起動する。
+5. **失敗したら空の 6.3.1 へ復元する。** データディレクトリを空にし、手順 3 の 6.3.1 のコンテナをその上で起動し、リポジトリを `"readonly":true` で登録し、`POST "$E/_snapshot/preupgrade/before-6-8/_restore?wait_for_completion=true"` に `{"indices":"*","include_global_state":true}` を送って同じ確認をし、本リポジトリの以前の版に留まる。
+
+2026-11-10 に使い捨てのコンテナとボリュームで実証した。稼働中のスタックには触れていない。6.3.1 のクラスタは x-pack モジュールを持つ default 配布で、プラグインは `ingest-geoip` と `ingest-user-agent`、ML のジョブと datafeed は無く、アプリケーションのもののほかに X-Pack と Logstash のテンプレートが 15 個あった。osf.io のクライアントで書いた文書 3 件を snapshot し（`SUCCESS`、1 シャード、失敗 0）、6.8.23 へ更新した写しはテンプレート・文書 3 件・集計を返し、snapshot から復元した空の 6.3.1 も同じものを返した。6.8.23 OSS では未知の `licenses` メタデータはログに出て読み飛ばされる。x-pack のテンプレートは更新後の写しに残るが、使うものは無い。ML ジョブやセキュリティのユーザーなどの X-Pack の状態を持つクラスタは試験していないので、この手順が当てはまるかは手順 1 で判断する。
 
 ---
 

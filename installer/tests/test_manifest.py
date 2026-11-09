@@ -134,10 +134,12 @@ class ServicesForProfileTests(unittest.TestCase):
         """ADR-07 §5: the recipes replace the emulated images, and elasticsearch6 needs no hardening entry."""
         services = {s.name: s for s in manifest.services_for_profile(self.man, "core")}
         self.assertEqual(services["elasticsearch6"].image, "grdm-dev/elasticsearch6:6.8.23-1")
-        self.assertEqual(services["fakecas"].image, "grdm-dev/fakecas:9a9ddd73b225-1")
+        self.assertEqual(services["fakecas"].image, "grdm-dev/fakecas:9a9ddd73b225-2")
         for cid in ("elasticsearch6", "fakecas"):
             self.assertIsNone(self.man.component(cid).get("build_platform"), cid)
         self.assertTrue(services["rabbitmq"].image.startswith("rabbitmq:3-management@sha256:"))
+        # PR #37 review r1 R1-01: the image must be built from the commit that enforces JWT authentication
+        self.assertEqual(services["y_websocket"].image, "grdm-dev/y-websocket:bf2cd6705102")
         hardening = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))
         self.assertNotIn("elasticsearch6", {e["service"] for e in hardening["exceptions"]})
 
