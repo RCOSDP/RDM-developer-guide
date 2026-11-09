@@ -59,7 +59,7 @@
 | `up` → `health --network` → `scan` → `report` on Mac Studio | ✅ Run 18 (2026-11-06, PR #33): exit 0, ready at the loopback URL; runs 6–17 fixed one start-up fact each (DEMO-20) |
 | Cold start (empty volumes, new `runtime/`) on Mac Studio | ✅ Run 21 (2026-11-06, PR #34, ADR-07): exit 0 in 31 minutes; run 19 had shown the emulated Elasticsearch 2 needing 38 minutes to start, replaced by a native image |
 | edit.mako wiring in the integration repository — `RDM-osf.io-dev2027` `addons/wiki/templates/edit.mako` must load `/static/public/js/wiki/wiki-edit-page.js` (the bundle that `wiki_assets` copies into the volume `wiki_static`, [ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#english)) instead of `/static/js/pages/wiki-edit-page.js`; browser check of the editor and C4 once a real install reaches `up` | ⏳ Open (PR #30 review r1 R1-03); not changed in this repository; needed for the Wiki acceptance case, not for `health` |
-| Playwright acceptance C1–C6 | 🔄 C1 and C3 pass (success and rejection). Core run 2026-11-09 before the HMAC fix: 3 of 12. C2, C4, C5, C6 are open ([DEMO-20](../demo/20_core_install_mac_studio.md#english)) |
+| Playwright acceptance C1–C6 | 🔄 C1 and C3 pass (success and rejection). Core run 2026-11-09 before the HMAC fix: 3 of 12. C2, C4, C5, C6 are open ([DEMO-20](../demo/20_core_install_mac_studio.md#english)). PR #35 merged under the [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md#english) delegation; review [r2](../reviews/2026-11-10_RDM-developer-guide_PR35_Acceptance_HMAC_r2.md) |
 | Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18 (Trivy alone): 1835 CRITICAL / 8290 HIGH / 9763 MEDIUM / 3886 LOW over 22 targets; run 21 with the native Elasticsearch 2: 1769 / 8030 / 9550 / 3676; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM, 13 LOW to triage at M3) |
 | Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
@@ -113,7 +113,7 @@ This board is the **single source of truth** for milestone progress:
 | Mac Studio で `up` → `health --network` → `scan` → `report` | ✅ 第 18 回（2026-11-06、PR #33）: 終了コード 0、ループバックの URL で準備完了。第 6〜17 回は起動の事実を毎回 1 件ずつ修正（DEMO-20） |
 | Mac Studio でのコールドスタート（空のボリューム、新しい `runtime/`） | ✅ 第 21 回（2026-11-06、PR #34、ADR-07）: 31 分で終了コード 0。第 19 回でエミュレーションの Elasticsearch 2 が起動に 38 分かかることが分かり、ネイティブイメージに置き換えた |
 | 統合リポジトリ側の edit.mako 配線（M2 第 5 回で確認） — `RDM-osf.io-dev2027` の `addons/wiki/templates/edit.mako` が `/static/js/pages/wiki-edit-page.js` でなく `/static/public/js/wiki/wiki-edit-page.js`（`wiki_assets` がボリューム `wiki_static` へ写す束。[ADR-06 §4](../decisions/ADR-06_Wiki_Frontend_Overlay.md#japanese)）を読み込むこと。実機導入が `up` に達したらエディタと C4 をブラウザ確認 | ⏳ 未着手（PR #30 レビュー r1 R1-03）。本リポジトリでは変更しない。Wiki の受入ケースに必要で、`health` には不要 |
-| Playwright 受入 C1〜C6 | 🔄 C1 と C3 は成功・拒否とも合格。HMAC 修正前の 2026-11-09 のコア実行は 12 件中 3 件。C2、C4、C5、C6 は未解決（[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)） |
+| Playwright 受入 C1〜C6 | 🔄 C1 と C3 は成功・拒否とも合格。HMAC 修正前の 2026-11-09 のコア実行は 12 件中 3 件。C2、C4、C5、C6 は未解決（[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）。PR #35 は [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md#japanese) の委任でマージ。レビュー [r2](../reviews/2026-11-10_RDM-developer-guide_PR35_Acceptance_HMAC_r2.md) |
 | Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測（Trivy 単独）: 22 対象で CRITICAL 1835 / HIGH 8290 / MEDIUM 9763 / LOW 3886。ネイティブ Elasticsearch 2 の第 21 回: 1769 / 8030 / 9550 / 3676。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9・LOW 13 は M3 で精査） |
 | 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
