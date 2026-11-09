@@ -55,7 +55,7 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. Image vulnerability reduction (2026-11-10)
 
-Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `d4d1cfaed2e4b10362237df1f3424b2a076a56fb`, the head of the integration repository's `security/ws-update` branch (`bf2cd67051025416de028f6edd16c83d3fc8ba79` plus `ws` 6.2.6 in the lockfile).
+Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `09eb0a9f4af623760a15e100790381560b9e8ce0`, the head of the integration repository's `security/ws-update` branch (`bf2cd67051025416de028f6edd16c83d3fc8ba79` plus `ws` 6.2.6 in the lockfile).
 
 ```toon
 results[6]{image,before,after,outcome,proof}:
@@ -127,7 +127,7 @@ options[4]{option,cold_start,hardening,maintenance,chosen}:
 
 ### 5. イメージの脆弱性削減（2026-11-10）
 
-件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `d4d1cfaed2e4b10362237df1f3424b2a076a56fb` で、統合リポジトリの `security/ws-update` ブランチの先頭である（`bf2cd67051025416de028f6edd16c83d3fc8ba79` にロックの `ws` 6.2.6 を加えたもの）。
+件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `09eb0a9f4af623760a15e100790381560b9e8ce0` で、統合リポジトリの `security/ws-update` ブランチの先頭である（`bf2cd67051025416de028f6edd16c83d3fc8ba79` にロックの `ws` 6.2.6 を加えたもの）。
 
 ```toon
 results[6]{image,before,after,outcome,proof}:

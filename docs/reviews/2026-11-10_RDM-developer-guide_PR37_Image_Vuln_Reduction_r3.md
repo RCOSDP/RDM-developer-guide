@@ -19,7 +19,7 @@
 
 ### Verdict
 
-**Pass. R2-01 resolved; no new blocking findings in this delta.** The manifest pins `d4d1cfaed2e4b10362237df1f3424b2a076a56fb`, whose only change from the authenticating parent is ws 6.2.6 in the lockfile. The expected image tag follows that SHA. The Docker recipe still uses `npm ci --omit=dev`. ADR-07's English and Japanese sections agree on the new SHA, reported 0/0 scan result and reason for keeping 4401 after upgrade. The r2 record is preserved.
+**Pass. R2-01 resolved; no new blocking findings in this delta.** The manifest pins `09eb0a9f4af623760a15e100790381560b9e8ce0`, whose only change from the authenticating parent is ws 6.2.6 in the lockfile. The expected image tag follows that SHA. The Docker recipe still uses `npm ci --omit=dev`. ADR-07's English and Japanese sections agree on the new SHA, reported 0/0 scan result and reason for keeping 4401 after upgrade. The r2 record is preserved.
 
 Independent review of integration PR #4 found the same-major patch compatible with the used APIs and passed 25 authentication tests plus room-release on macOS Node v26.12.0. Invalid-token cases assert 4401 and zero document messages; valid providers converge and rejected sockets cannot write. SPEC-04 and the wiki recovery client require 4401. The [browser protocol contract](https://websockets.spec.whatwg.org/#feedback-from-the-protocol) does not expose failed HTTP handshake reasons, so moving rejection to HTTP 401 would require a coordinated contract/client change. This does not remove the unauthenticated handshake surface; the ws patch addresses the two reported advisories.
 
@@ -46,7 +46,7 @@ Both-platform image rebuilds, authentication probes and Trivy 0/0 are author-rep
 
 ### 判定
 
-**Pass（合格）。R2-01解決。この差分に新たな阻害指摘なし。** manifest は `d4d1cfaed2e4b10362237df1f3424b2a076a56fb` を固定し、認証実装済み親コミットからの変更はロックのws 6.2.6のみである。期待するイメージタグも同じSHAに追従する。Dockerレシピの `npm ci --omit=dev` は維持される。ADR-07の英和は新SHA、報告された走査0/0、upgrade後の4401を維持する理由で一致し、r2記録は保持される。
+**Pass（合格）。R2-01解決。この差分に新たな阻害指摘なし。** manifest は `09eb0a9f4af623760a15e100790381560b9e8ce0` を固定し、認証実装済み親コミットからの変更はロックのws 6.2.6のみである。期待するイメージタグも同じSHAに追従する。Dockerレシピの `npm ci --omit=dev` は維持される。ADR-07の英和は新SHA、報告された走査0/0、upgrade後の4401を維持する理由で一致し、r2記録は保持される。
 
 統合PR #4の独立確認で、同一メジャーパッチは使用APIと互換性があり、macOS Node v26.12.0で認証25件とroom-releaseに合格した。不正トークンのケースは4401・文書メッセージ0を検査し、正常なproviderは収束し、拒否接続は書き込めない。SPEC-04とwikiの回復クライアントは4401を必要とする。[ブラウザのプロトコル契約](https://websockets.spec.whatwg.org/#feedback-from-the-protocol)はHTTP handshake失敗の理由を公開しないため、HTTP401への変更には契約とクライアントの同時変更が必要となる。未認証handshake経路は残るが、指摘された2勧告にはwsパッチで対応している。
 
