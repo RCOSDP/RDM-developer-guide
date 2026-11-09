@@ -11,7 +11,7 @@
 # [accept] extra (pytest-playwright); GRDM_SKIP_EXEC=1 stop after the venv (tests only).
 # --- 0. CRLF guard. bash misreads a CRLF file, so this runs before `set` and stays on ONE line that ends in a
 #        comment: the stray \r then lands inside the comment and the line still parses.
-if grep -q "$(printf '\r')" "${BASH_SOURCE[0]}" 2>/dev/null; then printf '[install.sh] exit 2: %s\n  this script has CRLF line endings; fix: sed -i "" "s/\\r$//" installer/install.sh\n  このスクリプトの改行が CRLF です。修正: sed -i "" "s/\\r$//" installer/install.sh\n' "$(awk -F '\t' '$1 == "2" { printf "%s / %s", $2, $3; exit }' "$(dirname "${BASH_SOURCE[0]}")/grdm_dev/messages.tsv" 2>/dev/null || echo 'usage error')" >&2; exit 2; fi # one line, see above
+if grep -q "$(printf '\r')" "${BASH_SOURCE[0]}" 2>/dev/null; then printf '[install.sh] exit 2: %s\n  this script has CRLF line endings; fix: perl -pi -e "s/\\r\\$//" installer/install.sh\n  このスクリプトの改行が CRLF です。修正: perl -pi -e "s/\\r\\$//" installer/install.sh\n' "$(awk -F '\t' '$1 == "2" { printf "%s / %s", $2, $3; exit }' "$(dirname "${BASH_SOURCE[0]}")/grdm_dev/messages.tsv" 2>/dev/null || echo 'usage error')" >&2; exit 2; fi # one line, see above
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

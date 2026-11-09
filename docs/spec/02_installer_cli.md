@@ -1,11 +1,12 @@
 # SPEC-02 Installer CLI / インストーラー CLI
 
-> **Summary:** The contract of the two entry points that install the GakuNin RDM developer environment: the thin bootstrap `installer/install.sh` and the Python command `grdm-dev` with its subcommands, profiles, flags, exit codes, and directory layout.
-> **概要:** GakuNin RDM 開発環境を導入する二つの入口、薄い起動スクリプト `installer/install.sh` と Python コマンド `grdm-dev` の契約。サブコマンド、プロファイル、フラグ、終了コード、ディレクトリ構成を定める。
+> **Summary:** The contract of the optional per-OS prerequisite scripts and of the two entry points that install the GakuNin RDM developer environment: the thin bootstrap `installer/install.sh` and the Python command `grdm-dev` with its subcommands, profiles, flags, exit codes, and directory layout.
+> **概要:** 任意の OS ごとの前提条件スクリプトと、GakuNin RDM 開発環境を導入する二つの入口、薄い起動スクリプト `installer/install.sh` と Python コマンド `grdm-dev` の契約。サブコマンド、プロファイル、フラグ、終了コード、ディレクトリ構成を定める。
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.22 — 2026-11-10. **Learned:** a lock that only the `db` commands take does not stop `up` from starting the server between their checks and their renames, so `up` and `reset` take it too (PR #42 review r2). ／ `db` のコマンドだけが取るロックでは、その確認と改名の間に `up` がサーバーを起動するのを止められないので、`up` と `reset` も同じロックを取る（PR #42 レビュー r2）。
+- Version / 版: 0.23 — 2026-11-10. **Learned:** a prerequisite is whatever the whole install sequence needs, not only its first step: Trivy and gitleaks are missing on a fresh host and stop an otherwise good install with exit 51 at `scan`, so the per-OS scripts of §2.3 provide them ([ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 前提条件とは最初の段ではなく一連の導入全体に要るものである。新しいホストには Trivy と gitleaks が無く、ほかが良くても `scan` で終了 51 になるため、§2.3 の OS ごとのスクリプトがそれらを用意する（[ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
+  0.22 — 2026-11-10. **Learned:** a lock that only the `db` commands take does not stop `up` from starting the server between their checks and their renames, so `up` and `reset` take it too (PR #42 review r2). ／ `db` のコマンドだけが取るロックでは、その確認と改名の間に `up` がサーバーを起動するのを止められないので、`up` と `reset` も同じロックを取る（PR #42 レビュー r2）。
   0.21 — 2026-11-10. **Learned:** a command that renames data directories needs a journal, a lock and a recovery path that every later command runs, not only checks before it starts (PR #42 review r1). ／ データディレクトリを改名するコマンドには、始める前の確認だけでなく、操作記録・ロック・後続のすべてのコマンドが通る復旧の道が要る（PR #42 レビュー r1）。
   0.20 — 2026-11-10. **Learned:** a new database major needs a command, not a note: a server refuses a data directory of another major, so `up` now says so with exit 15 and `db upgrade` moves the data by a verified dump and restore that never writes the old directory (ADR-12). ／ データベースの新しい版には注記でなくコマンドが要る。サーバーは別の版のデータディレクトリを拒むので、`up` はそれを終了 15 で告げ、`db upgrade` は旧ディレクトリに一度も書かない、照合つきのダンプと復元でデータを移す（ADR-12）。
   0.19 — 2026-11-10. **Learned:** a fixed client is only as good as the address and trust anchor it is given: osf.io's mongo URL was never rendered and fell back to PostgreSQL's host and port, so `osf.env` now names the TLS URL and the CA file. ／ 直したクライアントも、渡される接続先と信頼の起点しだいである。osf.io の mongo の URL は一度も描画されず、PostgreSQL のホストとポートに落ちていたので、`osf.env` に TLS の URL と CA ファイルを書くことにした。
@@ -19,7 +20,7 @@
 - Version / 版: 0.11 — 2026-11-10. **Learned:** a root process without capabilities still obeys file permissions, a container path does not confine the host path behind its bind mount, and a repair that trusts its top directory cannot finish a partial one; so volume paths are validated on the host, `unoconv` holds `DAC_OVERRIDE` for the shared directory, ownership is re-walked every time, and availability questions are asked of the filesystem or the engine rather than guessed from a path (PR #36 review r1). ／ capability を除いた root もファイル権限に従い、コンテナ内のパスは bind 元のホストパスを限定せず、一番上のディレクトリを信用する修復は途中で止まった修復を完了できない。そこでボリュームのパスはホスト側で検証し、`unoconv` は共有ディレクトリのために `DAC_OVERRIDE` を持ち、所有者は毎回全体を辿り、可否はパスから推測せずファイルシステムやエンジンに問うと分かった（PR #36 レビュー r1）。
 - Version / 版: 0.10 — 2026-11-10. **Learned:** a check that fails after a 30-minute build teaches nothing, so `doctor` must prove every prerequisite up front: private repositories, scanners, memory floors, emulation and a checkout path Docker can see; and a fresh bind directory belongs to the host user, so ownership is one generic step derived from the writers instead of one init container per volume, while `reset` needs a container to delete what containers own (cross-OS audit, 2026-11-10; on Colima a bind mount from `/private/tmp` was measured to be silently empty). ／ 30 分のビルドの後で失敗する検査は何も教えない。だから `doctor` が非公開リポジトリ、スキャナー、メモリの下限、エミュレーション、Docker から見える配置先をすべて先に証明しなければならない。また新しい bind ディレクトリはホストの利用者の所有なので、所有者の設定はボリュームごとの init コンテナではなく書き手から導く一つの汎用の段にまとめ、`reset` はコンテナが所有するものをコンテナで消さねばならないと分かった（OS 横断の監査、2026-11-10。Colima では `/private/tmp` からの bind mount が黙って空になることを実測）。
   0.9 — 2026-11-10. **Learned:** a retired credential key stays in `runtime/.env` forever unless it is dropped explicitly, and a Compose file rendered before the key was retired still refers to it, so `compose render` must run before `secrets rotate` or a recreate after an upgrade (PR #35 review r1). ／ 廃止した資格情報のキーは明示的に消さなければ `runtime/.env` に残り続け、廃止前に生成した Compose ファイルはそのキーを参照し続ける。更新後は `secrets rotate` や再作成の前に `compose render` が必要と分かった（PR #35 レビュー r1）。
-- Version / 版: 0.8 — 2026-11-06. **Learned:** a stack that builds is not a stack that starts: a fresh database needs a one-shot initialisation (`osf_init`), Compose's short `tmpfs` is root-only, the memory budget must respect the Docker VM, and a prebuilt SPA must be built once into a volume rather than at every start under emulation (real install runs 9–13). ／ 組めるスタックは起動するスタックではない。新しいデータベースには一回限りの初期化（`osf_init`）が要り、Compose の短い `tmpfs` は root 専用で、メモリ予算は Docker VM を尊重しなければならず、prebuilt の SPA はエミュレーション下で毎回組むのではなくボリュームへ一度組む（実機第 9〜13 回）。
+  0.8 — 2026-11-06. **Learned:** a stack that builds is not a stack that starts: a fresh database needs a one-shot initialisation (`osf_init`), Compose's short `tmpfs` is root-only, the memory budget must respect the Docker VM, and a prebuilt SPA must be built once into a volume rather than at every start under emulation (real install runs 9–13). ／ 組めるスタックは起動するスタックではない。新しいデータベースには一回限りの初期化（`osf_init`）が要り、Compose の短い `tmpfs` は root 専用で、メモリ予算は Docker VM を尊重しなければならず、prebuilt の SPA はエミュレーション下で毎回組むのではなくボリュームへ一度組む（実機第 9〜13 回）。
   0.7 — 2026-11-06. **Learned:** a service row in the profile table must correspond to a process that exists, so the overlay repository wiki-frontend is represented by a one-shot `wiki_assets` that fills a named volume and its readers wait with `condition: service_completed_successfully` ([ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)), while a template `command` must have `$` escaped as `$$` for Compose (PR #30 review r1); and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ プロファイル表のサービス行は実在するプロセスに対応していなければならないため、オーバーレイである wiki-frontend は名前付きボリュームを満たす一回限りの `wiki_assets` で表し、それを読むサービスは `condition: service_completed_successfully` で待つ（[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。またテンプレートの `command` は Compose 向けに `$` を `$$` にエスケープする（PR #30 レビュー r1）。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.6 — 2026-11-06. **Learned:** a `command` in a template is written for the container shell, but Compose interpolates `$VAR` in every string of the file first, so the renderer must escape `$` as `$$` and a test must run the rendered file through Compose's own parser; and a fresh bind volume belongs to the host user, so a non-root writer needs an owner step (PR #30 review r1). ／ テンプレートの `command` はコンテナのシェル向けに書くが、Compose はファイル中の全文字列の `$VAR` を先に展開する。だから出力側で `$` を `$$` にエスケープし、試験は出力ファイルを Compose 自身の解析器に通さねばならない。また新しい bind ボリュームはホストの利用者の所有なので、非 root の書き手には所有者を決める段が要る（PR #30 レビュー r1）。
   0.5 — 2026-11-06. **Learned:** a service row in the profile table must correspond to a process that exists: `wiki` had none, because the wiki-frontend repository is an overlay whose image only builds a webpack bundle (real install run 4, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)); the honest row is a one-shot `wiki_assets` that fills a named volume, and the services that read the volume must wait for it with `condition: service_completed_successfully`. ／ プロファイル表のサービス行は実在するプロセスに対応していなければならないと分かった。`wiki` には無かった。wiki-frontend リポジトリは webpack の束を組むだけのイメージを持つオーバーレイだからである（実機第 4 回、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。正直な行は名前付きボリュームを満たす一回限りの `wiki_assets` で、ボリュームを読むサービスは `condition: service_completed_successfully` でそれを待たねばならない。
@@ -28,8 +29,8 @@
   0.3 — 2026-11-05. **Learned:** `secrets rotate` had to become a coordinated database-password change plus container recreation, because `restart` keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ `restart` は旧い環境を保つため、捕られた資格情報が有効なまま残る。`secrets rotate` は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
   0.2 — 2026-11-05. **Learned:** a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with `unittest`. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を `unittest` で試験できないと分かった。
-- Normative for: `installer/install.sh`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
-- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-04 Acceptance Tests](04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
+- Normative for: `installer/install.sh`, `installer/install-ubuntu.sh`, `installer/install-macos.sh`, `installer/install-windows.ps1`, `installer/prereq-lib.sh`, `.github/workflows/installer-prereq-lint.yml`, `.github/workflows/installer-full.yml`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
+- Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-04 Acceptance Tests](04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-08 Per-OS Installer Entry Points](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
 
 ---
 
@@ -40,11 +41,13 @@
 
 ### 1. Scope and goal
 
-The installer turns a fresh checkout of this repository into a running GakuNin RDM (GakuNin is Japan's academic network for logging in with a university account; see [REF-01](../reference/REF-01_Glossary.md)) developer environment with one command, on the hosts listed in [§8](#2-en-hosts). It never needs `sudo` (a way to run a command as the computer's administrator), never changes network settings on the host, and can be run again at any time without harm. Everything it creates lives under `runtime/`, which is ignored by Git.
+The installer turns a fresh checkout of this repository into a running GakuNin RDM (GakuNin is Japan's academic network for logging in with a university account; see [REF-01](../reference/REF-01_Glossary.md)) developer environment with one command, on the hosts listed in [§8](#2-en-hosts). `install.sh` and `grdm-dev` never need `sudo` (a way to run a command as the computer's administrator), never change network settings on the host, and can be run again at any time without harm. Everything they create lives under `runtime/`, which is ignored by Git. The optional prerequisite scripts of [§2.3](#2-en-prereq) prepare the host beforehand and may use `sudo`, but only after showing the change and receiving consent ([ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)).
 
 **Glossary notes.** An *installer* is a program that prepares other programs so they can run. A *CLI* (command line interface) is a program you drive by typing commands. A *container* is a box that holds one program and everything it needs, so it runs the same on any computer. *Docker* (the tool that builds images and runs containers; see [REF-01](../reference/REF-01_Glossary.md)) and its companion *Docker Compose* (see [REF-01](../reference/REF-01_Glossary.md)) run them; Compose is the tool that starts many containers together from one description file. A *manifest* is the list that says exactly which version of each source repository we use ([SPEC-01](01_manifest.md)).
 
-### 2. Two entry points
+### 2. Entry points
+
+There are two entry points that install the environment (§2.1, §2.2), and optional scripts that prepare a host for them ([§2.3](#2-en-prereq)).
 
 #### 2.1 `installer/install.sh` — thin bootstrap
 
@@ -90,6 +93,28 @@ flowchart TD
 - **Optional extra `accept`.** `pip install -e "installer[accept]"` adds `pytest`, `pytest-playwright`, and `playwright`. Only `grdm-dev accept` imports them ([SPEC-04](04_acceptance_tests.md)).
 - **External tools** are called as subprocesses and checked by `doctor`: `docker` (27 or newer) with the Compose plugin (v2 or newer) and buildx (Docker's helper that builds one image for several kinds of computer; see [REF-01](../reference/REF-01_Glossary.md)), `trivy`, `gitleaks`, and `semgrep` for `scan`, the OWASP ZAP (a tool that pokes at a running website the way an attacker would; see [REF-01](../reference/REF-01_Glossary.md)) container image for `scan --dynamic`, and `mkdocs` for `docs`. A missing scanner makes `scan` exit 51 ([SPEC-03 §8](03_security_gate.md#english)).
 - Every subcommand supports `--json`, which prints the same report as machine-readable JSON instead of TOON (a compact text form of JSON, see [SPEC-06 §4](06_documentation_conventions.md#english)).
+
+<a id="2-en-prereq"></a>
+#### 2.3 Per-OS prerequisite scripts
+
+These scripts prepare a host and then run `install.sh`. The reason for them is in [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md). They hold no installation logic, so `install.sh` and `grdm-dev` still make every decision.
+
+| Script | Host | What it can provide |
+|---|---|---|
+| `installer/install-ubuntu.sh` | Ubuntu 24.04 amd64 or arm64; Ubuntu 24.04 inside WSL2 | apt packages (git, Python, `python3-venv`, curl, gnupg), Docker Engine with the Compose and buildx plugins from Docker's signed apt repository, `docker` group membership, amd64 emulation (`qemu-user-static`) on arm64, Trivy and gitleaks in `~/.local/bin`. Inside WSL2 it skips Docker Engine and requires Docker Desktop. |
+| `installer/install-macos.sh` | macOS on Apple Silicon | Homebrew formulae (`python@3.12`, git, Trivy, gitleaks); starts an installed Docker Desktop. It detects Docker Desktop, OrbStack and Colima, and installs neither a Docker runtime nor Homebrew. |
+| `installer/install-windows.ps1` | Windows 11 amd64 | WSL2 and the `Ubuntu-24.04` distribution; checks Docker Desktop and its WSL integration; clones this repository under the WSL home directory, never `/mnt/c`; then runs `install-ubuntu.sh` inside WSL. |
+
+Rules that every script keeps:
+
+- It shows what it will change, and asks before any `sudo` or administrator action. Joining the `docker` group is asked separately.
+- `--yes` (`-Yes` in PowerShell, which also accepts `--yes`) gives consent. Without a terminal and without `--yes` it stops with exit 2, as in [§7](#english).
+- `--dry-run` (`-DryRun`) detects and prints the plan and changes nothing.
+- It can be run again: a prerequisite that is already present is skipped.
+- It stops with a clear message on failure and uses only the exit codes 2, 10 and 11 of [§6](#english).
+- A download is accepted only through a signed source or a pinned checksum, and nothing is piped into a shell.
+- It never asks for, reads or stores a token. It only says how to give git access to the private integration repositories.
+- Its last action is `installer/install.sh`, with every other argument passed unchanged.
 
 ### 3. Subcommands
 
@@ -199,7 +224,7 @@ Numbers are never reused for a new meaning; a new cause gets a new number. The c
 |---|---|---|
 | macOS 14 or newer with Docker Desktop | arm64 | official (M2 acceptance runs here) |
 | Ubuntu 24.04 with Docker Engine | amd64, arm64 | official |
-| Windows 11 with WSL2 (Ubuntu 24.04) and Docker Desktop | amd64 | required to work; checked in CI as build-only |
+| Windows 11 with WSL2 (Ubuntu 24.04) and Docker Desktop | amd64 | required to work; CI parses and dry-runs `install-windows.ps1` only, and a real run needs owner hardware ([ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#en-limits)) |
 | Other Linux, macOS on Intel | any | best-effort; `doctor` warns and continues |
 
 ### 9. Directory layout
@@ -207,6 +232,10 @@ Numbers are never reused for a new meaning; a new cause gets a new number. The c
 ```toon
 layout:
   installer/install.sh: bash 3.2 bootstrap
+  installer/install-ubuntu.sh: Ubuntu 24.04 and WSL2 prerequisites (§2.3)
+  installer/install-macos.sh: macOS prerequisites (§2.3)
+  installer/install-windows.ps1: Windows 11 prerequisites and WSL2 hand-over (§2.3)
+  installer/prereq-lib.sh: helpers shared by the two bash prerequisite scripts
   installer/pyproject.toml: package metadata, console script grdm-dev, extra accept
   installer/grdm_dev/:
     cli.py: argument parsing, subcommand dispatch, exit codes
@@ -241,6 +270,8 @@ layout:
 
 `python3 -m unittest discover -s installer/tests` must pass on every PR (pull request: a proposed change waiting for review; see [REF-01](../reference/REF-01_Glossary.md)). Each module has a `test_<module>.py` that covers at least one success case and one rejection case, and every rejection case asserts the exit code from [§6](#english). Docker is never required by unit tests: `host.py` and `build.py` take an injectable runner so tests pass fake `docker` output. Integration and acceptance tiers are defined in [SPEC-04](04_acceptance_tests.md).
 
+The prerequisite scripts of [§2.3](#2-en-prereq) are checked on every PR by `installer-prereq-lint.yml`: `bash -n`, shellcheck, the PowerShell parser on `windows-latest`, and a dry run on each OS. Unit tests run them only with `--dry-run` or `--help`, under a `PATH` of stubs. `installer-full.yml`, started by hand, does a full `minimum` install on `ubuntu-24.04` and `ubuntu-24.04-arm` and needs the repository secret `GRDM_INTEGRATION_READ_TOKEN`. What these runners cannot prove is listed in [ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#en-limits).
+
 ---
 
 <a id="japanese"></a>
@@ -250,11 +281,13 @@ layout:
 
 ### 1. 範囲と目的
 
-インストーラーは、このリポジトリを取り出した直後の状態から、[§8](#2-ja-hosts) に挙げたホストで、コマンド一つで GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）の開発環境を動かすものです。`sudo`（コンピュータの管理者としてコマンドを動かす仕組み）を使わず、ホストのネットワーク設定を変えず、何度やり直しても壊れません。作られるものはすべて `runtime/` の下にあり、Git は無視します。
+インストーラーは、このリポジトリを取り出した直後の状態から、[§8](#2-ja-hosts) に挙げたホストで、コマンド一つで GakuNin RDM（GakuNin＝学認。大学のアカウントでログインするための日本の学術ネットワーク。[REF-01](../reference/REF-01_Glossary.md)）の開発環境を動かすものです。`install.sh` と `grdm-dev` は `sudo`（コンピュータの管理者としてコマンドを動かす仕組み）を使わず、ホストのネットワーク設定を変えず、何度やり直しても壊れません。作られるものはすべて `runtime/` の下にあり、Git は無視します。任意の前提条件スクリプト（[§2.3](#2-ja-prereq)）は事前にホストを準備し、`sudo` を使うことがありますが、変更を示して同意を得た後に限ります（[ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 
 **用語注。** 「インストーラー」は、ほかのプログラムが動くように準備するプログラムです。「CLI」（コマンドラインインターフェース）は、文字でコマンドを打って使うプログラムです。「コンテナ」は、一つのプログラムと必要なものを一箱に入れ、どのコンピュータでも同じように動かすための箱です。「Docker」（イメージを作りコンテナを動かす道具。[REF-01](../reference/REF-01_Glossary.md)）とその相棒の「Docker Compose」（[REF-01](../reference/REF-01_Glossary.md)）がコンテナを動かします。Compose は一枚の設定ファイルから多くのコンテナをまとめて起動する道具です。「manifest」は、どのソースリポジトリのどの版を使うかを正確に書いた一覧です（[SPEC-01](01_manifest.md)）。
 
-### 2. 二つの入口
+### 2. 入口
+
+環境を導入する入口は二つです（§2.1、§2.2）。そのためにホストを準備する任意のスクリプトがあります（[§2.3](#2-ja-prereq)）。
 
 #### 2.1 `installer/install.sh` — 薄い起動スクリプト
 
@@ -300,6 +333,28 @@ flowchart TD
 - **任意の追加 `accept`。** `pip install -e "installer[accept]"` で `pytest`・`pytest-playwright`・`playwright` が入ります。これらを読み込むのは `grdm-dev accept` だけです（[SPEC-04](04_acceptance_tests.md)）。
 - **外部の道具** はサブプロセスとして呼び、`doctor` が有無を確かめます。`docker`（27 以上）と Compose プラグイン（v2 以上）・buildx（一つのイメージを何種類かの計算機向けに作る Docker の助手。[REF-01](../reference/REF-01_Glossary.md)）、`scan` 用の `trivy`・`gitleaks`・`semgrep`、`scan --dynamic` 用の OWASP ZAP（動いている Web サイトを攻撃者のやり方でつつく道具。[REF-01](../reference/REF-01_Glossary.md)）のコンテナイメージ、`docs` 用の `mkdocs` です。スキャナーが無いと `scan` は終了 51 で終わります（[SPEC-03 §8](03_security_gate.md#japanese)）。
 - すべてのサブコマンドは `--json` を受け付け、TOON（JSON を短く書いた文字形式。[SPEC-06 §4](06_documentation_conventions.md#japanese)）の代わりに機械が読む JSON で同じ報告を出します。
+
+<a id="2-ja-prereq"></a>
+#### 2.3 OS ごとの前提条件スクリプト
+
+これらのスクリプトはホストを準備してから `install.sh` を実行します。理由は [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) にあります。導入の判断は持たず、すべての判断は引き続き `install.sh` と `grdm-dev` が行います。
+
+| スクリプト | ホスト | 用意できるもの |
+|---|---|---|
+| `installer/install-ubuntu.sh` | Ubuntu 24.04 の amd64・arm64、WSL2 の中の Ubuntu 24.04 | apt パッケージ（git、Python、`python3-venv`、curl、gnupg）、Docker の署名付き apt リポジトリからの Docker Engine と Compose・buildx プラグイン、`docker` グループへの追加、arm64 での amd64 エミュレーション（`qemu-user-static`）、`~/.local/bin` の Trivy と gitleaks。WSL2 の中では Docker Engine を飛ばし、Docker Desktop を求める。 |
+| `installer/install-macos.sh` | Apple Silicon の macOS | Homebrew の formula（`python@3.12`、git、Trivy、gitleaks）。入っている Docker Desktop を起動する。Docker Desktop・OrbStack・Colima を検出し、Docker の実行基盤も Homebrew も入れない。 |
+| `installer/install-windows.ps1` | Windows 11 の amd64 | WSL2 と `Ubuntu-24.04` のディストリビューション。Docker Desktop と WSL 連携を確認する。このリポジトリを WSL のホームの下に clone し（`/mnt/c` には決して置かない）、WSL の中で `install-ubuntu.sh` を実行する。 |
+
+どのスクリプトも次を守ります。
+
+- 何を変えるかを示し、`sudo` や管理者の操作の前に尋ねる。`docker` グループへの追加は別に尋ねる。
+- `--yes`（PowerShell では `-Yes`。`--yes` も受け付ける）で同意する。端末が無く `--yes` も無ければ、[§7](#japanese) のとおり終了 2 で止まる。
+- `--dry-run`（`-DryRun`）は判定して予定を表示し、何も変えない。
+- 再実行できる。既にある前提条件は飛ばす。
+- 失敗したら分かりやすい文言で止まり、[§6](#japanese) の終了コード 2・10・11 だけを使う。
+- ダウンロードは署名された配布元か固定したチェックサムでだけ受け入れ、シェルへ流し込まない。
+- トークンを尋ねず、読まず、保存しない。非公開の統合リポジトリへの権限を git に与える方法を案内するだけである。
+- 最後に `installer/install.sh` を実行し、ほかの引数はそのまま渡す。
 
 ### 3. サブコマンド
 
@@ -409,7 +464,7 @@ exit_codes[17]{code,meaning}:
 |---|---|---|
 | macOS 14 以上 と Docker Desktop | arm64 | 正式（M2 の受入はここで実行） |
 | Ubuntu 24.04 と Docker Engine | amd64・arm64 | 正式 |
-| Windows 11 の WSL2（Ubuntu 24.04）と Docker Desktop | amd64 | 動くことを必須とする。CI ではビルド確認のみ |
+| Windows 11 の WSL2（Ubuntu 24.04）と Docker Desktop | amd64 | 動くことを必須とする。CI は `install-windows.ps1` の解析と dry run のみで、実際の実行には所有者の実機が要る（[ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#ja-limits)） |
 | その他の Linux、Intel の macOS | 任意 | できる範囲で対応。`doctor` が警告して続行 |
 
 ### 9. ディレクトリ構成
@@ -417,6 +472,10 @@ exit_codes[17]{code,meaning}:
 ```toon
 layout:
   installer/install.sh: bash 3.2 の起動スクリプト
+  installer/install-ubuntu.sh: Ubuntu 24.04 と WSL2 の前提条件（§2.3）
+  installer/install-macos.sh: macOS の前提条件（§2.3）
+  installer/install-windows.ps1: Windows 11 の前提条件と WSL2 への受け渡し（§2.3）
+  installer/prereq-lib.sh: bash の前提条件スクリプト二つが共有する部品
   installer/pyproject.toml: パッケージ情報、コンソールスクリプト grdm-dev、追加 accept
   installer/grdm_dev/:
     cli.py: 引数の解釈、サブコマンドの振り分け、終了コード
@@ -450,6 +509,8 @@ layout:
 ### 10. 試験
 
 `python3 -m unittest discover -s installer/tests` はすべての PR（プルリクエスト。レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）で合格していなければなりません。各モジュールに `test_<モジュール>.py` を置き、成功ケースと拒否ケースを少なくとも一つずつ含め、拒否ケースでは [§6](#japanese) の終了コードを assert します。単体試験は Docker を要求しません。`host.py` と `build.py` は実行器を差し替えられる作りにし、試験では偽の `docker` の出力を渡します。統合と受入の段は [SPEC-04](04_acceptance_tests.md) で定めます。
+
+[§2.3](#2-ja-prereq) の前提条件スクリプトは、すべての PR で `installer-prereq-lint.yml` が確かめます。`bash -n`、shellcheck、`windows-latest` の PowerShell パーサー、各 OS での dry run です。単体試験はスタブだけの `PATH` の下で `--dry-run` か `--help` でだけ実行します。手で起動する `installer-full.yml` は `ubuntu-24.04` と `ubuntu-24.04-arm` で `minimum` の完全な導入を行い、リポジトリのシークレット `GRDM_INTEGRATION_READ_TOKEN` を必要とします。これらのランナーで証明できないことは [ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#ja-limits) に挙げています。
 
 ---
 

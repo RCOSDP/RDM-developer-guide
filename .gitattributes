@@ -1,0 +1,16 @@
+# Files that run inside Linux (the shell, WSL2, or a container) must keep LF line endings even when the
+# repository is cloned on Windows with core.autocrlf=true: a CRLF shebang fails before install.sh's own
+# CRLF guard can run (ADR-08). The list is explicit on purpose: `* text=auto` would rewrite legacy guide
+# files that are CRLF in the index.
+*.sh                                text eol=lf
+*.bash                              text eol=lf
+Dockerfile                          text eol=lf
+Dockerfile.*                        text eol=lf
+docker-compose*.yml                 text eol=lf
+installer/**/*.py                   text eol=lf
+installer/grdm_dev/messages.tsv     text eol=lf
+installer/grdm_dev/templates/**     text eol=lf
+installer/images/**                 text eol=lf
+installer/pyproject.toml            text eol=lf
+manifest/**                         text eol=lf
+tools/**/*.py                       text eol=lf

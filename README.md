@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-10. **Learned:** a decision index goes stale one record at a time, so each new ADR is added to the root list in the same commit (ADR-08). ／ 決定の索引は一件ずつ古くなるので、新しい ADR は同じコミットでルートの一覧に加える（ADR-08）。
 - Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05
 - Normative for: `README.md`
@@ -83,6 +84,7 @@ Each record explains one choice. Repository (a folder that remembers every chang
 - [ADR-05 Test IdP for Shibboleth](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 - [ADR-06 Wiki Frontend Overlay](docs/decisions/ADR-06_Wiki_Frontend_Overlay.md) - Wiki frontend overlay / Wiki フロントエンドのオーバーレイ
 - [ADR-07 Native Builds of EOL Middleware](docs/decisions/ADR-07_Native_Builds_of_EOL_Middleware.md) - Native builds of EOL middleware / EOL ミドルウェアのネイティブビルド
+- [ADR-08 Per-OS Installer Entry Points](docs/decisions/ADR-08_Per_OS_Installer_Entry_Points.md) - Per-OS installer entry points / OS ごとのインストーラーの入口
 
 #### References / 参考資料
 
@@ -181,6 +183,7 @@ graph TD
 - [ADR-05 Shibboleth 用テスト IdP](docs/decisions/ADR-05_Test_IdP_for_Shibboleth.md) - Test IdP for Shibboleth / Shibboleth 用テスト IdP
 - [ADR-06 Wiki フロントエンドのオーバーレイ](docs/decisions/ADR-06_Wiki_Frontend_Overlay.md) - Wiki frontend overlay / Wiki フロントエンドのオーバーレイ
 - [ADR-07 EOL ミドルウェアのネイティブビルド](docs/decisions/ADR-07_Native_Builds_of_EOL_Middleware.md) - Native builds of EOL middleware / EOL ミドルウェアのネイティブビルド
+- [ADR-08 OS ごとのインストーラーの入口](docs/decisions/ADR-08_Per_OS_Installer_Entry_Points.md) - Per-OS installer entry points / OS ごとのインストーラーの入口
 
 #### 参考資料
 

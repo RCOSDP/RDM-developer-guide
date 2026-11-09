@@ -1,0 +1,329 @@
+"""Tests for the per-OS prerequisite scripts (ADR-08, SPEC-02 §2.3).
+
+Every run below is `--dry-run` or `--help` under a PATH of stubs, so no test can change the machine. A stub `sudo`,
+`brew`, `apt-get`, `curl`, `open` or `usermod` records its call; the tests assert that nothing was recorded.
+The PowerShell script is only inspected as text here: the parser runs in CI on windows-latest.
+"""
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+INSTALLER = REPO / "installer"
+UBUNTU = INSTALLER / "install-ubuntu.sh"
+MACOS = INSTALLER / "install-macos.sh"
+LIB = INSTALLER / "prereq-lib.sh"
+WINDOWS = INSTALLER / "install-windows.ps1"
+
+MUTATING = ("sudo", "apt-get", "curl", "gpg", "usermod", "systemctl", "brew", "open", "sg", "wsl.exe")
+UBUNTU_RELEASE = 'ID=ubuntu\nVERSION_ID="24.04"\n'
+DOCKER_OK = """#!/bin/sh
+case "$*" in
+  "version --format"*) echo 29.1.0 ;;
+esac
+exit 0
+"""
+DOCKER_DOWN = """#!/bin/sh
+case "$*" in
+  "version --format"*) echo 29.1.0 ;;
+  "compose version"|"buildx version") exit 0 ;;
+esac
+exit 1
+"""
+
+
+def _bash():
+    return "/bin/bash" if Path("/bin/bash").exists() else shutil.which("bash")
+
+
+class ScriptRun(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.bin = self.root / "bin"
+        self.home = self.root / "home"
+        self.calls = self.root / "calls.log"
+        self.bin.mkdir()
+        self.home.mkdir()
+        for tool in ("awk", "sed", "grep", "dirname", "mktemp", "rm", "tr", "id", "cat", "bash", "mkdir", "sh"):
+            src = shutil.which(tool)
+            if src:
+                os.symlink(src, self.bin / tool)
+        for tool in MUTATING:
+            self._stub(tool, f'#!/bin/sh\necho "{tool} $*" >> "{self.calls}"\nexit 0\n')
+
+    def _stub(self, name, body):
+        path = self.bin / name
+        if path.exists() or path.is_symlink():
+            path.unlink()
+        path.write_text(body)
+        path.chmod(0o755)
+
+    def _host(self, system, machine):
+        self._stub("uname", f'#!/bin/sh\ncase "$1" in -s) echo {system} ;; -m) echo {machine} ;; esac\n')
+
+    def _run(self, script, *args, env_extra=None):
+        env = {"PATH": str(self.bin), "HOME": str(self.home), "LANG": "C"}
+        env.update(env_extra or {})
+        return subprocess.run([_bash(), str(script), *args], env=env, capture_output=True, text=True,
+                              timeout=60, stdin=subprocess.DEVNULL)
+
+    def assert_nothing_changed(self):
+        recorded = self.calls.read_text() if self.calls.exists() else ""
+        self.assertEqual(recorded, "", f"a mutating command ran in a dry run:\n{recorded}")
+
+
+class UbuntuTests(ScriptRun):
+    def setUp(self):
+        super().setUp()
+        self.release = self.root / "os-release"
+        self.release.write_text(UBUNTU_RELEASE)
+        self.env = {"GRDM_PREREQ_OS_RELEASE": str(self.release), "GRDM_PREREQ_PROC_VERSION": str(self.root / "none"),
+                    "GRDM_PREREQ_BINFMT_DIR": str(self.root / "binfmt")}
+        self._stub("dpkg-query", "#!/bin/sh\nexit 1\n")
+
+    def test_fresh_amd64_plans_engine_and_scanners(self):
+        self._host("Linux", "x86_64")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", "--profile", "minimum", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("9DC858229FC7DD38854AE2D88D81803C0EBFCD88", cp.stdout)
+        self.assertIn("noble stable amd64", cp.stdout)
+        self.assertIn("docker-buildx-plugin docker-compose-plugin", cp.stdout)
+        self.assertIn("trivy_0.75.0_Linux-64bit.tar.gz", cp.stdout)
+        self.assertIn("gitleaks_8.21.2_linux_x64.tar.gz", cp.stdout)
+        self.assertNotIn("qemu-user-static", cp.stdout)
+        self.assertRegex(cp.stdout, r"would run: \S*installer/install\.sh --yes --profile minimum\n")
+        self.assert_nothing_changed()
+
+    def test_arm64_plans_emulation_and_arm_assets(self):
+        self._host("Linux", "aarch64")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("qemu-user-static", cp.stdout)
+        self.assertIn("trivy_0.75.0_Linux-ARM64.tar.gz", cp.stdout)
+        self.assertIn("gitleaks_8.21.2_linux_arm64.tar.gz", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_second_run_is_a_no_op(self):
+        self._host("Linux", "x86_64")
+        self._stub("dpkg-query", '#!/bin/sh\nprintf "install ok installed"\n')
+        self._stub("docker", DOCKER_OK)
+        self._stub("trivy", "#!/bin/sh\nexit 0\n")
+        self._stub("gitleaks", "#!/bin/sh\nexit 0\n")
+        cp = self._run(UBUNTU, "--dry-run", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("nothing to change", cp.stdout)
+        self.assertNotIn("apt-get", cp.stdout)
+        self.assertNotIn("would stop", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_no_terminal_without_yes_is_refused(self):
+        self._host("Linux", "x86_64")
+        cp = self._run(UBUNTU, "--dry-run", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("would stop with exit 2", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_unsupported_release_exits_10(self):
+        self._host("Linux", "x86_64")
+        self.release.write_text('ID=ubuntu\nVERSION_ID="22.04"\n')
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 10, cp.stderr)
+        self.assertIn("exit 10", cp.stderr)
+        self.assertIn("host unsupported", cp.stderr)
+        self.assert_nothing_changed()
+
+    def test_macos_host_exits_10(self):
+        self._host("Darwin", "arm64")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 10, cp.stderr)
+        self.assertIn("install-macos.sh", cp.stderr)
+
+    def test_conflicting_package_is_reported_not_removed(self):
+        self._host("Linux", "x86_64")
+        self._stub("dpkg-query", '#!/bin/sh\ncase "$*" in *docker.io*) printf "install ok installed" ;; *) exit 1 ;; esac\n')
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("would stop with exit 11", cp.stdout)
+        self.assertIn("sudo apt-get remove docker.io", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_wsl_uses_docker_desktop_and_never_installs_engine(self):
+        self._host("Linux", "x86_64")
+        env = dict(self.env, WSL_DISTRO_NAME="Ubuntu-24.04")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("would stop with exit 11", cp.stdout)
+        self.assertIn("WSL Integration", cp.stdout)
+        self.assertNotIn("download.docker.com", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_wsl_refuses_a_checkout_on_the_windows_disk(self):
+        # The refusal is a path check, so a copy under a fake /mnt-like root cannot exercise it; assert the rule exists.
+        text = UBUNTU.read_text(encoding="utf-8")
+        self.assertIn("/mnt/*) prereq_fail 10", text)
+
+
+class MacosTests(ScriptRun):
+    def setUp(self):
+        super().setUp()
+        self._host("Darwin", "arm64")
+        self._stub("python3", "#!/bin/sh\nexit 1\n")
+        self._stub("git", "#!/bin/sh\nexit 1\n")
+        # Without these the script would look at the real Homebrew and /Applications of the machine running the tests.
+        self.env = {"GRDM_PREREQ_BREW_CANDIDATES": "", "GRDM_PREREQ_APPLICATIONS": str(self.root / "apps")}
+
+    def _run(self, script, *args, env_extra=None):
+        return super()._run(script, *args, env_extra=dict(self.env, **(env_extra or {})))
+
+    def test_plan_uses_homebrew(self):
+        self._stub("docker", DOCKER_OK)
+        cp = self._run(MACOS, "--dry-run", "--yes", "--profile", "minimum")
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("brew install python@3.12 git trivy gitleaks", cp.stdout)
+        self.assertRegex(cp.stdout, r"would run: \S*installer/install\.sh --yes --profile minimum\n")
+        self.assert_nothing_changed()
+
+    def test_no_docker_runtime_stops_with_guidance(self):
+        cp = self._run(MACOS, "--dry-run", "--yes")
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("would stop with exit 11", cp.stdout)
+        self.assertIn("Docker Desktop", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_linux_host_exits_10(self):
+        self._host("Linux", "x86_64")
+        cp = self._run(MACOS, "--dry-run", "--yes")
+        self.assertEqual(cp.returncode, 10, cp.stderr)
+        self.assertIn("install-ubuntu.sh", cp.stderr)
+
+
+class SharedRules(unittest.TestCase):
+    def test_syntax_on_the_bash_that_ships_with_macos(self):
+        for script in (UBUNTU, MACOS, LIB):
+            cp = subprocess.run([_bash(), "-n", str(script)], capture_output=True, text=True)
+            self.assertEqual(cp.returncode, 0, f"{script.name}: {cp.stderr}")
+
+    def test_help_is_english_then_japanese(self):
+        for script in (UBUNTU, MACOS):
+            cp = subprocess.run([_bash(), str(script), "--help"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(cp.returncode, 0, cp.stderr)
+            self.assertLess(cp.stdout.index("Usage:"), cp.stdout.index("使い方:"))
+
+    def test_scripts_are_executable_lf_and_end_at_install_sh(self):
+        for script in (UBUNTU, MACOS):
+            self.assertTrue(os.access(script, os.X_OK), f"{script.name} must be executable")
+            self.assertNotIn(b"\r", script.read_bytes())
+            self.assertEqual(script.read_text(encoding="utf-8").strip().splitlines()[-1].split()[0], "prereq_handover")
+        self.assertIn('target="${PREREQ_ROOT}/installer/install.sh"', LIB.read_text(encoding="utf-8"))
+
+    def test_no_pipe_to_shell_and_no_token_handling(self):
+        pipe_to_shell = re.compile(r"(curl|wget)[^\n|]*\|\s*(sudo\s+)?(ba|z)?sh\b|Invoke-Expression|\biex\b")
+        token_read = re.compile(r"(GH_TOKEN|GITHUB_TOKEN|ACCESS_TOKEN|Read-Host\s+-AsSecureString|read\s+-s)")
+        for script in (UBUNTU, MACOS, LIB, WINDOWS):
+            text = script.read_text(encoding="utf-8-sig")
+            self.assertIsNone(pipe_to_shell.search(text), script.name)
+            self.assertIsNone(token_read.search(text), script.name)
+
+    def test_downloads_are_pinned(self):
+        text = UBUNTU.read_text(encoding="utf-8")
+        self.assertEqual(len(re.findall(r'_SUM="[0-9a-f]{64}"', text)), 4)
+        self.assertIn("sha256sum -c --status", text)
+        self.assertRegex(text, r'DOCKER_SIGNER_FPR="[0-9A-F]{40}"')
+
+    def test_no_new_exit_codes(self):
+        known = {line.split("\t")[0] for line in (INSTALLER / "grdm_dev" / "messages.tsv").read_text(encoding="utf-8").splitlines()}
+        for script in (UBUNTU, MACOS, LIB):
+            text = script.read_text(encoding="utf-8")
+            for code in re.findall(r"prereq_(?:fail|stop|step) (\d+)", text):
+                self.assertIn(code, known, f"{script.name}: exit {code}")
+        for code in re.findall(r"Stop-Prereq (\d+)", WINDOWS.read_text(encoding="utf-8-sig")):
+            self.assertIn(code, known, f"{WINDOWS.name}: exit {code}")
+
+
+class WindowsScriptText(unittest.TestCase):
+    """Text-level rules only; `Parser.ParseFile` and the dry run happen on windows-latest (installer-prereq-lint.yml)."""
+
+    def setUp(self):
+        self.raw = WINDOWS.read_bytes()
+        self.text = self.raw.decode("utf-8-sig")
+
+    def test_bom_is_present(self):
+        self.assertTrue(self.raw.startswith(b"\xef\xbb\xbf"), "Windows PowerShell 5.1 needs a BOM to read the Japanese strings")
+
+    def test_consent_and_dry_run_flags(self):
+        for needle in ("[switch]$Yes", "[switch]$DryRun", "'--yes'", "'--dry-run'", "Confirm-Step", "-Verb RunAs"):
+            self.assertIn(needle, self.text)
+
+    def test_clone_target_is_a_single_folder_name(self):
+        self.assertIn(r"$Directory -notmatch '^[A-Za-z0-9._-]+$'", self.text)
+        self.assertIn('case "$HOME" in /mnt/*)', self.text)
+
+    def test_runs_the_ubuntu_script_inside_wsl(self):
+        self.assertIn("exec bash installer/install-ubuntu.sh", self.text)
+        self.assertIn("--distribution $Distro --cd '~' --exec bash -c", self.text)
+
+    def test_checks_wsl_integration(self):
+        self.assertIn("'docker', 'info'", self.text)
+        self.assertIn("WSL Integration", self.text)
+
+    def test_quotes_and_braces_balance_outside_strings(self):
+        depth = 0
+        quote = None
+        lines = self.text.splitlines()
+        in_here = False
+        for line in lines:
+            stripped = line.strip()
+            if in_here:
+                if stripped.startswith("'@"):
+                    in_here = False
+                continue
+            if stripped.endswith("@'"):
+                in_here = True
+                continue
+            i = 0
+            while i < len(line):
+                ch = line[i]
+                if quote:
+                    if ch == "`" and quote == '"':
+                        i += 2
+                        continue
+                    if ch == quote:
+                        if i + 1 < len(line) and line[i + 1] == quote:
+                            i += 2
+                            continue
+                        quote = None
+                elif ch in "'\"":
+                    quote = ch
+                elif ch == "#":
+                    break
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    self.assertGreaterEqual(depth, 0)
+                i += 1
+        self.assertEqual(depth, 0)
+        self.assertIsNone(quote)
+
+
+class LineEndingRules(unittest.TestCase):
+    def test_gitattributes_forces_lf_where_linux_runs(self):
+        text = (REPO / ".gitattributes").read_text(encoding="utf-8")
+        for pattern in ("*.sh ", "Dockerfile ", "installer/grdm_dev/templates/**", "installer/images/**", "manifest/**"):
+            self.assertRegex(text, re.escape(pattern) + r"\s*text eol=lf")
+        self.assertNotRegex(text, r"(?m)^\*\s+text=auto")
+
+    def test_crlf_hint_is_portable(self):
+        text = (INSTALLER / "install.sh").read_text(encoding="utf-8")
+        self.assertNotIn('sed -i ""', text)
+        self.assertIn("perl -pi -e", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

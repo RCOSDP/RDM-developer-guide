@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 1.2 — 2026-11-10. **Learned:** telling a reader that the installer checks each prerequisite is not the same as helping them get one, so the guide now starts from a script for each OS ([ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 「インストーラーが前提条件を確認する」と伝えることは、それを揃える手助けにはならない。そこで手引きは OS ごとのスクリプトから始める（[ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - Version / 版: 1.1 — 2026-11-06. **Learned:** the Project Metadata edit page needs a waffle flag that no setup step turned on, so the legacy startup steps now set `ember_edit_draft_registration_page` once after the first migration (PR #17); the 2027 installer has no equivalent step yet. ／ Project Metadata の編集画面には、どの手順も有効にしていなかった waffle フラグが必要なため、旧ガイドの起動手順に初回マイグレーション後の `ember_edit_draft_registration_page` 設定を追加した（PR #17）。2027 インストーラーには相当する手順がまだ無いと分かった。
 - Version / 版: 1.0 — 2026-11-06. **Learned:** full startup is not yet verified by a recorded run: the ember-osf-web (the browser interface) base image is end-of-life and current Docker (the tool that runs containers: boxes that each hold one program and everything it needs) refuses to pull it, so the manifest (the list of components and the exact source revisions they are built from) already configures a digest-pinned prebuilt image for ember-osf-web as a fallback until M4 modernizes its Dockerfile (DEMO-20, `manifest/upstreams.json`). ／ 完全な起動はまだ実行記録で検証できていない。ember-osf-web（ブラウザ画面）のベースイメージがサポート終了で現行 Docker（コンテナ＝一つのプログラムと必要なものを入れた箱を動かす道具）が取得を拒むため、M4 で Dockerfile を近代化するまでの代替として、manifest（部品と、それを組む正確なソース版の一覧）にはダイジェスト固定の配布済みイメージがすでに設定されている（DEMO-20、`manifest/upstreams.json`）。
 - Version / 版: 0.1 — 2026-11-05. Initial bilingual skeleton pointing to the legacy guide. ／ 旧ガイドを指す最初の二言語の骨組み。
@@ -41,6 +42,24 @@ When the installer completes, `grdm-dev up` opens your browser at the web URL it
 - **Windows 11 with WSL2 (Windows Subsystem for Linux 2, a way to run Ubuntu inside Windows; see [REF-01](../../reference/REF-01_Glossary.md#english)) and Ubuntu 24.04:** Docker Desktop installed
 
 > **Note:** The installer checks each prerequisite. It exits with code 10 if your host is unsupported and 11 if Docker is missing, not running, or lacks the Compose or buildx (multi-platform image builder) plugin. See [SPEC-02 §8](../../spec/02_installer_cli.md#english) for the full host list.
+
+#### Prepare the host with the per-OS script
+
+If your computer does not have the prerequisites yet, run the script for your OS instead of `install.sh`. Each one shows what it will change, asks before any administrator action, and ends by running `install.sh`. Add `--yes` to consent to everything in advance, or `--dry-run` to only see the plan. Run them from the repository folder.
+
+| OS | Command |
+|---|---|
+| Ubuntu 24.04 | `./installer/install-ubuntu.sh` |
+| macOS (Apple Silicon) | `./installer/install-macos.sh` |
+| Windows 11 (in PowerShell) | `powershell -ExecutionPolicy Bypass -File .\installer\install-windows.ps1` |
+
+Expected result: the plan is printed, and after your answer the installer's report ends with the web URL.
+
+On Windows you only need this one script file from the repository. It enables WSL2, installs Ubuntu 24.04, checks Docker Desktop and its WSL integration, and clones the repository inside WSL, never under `/mnt/c`, because the Windows disk is slow from WSL and changes line endings. Read the script before you run it. `-ExecutionPolicy Bypass` applies to this one run only.
+
+> **Note:** The integration repositories are private. Before the build, give git your own access where the install runs (inside WSL on Windows), for example `gh auth login` and then `gh auth setup-git`. The scripts never ask for, read or store a token.
+
+> **Note:** Docker Desktop is never installed by these scripts, because its licence depends on your organisation. Homebrew is not installed either; `install-macos.sh` tells you where to get its signed package. See [ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) for the reasons.
 
 ---
 
@@ -332,7 +351,7 @@ sudo lsof -i :5000
 
 `doctor` fails if Docker is not installed, not running, or lacks the Compose plugin.
 
-**Fix:** Install Docker Desktop (macOS) or Docker Engine (Ubuntu). Version ≥ 27 with Compose v2 plugin is required.
+**Fix:** Install Docker Desktop (macOS, Windows) or Docker Engine (Ubuntu). Version ≥ 27 with Compose v2 plugin is required. On Ubuntu, `./installer/install-ubuntu.sh` installs Docker Engine for you.
 
 #### Build failed (exit 30)
 
@@ -400,6 +419,24 @@ cd RDM-developer-guide
 - **Windows 11 + WSL2（Windows Subsystem for Linux 2。Windows の中で Ubuntu を動かす仕組み。[REF-01](../../reference/REF-01_Glossary.md#japanese)）の Ubuntu 24.04:** Docker Desktop をインストール済み
 
 > **Note:** インストーラーは各前提条件を確認します。ホストが未対応なら終了コード 10、Docker が無い・動いていない・Compose や buildx（複数 CPU 向けイメージを作る機能）プラグインが無いなら 11 で終わります。対応ホストの一覧は [SPEC-02 §8](../../spec/02_installer_cli.md#japanese) を参照。
+
+#### OS ごとのスクリプトでホストを準備する
+
+前提条件がまだ揃っていないコンピュータでは、`install.sh` の代わりに OS に合ったスクリプトを実行します。どれも変更点を示し、管理者の操作の前に尋ね、最後に `install.sh` を実行します。`--yes` を付けると先にすべて同意し、`--dry-run` を付けると予定を見るだけです。リポジトリのフォルダで実行します。
+
+| OS | コマンド |
+|---|---|
+| Ubuntu 24.04 | `./installer/install-ubuntu.sh` |
+| macOS（Apple Silicon） | `./installer/install-macos.sh` |
+| Windows 11（PowerShell で） | `powershell -ExecutionPolicy Bypass -File .\installer\install-windows.ps1` |
+
+期待する結果: 予定が表示され、答えた後にインストーラーの報告が web の URL で終わります。
+
+Windows で必要なのは、リポジトリのこのスクリプトファイル一つだけです。WSL2 を有効にし、Ubuntu 24.04 を入れ、Docker Desktop と WSL 連携を確認し、リポジトリを WSL の中に clone します。Windows のディスクは WSL から遅く改行も変わるので、`/mnt/c` の下には決して置きません。実行する前にスクリプトを読んでください。`-ExecutionPolicy Bypass` はこの一回の実行だけに効きます。
+
+> **Note:** 統合リポジトリは非公開です。ビルドの前に、導入を実行する場所（Windows では WSL の中）で git に自分の権限を設定してください。例: `gh auth login` の後に `gh auth setup-git`。スクリプトはトークンを尋ねず、読まず、保存しません。
+
+> **Note:** これらのスクリプトは Docker Desktop を入れません。ライセンスが所属組織によるからです。Homebrew も入れません。`install-macos.sh` が署名付きパッケージの入手先を案内します。理由は [ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) にあります。
 
 ---
 
@@ -691,7 +728,7 @@ sudo lsof -i :5000
 
 `doctor` は Docker がインストールされていない、動いていない、または Compose プラグインがないと失敗します。
 
-**対応:** Docker Desktop（macOS）または Docker Engine（Ubuntu）をインストール。版 ≥ 27、Compose v2 プラグインが必要です。
+**対応:** Docker Desktop（macOS・Windows）または Docker Engine（Ubuntu）をインストール。版 ≥ 27、Compose v2 プラグインが必要です。Ubuntu では `./installer/install-ubuntu.sh` が Docker Engine を入れます。
 
 #### ビルド失敗（終了コード 30）
 
