@@ -387,7 +387,7 @@ def volume_owners(services: list[_manifest.Service], hardening: dict[str, dict[s
     Returns ({volume: "uid:gid"}, {service: [volumes]}). The owner is the fixed `user:` of the services
     that mount the volume writable. A service with the `user` control relaxed starts as root and may set
     its own ownership, so it never decides an owner: chowning postgres_data to anything but its own uid
-    would break it. It still waits when it shares a volume that has an owner (unoconv on wb_tmp). Two
+    would break it. It still waits when it shares a volume that has an owner. Two
     different owners for one volume are a template error (ValueError, exit 20 upstream)."""
     owners: dict[str, str] = {}
     writers: dict[str, list[str]] = {}
@@ -878,6 +878,7 @@ def render_mfr_env(host_ports: dict[str, int]) -> str:
         ("SERVER_CONFIG_ALLOWED_PROVIDER_DOMAINS", f"'{allowed}'"),
         ("UNOCONV_PORT_2002_TCP_ADDR", "unoconv"),
         ("UNOCONV_PORT_2002_TCP_PORT", "2002"),
+        ("UNOCONV_CONVERT_URL", "http://unoconv:2002/convert"),
         ("EXTENSION_CONFIG_LOCAL_DEVELOPMENT", "1"),
         ("EXTENSION_CONFIG_DOCKER_LOCAL_HOST", "wb"),
         ("EXTENSION_CONFIG_LOCAL_HOST", LOOPBACK),

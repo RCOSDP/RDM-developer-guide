@@ -1,0 +1,11 @@
+{
+  "name": "mongoskin",
+  "version": "1.4.99",
+  "description": "Replaces mongoskin 1.4 and mongodb 1.4, which never call back on Node 22/24 TLS, for livedb-mongo",
+  "private": true,
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "mongodb": "3.7.4"
+  }
+}

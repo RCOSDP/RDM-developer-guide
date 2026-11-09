@@ -4,22 +4,15 @@
   "expose": [
     2002
   ],
-  "command": [
-    "/bin/bash",
-    "-c",
-    "/usr/bin/python3.7 /usr/local/bin/unoconv --listener --server=0.0.0.0 --port=2002 -vvv"
-  ],
   "environment": {
-    "UNO_PATH": "/usr/lib/libreoffice",
     "HOME": "/tmp"
   },
-  "volumes": [
-    {
-      "volume": "wb_tmp",
-      "target": "/tmp"
-    }
+  "tmpfs": [
+    "/tmp:mode=1777,size=1g"
   ],
+  "user": "1000:1000",
   "weight": 2,
   "mem_min_mb": 512,
-  "pids_limit": 512
+  "pids_limit": 512,
+  "note": "grdm-dev/unoconv (ADR-07): LibreOffice 25.2 behind installer/images/unoconv/convert_service.py. MFR posts each document over HTTP, so this service has no volume; each request gets its own directory and LibreOffice profile on the size-limited tmpfs."
 }

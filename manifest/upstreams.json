@@ -927,15 +927,14 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "quay.io/centerforopenscience/sharejs:develop",
-      "base_image_digest": null,
+      "base_image": "node:24-alpine",
+      "base_image_digest": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
       "candidate_prs": [],
       "id": "sharejs",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "build_platform": "linux/amd64",
-      "note": "quay.io/centerforopenscience/sharejs:develop is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 rebuilds it on node LTS.",
+      "note": "Built natively from upstream commit 7d4731ce03f6 (sha256-verified) on digest-pinned Node 24 Alpine with no npm or yarn in the running image (installer/images/sharejs, ADR-07): the published image is Debian 8 with Node 0.12 and linux/amd64 only. vendor/mongoskin puts the mongoskin API that livedb-mongo uses on mongodb 3.7, because mongodb 1.4 never calls back on current Node TLS; ws 8 and current express, body-parser and morgan replace the old lines. Retiring sharejs and mongo remains a separate decision.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -946,22 +945,25 @@
         "sharejs"
       ],
       "target_image": {
-        "M4": "rebuilt on node LTS",
+        "M4": null,
         "M5": null
       },
-      "upstreams": []
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/sharejs",
+        "tag": "7d4731ce03f6-1"
+      }
     },
     {
       "adopted_prs": [],
-      "base_image": "centerforopenscience/unoconv",
-      "base_image_digest": null,
+      "base_image": "debian:trixie-slim",
+      "base_image_digest": "sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2",
       "candidate_prs": [],
       "id": "unoconv",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "build_platform": "linux/amd64",
-      "note": "centerforopenscience/unoconv is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 replaces it with unoserver.",
+      "note": "Built natively on a digest-pinned Debian 13 with LibreOffice 25.2 behind a small web service that runs `soffice --convert-to` with a fresh profile per request (installer/images/unoconv, ADR-07): the published image is Debian 10, linux/amd64 only and ran as root, and MFR's 6.1 UNO client cannot talk to a newer listener, so MFR posts documents to it (RDM-modular-file-renderer-dev2027 fix/unoconv-client-compat, UNOCONV_CONVERT_URL). No shared volume; runs as uid 1000 with a read-only root.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -972,10 +974,14 @@
         "unoconv"
       ],
       "target_image": {
-        "M4": "unoserver (mfr PR #9)",
+        "M4": null,
         "M5": null
       },
-      "upstreams": []
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/unoconv",
+        "tag": "25.2-1"
+      }
     },
     {
       "adopted_prs": [],

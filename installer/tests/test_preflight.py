@@ -380,13 +380,15 @@ class OwnerInitTests(unittest.TestCase):
         for name in ("redis", "elasticsearch", "elasticsearch6", "wb", "wb_worker", "mfr", "ember_osf_web", "wiki_assets", "web"):
             self.assertEqual(services[name]["depends_on"]["volume_owner_init"], wait, name)
 
-    def test_unoconv_can_use_the_shared_directory_and_waits(self):
+    def test_unoconv_shares_no_volume_and_runs_unprivileged(self):
         services = self.render()
         unoconv = services["unoconv"]
-        self.assertIn("DAC_OVERRIDE", unoconv["cap_add"])
+        self.assertEqual(unoconv["user"], "1000:1000")
         self.assertEqual(unoconv["cap_drop"], ["ALL"])
-        self.assertEqual(unoconv["depends_on"]["volume_owner_init"], {"condition": "service_completed_successfully"})
-        self.assertIn("fix 1000:1000 /volumes/wb_tmp", services["volume_owner_init"]["command"][2])  # unoconv does not decide the owner
+        self.assertNotIn("cap_add", unoconv)
+        self.assertNotIn("volumes", unoconv)
+        self.assertNotIn("volume_owner_init", unoconv.get("depends_on", {}))
+        self.assertEqual(unoconv["tmpfs"], ["/tmp:mode=1777,size=1g"])
 
     def test_access_checks_write_as_each_owner_and_gate_the_writers(self):
         services = self.render()
@@ -402,7 +404,6 @@ class OwnerInitTests(unittest.TestCase):
             self.assertIs(check["read_only"], True)
             self.assertEqual(check["labels"]["org.gakunin-rdm.hardening-exception"], "none")
         self.assertEqual(services["redis"]["depends_on"]["volume_access_check_999"], wait)
-        self.assertEqual(services["unoconv"]["depends_on"]["volume_access_check_1000"], wait)
         self.assertNotIn("volume_access_check_1000", services["redis"]["depends_on"])
 
     def test_no_shortcut_on_the_top_directory(self):
