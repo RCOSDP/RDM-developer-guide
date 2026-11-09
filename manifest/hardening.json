@@ -16,15 +16,6 @@
       "target": "M4 (modernized Dockerfile that bakes the war and runs jetty as non-root)"
     },
     {
-      "controls": [
-        "read_only"
-      ],
-      "reason": "elasticsearch 6.3.1 runs as uid 1000 but rewrites config/ and logs/ inside the image at start-up.",
-      "review": "2027-01-31",
-      "service": "elasticsearch6",
-      "target": "M5 (elasticsearch:8)"
-    },
-    {
       "cap_add": [
         "CHOWN",
         "DAC_OVERRIDE",

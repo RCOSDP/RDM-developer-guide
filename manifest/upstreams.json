@@ -571,14 +571,14 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "(see repo)",
-      "base_image_digest": null,
+      "base_image": "node:24-alpine",
+      "base_image_digest": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
       "integration_sha": "93251589af25bb65a1397d55a9e787d55d56e9aa",
       "integration_repo": "RDM-y-websocket-dev2027",
-      "note": null,
+      "note": "Built from the pinned checkout with the recipe in this repository instead of the integration repository's Dockerfile, so the running image has no npm or yarn and no development dependencies (SPEC-01 build_dockerfile).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -611,7 +611,8 @@
           "status": "merged",
           "tracking_branch": "upstream/private-master"
         }
-      ]
+      ],
+      "build_dockerfile": "installer/images/y-websocket/Dockerfile"
     },
     {
       "adopted_prs": [],
@@ -822,15 +823,14 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "docker.elastic.co/elasticsearch/elasticsearch:6.3.1",
-      "base_image_digest": null,
+      "base_image": "eclipse-temurin:11-jre",
+      "base_image_digest": "sha256:5dd0f12260b837ce636299e4fc0a10c7c70ed879d1f162470da6badd6f8f733d",
       "candidate_prs": [],
       "id": "elasticsearch6",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "build_platform": "linux/amd64",
-      "note": "docker.elastic.co/elasticsearch/elasticsearch:6.3.1 is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M5 moves to Elasticsearch 8.",
+      "note": "Built natively from the official elasticsearch-oss-6.8.23 tarball (sha512-verified; the last 6.8 release, Log4j 2.17.1) on a digest-pinned Temurin 11 JRE (installer/images/elasticsearch6, ADR-07): the 6.3.1 image was linux/amd64 only and carried a Log4Shell-vulnerable Log4j. osf.io uses it only for django-elasticsearch-metrics. Runs as uid 1000 with a read-only root. Moves to Elasticsearch 8 at M5.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -844,7 +844,11 @@
         "M4": null,
         "M5": "elasticsearch:8"
       },
-      "upstreams": []
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/elasticsearch6",
+        "tag": "6.8.23-1"
+      }
     },
     {
       "adopted_prs": [],
@@ -874,7 +878,7 @@
     {
       "adopted_prs": [],
       "base_image": "rabbitmq:3-management",
-      "base_image_digest": null,
+      "base_image_digest": "sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69",
       "candidate_prs": [],
       "id": "rabbitmq",
       "integration_branch": null,
@@ -975,15 +979,14 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "quay.io/centerforopenscience/fakecas:master",
-      "base_image_digest": null,
+      "base_image": "alpine:3",
+      "base_image_digest": "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
       "candidate_prs": [],
       "id": "fakecas",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "build_platform": "linux/amd64",
-      "note": "quay.io/centerforopenscience/fakecas:master is a single-arch linux/amd64 image (real install run 6), so Compose runs it under emulation until M4 rebuilds it on current golang/alpine.",
+      "note": "Built natively from upstream commit 9a9ddd73b225 (sha256-verified source archive) with a current Go on a digest-pinned Alpine (installer/images/fakecas, ADR-07): the published quay.io image was linux/amd64 only and compiled with an old Go.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -997,7 +1000,11 @@
         "M4": "golang current, alpine current",
         "M5": null
       },
-      "upstreams": []
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/fakecas",
+        "tag": "9a9ddd73b225-1"
+      }
     }
   ],
   "generated_at": "2026-11-05",

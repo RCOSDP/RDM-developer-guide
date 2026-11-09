@@ -5,9 +5,7 @@
     9200
   ],
   "environment": {
-    "discovery.type": "single-node",
-    "ES_JAVA_OPTS": "-Xms512m -Xmx512m",
-    "xpack.security.enabled": "false"
+    "ES_JAVA_OPTS": "-Xms512m -Xmx512m"
   },
   "volumes": [
     {
@@ -16,10 +14,12 @@
     }
   ],
   "tmpfs": [
-    "/tmp"
+    "/tmp",
+    "/usr/share/elasticsearch/logs"
   ],
   "user": "1000:1000",
   "weight": 3,
   "mem_min_mb": 1024,
-  "pids_limit": 1024
+  "pids_limit": 1024,
+  "note": "grdm-dev/elasticsearch6 (ADR-07): the OSS 6.8.23 tarball built natively in installer/images/elasticsearch6, running as uid 1000 with a read-only root: logs on tmpfs, the keystore created at build time. Cluster settings live in the image's elasticsearch.yml because a tarball install does not read dotted environment variables."
 }

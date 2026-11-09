@@ -130,6 +130,17 @@ class ServicesForProfileTests(unittest.TestCase):
         self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
         self.assertTrue(self.man.component("elasticsearch2").is_image_build)
 
+    def test_rebuilt_infra_images_are_native_and_unexcepted(self):
+        """ADR-07 §5: the recipes replace the emulated images, and elasticsearch6 needs no hardening entry."""
+        services = {s.name: s for s in manifest.services_for_profile(self.man, "core")}
+        self.assertEqual(services["elasticsearch6"].image, "grdm-dev/elasticsearch6:6.8.23-1")
+        self.assertEqual(services["fakecas"].image, "grdm-dev/fakecas:9a9ddd73b225-1")
+        for cid in ("elasticsearch6", "fakecas"):
+            self.assertIsNone(self.man.component(cid).get("build_platform"), cid)
+        self.assertTrue(services["rabbitmq"].image.startswith("rabbitmq:3-management@sha256:"))
+        hardening = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))
+        self.assertNotIn("elasticsearch6", {e["service"] for e in hardening["exceptions"]})
+
     def test_empty_image_build_is_a_manifest_error(self):
         """PR #34 review r1 R1-02: `image_build: {}` must not degrade into the plain base image."""
         data = json.loads(json.dumps(self.man_data)) if hasattr(self, "man_data") else json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
