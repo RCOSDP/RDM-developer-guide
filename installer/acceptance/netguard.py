@@ -7,6 +7,7 @@ wrapper around Playwright's APIRequestContext.
 from __future__ import annotations
 
 import json
+import re
 
 from urllib.parse import urljoin, urlsplit
 
@@ -23,15 +24,19 @@ WEBSOCKET_ROUTE_REQUIREMENT = (
     "Playwright >= 1.48 (pytest-playwright >= 0.6) is required; run: pip install -e \"installer[accept]\" "
     "&& PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium"
 )
-# Third-party assets the GRDM pages of today load from fixed places (SPEC-04 §3 rule 4): (host, path prefix,
-# Playwright resource type). They are aborted like every other external request; only the verdict differs:
+# Third-party assets the GRDM pages of today load from fixed places (SPEC-04 §3 rule 4): (host, full-path
+# pattern, Playwright resource type). The whole path must match, so a lookalike or an unknown file under the
+# same directory is not known. They are aborted like every other external request; only the verdict differs:
 # counted instead of failing the test. Anything else off the machine still fails. The list can only shrink
 # and must be empty at M5; a new entry needs a SPEC-04 change.
-KNOWN_EXTERNAL_ASSETS: tuple[tuple[str, str, str], ...] = (
-    ("cdnjs.cloudflare.com", "/ajax/libs/es6-shim/", "script"),
-    ("cdnjs.cloudflare.com", "/ajax/libs/mathjax/", "script"),
-    ("fonts.googleapis.com", "/css", "stylesheet"),
-    ("secure.gravatar.com", "/avatar/", "image"),
+_VERSION = r"[0-9]+\.[0-9]+\.[0-9]+"
+KNOWN_EXTERNAL_ASSETS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/es6-shim/{_VERSION}/es6-shim\.min\.js"), "script"),
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/mathjax/{_VERSION}/MathJax\.js"), "script"),
+    # /css: base.mako and ember's index.html; /css2: addons/wiki/templates/edit.mako. Exact endpoints.
+    ("fonts.googleapis.com", re.compile(r"/css2?"), "stylesheet"),
+    # A gravatar is the MD5 of the address (website/filters); "placeholder" is the comment pane's default image.
+    ("secure.gravatar.com", re.compile(r"/avatar/(?:[0-9a-f]{32}|placeholder)"), "image"),
 )
 HTTP_SCHEMES: tuple[str, ...] = ("http",)
 WS_SCHEMES: tuple[str, ...] = ("ws",)
@@ -77,8 +82,8 @@ def known_external_asset_host(url: str, resource_type: str) -> str | None:
         return None
     if u.scheme not in ("http", "https") or not u.hostname or u.netloc.lower() != u.hostname:
         return None  # a port or credentials in the URL is not the asset the list names
-    for host, prefix, kind in KNOWN_EXTERNAL_ASSETS:
-        if u.hostname == host and u.path.startswith(prefix) and resource_type == kind:
+    for host, path, kind in KNOWN_EXTERNAL_ASSETS:
+        if u.hostname == host and path.fullmatch(u.path) and resource_type == kind:
             return host
     return None
 

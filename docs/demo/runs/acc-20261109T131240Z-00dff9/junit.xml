@@ -127,8 +127,8 @@ E        +  where 401 = &lt;APIResponse url='http://127.0.0.1:7777/v1/resources/
 
 installer/acceptance/test_c3_file_upload.py:19: AssertionError</failure></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="66.836"><properties><property name="known_external_blocked" value="13" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;.CodeMirror textarea, textarea#editor&quot;) to be visible">two_contexts = (&lt;Page url='http://127.0.0.1:5000/aynvc/wiki/home/?edit&amp;view&amp;menu'&gt;, &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;)
 login = &lt;function login.&lt;locals&gt;._login at 0x10acf5b10&gt;
-user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
-user_b = {'email': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test'}
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
 base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
 api_write = &lt;function api_write.&lt;locals&gt;._write at 0x10a861170&gt;
 add_contributor = &lt;function add_contributor.&lt;locals&gt;._add at 0x10a861a60&gt;
@@ -195,7 +195,7 @@ E             - waiting for locator(".CodeMirror textarea, textarea#editor") to 
 
 .venv/lib/python3.14/site-packages/playwright/_impl/_connection.py:636: TimeoutError</failure></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_rejection[chromium]" time="65.896"><properties><property name="known_external_blocked" value="13" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;.CodeMirror textarea, textarea#editor&quot;) to be visible">two_contexts = (&lt;Page url='http://127.0.0.1:5000/mw2t7/wiki/home/?edit&amp;view&amp;menu'&gt;, &lt;Page url='about:blank'&gt;)
 login = &lt;function login.&lt;locals&gt;._login at 0x10a6ae090&gt;
-user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
+user_a = {'email': '***', 'password': '***'}
 base_url = 'http://127.0.0.1:5000', project = 'mw2t7'
 record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0x1098ab740&gt;
 
@@ -318,7 +318,7 @@ E        +  where 401 = &lt;APIResponse url='http://127.0.0.1:7777/v1/resources/
 
 installer/acceptance/test_c3_file_upload.py:19: AssertionError</failure></testcase><testcase classname="test_c6_admin" name="test_c6_admin_success[chromium]" time="0.689"><properties><property name="http_status" value="404" /></properties><failure message="AssertionError: institution users page returned 404&#10;assert (&lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt; is not None and 404 == 200)&#10; +  where 404 = &lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt;.status">page = &lt;Page url='http://127.0.0.1:8001/institutions/1/users/'&gt;
 service_url = &lt;function service_url.&lt;locals&gt;._url at 0x1095acb40&gt;
-admin_user = {'email': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test'}
+admin_user = {'email': '***', 'password': '***'}
 record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0x10a88a6c0&gt;
 
     @pytest.mark.case("success")

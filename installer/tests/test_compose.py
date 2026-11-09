@@ -429,7 +429,8 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(svc["image"], ember["prebuilt_image"])
         self.assertRegex(svc["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
         command = " ".join(svc["command"])
-        self.assertLess(command.index("ember build"), command.index("x.name!=='GoogleAnalytics'"))  # /code is read-only: dist, after the build
+        self.assertLess(command.index("ember build"), command.index('node -e "$$1"'))  # /code is read-only: dist, after the build
+        self.assertLess(command.index('node -e "$$1"'), command.index("ember serve"))   # and before every serve (test_ember_ga_guard)
         self.assertNotIn("config/environment.js", command)
         self.assertIn("GoogleAnalytics is still in the built page", command)
         self.assertEqual(svc["platform"], ember["build_platform"])

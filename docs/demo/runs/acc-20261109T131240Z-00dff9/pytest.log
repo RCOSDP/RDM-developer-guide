@@ -163,8 +163,8 @@ ____________________ test_c4_wiki_collab_success[chromium] _____________________
 
 two_contexts = (<Page url='http://127.0.0.1:5000/aynvc/wiki/home/?edit&view&menu'>, <Page url='http://127.0.0.1:5000/dashboard'>)
 login = <function login.<locals>._login at 0x10acf5b10>
-user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
-user_b = {'email': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-b-acc-20261109T131240Z-00dff9@acceptance.test'}
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
 base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
 api_write = <function api_write.<locals>._write at 0x10a861170>
 add_contributor = <function add_contributor.<locals>._add at 0x10a861a60>
@@ -234,7 +234,7 @@ ___________________ test_c4_wiki_collab_rejection[chromium] ____________________
 
 two_contexts = (<Page url='http://127.0.0.1:5000/mw2t7/wiki/home/?edit&view&menu'>, <Page url='about:blank'>)
 login = <function login.<locals>._login at 0x10a6ae090>
-user_a = {'email': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'user-a-acc-20261109T131240Z-00dff9@acceptance.test'}
+user_a = {'email': '***', 'password': '***'}
 base_url = 'http://127.0.0.1:5000', project = 'mw2t7'
 record_property = <function record_property.<locals>.append_property at 0x1098ab740>
 
@@ -366,7 +366,7 @@ _______________________ test_c6_admin_success[chromium] ________________________
 
 page = <Page url='http://127.0.0.1:8001/institutions/1/users/'>
 service_url = <function service_url.<locals>._url at 0x1095acb40>
-admin_user = {'email': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test', 'password': 'admin-user-acc-20261109T131240Z-00dff9@acceptance.test'}
+admin_user = {'email': '***', 'password': '***'}
 record_property = <function record_property.<locals>.append_property at 0x10a88a6c0>
 
     @pytest.mark.case("success")

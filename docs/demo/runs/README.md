@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.4 — 2026-11-10. **Learned:** failure output of a committed run (`acc-20261109T131240Z-00dff9`) printed disposable test identities and passwords, because the masking set held only `runtime/.env` values; all three committed run folders were put through the same masking logic once (only that run changed, and no result changed), and these records are otherwise never edited (PR #35 review r1, R1-01). ／ マスク対象が `runtime/.env` の値だけだったため、コミット済みの実行 `acc-20261109T131240Z-00dff9` の失敗出力に、使い捨て試験アカウントの識別子とパスワードが含まれていた。コミット済みの三実行すべてに同じマスク処理を一度だけ適用し（変わったのはこの実行のみで、結果は不変）、それ以外の編集は行わない（PR #35 レビュー r1、R1-01）。
 - Version / 版: 0.3 — 2026-11-10. **Learned:** only the runs a record cites are kept in the repository; the others stay local. ／ リポジトリに残すのは記録が引用する実行だけで、他は手元に置く。
   0.2 — 2026-11-05. **Learned:** traces are raw and may hold secrets, so the public evidence folder keeps only screenshots and masked text (PR #21 review r2). ／ トレースは生で秘密を含み得るため、公開の証跡フォルダにはスクリーンショットとマスク済みの文字だけを置く（PR #21 レビュー r2）。
   0.1 — 2026-11-05. **Learned:** the evidence folder must exist with a stated layout before the first run, so that SPEC-04 and the demo index can link to it. ／ 最初の実行の前に、証跡フォルダと決まった中身をここに書いておく必要があると分かった。SPEC-04 と実証の索引がリンクできるようにするためである。
@@ -29,7 +30,7 @@ Every run of the acceptance tests (automated browser tests that check the enviro
 | `junit.xml` | Test results in the format CI tools read |
 | `screenshots/` | Only when a test failed: what the browser saw. Browser traces are not kept here; with `--trace` they go to `runtime/reports/quarantine/<run_id>/`, which is private and git-ignored |
 
-Records are written by `grdm-dev accept`; do not edit them by hand. No secrets are ever written here.
+Records are written by `grdm-dev accept`; do not edit them by hand. No secrets are ever written here: seeded test identities and passwords count as secrets and are masked too.
 
 ### Current state
 
@@ -53,7 +54,7 @@ Runs cited by [DEMO-20](../20_core_install_mac_studio.md#english) are kept here.
 | `junit.xml` | CI の道具が読む形式の試験結果 |
 | `screenshots/` | 試験が失敗したときだけ: ブラウザが見ていた画面。ブラウザのトレースはここには置かない。`--trace` のときは `runtime/reports/quarantine/<run_id>/`（非公開、git 管理外）へ |
 
-記録は `grdm-dev accept` が書きます。手で編集しないでください。秘密情報はここに書かれません。
+記録は `grdm-dev accept` が書きます。手で編集しないでください。秘密情報はここに書かれません。試験用に作るアカウントの識別子とパスワードも秘密情報として伏せます。
 
 ### いまの状態
 
