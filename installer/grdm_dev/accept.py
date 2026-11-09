@@ -11,8 +11,8 @@ Flow (SPEC-04 §2: integration before acceptance):
   6. results.json + results.toon; exit 60 if any test failed, if no result row was collected, or if a
      selected scenario lacks a success or a rejection row.
 
-Evidence never contains secrets (SPEC-03 §3.1, SPEC-04 §7): every value of runtime/.env and every
-token-like string is masked in every text artefact under the run directory (pytest.log, junit.xml,
+Evidence never contains secrets (SPEC-03 §3.1, SPEC-04 §7): every value of runtime/.env, every seeded
+identity and credential of the run (PR #35 review r1 R1-01), and every token-like string is masked in every text artefact under the run directory (pytest.log, junit.xml,
 collector.json, results.*, *.har/*.json/*.txt/*.log/*.md anywhere below it) and in anything printed;
 ZIP archives that remain under the run directory are rewritten member by member (text-like members
 masked, binary members other than images dropped); the run directory is 0700 and its files 0600.
@@ -46,7 +46,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from . import exit_codes, report, toon
 from .context import Context
@@ -74,9 +74,13 @@ BROWSERS_PATH = Path(".venv") / ".playwright"
 # Where `playwright install chromium` puts the executable (macOS app bundle, Linux build, headless shell).
 CHROMIUM_GLOBS = (
     "chromium*/chrome-*/Chromium.app/Contents/MacOS/Chromium",
+    # Playwright >= 1.5x ships "Google Chrome for Testing" on macOS and a separate headless shell build
+    # (real acceptance run 1 on the Mac Studio: only these two layouts were present under .venv/.playwright)
+    "chromium*/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "chromium*/chrome-linux*/chrome",
     "chromium*/chrome-*/chrome",
     "chromium*/chrome-*/headless_shell",
+    "chromium_headless_shell*/chrome-headless-shell-*/chrome-headless-shell",
 )
 INSTALL_HINT = 'pip install -e "installer[accept]" && PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium'
 REQUIRED_MODULES = ("pytest", "playwright", "pytest_playwright")
@@ -92,6 +96,10 @@ TOKEN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]{8,})?"),  # JWT
     re.compile(r"(?i)((?:password|passwd|secret|token|api[_-]?key|csrf|cookie|sessionid|osf)\s*[=:]\s*[\"']?)[^\s\"';,&]{4,}"),
     re.compile(r"(?i)((?:x-csrftoken|authorization|set-cookie|cookie)\s*:\s*)[^\r\n]{4,}"),
+    # a quoted key, as in the repr of a dict shown by a pytest failure ('password': 'value')
+    re.compile(r"""(?i)(['"](?:password|passwd|osf_password)['"]\s*:\s*['"])[^'"\r\n]+"""),
+    # any disposable mailbox: the fakecas identity, which is also its password. OSF lower-cases usernames.
+    re.compile(r"(?i)[\w.+%-]+(?:@|%40)" + re.escape(SEED_DOMAIN) + r"\b"),
     re.compile(r"\b[A-Fa-f0-9]{32,}\b"),
     # long base64/urlsafe blobs with at least four digits (test slugs like test-c4-... have one)
     re.compile(r"\b(?=(?:[A-Za-z_-]*\d){4})[A-Za-z0-9_-]{40,}\b"),
@@ -108,17 +116,23 @@ ZIP_BODY_PREFIX = "resources/"
 QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 
 # Django management call executed inside the `web` container by `--seed`.
-# TODO(M2): confirm on the real app. OSFUser.create_confirmed(username, password, fullname) exists in
-# osf/models/user.py upstream; the institution-admin flag for C6 (admin app permission / group) is
-# unverified and may need `is_staff` plus an institution affiliation instead of `is_superuser`.
+# Confirmed on the real app (acceptance run 3): OSFUser.create_confirmed(username, password, fullname)
+# exists, and OSFUser.set_password refuses a password equal to the e-mail address
+# ("Password cannot be the same as your email address"), so the OSF account gets an independent random
+# password that nothing types: fakecas identifies the user by e-mail alone, and the login helper fills
+# its password field only in the rare case that the field is visible.
+# GRDM's OSFUser.have_email defaults to False and create_confirmed leaves it there; every @must_be_logged_in
+# view then redirects to /settings/account/email, so the dashboard is never reached (acceptance run 8).
+# TODO(M2): the institution-admin flag for C6 (admin app permission / group) is unverified and may need
+# `is_staff` plus an institution affiliation instead of `is_superuser`.
 SEED_SNIPPET = (
     "from osf.models import OSFUser; "
-    "u = OSFUser.create_confirmed(username={email!r}, password={email!r}, fullname={fullname!r}); "
-    "u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
+    "u = OSFUser.create_confirmed(username={email!r}, password={osf_password!r}, fullname={fullname!r}); "
+    "u.have_email = True; u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
 )
 CLEANUP_SNIPPET = (
     "from osf.models import OSFUser; "
-    "n, _ = OSFUser.objects.filter(username__endswith='@{domain}', username__contains={run_id!r}).delete(); "
+    "n, _ = OSFUser.objects.filter(username__endswith='@{domain}', username__icontains={run_id!r}).delete(); "
     "print('deleted', n)"
 )
 
@@ -227,12 +241,25 @@ def make_run_id(now: _dt.datetime | None = None) -> str:
 
 
 def seed_users(run_id: str) -> dict[str, dict[str, str]]:
-    """Disposable identities for one run. With fakecas the password is the e-mail (upstream README)."""
+    """Disposable identities for one run. With fakecas the password is the e-mail (upstream README); the
+    OSF account gets an independent random password, because the identity is printed by failing tests and
+    OSF refuses a password equal to the e-mail. All of them are secrets for evidence: `seed_secret_values`."""
     users = {}
     for key, admin in (("user_a", False), ("user_b", False), ("admin_user", True)):
         email = f"{key.replace('_', '-')}-{run_id}@{SEED_DOMAIN}"
-        users[key] = {"email": email, "password": email, "fullname": f"Acceptance {key} {run_id}", "admin": admin}
+        users[key] = {"email": email, "password": email, "osf_password": secrets.token_urlsafe(24),
+                      "fullname": f"Acceptance {key} {run_id}", "admin": admin}
     return users
+
+
+def seed_secret_values(users: dict[str, dict[str, str]]) -> list[str]:
+    """Every credential of the seeded users, as written and lower-cased (OSF stores the lower-cased username)."""
+    values: set[str] = set()
+    for user in users.values():
+        for field in ("email", "password", "osf_password"):
+            if user.get(field):
+                values.update((user[field], user[field].lower()))
+    return list(values)
 
 
 def compose_exec(ctx: Context, service: str, *cmd: str) -> list[str]:
@@ -321,11 +348,11 @@ def env_secret_values(env_path: Path) -> list[str]:
 
 
 def mask_text(text: str, secret_values: list[str]) -> str:
-    """Replace every .env secret value (raw, XML-escaped, URL-quoted) and every token-like string."""
+    """Replace every secret value (raw, XML-escaped, JSON-escaped, URL-quoted) and every token-like string."""
     if not text:
         return text
     for s in secret_values:
-        for variant in {s, html.escape(s, quote=True), json.dumps(s)[1:-1]}:
+        for variant in {s, html.escape(s, quote=True), json.dumps(s)[1:-1], quote(s, safe="")}:
             if variant and variant in text:
                 text = text.replace(variant, MASK)
     for pat in TOKEN_PATTERNS:
@@ -517,6 +544,7 @@ def collect_results(run_dir: Path) -> list[dict]:
                     "test": r.get("nodeid", "").rsplit("::", 1)[-1], "status": r.get("status", "error"),
                     "duration_ms": int(r.get("duration_ms", 0)), "http_status": r.get("http_status"),
                     "evidence": r.get("evidence") or _evidence_path(run_dir, r.get("nodeid", "")),
+                    "known_external_blocked": int(r.get("known_external_blocked", 0)),
                 })
             return rows
         except (ValueError, AttributeError):
@@ -549,7 +577,7 @@ def collect_results(run_dir: Path) -> list[dict]:
                     http_status = prop.get("value")
         rows.append({"id": sid, "name": name, "case": case, "test": tc.get("name", ""), "status": status,
                      "duration_ms": int(float(tc.get("time", "0") or 0) * 1000), "http_status": http_status,
-                     "evidence": _evidence_path(run_dir, nodeid)})
+                     "evidence": _evidence_path(run_dir, nodeid), "known_external_blocked": 0})
     return rows
 
 
@@ -603,6 +631,8 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     run_dir = ctx.root / "docs" / "demo" / "runs" / run_id
     make_private_dir(run_dir)
     users = seed_users(run_id)
+    # Before anything can print them: the seed snippets, a seed error, pytest's output, the report.
+    secret_values = sorted(set(secret_values) | set(seed_secret_values(users)), key=len, reverse=True)
 
     env = dict(ctx.env)
     env.update({
@@ -619,7 +649,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     seeded = False
     if getattr(args, "seed", False):
         for u in users.values():
-            snippet = SEED_SNIPPET.format(email=u["email"], fullname=u["fullname"], admin=u["admin"])
+            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=u["osf_password"], fullname=u["fullname"], admin=u["admin"])
             rc, out = runner(compose_exec(ctx, "web", "python3", "manage.py", "shell", "-c", snippet), env=env, cwd=ctx.root)
             if rc != 0:
                 return fail(exit_codes.SERVICES_UNHEALTHY, f"seed failed for {u['email']}: {out.strip()[-400:]}")
@@ -645,6 +675,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     finished = _dt.datetime.now(_dt.timezone.utc)
     summary = {s: sum(1 for r in rows if r["status"] == s) for s in ("passed", "failed", "error", "skipped")}
     summary["total"] = len(rows)
+    summary["known_external_blocked"] = sum(int(r.get("known_external_blocked", 0)) for r in rows)  # SPEC-04 §3 rule 4
     missing_cases = incomplete_scenarios(rows, expected)
     data = {
         "run_id": run_id,

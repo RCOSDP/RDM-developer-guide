@@ -163,6 +163,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("MFR_SERVER_URL = 'http://127.0.0.1:7778'", local_py)
         self.assertIn("CAS_SERVER_URL = 'http://127.0.0.1:8080'", local_py)
         self.assertIn("SECRET_KEY = environ['SECRET_KEY']", local_py)
+        self.assertIn("DEFAULT_HMAC_SECRET = environ['WATERBUTLER_HMAC_SECRET']", local_py)
         self.assertNotIn("CHANGEME", local_py)
         osf_env = plan.read_dotenv(cfg / "osf.env")
         self.assertEqual(osf_env["OSF_DB_HOST"], "postgres")
@@ -180,7 +181,7 @@ class ComposeRenderTests(unittest.TestCase):
         # the compose file mounts the rewritten settings and the fakecas redirect uses the overridden port
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("./config/osf/local.py:/code/website/settings/local.py:ro", doc["services"]["web"]["volumes"])
-        self.assertIn("-osfhost=127.0.0.1:5050", doc["services"]["fakecas"]["command"])
+        self.assertIn("-osfhost=127.0.0.1:5050", " ".join(doc["services"]["fakecas"]["command"]))  # one `sh -c` string
         self.assertEqual(doc["services"]["web"]["ports"], ["127.0.0.1:5050:5000"])
 
     def test_missing_env_exits_2_with_hint(self):
@@ -427,6 +428,11 @@ class ComposeRenderTests(unittest.TestCase):
         svc = doc["services"]["ember_osf_web"]
         self.assertEqual(svc["image"], ember["prebuilt_image"])
         self.assertRegex(svc["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
+        command = " ".join(svc["command"])
+        self.assertLess(command.index("ember build"), command.index('node -e "$$1"'))  # /code is read-only: dist, after the build
+        self.assertLess(command.index('node -e "$$1"'), command.index("ember serve"))   # and before every serve (test_ember_ga_guard)
+        self.assertNotIn("config/environment.js", command)
+        self.assertIn("GoogleAnalytics is still in the built page", command)
         self.assertEqual(svc["platform"], ember["build_platform"])
         self.assertEqual(svc["platform"], "linux/amd64")
         self.assertEqual(svc["cap_drop"], ["ALL"])  # hardening applies to a prebuilt service like any other
@@ -956,6 +962,12 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertNotIn('""', cmd)
         self.assertEqual(resolved["services"]["web"]["environment"]["SECRET_KEY"], env["DJANGO_SECRET_KEY"])
         self.assertEqual(resolved["services"]["wb"]["environment"]["SERVER_CONFIG_HMAC_SECRET"], env["WATERBUTLER_HMAC_SECRET"])
+        # OSF has one verifier (DEFAULT_HMAC_SECRET): every waterbutler signer and every service loading local.py must share one key.
+        for service in ("wb", "wb_worker"):
+            for key in ("SERVER_CONFIG_HMAC_SECRET", "OSFSTORAGE_PROVIDER_CONFIG_HMAC_SECRET"):
+                self.assertEqual(resolved["services"][service]["environment"][key], env["WATERBUTLER_HMAC_SECRET"], f"{service}.{key}")
+        for service in ("web", "api", "admin", "worker", "osf_init"):
+            self.assertEqual(resolved["services"][service]["environment"]["WATERBUTLER_HMAC_SECRET"], env["WATERBUTLER_HMAC_SECRET"], service)
 
     @unittest.skipUnless(shutil.which("docker"), "docker CLI not installed")
     def test_docker_compose_config_accepts_the_rendered_file(self):

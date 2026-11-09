@@ -1,0 +1,10 @@
+..                                                                       [100%]
+=============================== warnings summary ===============================
+test_c1_login.py::test_c1_login_success[chromium]
+  test_c1_login.py:10: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c1_login.py::test_c1_login_rejection
+  test_c1_login.py:20: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 2 warnings in 5.79s

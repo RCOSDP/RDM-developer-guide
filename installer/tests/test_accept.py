@@ -2,12 +2,14 @@ import argparse
 import io
 import json
 import os
+import re
 import stat
 import tempfile
 import unittest
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from urllib.parse import quote
 
 from acceptance import netguard
 from grdm_dev import accept, cli, exit_codes
@@ -194,7 +196,7 @@ class AcceptTests(unittest.TestCase):
         run_dir = self.run_dir()
         self.assertTrue(run_dir.name.startswith("acc-"))
         results = json.loads((run_dir / "results.json").read_text())
-        self.assertEqual(results["summary"], {"passed": 1, "failed": 1, "error": 0, "skipped": 1, "total": 3})
+        self.assertEqual(results["summary"], {"passed": 1, "failed": 1, "error": 0, "skipped": 1, "total": 3, "known_external_blocked": 0})
         self.assertTrue(results["precheck"]["healthy"])
         by_test = {r["test"]: r for r in results["tests"]}
         rej = by_test["test_c1_login_rejection"]
@@ -279,6 +281,7 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual(seed_calls[0][:3], ["docker", "compose", "exec"])
         self.assertIn("web", seed_calls[0])
         self.assertIn("create_confirmed", seed_calls[0][-1])
+        self.assertIn("have_email = True", seed_calls[0][-1])  # without it GRDM redirects every view to /settings/account/email
         self.assertIn("delete()", seed_calls[-1][-1])
         # pytest ran between seeding and cleanup
         order = ["seed" if "manage.py" in a else "pytest" for a, _ in runner.calls]
@@ -424,6 +427,64 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("seed failed", err)
         self.assertNotIn(SECRET, err)
 
+    def test_seeded_credentials_are_masked_on_failure_in_pytest_junit_and_collector(self):
+        """PR #35 review r1 R1-01: a failing test prints the user fixture, so the identities must be masked."""
+        self._write_env()
+        leaks: list[str] = []
+
+        class Leaky(FakeRunner):
+            def __call__(inner, argv, env=None, cwd=None):
+                if "pytest" in argv:
+                    email = env["GRDM_ACCEPT_USER_A"]
+                    password = next(re.search(r"password='([^']+)'", a[-1]).group(1) for a, _ in inner.calls if "create_confirmed" in a[-1])
+                    leaks[:] = [email, email.lower(), quote(email, safe=""), password]
+                    fixture = f"user_a = {{'email': '{email}', 'password': '{email}'}}"
+                    extra = f"{fixture} {email.lower()} {quote(email, safe='')} {password}"
+                    inner.output = f"E   assert 200 == 401\n{extra}"
+                    inner.junit = junit_all_green(ids=["C1"], extra_body=f'<failure message="{email}">{extra}</failure>')
+                    inner.collector = [{"nodeid": "x::test_c1_x_success", "id": "C1", "name": extra, "case": "success",
+                                        "status": "failed", "duration_ms": 1, "http_status": None, "evidence": email}]
+                return super().__call__(argv, env=env, cwd=cwd)
+
+        rc, err, out = self.run_accept(self.args(seed=True), Leaky(pytest_rc=1))
+        self.assertEqual(rc, exit_codes.ACCEPTANCE_FAILED)
+        self.assertEqual(len(leaks), 4)
+        run_dir = self.run_dir()
+        for name in ("pytest.log", "junit.xml", "collector.json", "results.json", "results.toon"):
+            text = (run_dir / name).read_text(encoding="utf-8")
+            self.assertNotRegex(text, r"(?i)(?:@|%40)acceptance\.test", name)
+            for value in leaks:
+                self.assertNotIn(value, text, name)
+        for value in leaks:
+            self.assertNotIn(value, err + out)
+        self.assertIn("'password': '***", (run_dir / "pytest.log").read_text(encoding="utf-8"))
+
+    def test_seed_error_masks_the_identity_and_the_osf_password(self):
+        calls: list[str] = []
+
+        def failing(argv, env=None, cwd=None):
+            calls.append(argv[-1])
+            return 1, f"Traceback: {argv[-1]}"
+
+        rc, err, _ = self.run_accept(self.args(seed=True), failing)
+        self.assertEqual(rc, exit_codes.SERVICES_UNHEALTHY)
+        email, osf_password = re.search(r"username='([^']+)', password='([^']+)'", calls[0]).groups()
+        self.assertIn("seed failed", err)
+        self.assertNotIn(email, err)
+        self.assertNotIn(osf_password, err)
+
+    def test_osf_password_is_random_not_derived_from_the_identity(self):
+        first, second = accept.seed_users("acc-1"), accept.seed_users("acc-1")
+        self.assertNotEqual(first["user_a"]["osf_password"], second["user_a"]["osf_password"])
+        self.assertNotEqual(first["user_a"]["osf_password"], first["user_b"]["osf_password"])
+        self.assertNotIn(first["user_a"]["email"], first["user_a"]["osf_password"])
+
+    def test_cleanup_matches_the_lower_cased_username_osf_stores(self):
+        """OSF lower-cases usernames, so a case-sensitive match on the run id deleted nothing (33 accounts left)."""
+        runner = FakeRunner(pytest_rc=0, junit=junit_all_green())
+        self.run_accept(self.args(seed=True), runner)
+        self.assertIn("username__icontains=", [a for a, _ in runner.calls if "manage.py" in a][-1][-1])
+
     def test_mask_text_rules(self):
         env = self.root / ".env"
         env.write_text(f"GRDM_PORT_WEB=5000\nDB_PASS={SECRET}\nFLAG=true\n")
@@ -498,6 +559,59 @@ class AcceptTests(unittest.TestCase):
 
 class NetGuardTests(unittest.TestCase):
     """acceptance/netguard.py — exact-origin loopback check (finding 7, SPEC-04 §3.4)."""
+
+    def test_known_external_asset_matches_only_the_listed_host_path_and_type(self):
+        known = netguard.known_external_asset_host
+        self.assertEqual(known("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/es6-shim.min.js", "script"), "cdnjs.cloudflare.com")
+        self.assertEqual(known("http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=x", "script"), "cdnjs.cloudflare.com")
+        self.assertEqual(known("https://fonts.googleapis.com/css?family=Open+Sans:400", "stylesheet"), "fonts.googleapis.com")
+        self.assertEqual(known("https://secure.gravatar.com/avatar/0123456789abcdef0123456789abcdef?d=identicon", "image"), "secure.gravatar.com")
+        self.assertEqual(known("https://secure.gravatar.com/avatar/placeholder?d=identicon&s=20", "image"), "secure.gravatar.com")
+        self.assertEqual(known("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined", "stylesheet"), "fonts.googleapis.com")
+        for url, kind in (
+            ("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js", "script"),      # another library
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/x.js", "document"),          # a navigation is not an asset
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/x.js", "fetch"),             # data can leave by fetch
+            ("https://fonts.googleapis.com/css", "script"),                                       # listed host, wrong type
+            ("https://cdnjs.cloudflare.com.evil.test/ajax/libs/es6-shim/x.js", "script"),         # suffix trick
+            ("https://user@cdnjs.cloudflare.com/ajax/libs/es6-shim/x.js", "script"),              # credentials
+            ("https://cdnjs.cloudflare.com:8443/ajax/libs/es6-shim/x.js", "script"),              # another port
+            ("wss://secure.gravatar.com/avatar/x", "image"),                                      # another scheme
+            ("https://example.com/", "image"),
+        ):
+            self.assertIsNone(known(url, kind), (url, kind))
+        self.assertIsNone(known(None, "script"))  # type: ignore[arg-type]
+
+    def test_known_external_asset_refuses_lookalike_and_unknown_paths(self):
+        """PR #35 review r1 R1-02: a path is known only as a whole; the rest of the host still fails the test."""
+        known = netguard.known_external_asset_host
+        for url, kind in (
+            ("https://fonts.googleapis.com/css-unlisted", "stylesheet"),
+            ("https://fonts.googleapis.com/css3", "stylesheet"),
+            ("https://fonts.googleapis.com/css/", "stylesheet"),
+            ("https://fonts.googleapis.com/css/evil", "stylesheet"),
+            ("https://fonts.googleapis.com/CSS", "stylesheet"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/evil.js", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/latest/es6-shim.min.js", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/../../jquery/3.2.1/jquery.min.js", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/es6-shim.min.js/x", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/es6-shim-evil/0.35.0/es6-shim.min.js", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/extensions/evil.js", "script"),
+            ("https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js.map", "script"),
+            ("https://secure.gravatar.com/avatar/", "image"),
+            ("https://secure.gravatar.com/avatar/abc", "image"),
+            ("https://secure.gravatar.com/avatar/0123456789abcdef0123456789abcdef/x", "image"),
+            ("https://secure.gravatar.com/avatarx/0123456789abcdef0123456789abcdef", "image"),
+        ):
+            self.assertIsNone(known(url, kind), url)
+        real = "https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/es6-shim.min.js"
+        self.assertEqual(known(real, "script"), "cdnjs.cloudflare.com")
+        for kind in ("document", "fetch", "xhr", "websocket", "eventsource", "other"):
+            self.assertIsNone(known(real, kind), kind)
+            self.assertIsNone(known("https://secure.gravatar.com/avatar/placeholder", kind), kind)
+            self.assertIsNone(known("https://fonts.googleapis.com/css", kind), kind)
+        self.assertIsNone(known("wss://fonts.googleapis.com/css", "stylesheet"))
+        self.assertIsNone(known("https://api.test.example/v2/users/me/", "fetch"))
 
     def test_accepts_only_exact_loopback_http(self):
         for url in ("http://127.0.0.1:5000/", "http://127.0.0.1/x", "http://127.0.0.1:8000/v2/users/me/?a=1#f", "HTTP://127.0.0.1:5000"):

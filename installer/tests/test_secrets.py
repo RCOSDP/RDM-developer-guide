@@ -153,6 +153,28 @@ class SecretsInitTests(unittest.TestCase):
         return self.run_cmd(ctx, ns(secrets_action="rotate", timeout=0.0), runner=runner,
                             prober=lambda url: (True, "HTTP 200"), sleep=lambda s: None)
 
+    def test_init_force_and_rotate_drop_obsolete_credentials_of_a_legacy_env(self):
+        """PR #35 review r1 P3: a retired credential must not survive as a "non-secret" setting."""
+        path = self.root / "runtime" / ".env"
+        for action in ("init", "rotate"):
+            ctx = make_ctx(self.root, profile="full")
+            self.run_cmd(ctx, ns(secrets_action="init", force=True))
+            legacy = secrets.read_env(path)
+            legacy["OSFSTORAGE_HMAC_SECRET"] = "legacy-osfstorage-hmac-value-0123456789"
+            legacy["GRDM_PORT_WEB"] = "5001"
+            secrets.write_env(path, legacy)
+            if action == "init":
+                rc = self.run_cmd(ctx, ns(secrets_action="init", force=True))
+            else:
+                rc = self.run_cmd(ctx, ns(secrets_action="rotate", timeout=0.0), runner=FakeDocker(old_pg="x", old_rmq="y", running=()),
+                                  running_services=lambda: [])
+            self.assertEqual(rc, exit_codes.OK, self.err.getvalue())
+            after = secrets.read_env(path)
+            self.assertNotIn("OSFSTORAGE_HMAC_SECRET", after, action)
+            self.assertNotIn("legacy-osfstorage-hmac-value", path.read_text(encoding="utf-8"), action)
+            self.assertEqual(after["GRDM_PORT_WEB"], "5001", action)
+            self.assertNotIn("OSFSTORAGE_HMAC_SECRET", self.out.getvalue(), action)
+
     def test_rotate_changes_live_passwords_rejects_old_and_recreates(self):
         ctx = make_ctx(self.root, profile="full")
         self.run_cmd(ctx, ns(secrets_action="init", force=False))

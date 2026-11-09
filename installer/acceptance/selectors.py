@@ -46,8 +46,8 @@ ADMIN = {
 
 # --- fakecas login form (upstream README: any username, password = the user's e-mail) -------------
 FAKECAS = {
-    "username": "input[name='username']",      # TODO(M2): verify field names on the fakecas page
-    "password": "input[name='password']",
+    "username": "input[name='username']",      # verified on the real fakecas page (acceptance run 5, M2)
+    "password": "input[name='password']",      # present but inside <section hidden>: fakecas needs no password
     "submit": "button[type='submit'], input[type='submit']",
 }
 

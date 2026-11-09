@@ -1,0 +1,10 @@
+..                                                                       [100%]
+=============================== warnings summary ===============================
+test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+  test_c3_file_upload.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+  test_c3_file_upload.py:43: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 2 warnings in 20.79s
