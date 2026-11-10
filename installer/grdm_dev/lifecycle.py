@@ -103,13 +103,16 @@ def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT
     bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
     if bad_paths:
         return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
-    # an interrupted `db upgrade`/`db rollback` is finished or rolled back first; then a server refuses a data
-    # directory of another major, or one whose major cannot be read: say so before Compose starts it (ADR-12)
-    db_problem = database.recover_pending(ctx, runner or health.default_runner) or database.preflight(ctx, runner or health.default_runner)
-    if db_problem:
-        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, db_problem)
-    runner = runner or streaming_runner
-    rc, out = runner(health.compose_base(ctx) + ["up", "-d", "--remove-orphans"])
+    # Under the lock of `grdm-dev db` (PR #42 review r2 R2-02), from the checks until Compose has started the
+    # containers: an interrupted `db upgrade`/`db rollback` is finished or rolled back first; then a server refuses a
+    # data directory of another major, or one whose major cannot be read (ADR-12).
+    checker = runner or health.default_runner
+    with database.lifecycle_lock(ctx) as held:
+        db_problem = held or database.recover_pending(ctx, checker) or database.preflight(ctx, checker)
+        if db_problem:
+            return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, db_problem)
+        runner = runner or streaming_runner
+        rc, out = runner(health.compose_base(ctx) + ["up", "-d", "--remove-orphans"])
     if rc != 0:
         return report.error(ctx, exit_codes.HEALTH_FAILED, f"docker compose up exited {rc}")
     kwargs = {"runner": runner, "prober": prober}
@@ -177,33 +180,38 @@ def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
             bad = [f"{volumes_dir} changed during reset", *bad]
         return "; ".join(bad) or None
 
-    problem = refused()
-    if problem:
-        return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
-    # a pending `grdm-dev db` operation may still own helper containers on these directories (ADR-12)
-    pending = database.recover_pending(ctx, runner or health.default_runner)
-    if pending:
-        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, pending)
-    if health.compose_path(ctx).exists():
-        rc = run_down(ctx, runner=runner, volumes=True)
-        if rc != exit_codes.OK:
-            return rc
-    removed = False
-    if volumes_dir.exists() or volumes_dir.is_symlink():
+    # Under the lock of `grdm-dev db` from the checks through the deletion (PR #42 review r2 R2-02): no upgrade or
+    # rollback can start on these directories while they are being deleted, and none is running now.
+    with database.lifecycle_lock(ctx) as held:
+        if held:
+            return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, held)
         problem = refused()
         if problem:
             return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
-        owner_init = _owner_init_service(ctx)
-        if owner_init.get("image"):
-            # rc is not decisive: without the image, nothing was ever written by a container and the host can delete it all.
-            (runner or streaming_runner)(wipe_argv(str(owner_init["image"]), volumes_dir, owner_init.get("platform")))
+        # a pending `grdm-dev db` operation may still own helper containers on these directories (ADR-12)
+        pending = database.recover_pending(ctx, runner or health.default_runner)
+        if pending:
+            return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, pending)
+        if health.compose_path(ctx).exists():
+            rc = run_down(ctx, runner=runner, volumes=True)
+            if rc != exit_codes.OK:
+                return rc
+        removed = False
+        if volumes_dir.exists() or volumes_dir.is_symlink():
             problem = refused()
             if problem:
                 return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
-        try:
-            (rmtree or shutil.rmtree)(volumes_dir)
-        except OSError as exc:
-            return report.error(ctx, exit_codes.RESET_FAILED, f"could not delete {volumes_dir}: {exc}; remove it with `sudo rm -rf {volumes_dir}` / {volumes_dir} を削除できません。`sudo rm -rf {volumes_dir}` で消してください")
-        removed = True
+            owner_init = _owner_init_service(ctx)
+            if owner_init.get("image"):
+                # rc is not decisive: without the image, nothing was ever written by a container and the host can delete it all.
+                (runner or streaming_runner)(wipe_argv(str(owner_init["image"]), volumes_dir, owner_init.get("platform")))
+                problem = refused()
+                if problem:
+                    return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
+            try:
+                (rmtree or shutil.rmtree)(volumes_dir)
+            except OSError as exc:
+                return report.error(ctx, exit_codes.RESET_FAILED, f"could not delete {volumes_dir}: {exc}; remove it with `sudo rm -rf {volumes_dir}` / {volumes_dir} を削除できません。`sudo rm -rf {volumes_dir}` で消してください")
+            removed = True
     report.emit(ctx, "reset", {"volumes_dir": str(volumes_dir), "removed": removed})
     return exit_codes.OK

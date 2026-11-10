@@ -53,6 +53,7 @@ exception (manifest/hardening.json), because the official entrypoint starts as r
 from __future__ import annotations
 
 import contextlib
+import errno
 import json
 import os
 import re
@@ -183,6 +184,8 @@ def data_major(directory: Path, runner: Runner | None = None, image: str | None 
             return ""
         value = (directory / "PG_VERSION").read_text(encoding="ascii").strip()
         return value if VERSION_RE.match(value) else None
+    except ValueError:  # UnicodeDecodeError: bytes that are not ASCII are not a version (PR #42 review r2 R2-04)
+        return None
     except FileNotFoundError:
         try:
             return "" if not any(directory.iterdir()) else None
@@ -201,7 +204,10 @@ def data_major(directory: Path, runner: Runner | None = None, image: str | None 
     argv += ["-v", f"{directory}:/data:ro", "--entrypoint", "sh", image, "-c",
              'if [ -e /data/PG_VERSION ]; then cat /data/PG_VERSION; elif [ -z "$(ls -A /data)" ]; then echo empty; '
              "else echo nocluster; fi"]
-    rc, out = runner(argv)
+    try:
+        rc, out = runner(argv)
+    except ValueError:  # output that does not decode
+        return None
     value = out.strip() if rc == 0 else ""
     if value == "empty":
         return ""
@@ -281,15 +287,19 @@ def disk_problems(size: int, backups: Path, volumes: Path, disk_usage=shutil.dis
 # --------------------------------------------------------------------------- journal and lock
 
 
+# A filesystem that cannot sync a directory says so with one of these; that is not a failed write.
+UNSYNCABLE = {errno.EINVAL, getattr(errno, "ENOTSUP", errno.EINVAL), getattr(errno, "EOPNOTSUPP", errno.EINVAL)}
+
+
 def _fsync_dir(path: Path) -> None:
-    try:
-        fd = os.open(path, os.O_RDONLY)
-    except OSError:
-        return
+    """Make renames and unlinks in `path` durable. Any other error propagates (PR #42 review r2 R2-03): an entry
+    that may not be on disk must not be reported as done."""
+    fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(fd)
-    except OSError:
-        pass
+    except OSError as exc:
+        if exc.errno not in UNSYNCABLE:
+            raise
     finally:
         os.close(fd)
 
@@ -324,17 +334,31 @@ def _drop_journal(ctx: Context) -> None:
     _fsync_dir(ctx.runtime)
 
 
-@contextlib.contextmanager
-def operation_lock(ctx: Context) -> Iterator[None]:
-    """Exclusive, non-blocking; released by the kernel when the process ends, so a crash never leaves it held."""
+LOCK_HELD = "another grdm-dev command (db upgrade, rollback, recover, up or reset) holds runtime/db-operation.lock; wait for it"
+
+
+def _acquire(ctx: Context) -> tuple[int | None, str | None]:
+    """(fd, None) with the exclusive lock held, or (None, refusal). The lock is a flock on its own open file
+    description, so it also excludes a second open in the same process, and the kernel drops it when the process
+    ends, however it ends."""
     ctx.runtime.mkdir(parents=True, exist_ok=True)
     fd = os.open(ctx.runtime / LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+    if fcntl is not None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
+            return None, LOCK_HELD
+    return fd, None
+
+
+@contextlib.contextmanager
+def operation_lock(ctx: Context) -> Iterator[None]:
+    """Exclusive, non-blocking; raises UpgradeError when held elsewhere."""
+    fd, refusal = _acquire(ctx)
+    if refusal:
+        raise UpgradeError(refusal)
     try:
-        if fcntl is not None:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError as exc:
-                raise UpgradeError("another `grdm-dev db` operation holds runtime/db-operation.lock; wait for it") from exc
         yield
     finally:
         os.close(fd)
@@ -568,19 +592,20 @@ def recover(ctx: Context, runner: Runner) -> str | None:
         _drop_empty_placeholder(current, runner, journal)
         if not current.exists() and kept.is_dir() and new_dir.is_dir():
             try:
-                os.rename(new_dir, current)
-            except OSError:
-                os.rename(kept, current)  # back to the old cluster; if this raises the journal stays
-                _drop_journal(ctx)
+                _rename_durably(new_dir, current)
+            except OSError as exc:
+                _rename_durably(kept, current)  # back to the old cluster; if this raises the journal stays
+                _undone(ctx, runner, journal, current, journal["from"], exc)
                 return f"the swap could not be finished; {current} is the old PostgreSQL {journal['from']} cluster again, {new_dir} is left aside"
         elif current.is_dir() and not kept.exists() and new_dir.is_dir() and _major_of(current, runner, journal) == journal["from"]:
             try:
                 _swap(current, new_dir, kept)
             except OSError as exc:
-                _drop_journal(ctx)
+                _undone(ctx, runner, journal, current, journal["from"], exc)
                 return f"the swap could not be done ({exc}); {current} is the old PostgreSQL {journal['from']} cluster, {new_dir} is left aside"
         elif not (current.is_dir() and kept.is_dir() and not new_dir.exists() and _major_of(current, runner, journal) == journal["to"]):
             raise UpgradeError(f"cannot tell how far the swap went ({current}, {kept}, {new_dir}); inspect by hand")
+        _fsync_dir(current.parent)  # the renames are on disk before the record and the journal say so
         _write_record(journal)
         _drop_journal(ctx)
         return f"finished an interrupted upgrade: {current} is PostgreSQL {journal['to']}, the old cluster is {kept}"
@@ -590,15 +615,32 @@ def recover(ctx: Context, runner: Runner) -> str | None:
         try:
             _swap(current, kept, aside)
         except OSError as exc:
-            _drop_journal(ctx)
+            _undone(ctx, runner, journal, current, journal["to"], exc)
             return f"the rollback could not be done ({exc}); {current} is unchanged"
     elif not current.exists() and aside.is_dir() and kept.is_dir():
-        os.rename(kept, current)
+        _rename_durably(kept, current)
     elif not (current.is_dir() and aside.is_dir() and not kept.exists()):
         raise UpgradeError(f"cannot tell how far the rollback went ({current}, {kept}, {aside}); inspect by hand")
+    _fsync_dir(current.parent)
     _mark_rolled_back(journal)
     _drop_journal(ctx)
     return f"finished an interrupted rollback: {current} is PostgreSQL {journal['from']} again"
+
+
+def _rename_durably(src: Path, dst: Path) -> None:
+    os.rename(src, dst)
+    _fsync_dir(dst.parent)
+
+
+def _undone(ctx: Context, runner: Runner, journal: dict[str, Any], current: Path, major: str, exc: OSError) -> None:
+    """A swap failed. Retire the journal only when the directory state proves the compensation worked: `current`
+    is there, holds `major`, and is on disk. Otherwise the journal stays and the error propagates (R2-01)."""
+    if current.is_dir() and _major_of(current, runner, journal) == major:
+        _fsync_dir(current.parent)
+        _drop_journal(ctx)
+        return
+    raise UpgradeError(f"a swap failed ({exc}) and so did putting {current} back; the journal is kept, "
+                       f"`up` refuses, and `grdm-dev db recover` retries") from exc
 
 
 def _swap(current: Path, replacement: Path, aside: Path) -> None:
@@ -607,7 +649,8 @@ def _swap(current: Path, replacement: Path, aside: Path) -> None:
     try:
         os.rename(replacement, current)
     except OSError:
-        os.rename(aside, current)
+        os.rename(aside, current)  # if this raises too, `current` is missing and the caller must keep the journal
+        _fsync_dir(current.parent)
         raise
     _fsync_dir(current.parent)
 
@@ -623,17 +666,28 @@ def _mark_rolled_back(journal: dict[str, Any]) -> None:
 
 
 def recover_pending(ctx: Context, runner: Runner) -> str | None:
-    """For `up` and `reset`: finish or roll back a pending operation. Returns a refusal, or None."""
-    if not journal_path(ctx).exists():
-        return None
+    """For `up` and `reset`, called while they hold operation_lock: finish or roll back a pending operation.
+    Returns a refusal, or None."""
     try:
-        with operation_lock(ctx):
-            outcome = recover(ctx, runner)
+        outcome = recover(ctx, runner)
     except (UpgradeError, OSError) as exc:
         return f"an interrupted `grdm-dev db` operation could not be recovered: {exc}"
     if outcome:
         sys.stderr.write(f"[grdm-dev] {outcome}\n")
     return None
+
+
+@contextlib.contextmanager
+def lifecycle_lock(ctx: Context) -> Iterator[str | None]:
+    """`up` and `reset` hold the same lock as `db upgrade/rollback/recover` from their checks through starting or
+    deleting (PR #42 review r2 R2-02), so neither can run between the other's checks and its action. Yields a
+    refusal when another command holds it, else None while holding it."""
+    fd, refusal = _acquire(ctx)
+    try:
+        yield refusal
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 # --------------------------------------------------------------------------- commands

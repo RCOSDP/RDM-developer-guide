@@ -595,6 +595,212 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.run_db("rollback", FakeDocker(running=["postgres"])), exit_codes.DB_UPGRADE_FAILED)
         self.assertEqual(self.major(), "18")
 
+    # ------------------------------------------------------------------ review r2
+
+    def _crash_before_swap(self, action):
+        runner = FakeDocker()
+        if action == "rollback":
+            self._upgraded()
+        with mock.patch.object(database, "_swap", side_effect=Crash("before swap")), self.assertRaises(Crash):
+            self.run_db(action, runner, stamp=TS + "r" if action == "rollback" else TS)
+        self.assertTrue(self.journal.exists())
+        return runner
+
+    def _renames_failing_after(self, ok):
+        real, count = os.rename, [0]
+
+        def rename(a, b):
+            count[0] += 1
+            if count[0] > ok:
+                raise OSError(errno.EIO, "replacement and compensation failed")
+            real(a, b)
+
+        return mock.patch.object(database.os, "rename", side_effect=rename)
+
+    def test_r2_01_a_failed_compensation_during_recovery_keeps_the_journal(self):
+        for action, final in (("upgrade", "18"), ("rollback", "9.6")):
+            with self.subTest(action=action):
+                self.fresh()
+                runner = self._crash_before_swap(action)
+                with self._renames_failing_after(1):
+                    self.assertEqual(self.run_db("recover", runner), exit_codes.DB_UPGRADE_FAILED)
+                self.assertFalse(self.data.exists())
+                self.assertTrue(self.journal.exists())  # the only record of where the data went
+                self.assertIn("so did putting", self.err.getvalue())
+                with self._renames_failing_after(0):  # it keeps failing: `up` and `recover` refuse, the journal stays
+                    self.assertEqual(self.run_up(runner), exit_codes.DB_UPGRADE_FAILED)  # never a fresh cluster
+                    self.assertEqual(self.run_db("recover", runner), exit_codes.DB_UPGRADE_FAILED)
+                self.assertFalse([c for c in runner.calls if c[:2] == ["docker", "compose"] and "up" in c])
+                self.assertTrue(self.journal.exists())
+                self.assertEqual(self.run_db("recover", runner), exit_codes.OK)
+                self.assertEqual(self.major(), final)
+                self.assertFalse(self.journal.exists())
+
+    def test_r2_01_an_in_process_double_failure_keeps_the_journal(self):
+        real, count = os.rename, [0]
+
+        def rename(a, b):
+            count[0] += 1
+            if count[0] >= 2:  # the replacement and the compensation, then every retry
+                raise OSError(errno.EIO, "injected")
+            real(a, b)
+
+        runner = FakeDocker()
+        with mock.patch.object(database.os, "rename", side_effect=rename):
+            self.assertEqual(self.run_db("upgrade", runner), exit_codes.DB_UPGRADE_FAILED)
+        self.assertFalse(self.data.exists())
+        self.assertTrue(self.journal.exists())
+        self.assertIn("recovery failed", self.err.getvalue())
+        self.assertEqual(self.run_db("recover", runner), exit_codes.OK)
+        self.assertEqual(self.major(), "18")
+
+    def test_r2_01_a_verified_compensation_retires_the_journal(self):
+        real = os.rename
+
+        def rename(a, b):
+            if Path(a) == self.new:
+                raise OSError(errno.EIO, "injected")
+            real(a, b)
+
+        runner = self._crash_before_swap("upgrade")
+        with mock.patch.object(database.os, "rename", side_effect=rename):
+            self.assertEqual(self.run_db("recover", runner), exit_codes.OK)
+        self.assertEqual(self.major(), "9.6")
+        self.assertFalse(self.journal.exists())
+
+    def test_r2_02_up_refuses_while_any_db_command_holds_the_lock(self):
+        (self.data / "PG_VERSION").write_text("18\n")
+        runner = FakeDocker()
+        with database.operation_lock(Context(root=self.root)):
+            self.assertEqual(self.run_up(runner), exit_codes.DB_UPGRADE_FAILED)
+        self.assertIn("db-operation.lock", self.err.getvalue())
+        self.assertFalse([c for c in runner.calls if c[:2] == ["docker", "compose"]])
+
+    def test_r2_02_up_cannot_start_between_the_checks_and_the_swap_of_a_rollback(self):
+        self._upgraded()
+        racer = FakeDocker()
+        codes = []
+
+        def confirm(ctx, *args, **kwargs):  # the moment after rollback checked that nothing runs
+            codes.append(self.run_up(racer))
+            return True
+
+        with mock.patch.object(Context, "confirm", confirm):
+            self.assertEqual(self.run_db("rollback", FakeDocker(), stamp=TS + "r"), exit_codes.OK)
+        self.assertEqual(codes, [exit_codes.DB_UPGRADE_FAILED])
+        self.assertFalse([c for c in racer.calls if c[:2] == ["docker", "compose"] and "up" in c])
+        self.assertEqual(self.major(), "9.6")
+
+    def test_r2_02_a_db_command_cannot_start_while_up_starts_compose(self):
+        (self.data / "PG_VERSION").write_text("18\n")
+        self._upgraded_record_only()
+        codes = []
+        inner = FakeDocker()
+
+        def runner(argv):
+            if argv[:2] == ["docker", "compose"] and "up" in argv:
+                codes.append(self.run_db("rollback", FakeDocker()))
+                codes.append(self.run_db("upgrade", FakeDocker()))
+                codes.append(self.run_db("recover", FakeDocker()))
+            return inner(argv)
+
+        self.run_up(runner)
+        self.assertEqual(codes, [exit_codes.DB_UPGRADE_FAILED] * 3)
+        self.assertEqual(self.major(), "18")
+
+    def _upgraded_record_only(self):
+        self.kept.mkdir()
+        (self.kept / "PG_VERSION").write_text("9.6\n")
+        self.backup.mkdir(parents=True)
+        (self.backup / "upgrade.json").write_text(json.dumps({"from": "9.6", "to": "18", "kept": str(self.kept), "image": TARGET}))
+
+    def test_r2_02_reset_and_db_commands_exclude_each_other(self):
+        ctx = Context(root=self.root, yes=True, stdin_is_tty=False)
+        with database.operation_lock(ctx), redirect_stdout(self.out), redirect_stderr(self.err):
+            self.assertEqual(lifecycle.run(ctx, argparse.Namespace(lifecycle_action="reset"), runner=FakeDocker(), rmtree=lambda p: None),
+                             exit_codes.DB_UPGRADE_FAILED)
+        self.assertEqual(self.major(), "9.6")
+        codes = []
+
+        def rmtree(path):  # a db command attempted while reset deletes
+            codes.append(self.run_db("upgrade", FakeDocker()))
+            import shutil
+            shutil.rmtree(path)
+
+        with redirect_stdout(self.out), redirect_stderr(self.err):
+            self.assertEqual(lifecycle.run(ctx, argparse.Namespace(lifecycle_action="reset"), runner=FakeDocker(), rmtree=rmtree), exit_codes.OK)
+        self.assertEqual(codes, [exit_codes.DB_UPGRADE_FAILED])
+
+    def test_r2_03_recovery_syncs_the_renames_before_the_record_and_the_journal(self):
+        for action in ("upgrade", "rollback"):
+            with self.subTest(action=action):
+                self.fresh()
+                runner = FakeDocker()
+                if action == "rollback":
+                    self._upgraded()
+                real, count = os.rename, [0]
+
+                def rename(a, b):
+                    count[0] += 1
+                    if count[0] == 2:
+                        raise Crash("gap")
+                    real(a, b)
+
+                with mock.patch.object(database.os, "rename", side_effect=rename), self.assertRaises(Crash):
+                    self.run_db(action, runner, stamp=TS + "r" if action == "rollback" else TS)
+                order = []
+                real_sync, real_drop = database._fsync_dir, database._drop_journal
+                with mock.patch.object(database, "_fsync_dir", side_effect=lambda p: (order.append(("sync", Path(p))), real_sync(p))), \
+                        mock.patch.object(database, "_drop_journal", side_effect=lambda c: (order.append(("drop", None)), real_drop(c))):
+                    self.assertEqual(self.run_db("recover", runner), exit_codes.OK)
+                first_sync = order.index(("sync", self.data.parent))
+                self.assertLess(first_sync, order.index(("drop", None)))
+
+    def test_r2_03_a_failed_directory_sync_is_an_error_and_keeps_recovery_possible(self):
+        with mock.patch.object(database.os, "fsync", side_effect=OSError(errno.EIO, "disk error")):
+            with self.assertRaises(OSError):
+                database._fsync_dir(self.runtime)
+        with mock.patch.object(database.os, "fsync", side_effect=OSError(errno.EINVAL, "not supported")):
+            database._fsync_dir(self.runtime)  # a filesystem that cannot sync directories is not a failure
+        # the first journal sync fails: nothing starts
+        runner = FakeDocker()
+        with mock.patch.object(database, "_fsync_dir", side_effect=OSError(errno.EIO, "disk error")):
+            self.assertEqual(self.run_db("upgrade", runner), exit_codes.DB_UPGRADE_FAILED)
+        self.assertEqual(runner.runs(), [])
+        self.assertFalse(self.journal.exists())
+        # a sync fails during recovery after a rename: the journal stays, a later recovery completes
+        runner = self._crash_before_swap("upgrade")
+        real_sync = database._fsync_dir
+
+        def sync(path):
+            if Path(path) == self.data.parent:
+                raise OSError(errno.EIO, "disk error")
+            real_sync(path)
+
+        with mock.patch.object(database, "_fsync_dir", side_effect=sync):
+            self.assertEqual(self.run_db("recover", runner), exit_codes.DB_UPGRADE_FAILED)
+        self.assertTrue(self.journal.exists())
+        self.assertEqual(self.run_db("recover", runner), exit_codes.OK)
+        self.assertEqual(self.major(), "18")
+        self.assertTrue((self.backup / "upgrade.json").exists())
+
+    def test_r2_04_a_non_ascii_pg_version_is_exit_15_not_a_traceback(self):
+        (self.data / "PG_VERSION").write_bytes(b"\xff\n")
+        self.assertIsNone(database.data_major(self.data))
+        runner = FakeDocker()
+        self.assertEqual(self.run_up(runner), exit_codes.DB_UPGRADE_FAILED)
+        self.assertIn("cannot read the PostgreSQL major", self.err.getvalue())
+        self.assertFalse([c for c in runner.calls if c[:2] == ["docker", "compose"]])
+        self.assertEqual(self.run_db("upgrade", FakeDocker()), exit_codes.DB_UPGRADE_FAILED)
+        self.assertEqual(self.run_db("status", FakeDocker()), exit_codes.OK)
+        self.assertIn("unknown", self.out.getvalue())
+
+        def undecodable(argv):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        self._unreadable()
+        self.assertIsNone(database.data_major(self.data, undecodable, TARGET))
+
 
 if __name__ == "__main__":
     unittest.main()
