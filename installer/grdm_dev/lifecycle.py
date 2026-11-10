@@ -1,7 +1,8 @@
 """grdm-dev up / down / reset — container lifecycle for the rendered profile (SPEC-02 §3, §7).
 
-up     refuses (exit 15) a runtime/volumes/postgres_data written by another PostgreSQL major than the rendered
-       image (database.preflight, ADR-12); then `docker compose up -d`, then wait for health (exit 40 on timeout),
+up     finishes or rolls back an interrupted `db upgrade`/`db rollback`, then refuses (exit 15) a
+       runtime/volumes/postgres_data written by another PostgreSQL major than the rendered image, or one whose major
+       cannot be read (database.recover_pending, database.preflight, ADR-12); then `docker compose up -d`, then wait for health (exit 40 on timeout),
        then open the browser at http://127.0.0.1:<GRDM_PORT_WEB> unless --no-open; the browser is only opened when stdin is a
        terminal. Idempotent: healthy services are left alone by Compose.
 down   `docker compose down` — containers stop, volumes stay.
@@ -102,8 +103,9 @@ def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT
     bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
     if bad_paths:
         return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
-    # a server refuses a data directory of another major; say so before Compose starts it (ADR-12)
-    db_problem = database.preflight(ctx, runner or health.default_runner)
+    # an interrupted `db upgrade`/`db rollback` is finished or rolled back first; then a server refuses a data
+    # directory of another major, or one whose major cannot be read: say so before Compose starts it (ADR-12)
+    db_problem = database.recover_pending(ctx, runner or health.default_runner) or database.preflight(ctx, runner or health.default_runner)
     if db_problem:
         return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, db_problem)
     runner = runner or streaming_runner
@@ -178,6 +180,10 @@ def run_reset(ctx: Context, runner=None, rmtree=None) -> int:
     problem = refused()
     if problem:
         return report.error(ctx, exit_codes.RESET_FAILED, f"refusing to delete: {problem}")
+    # a pending `grdm-dev db` operation may still own helper containers on these directories (ADR-12)
+    pending = database.recover_pending(ctx, runner or health.default_runner)
+    if pending:
+        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, pending)
     if health.compose_path(ctx).exists():
         rc = run_down(ctx, runner=runner, volumes=True)
         if rc != exit_codes.OK:

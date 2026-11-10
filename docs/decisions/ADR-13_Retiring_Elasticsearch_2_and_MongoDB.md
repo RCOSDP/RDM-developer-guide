@@ -1,12 +1,13 @@
 # ADR-13 Retiring Elasticsearch 2 and MongoDB / Elasticsearch 2 と MongoDB の退役
 
-> **Summary:** Measured findings and a proposal for the two remaining M5 removals. **Elasticsearch 2:** osf.io's search code cannot run on Elasticsearch 6.8 or OpenSearch 2.19, even after a shim for the missing Content-Type header: an index holds one mapping type only, and every query fails to parse. Turning search off (`SEARCH_ENGINE = None`) keeps writes working but makes five read endpoints answer 500 or `null`; a prototype patch of about 50 lines makes all of them answer well-formed empty results and moves contributor search to PostgreSQL with the same institution rule. A real port to Elasticsearch 8 or OpenSearch means rewriting about 5,300 lines in the integration repository. **MongoDB:** only sharejs uses it. osf.io's own reader (the `/draft/` route) resolves to `mongodb://postgres:5432/sharejs` in this environment and times out after 30 s. The only browser feature on sharejs is the file page's text editor, whose real-time co-editing is what retiring sharejs removes (since PR #40 sharejs is published on 127.0.0.1:7007; the editor was not exercised in a browser here); the exact steps are listed. Both need owner decisions.
-> **概要:** M5 に残る二つの撤去について、測定した事実と提案をまとめる。**Elasticsearch 2:** osf.io の検索コードは、欠けている Content-Type ヘッダーを補う互換層を入れても、Elasticsearch 6.8 でも OpenSearch 2.19 でも動かない。一つのインデックスは一つのマッピング型しか持てず、すべての問い合わせが構文解析で失敗する。検索を切る（`SEARCH_ENGINE = None`）と書き込みは動くが、読み取りの五つの入口が 500 か `null` を返す。約 50 行の試作パッチで、そのすべてが形の整った空の結果を返し、協力者の検索は同じ機関の規則のまま PostgreSQL に移る。Elasticsearch 8 か OpenSearch への本当の移植は、統合リポジトリで約 5,300 行の書き直しになる。**MongoDB:** 使うのは sharejs だけである。osf.io 自身の読み手（`/draft/` 経路）はこの環境では `mongodb://postgres:5432/sharejs` を指して 30 秒で時間切れになる。sharejs に乗るブラウザの機能はファイルページのテキストエディタだけで、sharejs の退役で失われるのはその実時間の共同編集である（PR #40 以降 sharejs は 127.0.0.1:7007 で公開されている。ここではブラウザでエディタを試していない）。正確な手順を挙げる。どちらも所有者の判断が要る。
+> **Summary:** Measured findings and a proposal for the two remaining M5 removals. **Elasticsearch 2:** osf.io's search code cannot run on Elasticsearch 6.8 or OpenSearch 2.19, even after a shim for the missing Content-Type header: an index holds one mapping type only, and every query fails to parse. Turning search off (`SEARCH_ENGINE = None`) keeps writes working but makes five read endpoints answer 500 or `null`; a prototype patch of about 50 lines makes all of them answer well-formed empty results and moves contributor search to PostgreSQL with the same institution rule. A real port to Elasticsearch 8 or OpenSearch works on an affected code surface of about 5,300 lines in the integration repository. **MongoDB:** only sharejs uses it. osf.io's own reader (the `/draft/` route) resolves to `mongodb://postgres:5432/sharejs` in this environment and times out after 30 s. The only browser feature on sharejs is the file page's text editor, whose real-time co-editing is what retiring sharejs removes (since PR #40 sharejs is published on 127.0.0.1:7007; the editor was not exercised in a browser here); the exact steps are listed. On 2026-11-10 the owner chose the port to Elasticsearch 8 with full-text search, and the move of the file-page editor to y-websocket before sharejs and mongo are retired; both are in progress (§4).
+> **概要:** M5 に残る二つの撤去について、測定した事実と提案をまとめる。**Elasticsearch 2:** osf.io の検索コードは、欠けている Content-Type ヘッダーを補う互換層を入れても、Elasticsearch 6.8 でも OpenSearch 2.19 でも動かない。一つのインデックスは一つのマッピング型しか持てず、すべての問い合わせが構文解析で失敗する。検索を切る（`SEARCH_ENGINE = None`）と書き込みは動くが、読み取りの五つの入口が 500 か `null` を返す。約 50 行の試作パッチで、そのすべてが形の整った空の結果を返し、協力者の検索は同じ機関の規則のまま PostgreSQL に移る。Elasticsearch 8 か OpenSearch への本当の移植は、統合リポジトリの約 5,300 行の影響範囲での作業になる。**MongoDB:** 使うのは sharejs だけである。osf.io 自身の読み手（`/draft/` 経路）はこの環境では `mongodb://postgres:5432/sharejs` を指して 30 秒で時間切れになる。sharejs に乗るブラウザの機能はファイルページのテキストエディタだけで、sharejs の退役で失われるのはその実時間の共同編集である（PR #40 以降 sharejs は 127.0.0.1:7007 で公開されている。ここではブラウザでエディタを試していない）。正確な手順を挙げる。2026-11-10 に所有者は、全文検索を保った Elasticsearch 8 への移植と、sharejs と mongo の退役に先立つファイルページのエディタの y-websocket への移行を選んだ。どちらも進行中である（§4）。
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-10. **Learned:** a setting that "disables" a backend is not a supported mode until every reader handles the empty answer: `SEARCH_ENGINE = None` was accepted by every write path and broke every read path, and a client library pinned to an old server fails on the first header before any real incompatibility shows. ／ バックエンドを「無効にする」設定は、すべての読み手が空の答えを扱えるまで、支えられた動作モードではない。`SEARCH_ENGINE = None` はすべての書き込みの経路に受け入れられ、すべての読み取りの経路を壊した。また古いサーバーに合わせたクライアントライブラリは、本当の非互換が見える前に最初のヘッダーで失敗する。
-- Status: Proposed (2026-11-10, M5 groundwork); the owner approves. Nothing is removed by this record; the removals are owner decisions (§4).
+- Version / 版: 0.2 — 2026-11-10. **Learned:** a finding is only as wide as its measurement: the drafts claim covered one reader, the line count is a code surface rather than work measured, and "every page" meant the probed entry points; and once the owner has chosen, the record keeps the options as the reasons for the choice (§4, PR #42 review r1). ／ 事実の広さは測定の広さまでである。下書きの主張は一つの読み手にしか及ばず、行数は作業量の実測ではなくコードの範囲で、「すべてのページ」は調べた入口のことだった。所有者が選んだ後は、選択肢を選んだ理由として記録に残す（§4、PR #42 レビュー r1）。
+  0.1 — 2026-11-10. **Learned:** a setting that "disables" a backend is not a supported mode until every reader handles the empty answer: `SEARCH_ENGINE = None` was accepted by every write path and broke every read path, and a client library pinned to an old server fails on the first header before any real incompatibility shows. ／ バックエンドを「無効にする」設定は、すべての読み手が空の答えを扱えるまで、支えられた動作モードではない。`SEARCH_ENGINE = None` はすべての書き込みの経路に受け入れられ、すべての読み取りの経路を壊した。また古いサーバーに合わせたクライアントライブラリは、本当の非互換が見える前に最初のヘッダーで失敗する。
+- Status: Proposed (2026-11-10, M5 groundwork); the owner approves the record. The owner chose the paths on 2026-11-10 (§4); nothing is removed by this record.
 - Records a decision for: nothing yet; it proposes changes to `manifest/upstreams.json` (`elasticsearch2`, `mongo`, `sharejs`), [SPEC-04](../spec/04_acceptance_tests.md#english) (C4 services) and the osf.io integration repository.
 - Related: [docs/decisions/README.md](README.md) · [ADR-07 §5](ADR-07_Native_Builds_of_EOL_Middleware.md#english) (sharejs on Node 24) · [ADR-12 PostgreSQL 18](ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md) · [Status board](../status/README.md#english)
 
@@ -43,8 +44,8 @@ The client is `elasticsearch2` 2.5.0 (the old Python client under a renamed pack
 ```toon
 paths[3]{path,where,cost,keeps}:
   "A: keep ES 2.4.6 (native build, ADR-07)","nothing","an EOL engine stays past M5; the M5 row is not met","full search"
-  "B: search off + patch (prototype measured)","osf.io integration repository (about 50 lines in website/search, tests for the five entry points); installer: drop elasticsearch2, the osf_init wait loop and ELASTIC_URI","no full-text search of projects, files, wikis or metadata; contributor search becomes substring matching without kana normalisation or fuzziness","writes, contributor search with the institution rule, every page loads"
-  "C: port to Elasticsearch 8 or OpenSearch","osf.io integration repository: rewrite about 5,300 lines (one index per document type or a type field, the query builders, the client, the Japanese analyzer setup, the search migration)","weeks of work and its own review; a new image and data volume","full search on a supported engine"
+  "B: search off + patch (prototype measured)","osf.io integration repository (about 50 lines in website/search, tests for the five entry points); installer: drop elasticsearch2, the osf_init wait loop and ELASTIC_URI","no full-text search of projects, files, wikis or metadata; contributor search becomes substring matching without kana normalisation or fuzziness","writes, contributor search with the institution rule; every probed entry point answers 200"
+  "C: port to Elasticsearch 8 or OpenSearch","osf.io integration repository: work on an affected code surface of about 5,300 lines — a size of the code bound to ES 2, not a measured count of lines to change — (one index per document type or a type field, the query builders, the client, the Japanese analyzer setup, the search migration)","weeks of work and its own review; a new image and data volume","full search on a supported engine"
 ```
 
 ### 3. MongoDB and sharejs: findings
@@ -59,14 +60,56 @@ paths[3]{path,where,cost,keeps}:
 **Retirement plan (in this order).**
 
 1. *osf.io integration repository, first PR.* Choose the file-page editor: (a) a plain editor that saves through WaterButler as today, without co-editing, or (b) a Yjs document per file on y-websocket, with a token from osf.io (`generate_y_websocket_token` with a file-scoped room and a WRITE check) and an editor binding. Remove the sharejs script tags from `view_file.mako`; remove `wiki_page_draft` and its route, `WikiVersion.get_draft`, `get_sharejs_content`, `delete_share_doc`, `migrate_uuid`, `share_db`, `broadcast_to_sharejs` with its calls, and `update_active_sharejs`; the `SHAREJS_*` settings; `pymongo==3.7.1` from `requirements.txt`; the sharejs parts of the tests in `addons/wiki/tests/` (5 files) and `tests/test_addons.py`. Keep `wiki_private_uuids` and `get_sharejs_uuid`: y-websocket room names come from them.
-2. *Data.* Before removal, a developer who wants the drafts runs `mongoexport` of `sharejs.docs` into `runtime/backups/`; otherwise they are discarded. Drafts never reached osf.io here (item 1 above).
+2. *Data.* Before removal, a developer who wants the drafts runs `mongoexport` of `sharejs.docs` into `runtime/backups/`; otherwise they are discarded. The measured wiki reader (`share_db`) cannot reach them here (item 1 above); that does not prove that no draft text reached a saved file, because the file page saves its text through its own HTTP PUT.
 3. *This repository, second PR.* Remove the `mongo` and `sharejs` components, `templates/mongo.json`, `templates/sharejs.json`, `installer/images/sharejs/`, `sharejs.env`, the published port 7007 and the browser's `SHAREJS_URL` from `compose render` (PR #40), the volumes `mongo_data` and `mongo_tls`, the `mongo` entry of `manifest/hardening.json`, `SHAREJS_SECRET` from the templates and `secrets.py` once osf.io stops reading it, and `sharejs` from the C4 services in SPEC-04. Bump the osf.io pin to the commit of step 1.
 
-### 4. Owner decisions
+### 4. Owner decisions (2026-11-10)
 
-1. Elasticsearch 2: path A, B or C of §2 for M5; if B, whether the full-text port (C) is planned later and where.
-2. File-page editor: (a) without co-editing or (b) on y-websocket.
-3. Drafts in mongo: export or discard.
+1. **Elasticsearch 2: path C now.** osf.io search is ported to Elasticsearch 8, keeping full-text search; the work is in progress in the osf.io integration repository. Path B stays recorded as the measured fallback, not the plan.
+2. **File page: choice (b).** The file-page editor moves from sharejs to y-websocket; then sharejs and mongo are retired by the steps of §3 (in progress). The drafts question (step 2) follows from that work.
+3. **Also decided for M4 (recorded here because it was decided the same day):** freecad is removed from MFR, and the remaining OS packages for which the distribution publishes no fix are allow-listed.
+
+### 5. The prototype of path B (author-reported)
+
+The measurement logs and the prototype were throwaway files; their numbers in §2 are as reported by the author. The prototype, for reproduction, was loaded before Django set up the search module:
+
+```python
+import math
+from django.db.models import Q
+from website.search import search as _search
+
+
+def _empty(*args, **kwargs):
+    counts = dict.fromkeys(('total', 'users', 'projects', 'components', 'registrations', 'files',
+                            'institutions', 'collectionSubmissions'), 0)
+    return {'results': [], 'counts': {'total': 0}, 'aggs': counts, 'tags': [], 'typeAliases': {}}
+
+
+def search_contributor(query, page=0, size=10, exclude=None, current_user=None):
+    from osf.models import OSFUser
+    from website.profile.utils import profile_image_url
+    from website import settings
+    qs = OSFUser.objects.filter(is_active=True, is_registered=True, merged_by__isnull=True)
+    for word in (query or '').split():
+        qs = qs.filter(Q(fullname__icontains=word) | Q(username__iexact=word))
+    if exclude:
+        qs = qs.exclude(id__in=[u.id for u in exclude])
+    if current_user and current_user.affiliated_institutions.exists():
+        qs = qs.filter(affiliated_institutions__in=current_user.affiliated_institutions.all()).distinct()
+    total = qs.count()
+    users = [{'fullname': u.fullname, 'id': u._id, 'employment': None, 'education': None, 'social': u.social_links,
+              'n_projects_in_common': -1 if current_user and current_user._id == u._id
+              else (current_user.n_projects_in_common(u) if current_user else 0),
+              'profile_image_url': profile_image_url(settings.PROFILE_IMAGE_PROVIDER, u, use_ssl=True,
+                                                     size=settings.PROFILE_IMAGE_MEDIUM),
+              'profile_url': u.profile_url, 'registered': u.is_registered, 'active': u.is_active}
+             for u in qs.order_by('fullname')[page * size:(page + 1) * size]]
+    return {'users': users, 'total': total, 'pages': math.ceil(total / size), 'page': page}
+
+
+_search.search = _empty
+_search.search_contributor = search_contributor
+```
 
 ---
 
@@ -101,8 +144,8 @@ search_modes[7]{mode,create_index_and_writes,reads}:
 ```toon
 paths[3]{path,where,cost,keeps}:
   "A: ES 2.4.6 を残す（ネイティブのビルド、ADR-07）","なし","EOL のエンジンが M5 の後も残る。M5 の行を満たさない","検索のすべて"
-  "B: 検索を切る＋パッチ（試作を測定済み）","osf.io の統合リポジトリ（website/search に約 50 行と、五つの入口の試験）。インストーラーでは elasticsearch2、osf_init の待ちの繰り返し、ELASTIC_URI を除く","プロジェクト・ファイル・wiki・メタデータの全文検索がなくなる。協力者の検索は部分一致になり、かなの正規化とあいまい一致がなくなる","書き込み、機関の規則つきの協力者の検索、すべてのページの表示"
-  "C: Elasticsearch 8 か OpenSearch へ移植","osf.io の統合リポジトリ: 約 5,300 行の書き直し（文書型ごとのインデックスか型の欄、問い合わせの組み立て、クライアント、日本語の解析器の設定、検索の移行）","数週間の作業と独自のレビュー。新しいイメージとデータボリューム","支えられたエンジンでの検索のすべて"
+  "B: 検索を切る＋パッチ（試作を測定済み）","osf.io の統合リポジトリ（website/search に約 50 行と、五つの入口の試験）。インストーラーでは elasticsearch2、osf_init の待ちの繰り返し、ELASTIC_URI を除く","プロジェクト・ファイル・wiki・メタデータの全文検索がなくなる。協力者の検索は部分一致になり、かなの正規化とあいまい一致がなくなる","書き込み、機関の規則つきの協力者の検索。調べた入口はすべて 200"
+  "C: Elasticsearch 8 か OpenSearch へ移植","osf.io の統合リポジトリ: 約 5,300 行の影響範囲での作業（ES 2 に結びついたコードの大きさであり、変える行数の実測ではない）（文書型ごとのインデックスか型の欄、問い合わせの組み立て、クライアント、日本語の解析器の設定、検索の移行）","数週間の作業と独自のレビュー。新しいイメージとデータボリューム","支えられたエンジンでの検索のすべて"
 ```
 
 ### 3. MongoDB と sharejs: 事実
@@ -117,14 +160,18 @@ paths[3]{path,where,cost,keeps}:
 **退役の手順（この順で）。**
 
 1. *osf.io の統合リポジトリ、最初の PR。* ファイルページのエディタを選ぶ。(a) 共同編集なしで今と同じく WaterButler を通して保存する素のエディタ、または (b) y-websocket 上のファイルごとの Yjs 文書。トークンは osf.io から出し（ファイル単位の部屋と WRITE の確認を加えた `generate_y_websocket_token`）、エディタの結び付けを使う。`view_file.mako` から sharejs の script タグを除く。`wiki_page_draft` とその経路、`WikiVersion.get_draft`、`get_sharejs_content`、`delete_share_doc`、`migrate_uuid`、`share_db`、`broadcast_to_sharejs` とその呼び出し、`update_active_sharejs` を除く。`SHAREJS_*` の設定、`requirements.txt` の `pymongo==3.7.1`、`addons/wiki/tests/` の試験（5 ファイル）と `tests/test_addons.py` の sharejs の部分も除く。`wiki_private_uuids` と `get_sharejs_uuid` は残す。y-websocket の部屋の名前がそこから作られるからである。
-2. *データ。* 撤去の前に、下書きが欲しい開発者は `sharejs.docs` を `mongoexport` で `runtime/backups/` に書き出す。そうでなければ捨てる。下書きはここでは osf.io に一度も届いていない（上の 1）。
+2. *データ。* 撤去の前に、下書きが欲しい開発者は `sharejs.docs` を `mongoexport` で `runtime/backups/` に書き出す。そうでなければ捨てる。測定した wiki の読み手（`share_db`）はここでは下書きに届かない（上の 1）。ただしファイルページは自分の HTTP PUT で本文を保存するので、下書きの文が保存済みのファイルに一度も届いていないことの証明にはならない。
 3. *本リポジトリ、二つ目の PR。* 部品 `mongo` と `sharejs`、`templates/mongo.json`、`templates/sharejs.json`、`installer/images/sharejs/`、`compose render` の `sharejs.env`、公開ポート 7007、ブラウザ向けの `SHAREJS_URL`（PR #40）、ボリューム `mongo_data` と `mongo_tls`、`manifest/hardening.json` の `mongo` の項目を除く。`SHAREJS_SECRET` は osf.io が読まなくなった後でテンプレートと `secrets.py` から除く。SPEC-04 の C4 のサービスから `sharejs` を除く。osf.io の固定を手順 1 のコミットに上げる。
 
-### 4. 所有者の判断
+### 4. 所有者の判断（2026-11-10）
 
-1. Elasticsearch 2: M5 で §2 の道 A・B・C のどれを取るか。B なら、全文検索の移植（C）を後で行うか、どこで行うか。
-2. ファイルページのエディタ: (a) 共同編集なし、または (b) y-websocket。
-3. mongo の下書き: 書き出すか捨てるか。
+1. **Elasticsearch 2: 道 C を今行う。** osf.io の検索を全文検索を保ったまま Elasticsearch 8 へ移植する。作業は osf.io の統合リポジトリで進行中である。道 B は測定した代替として記録に残すが、計画ではない。
+2. **ファイルページ: (b) を選ぶ。** ファイルページのエディタを sharejs から y-websocket へ移し、その後 §3 の手順で sharejs と mongo を退役させる（進行中）。下書きの扱い（手順 2）はその作業の中で決まる。
+3. **M4 についても同日に決定（同じ日の決定なのでここに記録する）:** MFR から freecad を除き、配布元が修正を出していない残りの OS パッケージは許容リストに入れる。
+
+### 5. 道 B の試作（著者の報告）
+
+測定のログと試作は使い捨てのファイルだったので、§2 の数値は著者の報告による。再現のための試作を英語の節 §5 に載せた。Django が検索のモジュールを用意する前に読み込んだ。
 
 ---
 

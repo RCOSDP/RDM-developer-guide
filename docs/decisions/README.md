@@ -34,7 +34,7 @@ A *decision record* (ADR) explains why we chose one way and not another. This fo
 | ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend is an overlay of osf.io (`overlay_of`): a bundle-builder image from the merged tree, tagged `<osf_sha12>-<wiki_sha12>`, run once by `wiki_assets` into the volume `wiki_static`; no `wiki` server. |
 | ADR-07 | [ADR-07_Native_Builds_of_EOL_Middleware.md](./ADR-07_Native_Builds_of_EOL_Middleware.md) | EOL middleware that only ships amd64 images is built natively for both architectures from the official artefact on a digest-pinned base (`image_build`, MC-15); first Elasticsearch 2.4.6, which took 38 minutes to start under emulation and 5 seconds natively (real install run 19). | Proposed 2026-11-06 |
 | ADR-12 | [ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md](./ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md) | PostgreSQL 9.6 → 18.6 (digest-pinned); md5 host auth until CAS has a SCRAM-capable JDBC driver; `grdm-dev db upgrade` dumps and restores with verification and keeps the old directory, `db rollback` puts it back, `up` refuses a mismatched major (exit 15). Status: Proposed. |
-| ADR-13 | [ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md](./ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md) | Measured: osf.io search does not run on ES 6.8 or OpenSearch; search off needs a ~50-line patch; mongo serves only sharejs, whose file-page co-editing is what retirement removes. Retirement steps and owner decisions. Status: Proposed. |
+| ADR-13 | [ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md](./ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md) | Measured: osf.io search does not run on ES 6.8 or OpenSearch; search off needs a ~50-line patch; mongo serves only sharejs, whose file-page co-editing is what retirement removes. Retirement steps; owner decisions of 2026-11-10: ES 8 port with full-text search, file-page editor on y-websocket. Status: Proposed. |
 
 Reserved or planned numbers (no record in this tree yet):
 
@@ -83,7 +83,7 @@ flowchart TD
 | ADR-06 | [ADR-06_Wiki_Frontend_Overlay.md](./ADR-06_Wiki_Frontend_Overlay.md) | wiki-frontend は osf.io のオーバーレイ（`overlay_of`）：重ねた木から束を組むイメージ（タグ `<osf の sha12>-<wiki の sha12>`）を `wiki_assets` が一度動かしてボリューム `wiki_static` へ写す。`wiki` サーバは無い。 |
 | ADR-07 | [ADR-07_Native_Builds_of_EOL_Middleware.md](./ADR-07_Native_Builds_of_EOL_Middleware.md) | amd64 のイメージしか無い EOL ミドルウェアは、公式成果物からダイジェスト固定のベース上に両アーキテクチャ向けにネイティブで組む（`image_build`、MC-15）。まず Elasticsearch 2.4.6。エミュレーションでは起動に 38 分、ネイティブでは 5 秒（実機第 19 回）。 | 提案 2026-11-06 |
 | ADR-12 | [ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md](./ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md) | PostgreSQL 9.6 → 18.6（ダイジェスト固定）。CAS が SCRAM に対応した JDBC ドライバーを持つまでホスト認証は md5。`grdm-dev db upgrade` は照合つきでダンプと復元を行い旧ディレクトリを残し、`db rollback` はそれを戻し、`up` は版の不一致を拒む（終了 15）。ステータス: 提案中。 |
-| ADR-13 | [ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md](./ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md) | 測定: osf.io の検索は ES 6.8 でも OpenSearch でも動かない。検索を切るには約 50 行のパッチが要る。mongo は sharejs にしか使われず、退役で失うのはそのファイルページの共同編集である。退役の手順と所有者の判断。ステータス: 提案中。 |
+| ADR-13 | [ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md](./ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md) | 測定: osf.io の検索は ES 6.8 でも OpenSearch でも動かない。検索を切るには約 50 行のパッチが要る。mongo は sharejs にしか使われず、退役で失うのはそのファイルページの共同編集である。退役の手順。2026-11-10 の所有者の判断: 全文検索を保つ ES 8 への移植、ファイルページのエディタの y-websocket への移行。ステータス: 提案中。 |
 
 予約済み・予定の番号（この木にはまだ記録が無い）：
 

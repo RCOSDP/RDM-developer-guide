@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.12 — 2026-11-10. **Learned:** M5 work started before M2 closed, so M5 gets its own open-items table now (rule 3): one part is done and measured (PostgreSQL 18), the other two wait for owner decisions (ADR-13). ／ M5 の作業は M2 が閉じる前に始まったので、M5 にも今から専用の残件表を置く（規則 3）。一つは完了して測定済み（PostgreSQL 18）、残る二つは所有者の判断待ち（ADR-13）。
+- Version / 版: 0.13 — 2026-11-10. **Learned:** an owner decision changes a waiting row into a working row the same day, so the M5 rows now name the chosen paths, and a merged-looking row keeps its review state (PR #42 review r1). ／ 所有者の判断は待ちの行をその日のうちに作業中の行に変えるので、M5 の行は選ばれた道を書き、マージ済みに見える行もレビューの状態を保つ（PR #42 レビュー r1）。
+  0.12 — 2026-11-10. **Learned:** M5 work started before M2 closed, so M5 gets its own open-items table now (rule 3): one part is done and measured (PostgreSQL 18), the other two wait for owner decisions (ADR-13). ／ M5 の作業は M2 が閉じる前に始まったので、M5 にも今から専用の残件表を置く（規則 3）。一つは完了して測定済み（PostgreSQL 18）、残る二つは所有者の判断待ち（ADR-13）。
   0.11 — 2026-11-10. **Learned:** an open row that a later all-green row depends on must be closed in the same change, or the board contradicts itself (PR #40 review r1 R1-03). ／ 後の全件合格の行が前提にしている未完了の行は、同じ変更で閉じなければボードが自己矛盾する（PR #40 レビュー r1 R1-03）。
   0.10 — 2026-11-10. **Learned:** a scenario that passes only on a stack built from the pinned commits is evidence; a pass on a stack still running older images is not, because Compose kept the tags recorded by the previous build. ／ 固定した版から組んだスタックで通った試験だけが証拠になる。古いイメージのままのスタックでの合格は証拠にならない。Compose は前回のビルドが記録したタグを使い続けたからである。
   0.9 — 2026-11-10. **Learned:** acceptance counts per scenario belong on the board, because a single pass count hides which link is broken. ／ 受入の件数はシナリオごとにボードへ書く。合格数だけでは、どの連携が壊れているか分からない。
@@ -71,10 +72,10 @@
 
 | Item | Status |
 |---|---|
-| PostgreSQL 9.6 → 18.6, `grdm-dev db status/upgrade/rollback`, `up` refuses a mismatched major (exit 15) | 🔄 Implemented on branch `feat/m5-data-tier`, not pushed ([ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#english)): osf.io DB tests equal on 9.6 and 18 (781 passed, same 13 failed or erred); a 9.6 cluster upgraded in 37 s with 531 objects equal; CAS and fakecas log in; rollback measured. Not run on amd64 or on a Linux host |
+| PostgreSQL 9.6 → 18.6, `grdm-dev db status/upgrade/rollback`, `up` refuses a mismatched major (exit 15) | 🔄 PR #42 (review r1 changes addressed) ([ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#english)): osf.io DB tests equal on 9.6 and 18 (781 passed, same 13 failed or erred); a 9.6 cluster upgraded in 37 s with 531 objects equal; CAS and fakecas log in; rollback measured; after review r1 a journal and a lock make a crash at any step recoverable (SIGKILL and SIGTERM measured, ADR-12 §4.1). PR #42. Not run on amd64 or on a Linux host |
 | SCRAM for PostgreSQL | ⏳ Owner: CAS needs a JDBC driver ≥ 42.2 in RDM-cas-overlay-dev2027 (42.1.4 fails with `authentication type 10`) |
-| Elasticsearch 2 retirement | ⏳ Owner decision between keep, search off with a ~50-line osf.io patch, or a port of about 5,300 lines ([ADR-13 §2](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)) |
-| MongoDB and sharejs retirement | ⏳ Owner decisions: file-page editor without co-editing or on y-websocket (sharejs is published since PR #40, so its co-editing is what retirement removes); drafts exported or discarded ([ADR-13 §3](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)) |
+| Elasticsearch 2 retirement | 🔄 Owner decision 2026-11-10: port osf.io search to Elasticsearch 8, keeping full-text search; in progress in the osf.io integration repository ([ADR-13 §4](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)) |
+| MongoDB and sharejs retirement | 🔄 Owner decision 2026-11-10: the file-page editor moves from sharejs to y-websocket, then sharejs and mongo are retired by ADR-13 §3; in progress |
 | Elasticsearch 6 → 8 (metrics) | ⏳ Not started |
 
 ### 3. Rules
@@ -136,10 +137,10 @@ This board is the **single source of truth** for milestone progress:
 
 | 項目 | ステータス |
 |---|---|
-| PostgreSQL 9.6 → 18.6、`grdm-dev db status/upgrade/rollback`、`up` は版の不一致を拒む（終了 15） | 🔄 ブランチ `feat/m5-data-tier` に実装、未 push（[ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#japanese)）: osf.io の DB 試験は 9.6 と 18 で同じ（781 合格、同じ 13 件が失敗かエラー）。9.6 のクラスタを 37 秒で更新し 531 件が一致。CAS と fakecas はログインできた。巻き戻しも測定。amd64 と Linux のホストでは未実行 |
+| PostgreSQL 9.6 → 18.6、`grdm-dev db status/upgrade/rollback`、`up` は版の不一致を拒む（終了 15） | 🔄 PR #42（レビュー r1 の指摘に対応）（[ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#japanese)）: osf.io の DB 試験は 9.6 と 18 で同じ（781 合格、同じ 13 件が失敗かエラー）。9.6 のクラスタを 37 秒で更新し 531 件が一致。CAS と fakecas はログインできた。巻き戻しも測定。レビュー r1 の後、操作記録とロックでどの段階のクラッシュも復旧できる（SIGKILL と SIGTERM を測定、ADR-12 §4.1）。amd64 と Linux のホストでは未実行 |
 | PostgreSQL の SCRAM | ⏳ 所有者: RDM-cas-overlay-dev2027 で CAS に 42.2 以降の JDBC ドライバーが要る（42.1.4 は `authentication type 10` で失敗） |
-| Elasticsearch 2 の退役 | ⏳ 所有者の判断: 残す、約 50 行の osf.io のパッチで検索を切る、約 5,300 行を移植する、のどれか（[ADR-13 §2](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)） |
-| MongoDB と sharejs の退役 | ⏳ 所有者の判断: ファイルページのエディタを共同編集なしにするか y-websocket に載せるか（PR #40 以降 sharejs は公開されており、退役で失うのはその共同編集）。下書きを書き出すか捨てるか（[ADR-13 §3](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)） |
+| Elasticsearch 2 の退役 | 🔄 2026-11-10 の所有者の判断: 全文検索を保ったまま osf.io の検索を Elasticsearch 8 へ移植する。osf.io の統合リポジトリで進行中（[ADR-13 §4](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)） |
+| MongoDB と sharejs の退役 | 🔄 2026-11-10 の所有者の判断: ファイルページのエディタを sharejs から y-websocket へ移し、その後 ADR-13 §3 の手順で sharejs と mongo を退役させる。進行中 |
 | Elasticsearch 6 → 8（メトリクス） | ⏳ 未着手 |
 
 ### 3. 規則
