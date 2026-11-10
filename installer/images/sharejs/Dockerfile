@@ -26,6 +26,8 @@ RUN set -eux; \
     rm -rf vendor index.js.patch package-lock.json
 
 FROM ${NODE_IMAGE}
+LABEL org.opencontainers.image.base.name="node:24-alpine" \
+      org.opencontainers.image.base.digest="sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8"
 RUN ["rm", "-rf", "/usr/local/lib/node_modules", "/usr/local/bin/npm", "/usr/local/bin/npx", "/usr/local/bin/corepack", "/usr/local/bin/yarn", "/usr/local/bin/yarnpkg", "/opt"]
 WORKDIR /home/node/app
 COPY --from=deps --chown=node:node /home/node/app ./
