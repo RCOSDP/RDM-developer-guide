@@ -455,20 +455,18 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "maven:3.3-jdk-8 + jetty:9.3-jre8-alpine",
-      "base_image_digest": null,
+      "base_image": "jetty:9.4-jre8-eclipse-temurin",
+      "base_image_digest": "sha256:7daefa577844d7618a969c9fe339dafc7dce3e602904ade36616c535b71a27e8",
       "candidate_prs": [],
       "id": "cas-overlay",
       "integration_branch": "develop",
-      "integration_sha": "e3620a25dd45173f5c16a6cd68e1b8b6c37e26c6",
+      "integration_sha": "22610b7681a29241365108e5129bcd43ade4610e",
       "integration_repo": "RDM-cas-overlay-dev2027",
-      "note": "prebuilt_image: the Dockerfile builds with maven:3.3-jdk-8 (EOL) and, under linux/amd64 emulation on Apple Silicon, the Maven build hung for 8 hours in real install run 3 (DEMO-20). Until M4 modernizes the Dockerfile, the distribution image's linux/amd64 manifest is used, pinned by digest. Remove at M4.",
+      "note": "Built natively from the integration repository: its Dockerfile runs Maven (maven:3.9-eclipse-temurin-8, digest-pinned) on the build host's own architecture and the final jetty stage only copies files, so neither architecture emulates the build (ADR-07). JDK 8 stays until M4: the CAS 4.1 service registry fails on JDK 11 and 17.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
-      "build_platform": "linux/amd64",
-      "prebuilt_image": "niicloudoperation/rdm-cas-overlay@sha256:d2f018a957162c4bcaeefdd1645ec7516d0a670199e1813712d91b9e676fa661",
       "profile": "core",
       "role": "core",
       "services": [

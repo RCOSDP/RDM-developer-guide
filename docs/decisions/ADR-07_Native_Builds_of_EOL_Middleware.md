@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.6 — 2026-11-10. **Learned:** review r1 of MFR PR #5 showed that a rename does not prove a transfer is complete and a conversion semaphore does not bound connections, so each transfer now has a declared length, a hard deadline and an authenticated, dedicated path. ／ MFR PR #5 のレビュー r1 で、名前の変更は転送の完了を保証せず、変換のセマフォは接続数を制限しないと分かった。転送ごとに宣言された長さ、固い期限、認証された専用の経路を持たせた。
+- Version / 版: 0.8 — 2026-11-10. **Learned:** a byte count does not make a key usable by its consumer: a manually written key may be 43 `!` or 32 quoted spaces, so every CAS key must also be in the base64url alphabet, must not be a published default, and the TGC encryption key must decode canonically to 32 bytes (PR #39 review r1 R1-01). ／ バイト数だけでは、鍵が使う側で使えるとは言えない。手で書いた鍵は感嘆符 43 個や引用符で囲んだ空白 32 個でありうる。そこで CAS の鍵はすべて base64url の文字に限り、公開された既定値を拒み、TGC の暗号鍵は 32 バイトへ正準に復号できなければならない（PR #39 レビュー r1 R1-01）。
+  0.7 — 2026-11-10. **Learned:** a prebuilt image also freezes out every later fix, and an installer key that nothing reads looks healthy until the real program starts, so CAS moved to a native build from its pinned commit and its keys now carry the names and lengths the image needs (§7). ／ 事前ビルド済みイメージは後の修正もすべて締め出す。また誰も読まないインストーラのキーは、実際のプログラムが起動するまで正常に見える。そこで CAS は固定コミットからのネイティブビルドに移し、キーにはイメージが要する名前と長さを与えた（§7）。
+  0.6 — 2026-11-10. **Learned:** review r1 of MFR PR #5 showed that a rename does not prove a transfer is complete and a conversion semaphore does not bound connections, so each transfer now has a declared length, a hard deadline and an authenticated, dedicated path. ／ MFR PR #5 のレビュー r1 で、名前の変更は転送の完了を保証せず、変換のセマフォは接続数を制限しないと分かった。転送ごとに宣言された長さ、固い期限、認証された専用の経路を持たせた。
   0.5 — 2026-11-10. **Learned:** when a socket protocol cannot cross a version boundary, moving the conversion behind a plain HTTP interface decoupled the two ends and let the converter drop its shared volume and its hardening entry; for sharejs, the driver under the adapter could be replaced without touching the protocol, keeping the OT behaviour. ／ ソケットのプロトコルが版の境界を越えられないとき、変換を素朴な HTTP に移すと両端が切り離され、変換側は共有ボリュームと堅牢化の項目を手放せた。sharejs はアダプタの下のドライバーだけを置き換えられ、OT の動作を保てた。
   0.4 — 2026-11-10. **Learned:** a reproducible lockfile can preserve a fixable vulnerability, so the fix belongs in the lockfile of the component and is pinned here, and the upgrade path stays reachable before authentication because the browser client depends on the 4401 close (PR #37 review r2). ／ 再現可能なロックは修正可能な脆弱性も固定しうるので、修正はその部品のロックで行ってここで固定する。ブラウザのクライアントが 4401 の close に依存するため、upgrade の経路は認証の前でも到達できる（PR #37 レビュー r2）。
   0.3 — 2026-11-10. **Learned:** a rebuilt image is only as safe as the commit and dependency set it is built from, so the image must be tested at the authenticating commit with its lockfile and frozen modules, and a data-volume upgrade needs a restorable snapshot rather than an image reference to go back to (PR #37 review r1). ／ 組み直したイメージの安全性は、組む元のコミットと依存の組で決まる。認証を含むコミットとロックファイル、固定したモジュールでそのイメージを試験しなければならず、データボリュームの更新には戻る先のイメージ参照でなく復元できる snapshot が要る（PR #37 レビュー r1）。
@@ -35,7 +37,7 @@ The same shape — an EOL (end of life: software its maker no longer fixes; see 
 1. **Manifest** (the file that lists every component with its pinned commit; see [REF-01](../reference/REF-01_Glossary.md)). An `infra` component may carry `image_build: {"context": "<repo-relative directory>", "tag": "<recipe version>"}` ([SPEC-01 §3](../spec/01_manifest.md#english), rule MC-15): the directory holds a `Dockerfile`, the tag names the recipe (bump it when the Dockerfile changes), a `note` says why the official image cannot be used and until which milestone, and `prebuilt_image` / `build_platform` are excluded. `base_image` and `base_image_digest` name the digest-pinned base the Dockerfile starts from.
 2. **Build.** `grdm-dev build` builds such a component from the repository directory for the host platform (or `--platform`), tags it `grdm-dev/<id>:<tag>`, records it in the build report with status `built`, and `--push` publishes `ghcr.io/rcosdp/<id>:<tag>`; `compose render` writes that reference as `image:`, `scan` scans it like any other image. No clone, no integration repository: the component stays `infra`.
 3. **Dockerfile rules.** The artefact is the upstream's official release (tarball, deb or jar) fetched by URL with a checksum that is verified in the build; the base image is digest-pinned; the fetch runs in a `--platform=$BUILDPLATFORM` stage so that `curl`, `sha256sum` and `tar` never run under emulation (tar fails with "Function not implemented" under Rosetta); the final stage only copies files, runs as uid 1000 and needs no writable root except declared `tmpfs`/volumes. The image is a development artefact: no plugins, no site-specific configuration. `fakecas` is the recorded exception for a project with no release artefact: it is compiled from a checksum-verified commit archive with frozen `go.mod`/`go.sum`, and runs as uid 65534 as its service template always has.
-4. **Scope.** First applied to `elasticsearch2` (`installer/images/elasticsearch2/`, tag `2.4.6-1`). The elasticsearch hardening exception (`read_only`) of PR #33 is removed: the native image runs as uid 1000 on a read-only root, like elasticsearch 6. The one-shot `elasticsearch_data_init` stays, now on the native image as an explicit root with `CAP_CHOWN` only, because the bind-mounted data directory belongs to the host user (or to uid 101 after PR #33) and image layers cannot change a mounted tree (review r1 R1-01); that step later became the generic `volume_owner_init` ([SPEC-03 §3.3](../spec/03_security_gate.md#english)). Other amd64-only infra images stay under emulation until they become a start-up problem or reach their modernization milestone; each switch is one PR with its own run record. `elasticsearch6` (`6.8.23-1`) and `fakecas` (`9a9ddd73b225-2`) moved on 2026-11-10 (§5); `elasticsearch6` also lost its `read_only` hardening entry.
+4. **Scope.** First applied to `elasticsearch2` (`installer/images/elasticsearch2/`, tag `2.4.6-1`). The elasticsearch hardening exception (`read_only`) of PR #33 is removed: the native image runs as uid 1000 on a read-only root, like elasticsearch 6. The one-shot `elasticsearch_data_init` stays, now on the native image as an explicit root with `CAP_CHOWN` only, because the bind-mounted data directory belongs to the host user (or to uid 101 after PR #33) and image layers cannot change a mounted tree (review r1 R1-01); that step later became the generic `volume_owner_init` ([SPEC-03 §3.3](../spec/03_security_gate.md#english)). Other amd64-only infra images stay under emulation until they become a start-up problem or reach their modernization milestone; each switch is one PR with its own run record. `elasticsearch6` (`6.8.23-1`) and `fakecas` (`9a9ddd73b225-2`) moved on 2026-11-10 (§5); `elasticsearch6` also lost its `read_only` hardening entry. `cas-overlay` is the first integration-repository component on this path: its own Dockerfile follows these rules and needs no recipe here (§7).
 5. **Retirement.** `target_image` keeps naming the milestone that removes the middleware (ES 2 → M5). A native build is a bridge, not a reason to keep EOL software.
 
 ### 3. Options considered
@@ -87,6 +89,34 @@ The data under `runtime/volumes/elasticsearch6_data` moves from 6.3.1 (default d
 
 Demonstrated on 2026-11-10 with throwaway containers and volumes, never the running stack. The 6.3.1 cluster was the default distribution with x-pack modules, plugins `ingest-geoip` and `ingest-user-agent`, no ML jobs or datafeeds, and 15 X-Pack or Logstash templates beside the application's. Three documents written through osf.io's client were snapshotted (`SUCCESS`, 1 shard, 0 failed); a copy upgraded to 6.8.23 returned the template, 3 documents and the aggregation; a clean 6.3.1 restored from the snapshot returned the same. On 6.8.23 OSS the unknown `licenses` metadata is logged and skipped. The x-pack templates stay in the upgraded copy; nothing uses them. A cluster with ML jobs, security users or other X-Pack state was not tested, so step 1 decides whether this procedure applies.
 
+### 7. The login server built from the integration repository (2026-11-10)
+
+`cas-overlay`, our CAS (Central Authentication Service: the real login server; see [REF-01](../reference/REF-01_Glossary.md)), ran a prebuilt `linux/amd64` image, because Maven hung for 8 hours under emulation (DEMO-20 run 3). That image could not carry the security fixes merged into the integration repository. The repository's own Dockerfile is now native: at commit `22610b7681a29241365108e5129bcd43ade4610e`, Maven and the jetty configuration run on the build host's architecture and the final stage only copies files. So the component needs neither `prebuilt_image` nor `build_platform`, and no `build_dockerfile` of ours. The `cas` hardening entry is gone: the service runs as uid 1000 on a read-only root, with only `/tmp` writable.
+
+**Settings.** `compose render` writes all of `/etc/cas/cas.properties` and one service definition in `/etc/cas/services`, which allows only the published web URL. The mount replaces the image's definitions, which name other hosts. The Secure cookie flags are off because the stack is plain HTTP on loopback. Secrets reach CAS only through the environment.
+
+**Keys.** The old `CAS_TGC_*` and `CAS_WEBFLOW_*` keys had no effect: Spring reads `tgc.encryption.key` from `TGC_ENCRYPTION_KEY`, and nothing reads a webflow key. They are retired. `runtime/.env` now holds `TGC_ENCRYPTION_KEY` (43 characters), `TGC_SIGNING_KEY` (86 characters), `OSF_API_INSTITUTIONS_AUTH_JWESECRET` (exactly 32 bytes) and `OSF_API_INSTITUTIONS_AUTH_JWTSECRET` (at least 32 bytes). The last two also become osf.io's `JWE_SECRET` and `JWT_SECRET`, in `api/base/settings`. CAS itself does not check the TGC keys, so `secrets init` and `compose render` check all four: the length, the base64url alphabet (no whitespace or quotes), no published default (compared by SHA-256, so the repository does not hold them), and for `TGC_ENCRYPTION_KEY`, which CAS reads as a JWK octet value, a canonical decoding to 32 bytes. The signing key and the institution keys are used as raw characters and are not decoded.
+
+**Order.** CAS validates the migrated `osf` schema at start and exits 254 on an empty database, so it waits for `osf_init` with `service_completed_successfully`.
+
+**Upgrading an existing `runtime/.env`.** `compose render` stops with exit 2 and names the four missing keys. `grdm-dev secrets rotate` adds them, and it also replaces every other secret and recreates the running containers with the existing Compose file. Then run `compose render`, `build --component cas-overlay` and `up`. To keep the other secrets, append the four keys by hand with those lengths and that alphabet, and skip `rotate`.
+
+**Proof on 2026-11-10, on arm64.** The project was a throwaway `cas-int`, derived from the rendered file with only `cas` and what it waits for, plus a loopback port for the test; the running stack was not touched. The osf.io image ran the real migrations on a new database (`osf_init` exit 0), so this is the first check of the `validate` step against the real GRDM schema.
+
+```toon
+results[8]{check,result}:
+  "image","built by grdm-dev build, arm64, base digest label present"
+  "container","uid 1000, read-only root, cap_drop ALL, no-new-privileges, 0 restarts"
+  "start","Jetty started in 19 s after osf_init; no Missing table or unresolved placeholder"
+  "GET /login","200; JSESSIONID has HttpOnly and no Secure"
+  "wrong password","200 with an error, no ticket, no TGC"
+  "right password (user created through osf.io, bcrypt_sha256)","302 to the web URL with a service ticket; TGC has HttpOnly and no Secure"
+  "/p3/serviceValidate","authenticationSuccess for the user's GUID; the same ticket again gives INVALID_TICKET"
+  "unregistered service","200 not-authorized page with no login form"
+```
+
+**Not verified.** osf.io still logs in through fakecas, because this change does not switch the auth provider. The redirect back into a running web service, institution login with the JWE and JWT keys, TOTP, ORCiD and a real amd64 host (the integration repository's PR tested amd64 under Rosetta before its last secret changes) were not exercised.
+
 ---
 
 <a id="japanese"></a>
@@ -107,7 +137,7 @@ Demonstrated on 2026-11-10 with throwaway containers and volumes, never the runn
 1. **manifest。** `infra` の部品は `image_build: {"context": "<リポジトリ相対のディレクトリ>", "tag": "<レシピの版>"}` を持てる（[SPEC-01 §3](../spec/01_manifest.md#japanese)、規則 MC-15）。ディレクトリには `Dockerfile` があり、tag はレシピの版（Dockerfile を変えたら上げる）、`note` には公式イメージが使えない理由とどの節目までかを書き、`prebuilt_image` と `build_platform` は併用できない。`base_image` と `base_image_digest` は Dockerfile が出発点にするダイジェスト固定のベースを指す。
 2. **ビルド。** `grdm-dev build` はその部品をリポジトリのディレクトリからホストのプラットフォーム（または `--platform`）向けに組み、`grdm-dev/<id>:<tag>` のタグを付け、ビルド報告に `built` として記録し、`--push` では `ghcr.io/rcosdp/<id>:<tag>` へ公開する。`compose render` はその参照を `image:` に書き、`scan` は他のイメージと同じに検査する。clone も統合リポジトリも無く、部品は `infra` のままである。
 3. **Dockerfile の規則。** 成果物は上流の公式リリース（tarball・deb・jar）で、URL から取得しビルド中にチェックサムを検証する。ベースイメージはダイジェスト固定。取得は `--platform=$BUILDPLATFORM` の段で行い、`curl`・`sha256sum`・`tar` をエミュレーション下で動かさない（tar は Rosetta 下で「Function not implemented」で失敗する）。最終段はファイルを写すだけで、uid 1000 で動き、宣言した `tmpfs`/ボリューム以外に書込可能なルートを要しない。イメージは開発用の成果物であり、プラグインもサイト固有の設定も持たない。`fakecas` はリリース成果物の無いプロジェクトとして記録した例外で、チェックサムを検証したコミットのアーカイブから、固定した `go.mod`/`go.sum` でコンパイルし、サービス定義のとおり uid 65534 で動く。
-4. **範囲。** まず `elasticsearch2`（`installer/images/elasticsearch2/`、tag `2.4.6-1`）に適用する。PR #33 の elasticsearch の堅牢化例外（`read_only`）は取り除く。ネイティブのイメージは elasticsearch 6 と同じく uid 1000・読み取り専用ルートで動く。一回限りの `elasticsearch_data_init` は残し、ネイティブイメージを明示の root・`CAP_CHOWN` のみで動かす。bind マウントしたデータディレクトリはホストの利用者（PR #33 の後は uid 101）の所有で、イメージの層ではマウントした木を変えられないからである（レビュー r1 R1-01）。この段は後に汎用の `volume_owner_init` になった（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。他の amd64 のみの基盤イメージは、起動の問題になるか近代化の節目に達するまでエミュレーションのままとし、切り替えは一つずつ PR と実機記録を伴って行う。`elasticsearch6`（`6.8.23-1`）と `fakecas`（`9a9ddd73b225-2`）は 2026-11-10 に移行した（§5）。`elasticsearch6` の `read_only` の堅牢化項目も消えた。
+4. **範囲。** まず `elasticsearch2`（`installer/images/elasticsearch2/`、tag `2.4.6-1`）に適用する。PR #33 の elasticsearch の堅牢化例外（`read_only`）は取り除く。ネイティブのイメージは elasticsearch 6 と同じく uid 1000・読み取り専用ルートで動く。一回限りの `elasticsearch_data_init` は残し、ネイティブイメージを明示の root・`CAP_CHOWN` のみで動かす。bind マウントしたデータディレクトリはホストの利用者（PR #33 の後は uid 101）の所有で、イメージの層ではマウントした木を変えられないからである（レビュー r1 R1-01）。この段は後に汎用の `volume_owner_init` になった（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。他の amd64 のみの基盤イメージは、起動の問題になるか近代化の節目に達するまでエミュレーションのままとし、切り替えは一つずつ PR と実機記録を伴って行う。`elasticsearch6`（`6.8.23-1`）と `fakecas`（`9a9ddd73b225-2`）は 2026-11-10 に移行した（§5）。`elasticsearch6` の `read_only` の堅牢化項目も消えた。`cas-overlay` はこの道を取る最初の統合リポジトリの部品で、自身の Dockerfile がこれらの規則に従うので本リポジトリのレシピは要らない（§7）。
 5. **退役。** `target_image` は引き続きそのミドルウェアを除く節目を指す（ES 2 → M5）。ネイティブビルドは橋であり、EOL ソフトウェアを残す理由ではない。
 
 ### 3. 検討した選択肢
@@ -158,6 +188,34 @@ results[6]{image,before,after,outcome,proof}:
 5. **失敗したら空の 6.3.1 へ復元する。** データディレクトリを空にし、手順 3 の 6.3.1 のコンテナをその上で起動し、リポジトリを `"readonly":true` で登録し、`POST "$E/_snapshot/preupgrade/before-6-8/_restore?wait_for_completion=true"` に `{"indices":"*","include_global_state":true}` を送って同じ確認をし、本リポジトリの以前の版に留まる。
 
 2026-11-10 に使い捨てのコンテナとボリュームで実証した。稼働中のスタックには触れていない。6.3.1 のクラスタは x-pack モジュールを持つ default 配布で、プラグインは `ingest-geoip` と `ingest-user-agent`、ML のジョブと datafeed は無く、アプリケーションのもののほかに X-Pack と Logstash のテンプレートが 15 個あった。osf.io のクライアントで書いた文書 3 件を snapshot し（`SUCCESS`、1 シャード、失敗 0）、6.8.23 へ更新した写しはテンプレート・文書 3 件・集計を返し、snapshot から復元した空の 6.3.1 も同じものを返した。6.8.23 OSS では未知の `licenses` メタデータはログに出て読み飛ばされる。x-pack のテンプレートは更新後の写しに残るが、使うものは無い。ML ジョブやセキュリティのユーザーなどの X-Pack の状態を持つクラスタは試験していないので、この手順が当てはまるかは手順 1 で判断する。
+
+### 7. 統合リポジトリから組むログインサーバー（2026-11-10）
+
+`cas-overlay`（CAS。Central Authentication Service、実際のログインサーバー。[REF-01](../reference/REF-01_Glossary.md)）は、エミュレーション下で Maven が 8 時間止まったため（DEMO-20 第 3 回）、事前ビルド済みの `linux/amd64` イメージで動かしていた。そのイメージには統合リポジトリに取り込んだセキュリティ修正が入らない。統合リポジトリ自身の Dockerfile はネイティブになった。コミット `22610b7681a29241365108e5129bcd43ade4610e` では Maven と jetty の設定はビルドホストのアーキテクチャで動き、最終段はファイルを写すだけである。そこでこの部品には `prebuilt_image` も `build_platform` も本リポジトリの `build_dockerfile` も要らない。`cas` の堅牢化の項目は消えた。サービスは uid 1000・読み取り専用ルートで動き、書き込めるのは `/tmp` だけである。
+
+**設定。** `compose render` は `/etc/cas/cas.properties` の全体と、`/etc/cas/services` のサービス定義を一つ書く。定義は公開された web の URL だけを許可する。この mount はイメージの定義（別のホストを指す）を置き換える。スタックはループバック上の平文 HTTP なので、Cookie の Secure は切る。秘密は環境変数だけで CAS に渡す。
+
+**キー。** 旧来の `CAS_TGC_*` と `CAS_WEBFLOW_*` は効いていなかった。Spring は `tgc.encryption.key` を `TGC_ENCRYPTION_KEY` から読み、webflow の鍵は何も読まない。これらは廃止した。`runtime/.env` は `TGC_ENCRYPTION_KEY`（43 文字）、`TGC_SIGNING_KEY`（86 文字）、`OSF_API_INSTITUTIONS_AUTH_JWESECRET`（ちょうど 32 バイト）、`OSF_API_INSTITUTIONS_AUTH_JWTSECRET`（32 バイト以上）を持つ。後の二つは `api/base/settings` の osf.io の `JWE_SECRET` と `JWT_SECRET` にもなる。TGC の鍵は CAS 自身が検査しないので、`secrets init` と `compose render` が四つとも検査する。長さ、base64url の文字（空白や引用符は不可）、公開された既定値でないこと（SHA-256 で照合するのでリポジトリは値を持たない）、そして CAS が JWK のオクテット値として読む `TGC_ENCRYPTION_KEY` については 32 バイトへの正準な復号である。署名鍵と機関の鍵は文字のまま使われるので復号しない。
+
+**順序。** CAS は起動時にマイグレーション済みの `osf` スキーマを検証し、空のデータベースでは終了 254 で止まる。そこで `osf_init` を `service_completed_successfully` で待つ。
+
+**既存の `runtime/.env` の更新。** `compose render` は足りない四つのキーの名前を示して終了 2 で止まる。`grdm-dev secrets rotate` はこれらを加えるが、他の秘密もすべて作り直し、既存の Compose ファイルで動作中のコンテナを再作成する。その後 `compose render`、`build --component cas-overlay`、`up` を実行する。他の秘密を保ちたいときは、`rotate` をせず、上記の長さと文字で四つのキーを手で追記する。
+
+**2026-11-10 の実証（arm64）。** 使い捨てのプロジェクト `cas-int` で行った。生成したファイルから `cas` とそれが待つものだけを取り出し、試験用のループバックのポートを加えたもので、動作中のスタックには触れていない。osf.io のイメージが新しいデータベースに実際のマイグレーションを適用した（`osf_init` は終了 0）。したがって実際の GRDM スキーマに対する `validate` の確認はこれが最初である。
+
+```toon
+results[8]{check,result}:
+  "イメージ","grdm-dev build で組み、arm64、ベースのダイジェストのラベルあり"
+  "コンテナ","uid 1000、読み取り専用ルート、cap_drop ALL、no-new-privileges、再起動 0 回"
+  "起動","osf_init の後 19 秒で Jetty が起動。Missing table と未解決のプレースホルダは無し"
+  "GET /login","200。JSESSIONID は HttpOnly で Secure なし"
+  "誤ったパスワード","200 でエラー表示、チケットなし、TGC なし"
+  "正しいパスワード（osf.io で作成した利用者、bcrypt_sha256）","web の URL へ 302 でサービスチケットを発行。TGC は HttpOnly で Secure なし"
+  "/p3/serviceValidate","利用者の GUID で authenticationSuccess。同じチケットの再使用は INVALID_TICKET"
+  "未登録のサービス","200 の未許可ページでログインフォームなし"
+```
+
+**未確認。** osf.io のログインは引き続き fakecas を使う。本変更は認証の提供元を切り替えないからである。動作中の web への戻り、JWE/JWT の鍵を使う機関ログイン、TOTP、ORCiD、実機の amd64 ホスト（統合リポジトリの PR は最後の秘密の変更より前に Rosetta 下の amd64 で試験した）は実行していない。
 
 ---
 

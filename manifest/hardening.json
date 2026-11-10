@@ -6,16 +6,6 @@
   },
   "exceptions": [
     {
-      "controls": [
-        "user",
-        "read_only"
-      ],
-      "reason": "The prebuilt cas-overlay distribution image (manifest prebuilt_image, until M4) starts with `mvn -pl cas-server-webapp jetty:run`: Maven reads its local repository from /root/.m2repo (mode 0700, owned by root) and writes the webapp's target/ directory at start, so a fixed user: 1000:1000 fails with `Could not create local repository at /root/.m2repo` and a read-only root blocks the build output (real install run 8). No capability is added back; jetty binds 8080 inside the container only.",
-      "review": "2027-01-31",
-      "service": "cas",
-      "target": "M4 (modernized Dockerfile that bakes the war and runs jetty as non-root)"
-    },
-    {
       "cap_add": [
         "CHOWN",
         "DAC_OVERRIDE",

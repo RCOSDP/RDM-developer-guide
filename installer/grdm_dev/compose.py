@@ -27,7 +27,7 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   scaled from the detected memory (argument; default 16 GiB), `platform:` from the argument or
   host detection; per-service exceptions come from manifest/hardening.json (SPEC-03 §3.3);
 * `platform:` is the argument or the detected host platform, except for a service whose manifest
-  component carries `build_platform` (SPEC-01; e.g. mfr, ember-osf-web, cas-overlay on
+  component carries `build_platform` (SPEC-01; e.g. mfr, ember-osf-web on
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
@@ -55,7 +55,7 @@ container shell: every `$` in them is escaped to `$$` on output, so Compose does
 them; `environment` values are the only place where `${KEY}` means a value from runtime/.env.
 
 Upstream settings are rewritten under runtime/config/ (ADR-02 §3.3): osf/local.py, osf/api_local.py,
-osf.env, wb.env, mfr.env, sharejs.env, postgres-init/10-cas.sql, cas/cas.properties. Internal URLs use
+osf.env, wb.env, mfr.env, sharejs.env, postgres-init/10-cas.sql, cas/cas.properties, cas/services/. Internal URLs use
 service names, browser-facing URLs use http://127.0.0.1:<port>.
 """
 from __future__ import annotations
@@ -115,6 +115,8 @@ FORBIDDEN_ADDRESS = "192.168.168.167"  # the old loopback alias; must never appe
 # Compose file never references an unset variable (Compose would warn and substitute "").
 # The list is the single source of truth in secrets.py; we copy it to avoid drift (REV r1 of PR #30).
 from .secrets import SECRET_KEYS as _SECRET_KEYS  # noqa: E402
+
+from .secrets import cas_key_problems as _cas_key_problems  # noqa: E402
 
 REQUIRED_SECRETS: tuple[str, ...] = tuple(_SECRET_KEYS)
 
@@ -811,6 +813,9 @@ def render_api_local_py(host_ports: dict[str, int]) -> str:
         "# website.settings.DEBUG_MODE stays True so api/base/wsgi.py does not monkey-patch gevent (run 14).",
         "DEBUG = False",
         "SECRET_KEY = environ['API_SECRET_KEY']",
+        "# The institution login keys CAS encrypts and signs with; api/base/settings/defaults.py carries public defaults.",
+        "JWE_SECRET = environ['OSF_API_INSTITUTIONS_AUTH_JWESECRET'].encode('utf-8')",
+        "JWT_SECRET = environ['OSF_API_INSTITUTIONS_AUTH_JWTSECRET'].encode('utf-8')",
         "VARNISH_SERVERS = []",
         "ENABLE_VARNISH = False",
         "ENABLE_ESI = False",
@@ -904,18 +909,87 @@ def render_postgres_init() -> str:
     return f"-- {GENERATED_HEADER}\n-- cas-overlay keeps its tickets in a second database on the shared postgres.\nCREATE DATABASE cas;\n"
 
 
+# Federation clients the CAS context always constructs; the values are the ones the image ships in etc/cas.properties.
+_CAS_DELEGATED_CLIENTS = {
+    "callutheran": ("https://sso.callutheran.edu/cas/login", "https://sso.callutheran.edu/cas/"),
+    "cord": ("https://bprdeis.cord.edu:8443/cas/login", "https://bprdeis.cord.edu:8443/cas/"),
+    "okstate": ("https://stwcas.okstate.edu/cas/login", "https://stwcas.okstate.edu/cas/"),
+}
+
+
 def render_cas_properties(host_ports: dict[str, int]) -> str:
-    return "\n".join([
+    """The whole of /etc/cas/cas.properties for the image built from the integration repository (ADR-07).
+
+    Secrets are not here: Spring reads DATABASE_PASSWORD, OSF_DATABASE_PASSWORD, TGC_ENCRYPTION_KEY, TGC_SIGNING_KEY
+    and OSF_API_INSTITUTIONS_AUTH_JW{E,T}SECRET from the environment. The Secure flags are off because the stack is
+    plain HTTP on loopback (ADR-02); the image's own default is on."""
+    web = _ext(host_ports, "web", "/")
+    lines = [
         f"# {GENERATED_HEADER}",
         "server.name=http://cas:8080",
         "server.prefix=${server.name}",
-        f"osf.url={_ext(host_ports, 'web', '/')}",
+        f"osf.url={web}",
+        f"osf.resendConfirmation.url={web}resend/",
+        f"osf.forgotPassword.url={web}forgotpassword/",
+        f"osf.createAccount.url={web}register/",
         "osf.api.url=http://api:8000/",
         "database.url=jdbc:postgresql://postgres:5432/cas",
         "database.user=postgres",
-        "# database.password is read from the DATABASE_PASSWORD environment variable",
-        "",
-    ])
+        "database.driverClass=org.postgresql.Driver",
+        "database.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
+        "osf.database.url=jdbc:postgresql://postgres:5432/osf",
+        "osf.database.user=postgres",
+        "osf.database.driverClass=org.postgresql.Driver",
+        "osf.database.hibernate.dialect=io.cos.cas.adaptors.postgres.hibernate.OSFPostgreSQLDialect",
+        "osf.api.institutions.auth.url=http://api:8000/v2/institutions/auth/",
+        "osf.api.institutions.login.availability.url=http://api:8000/v2/institutions/login_availability/",
+        "osf.api.institutions.auth.xslLocation=file:/etc/cas/institutions-auth.xsl",
+        "log4j.config.location=file:/etc/cas/log4j2.xml",
+        "service.registry.config.location=file:/etc/cas/services",
+        "cas.securityContext.status.access=hasIpAddress('127.0.0.1')",
+        "cas.securityContext.statistics.access=hasIpAddress('127.0.0.1')",
+        "cas.themeResolver.defaultThemeName=cas-theme-default",
+        "delegation.redirect.uri=${server.name}/login",
+        "host.name=cas",
+        "oauth.orcid.client.id=grdm-dev-orcid-not-configured",
+        "oauth.orcid.client.secret=grdm-dev-orcid-not-configured",
+        "oauth.orcid.member=false",
+        "oauth.orcid.scope=/authenticate",
+        "tgc.cookie.secure=false",
+        "jsession.cookie.secure=false",
+    ]
+    for name, (login_url, prefix_url) in _CAS_DELEGATED_CLIENTS.items():
+        lines += [
+            f"cas.{name}.login.url={login_url}",
+            f"cas.{name}.prefix.url={prefix_url}",
+            f"cas.{name}.client.name={name}",
+            f"cas.{name}.cas.protocol=SAML",
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def render_cas_service(host_ports: dict[str, int]) -> str:
+    """The only application CAS may issue tickets for: the web service at its published URL. The mount replaces the
+    image's /etc/cas/services, whose definitions name other hosts and ports."""
+    title = {
+        "@class": "org.jasig.cas.services.DefaultRegisteredServiceProperty",
+        "values": ["java.util.HashSet", ["GakuNin RDM"]],
+    }
+    service = {
+        "@class": "org.jasig.cas.services.RegexRegisteredService",
+        "id": 1,
+        "name": "grdm-web",
+        "description": GENERATED_HEADER,
+        "serviceId": f"^http://{re.escape(LOOPBACK)}:{host_ports['web']}/.*",
+        "evaluationOrder": "1000",
+        "logo": "",
+        "attributeReleasePolicy": {
+            "@class": "org.jasig.cas.services.ReturnAllowedAttributeReleasePolicy",
+            "allowedAttributes": ["java.util.ArrayList", ["givenName", "familyName"]],
+        },
+        "properties": {"@class": "java.util.HashMap", "title": title, "titleAbbr": title},
+    }
+    return json.dumps(service, indent=2, ensure_ascii=False) + "\n"
 
 
 def config_files(host_ports: dict[str, int]) -> dict[str, str]:
@@ -930,6 +1004,7 @@ def config_files(host_ports: dict[str, int]) -> dict[str, str]:
         "sharejs.env": render_sharejs_env(host_ports),
         "postgres-init/10-cas.sql": render_postgres_init(),
         "cas/cas.properties": render_cas_properties(host_ports),
+        "cas/services/grdm-web.json": render_cas_service(host_ports),
     }
 
 
@@ -1168,6 +1243,9 @@ def run(
     missing = [k for k in REQUIRED_SECRETS if not env.get(k)]
     if missing:
         return report.error(ctx, exit_codes.USAGE, f"runtime/.env lacks {', '.join(missing)}; run `grdm-dev secrets init --force` or `secrets rotate`")
+    bad_lengths = _cas_key_problems(env)
+    if bad_lengths:
+        return report.error(ctx, exit_codes.USAGE, f"runtime/.env has an unusable value (length, alphabet or a published default) for {', '.join(bad_lengths)} (SPEC-02 §3); run `grdm-dev secrets rotate`")
 
     try:
         man = _manifest.load(ctx)

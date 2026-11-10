@@ -271,6 +271,18 @@ class BuildTests(unittest.TestCase):
         self.assertTrue(bx[-1].endswith("RDM-waterbutler-dev2027"), bx[-1])
         self.assertIn("org.opencontainers.image.base.digest=sha256:" + "cd" * 32, bx)
 
+    def test_built_component_records_its_base_digest_without_a_recipe(self):
+        """SPEC-03 §3.4: an integration repository's own Dockerfile records the digest as well (cas-overlay)."""
+        data = json.loads((self.root / "manifest" / "upstreams.json").read_text())
+        data["components"][1]["base_image_digest"] = "sha256:" + "ef" * 32
+        (self.root / "manifest" / "upstreams.json").write_text(json.dumps(data))
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner()
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.OK, self.err.getvalue())
+        bx = [c for c in runner.calls if c[:3] == ["docker", "buildx", "build"] and any("waterbutler" in a for a in c)][0]
+        self.assertIn("org.opencontainers.image.base.digest=sha256:" + "ef" * 32, bx)
+        self.assertNotIn("-f", bx)  # the integration repository's own Dockerfile
+
     def test_build_dockerfile_missing_recipe_is_30(self):
         self._with_waterbutler_recipe(create=False)
         ctx = Context(root=self.root, profile="core", stdin_is_tty=False)

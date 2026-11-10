@@ -130,6 +130,17 @@ class ServicesForProfileTests(unittest.TestCase):
         self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
         self.assertTrue(self.man.component("elasticsearch2").is_image_build)
 
+    def test_cas_is_built_from_the_pinned_merge_commit(self):
+        """ADR-07: no prebuilt image and no emulated platform; the image tag is the commit that carries the fixes."""
+        cas = self.man.component("cas-overlay")
+        self.assertFalse(cas.is_prebuilt)
+        self.assertTrue(cas.is_built)
+        self.assertIsNone(cas.get("build_platform"))
+        self.assertIsNone(cas.get("build_dockerfile"))  # the integration repository's own Dockerfile is the native one
+        self.assertEqual(cas.get("integration_sha"), "22610b7681a29241365108e5129bcd43ade4610e")
+        services = {s.name: s for s in manifest.services_for_profile(self.man, "core")}
+        self.assertEqual(services["cas"].image, "grdm-dev/cas-overlay:22610b7681a2")
+
     def test_rebuilt_infra_images_are_native_and_unexcepted(self):
         """ADR-07 §5: the recipes replace the emulated images, and elasticsearch6 needs no hardening entry."""
         services = {s.name: s for s in manifest.services_for_profile(self.man, "core")}
