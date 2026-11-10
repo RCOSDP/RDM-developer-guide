@@ -26,8 +26,10 @@
     "Y_WEBSOCKET_JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
+    "Y_WEBSOCKET_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
     "SHAREJS_SERVER_HOST": "sharejs",
-    "SHAREJS_SERVER_PORT": "7007"
+    "SHAREJS_SERVER_PORT": "7007",
+    "GRDM_OSF_DEBUG_MODE": "False"
   },
   "env_files": [
     "osf.env"
@@ -41,6 +43,11 @@
     {
       "config": "osf/api_local.py",
       "target": "/code/api/base/settings/local.py",
+      "ro": true
+    },
+    {
+      "config": "osf/wiki_local.py",
+      "target": "/code/addons/wiki/settings/local.py",
       "ro": true
     },
     {

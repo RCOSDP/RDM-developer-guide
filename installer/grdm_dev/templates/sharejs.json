@@ -1,9 +1,6 @@
 {
   "service": "sharejs",
   "component": "sharejs",
-  "expose": [
-    7007
-  ],
   "env_files": [
     "sharejs.env"
   ],
@@ -28,5 +25,7 @@
       "target": "/mongo-tls",
       "ro": true
     }
-  ]
+  ],
+  "container_port": 7007,
+  "host_port": 7007
 }

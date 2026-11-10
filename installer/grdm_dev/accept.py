@@ -123,12 +123,16 @@ QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 # its password field only in the rare case that the field is visible.
 # GRDM's OSFUser.have_email defaults to False and create_confirmed leaves it there; every @must_be_logged_in
 # view then redirects to /settings/account/email, so the dashboard is never reached (acceptance run 8).
-# TODO(M2): the institution-admin flag for C6 (admin app permission / group) is unverified and may need
-# `is_staff` plus an institution affiliation instead of `is_superuser`.
+# C6's admin is what the admin app calls an institution administrator: is_staff, not superuser, with an
+# affiliation (RdmPermissionMixin.is_admin, UserIdentificationAdminListView). `{affiliated}` is 1 or 0: the slice
+# takes the first institution or none.
 SEED_SNIPPET = (
     "from osf.models import OSFUser; "
     "u = OSFUser.create_confirmed(username={email!r}, password={osf_password!r}, fullname={fullname!r}); "
-    "u.have_email = True; u.is_staff = {admin}; u.is_superuser = {admin}; u.save(); print('seeded', u._id)"
+    "u.have_email = True; u.is_staff = {admin}; u.is_superuser = False; u.save(); "
+    "from osf.models import Institution; "
+    "u.affiliated_institutions.add(*Institution.objects.filter(is_deleted=False).order_by('id')[:{affiliated}]); "
+    "print('seeded', u._id)"
 )
 CLEANUP_SNIPPET = (
     "from osf.models import OSFUser; "
@@ -245,10 +249,13 @@ def seed_users(run_id: str) -> dict[str, dict[str, str]]:
     OSF account gets an independent random password, because the identity is printed by failing tests and
     OSF refuses a password equal to the e-mail. All of them are secrets for evidence: `seed_secret_values`."""
     users = {}
-    for key, admin in (("user_a", False), ("user_b", False), ("admin_user", True)):
+    # institution_member shares admin_user's institution and never signs in; user_a has none: C6 proves the list is
+    # the institution's users. user_a and user_b stay unaffiliated: an affiliated user's login does not reach
+    # the dashboard that the `login` fixture waits for (run acc-20261109T231841Z-50571f).
+    for key, admin, affiliated in (("user_a", False, 0), ("user_b", False, 0), ("institution_member", False, 1), ("admin_user", True, 1)):
         email = f"{key.replace('_', '-')}-{run_id}@{SEED_DOMAIN}"
         users[key] = {"email": email, "password": email, "osf_password": secrets.token_urlsafe(24),
-                      "fullname": f"Acceptance {key} {run_id}", "admin": admin}
+                      "fullname": f"Acceptance {key} {run_id}", "admin": admin, "affiliated": affiliated}
     return users
 
 
@@ -643,13 +650,15 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
         "GRDM_ACCEPT_RESULTS": str(run_dir / "collector.json"),
         "GRDM_ACCEPT_USER_A": users["user_a"]["email"],
         "GRDM_ACCEPT_USER_B": users["user_b"]["email"],
+        "GRDM_ACCEPT_INSTITUTION_MEMBER": users["institution_member"]["email"],
         "GRDM_ACCEPT_ADMIN": users["admin_user"]["email"],
+        "GRDM_ACCEPT_ADMIN_OSF_PASSWORD": users["admin_user"]["osf_password"],  # masked with the other run secrets
     })
 
     seeded = False
     if getattr(args, "seed", False):
         for u in users.values():
-            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=u["osf_password"], fullname=u["fullname"], admin=u["admin"])
+            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=u["osf_password"], fullname=u["fullname"], admin=u["admin"], affiliated=u["affiliated"])
             rc, out = runner(compose_exec(ctx, "web", "python3", "manage.py", "shell", "-c", snippet), env=env, cwd=ctx.root)
             if rc != 0:
                 return fail(exit_codes.SERVICES_UNHEALTHY, f"seed failed for {u['email']}: {out.strip()[-400:]}")

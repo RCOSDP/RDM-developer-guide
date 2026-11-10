@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.15 — 2026-11-10. **Learned:** a byte count does not make a key usable by its consumer: a manually written key may be 43 `!` or 32 quoted spaces, so every CAS key must also be in the base64url alphabet, must not be a published default, and the TGC encryption key must decode canonically to 32 bytes (PR #39 review r1 R1-01). ／ バイト数だけでは、鍵が使う側で使えるとは言えない。手で書いた鍵は感嘆符 43 個や引用符で囲んだ空白 32 個でありうる。そこで CAS の鍵はすべて base64url の文字に限り、公開された既定値を拒み、TGC の暗号鍵は 32 バイトへ正準に復号できなければならない（PR #39 レビュー r1 R1-01）。
+- Version / 版: 0.16 — 2026-11-10. **Learned:** the browser opens the wiki and file-editor sockets itself, so y_websocket and sharejs need loopback ports like any other page the browser loads. ／ wiki とファイル編集のソケットはブラウザが自分で開くため、y_websocket と sharejs にも、ブラウザが読む他のページと同じくループバックのポートが要る。
+  0.15 — 2026-11-10. **Learned:** a byte count does not make a key usable by its consumer: a manually written key may be 43 `!` or 32 quoted spaces, so every CAS key must also be in the base64url alphabet, must not be a published default, and the TGC encryption key must decode canonically to 32 bytes (PR #39 review r1 R1-01). ／ バイト数だけでは、鍵が使う側で使えるとは言えない。手で書いた鍵は感嘆符 43 個や引用符で囲んだ空白 32 個でありうる。そこで CAS の鍵はすべて base64url の文字に限り、公開された既定値を拒み、TGC の暗号鍵は 32 バイトへ正準に復号できなければならない（PR #39 レビュー r1 R1-01）。
   0.14 — 2026-11-10. **Learned:** a key name that nothing reads looks exactly like a working secret, and a service that fails closed turns a wrong length into a stopped stack, so the keys now carry the names the image reads and `compose render` refuses a wrong length before anything starts (ADR-07 §7). ／ 誰も読まないキーの名前は、効いている秘密とまったく同じに見える。また閉じて失敗するサービスでは長さの誤りがスタックの停止になる。そこでキーにはイメージが読む名前を使い、`compose render` が起動前に誤った長さを拒むようにした（ADR-07 §7）。
 - Version / 版: 0.13 — 2026-11-10. **Learned:** a writable root says nothing about what lies beneath it, and a probe must never reuse a name that may already exist: the access check walks existing data as the real uid and creates its file exclusively (PR #36 review r3). ／ ルートに書けても下のものについては何も分からず、確認用のファイルは既にあるかもしれない名前を使ってはならない。そこでアクセス確認は実際の uid で既存のデータを辿り、ファイルは排他的に作ると分かった（PR #36 レビュー r3）。
 - Version / 版: 0.12 — 2026-11-10. **Learned:** a path check expires when the path changes and sees only what it looks at, and a command that exits 0 has not proved its effect: so `reset` revalidates at each step using the mount table, ownership is read back, and only a write as the real uid shows that a volume is usable (PR #36 review r2). ／ パスの検証はパスが変われば古くなり、見たものしか分からない。また終了 0 のコマンドは効果を証明しない。そこで `reset` は段ごとに mount 表で再検証し、所有者は読み返し、ボリュームが使えることは実際の uid での書き込みだけが示すと分かった（PR #36 レビュー r2）。
@@ -121,7 +122,7 @@ Service names follow the upstream `docker-compose.yml` of RDM-osf.io so that exi
 **Published ports.** This table is the only place where default host ports are defined; [ADR-02](../decisions/ADR-02_Network_Model.md), [SPEC-03](03_security_gate.md), and [REF-01](../reference/REF-01_Glossary.md) point here. Every port is published on `127.0.0.1` only.
 
 ```toon
-ports[7]{service,host_port,profile,url}:
+ports[9]{service,host_port,profile,url}:
   web,5000,minimum,http://127.0.0.1:5000
   api,8000,minimum,http://127.0.0.1:8000
   admin,8001,core,http://127.0.0.1:8001
@@ -129,9 +130,11 @@ ports[7]{service,host_port,profile,url}:
   mfr,7778,core,http://127.0.0.1:7778
   fakecas,8080,minimum,http://127.0.0.1:8080
   ember_osf_web,4200,core,http://127.0.0.1:4200
+  y_websocket,1234,core,http://127.0.0.1:1234
+  sharejs,7007,core,http://127.0.0.1:7007
 ```
 
-All other services (`cas`, `volume_owner_init`, `wiki_assets`, `y_websocket`, the subsystems, `test_idp`, databases and queues) are reached only inside the Compose network; when one of them needs a browser-facing port, `compose render` assigns it and `plan` prints it. `compose render` writes every chosen host port to `runtime/.env` as `GRDM_PORT_<SERVICE>` (upper case), which the acceptance tests read ([SPEC-04 §1](04_acceptance_tests.md#english)). If a default port is already in use (macOS AirPlay on `5000` is the known case), `compose render` takes the next free port and records the change in the install report; exit 12 is returned only when no free port is found.
+All other services (`cas`, `volume_owner_init`, `wiki_assets`, the subsystems, `test_idp`, databases and queues) are reached only inside the Compose network; when one of them needs a browser-facing port, `compose render` assigns it and `plan` prints it. `compose render` writes every chosen host port to `runtime/.env` as `GRDM_PORT_<SERVICE>` (upper case), which the acceptance tests read ([SPEC-04 §1](04_acceptance_tests.md#english)). If a default port is already in use (macOS AirPlay on `5000` is the known case), `compose render` takes the next free port and records the change in the install report; exit 12 is returned only when no free port is found.
 
 ### 5. Flags
 
@@ -324,7 +327,7 @@ profiles[3]{name,services,note}:
 **公開ポート。** 既定のホスト側ポートを定めるのはこの表だけです。[ADR-02](../decisions/ADR-02_Network_Model.md)、[SPEC-03](03_security_gate.md)、[REF-01](../reference/REF-01_Glossary.md) はここを指します。すべて `127.0.0.1` にだけ公開します。
 
 ```toon
-ports[7]{service,host_port,profile,url}:
+ports[9]{service,host_port,profile,url}:
   web,5000,minimum,http://127.0.0.1:5000
   api,8000,minimum,http://127.0.0.1:8000
   admin,8001,core,http://127.0.0.1:8001
@@ -332,9 +335,11 @@ ports[7]{service,host_port,profile,url}:
   mfr,7778,core,http://127.0.0.1:7778
   fakecas,8080,minimum,http://127.0.0.1:8080
   ember_osf_web,4200,core,http://127.0.0.1:4200
+  y_websocket,1234,core,http://127.0.0.1:1234
+  sharejs,7007,core,http://127.0.0.1:7007
 ```
 
-ほかのサービス（`cas`、`volume_owner_init`、`wiki_assets`、`y_websocket`、サブシステム、`test_idp`、データベースとキュー）には Compose ネットワークの中からだけ届きます。ブラウザ向けのポートが要るときは `compose render` が割り当て、`plan` が表示します。`compose render` は選んだホスト側ポートをすべて `runtime/.env` に `GRDM_PORT_<SERVICE>`（大文字）として書き、受入試験はそれを読みます（[SPEC-04 §1](04_acceptance_tests.md#japanese)）。既定のポートが使用中なら（macOS の AirPlay と `5000` が既知の例）、`compose render` は次の空きポートを取り、導入報告書に記録します。終了 12 は空きポートが見つからないときだけです。
+ほかのサービス（`cas`、`volume_owner_init`、`wiki_assets`、サブシステム、`test_idp`、データベースとキュー）には Compose ネットワークの中からだけ届きます。ブラウザ向けのポートが要るときは `compose render` が割り当て、`plan` が表示します。`compose render` は選んだホスト側ポートをすべて `runtime/.env` に `GRDM_PORT_<SERVICE>`（大文字）として書き、受入試験はそれを読みます（[SPEC-04 §1](04_acceptance_tests.md#japanese)）。既定のポートが使用中なら（macOS の AirPlay と `5000` が既知の例）、`compose render` は次の空きポートを取り、導入報告書に記録します。終了 12 は空きポートが見つからないときだけです。
 
 ### 5. フラグ
 

@@ -277,7 +277,7 @@ class AcceptTests(unittest.TestCase):
         rc, err, _ = self.run_accept(self.args(seed=True), runner)
         self.assertEqual(rc, exit_codes.OK, err)
         seed_calls = [a for a, _ in runner.calls if "manage.py" in a]
-        self.assertEqual(len(seed_calls), 4)  # user_a, user_b, admin, cleanup
+        self.assertEqual(len(seed_calls), 5)  # user_a, user_b, institution_member, admin, cleanup
         self.assertEqual(seed_calls[0][:3], ["docker", "compose", "exec"])
         self.assertIn("web", seed_calls[0])
         self.assertIn("create_confirmed", seed_calls[0][-1])
@@ -285,7 +285,23 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("delete()", seed_calls[-1][-1])
         # pytest ran between seeding and cleanup
         order = ["seed" if "manage.py" in a else "pytest" for a, _ in runner.calls]
-        self.assertEqual(order, ["seed", "seed", "seed", "pytest", "seed"])
+        self.assertEqual(order, ["seed", "seed", "seed", "seed", "pytest", "seed"])
+
+    def test_seed_makes_admin_an_affiliated_institution_admin_and_leaves_user_a_unaffiliated(self):
+        runner = FakeRunner()
+        self.run_accept(self.args(seed=True), runner)
+        snippets = [a[-1] for a, _ in runner.calls if "manage.py" in a][:4]
+        for snippet in snippets:
+            self.assertIn("u.is_superuser = False", snippet)
+        user_a, user_b, member, admin = snippets
+        self.assertIn("u.is_staff = True", admin)
+        self.assertIn("u.is_staff = False", user_a)
+        self.assertIn("u.is_staff = False", user_b)
+        self.assertIn("order_by('id')[:1]", admin)
+        self.assertIn("u.is_staff = False", member)
+        self.assertIn("order_by('id')[:1]", member)
+        self.assertIn("order_by('id')[:0]", user_b)  # an affiliated user's login does not reach the dashboard
+        self.assertIn("order_by('id')[:0]", user_a)
 
     def test_seed_failure_is_52(self):
         runner = FakeRunner(seed_rc=1)

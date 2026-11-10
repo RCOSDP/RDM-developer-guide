@@ -708,7 +708,10 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
         "# can only be used in that same thread' (real install run 14). The Django DEBUG flags of the api and",
         "# admin projects are set to False separately (api_local.py, admin_local.py) because their urls.py",
         "# import debug_toolbar under DEBUG and the image has no requirements/dev.txt (run 10).",
-        "DEBUG_MODE = True",
+        "# web alone runs with False (GRDM_OSF_DEBUG_MODE in its template): the mako filter webpack_asset returns the",
+        "# unhashed name in debug mode, and the image holds only hashed bundles (webpack-prod), so every legacy page",
+        "# 404ed on base-page.js, vendor.js and project-base-page.js. web never imports api/base/wsgi.py.",
+        "DEBUG_MODE = environ.get('GRDM_OSF_DEBUG_MODE', 'True') == 'True'",
         "SECURE_MODE = False",
         "PROTOCOL = 'http://'",
         "",
@@ -841,6 +844,24 @@ def _env_text(pairs: list[tuple[str, str]]) -> str:
     return f"# {GENERATED_HEADER}\n" + "".join(f"{k}={v}\n" for k, v in pairs)
 
 
+def render_wiki_local_py(published: dict[str, int]) -> str:
+    """addons/wiki/settings/local.py — the host:port the browser uses for the wiki's collaboration services.
+
+    Upstream defaults are `localhost:<port>`, which is not the loopback origin of ADR-02. Only a service that
+    `compose render` really publishes is rewritten: advertising a port nothing listens on would be worse.
+    SHAREJS_HOST / SHAREJS_PORT stay untouched; they address sharejs from the server side.
+    """
+    lines = [
+        "# -*- coding: utf-8 -*-",
+        f"# {GENERATED_HEADER}",
+        "# Browser-facing collaboration endpoints only (ADR-02 §3.3): published services on the loopback address.",
+    ]
+    for setting, service in (("Y_WEBSOCKET_URL", "y_websocket"), ("SHAREJS_URL", "sharejs")):
+        if service in published:
+            lines.append(f"{setting} = '{LOOPBACK}:{published[service]}'")
+    return "\n".join(lines) + "\n"
+
+
 def render_osf_env(host_ports: dict[str, int]) -> str:
     return _env_text([
         ("DOMAIN", _ext(host_ports, "web", "/")),
@@ -886,6 +907,8 @@ def render_mfr_env(host_ports: dict[str, int]) -> str:
         ("SERVER_CONFIG_ADDRESS", "0.0.0.0"),
         ("SERVER_CONFIG_PORT", "7778"),
         ("SERVER_CONFIG_ALLOWED_PROVIDER_DOMAINS", f"'{allowed}'"),
+        ("OSF_PROVIDER_CONFIG_CREDENTIAL_SOURCE_ORIGINS", "http://web:5000"),
+        ("OSF_PROVIDER_CONFIG_CREDENTIAL_TARGET_ORIGINS", "http://wb:7777"),
         ("UNOCONV_PORT_2002_TCP_ADDR", "unoconv"),
         ("UNOCONV_PORT_2002_TCP_PORT", "2002"),
         ("UNOCONV_CONVERT_URL", "http://unoconv:2002/convert"),
@@ -992,10 +1015,11 @@ def render_cas_service(host_ports: dict[str, int]) -> str:
     return json.dumps(service, indent=2, ensure_ascii=False) + "\n"
 
 
-def config_files(host_ports: dict[str, int]) -> dict[str, str]:
+def config_files(host_ports: dict[str, int], published: dict[str, int]) -> dict[str, str]:
     """Relative path under runtime/config -> content."""
     return {
         "osf/local.py": render_website_local_py(host_ports),
+        "osf/wiki_local.py": render_wiki_local_py(published),
         "osf/api_local.py": render_api_local_py(host_ports),
         "osf/admin_local.py": render_admin_local_py(),
         "osf.env": render_osf_env(host_ports),
@@ -1330,7 +1354,7 @@ def run(
     except ValueError as exc:  # two owners for one volume (a template error)
         return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
-    configs = config_files(host_ports)
+    configs = config_files(host_ports, published)
     for text in [compose_text, *configs.values()]:
         if FORBIDDEN_ADDRESS in text:  # defence in depth: ADR-02 forbids the alias anywhere
             return report.error(ctx, exit_codes.MANIFEST_INVALID, f"generated output contains {FORBIDDEN_ADDRESS}")

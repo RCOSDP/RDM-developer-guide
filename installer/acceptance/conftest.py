@@ -124,8 +124,16 @@ def user_b(run_id) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
+def institution_member(run_id) -> dict[str, str]:
+    """Affiliated with admin_user's institution; only listed by C6, never signs in."""
+    return _user("GRDM_ACCEPT_INSTITUTION_MEMBER", "institution-member", run_id)
+
+
+@pytest.fixture(scope="session")
 def admin_user(run_id) -> dict[str, str]:
-    return _user("GRDM_ACCEPT_ADMIN", "admin-user", run_id)
+    """The admin app has its own password form, checked against the OSF account, not fakecas's e-mail rule."""
+    user = _user("GRDM_ACCEPT_ADMIN", "admin-user", run_id)
+    return {**user, "password": os.environ.get("GRDM_ACCEPT_ADMIN_OSF_PASSWORD", user["password"])}
 
 
 # --- generated test files (never real files of real people) --------------------------------------

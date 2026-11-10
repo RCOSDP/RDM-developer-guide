@@ -2,9 +2,6 @@
   "service": "y_websocket",
   "component": "y-websocket",
   "container_port": 1234,
-  "expose": [
-    1234
-  ],
   "environment": {
     "HOST": "0.0.0.0",
     "PORT": "1234",
@@ -20,5 +17,6 @@
   ],
   "weight": 1,
   "mem_min_mb": 128,
-  "pids_limit": 256
+  "pids_limit": 256,
+  "host_port": 1234
 }
