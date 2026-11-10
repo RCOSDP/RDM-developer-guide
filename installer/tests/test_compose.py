@@ -22,10 +22,11 @@ FORBIDDEN = "192.168.168.167"
 
 
 def fake_value(key: str) -> str:
-    """A placeholder of the length `compose render` accepts for this key."""
+    """A placeholder that `compose render` accepts for this key ("x" * 43 is not canonical base64url of 32 bytes)."""
     from grdm_dev import secrets as _secrets
 
-    return "x" * _secrets.CAS_KEY_RULES.get(key, (48, None))[0]
+    size = _secrets.CAS_KEY_RULES.get(key, (48, None))[0]
+    return "A" * size if key == "TGC_ENCRYPTION_KEY" else "x" * size
 
 
 def fake_secrets(**overrides) -> str:
@@ -1172,6 +1173,27 @@ class CasNativeImageTests(unittest.TestCase):
             self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    def test_an_unusable_key_of_the_right_length_stops_the_render_by_name_only(self):
+        """PR #39 review r1 R1-01: exit 2, no Compose file, the key name and never the value."""
+        bad = {
+            "TGC_ENCRYPTION_KEY": ["!" * 43, "A" * 42 + "B"],
+            "TGC_SIGNING_KEY": ["!" * 86, " " * 86],
+            "OSF_API_INSTITUTIONS_AUTH_JWESECRET": ['"' + " " * 30 + '"', " " * 32, "osf_api_cas_login_" + "jwe_secret_32b"],
+            "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": ["'" + " " * 30 + "'", " " * 40, "osf_api_cas_login_" + "jwt_secret_32b"],
+        }
+        for key, values in bad.items():
+            for value in values:
+                root = make_root(fake_secrets(**{key: value}))
+                try:
+                    rc, out, err, _ = render(root)
+                    self.assertEqual(rc, exit_codes.USAGE, (key, value))
+                    self.assertIn(key, err)
+                    if value.strip(" '\""):
+                        self.assertNotIn(value.strip(" '\""), err + out)
+                    self.assertFalse((root / "runtime" / "docker-compose.yml").exists(), key)
+                finally:
+                    shutil.rmtree(root, ignore_errors=True)
 
     def test_a_runtime_env_from_before_the_switch_stops_the_render_by_name(self):
         env = fake_secrets().replace("TGC_ENCRYPTION_KEY=", "CAS_TGC_ENCRYPTION_KEY=")

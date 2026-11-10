@@ -6,6 +6,7 @@ import stat
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 from pathlib import Path
 
 from grdm_dev import exit_codes, secrets
@@ -344,6 +345,60 @@ class SecretsInitTests(unittest.TestCase):
             values = {**good, key: "a" * size}
             self.assertEqual(secrets.cas_key_problems(values), [key], (key, size))
             self.assertIn(key, secrets.check_no_defaults(values))
+
+    def test_each_cas_key_rejects_an_unusable_value_of_the_right_length(self):
+        """PR #39 review r1 R1-01: wrong alphabet, whitespace, quotes and forbidden defaults, per key."""
+        good = secrets.fresh_secrets()
+        for key, (size, _) in secrets.CAS_KEY_RULES.items():
+            cases = {
+                "bang": "!" * size,
+                "spaces": " " * size,
+                "inner space": "a" * (size - 1) + " ",
+                "tab": "\t" + "a" * (size - 1),
+                "double quote": '"' + "a" * (size - 2) + '"',
+                "single quote": "'" + "a" * (size - 1),
+                "dollar": "$" + "a" * (size - 1),
+                "plus and slash (base64, not base64url)": "+/" + "a" * (size - 2),
+                "non-ascii": "\u00e9" + "a" * (size - 2),
+            }
+            for name, value in cases.items():
+                values = {**good, key: value}
+                self.assertEqual(secrets.cas_key_problems(values), [key], (key, name))
+                self.assertIn(key, secrets.check_no_defaults(values), (key, name))
+
+    def test_published_defaults_are_rejected_without_being_stored(self):
+        import hashlib
+        jwe = "osf_api_cas_login_" + "jwe_secret_32b"
+        jwt = "osf_api_cas_login_" + "jwt_secret_32b"
+        for key, value in (("OSF_API_INSTITUTIONS_AUTH_JWESECRET", jwe), ("OSF_API_INSTITUTIONS_AUTH_JWTSECRET", jwt),
+                           ("OSF_API_INSTITUTIONS_AUTH_JWTSECRET", jwe)):
+            self.assertEqual(secrets.cas_key_problems({key: value}), [key], (key, value))
+        self.assertEqual(len(secrets.PUBLISHED_CAS_KEY_DIGESTS), 4)
+        for digest in secrets.PUBLISHED_CAS_KEY_DIGESTS:
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+        # the TGC keys once shipped in the image are matched by digest the same way
+        tgc = secrets.fresh_secrets()["TGC_ENCRYPTION_KEY"]
+        self.assertEqual(secrets.cas_key_problems({"TGC_ENCRYPTION_KEY": tgc}), [])
+        digests = secrets.PUBLISHED_CAS_KEY_DIGESTS | {hashlib.sha256(tgc.encode()).hexdigest()}
+        with mock.patch.object(secrets, "PUBLISHED_CAS_KEY_DIGESTS", digests):
+            self.assertEqual(secrets.cas_key_problems({"TGC_ENCRYPTION_KEY": tgc}), ["TGC_ENCRYPTION_KEY"])
+
+    def test_forbidden_defaults_padded_to_length_are_still_alphabet_checked(self):
+        for key in secrets.CAS_KEY_RULES:
+            self.assertEqual(secrets.cas_key_problems({key: "changeme"}), [key])
+
+    def test_tgc_encryption_key_must_decode_canonically_to_32_bytes(self):
+        good = secrets.fresh_secrets()["TGC_ENCRYPTION_KEY"]
+        self.assertEqual(secrets.cas_key_problems({"TGC_ENCRYPTION_KEY": "A" * 43}), [])  # 32 zero bytes, canonical
+        self.assertEqual(secrets.cas_key_problems({"TGC_ENCRYPTION_KEY": "A" * 42 + "B"}), ["TGC_ENCRYPTION_KEY"])  # stray low bits
+        self.assertEqual(secrets.cas_key_problems({"TGC_ENCRYPTION_KEY": good + "="}), ["TGC_ENCRYPTION_KEY"])  # padding
+
+    def test_signing_and_institution_keys_are_not_decoded(self):
+        """CAS signs with the raw characters of TGC_SIGNING_KEY; a value that is not canonical base64url still works."""
+        for key, (size, _) in secrets.CAS_KEY_RULES.items():
+            if key == "TGC_ENCRYPTION_KEY":
+                continue
+            self.assertEqual(secrets.cas_key_problems({key: "A" * (size - 1) + "B"}), [], key)
 
     def test_a_long_jwt_key_is_accepted(self):
         values = {**secrets.fresh_secrets(), "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "a" * 200}

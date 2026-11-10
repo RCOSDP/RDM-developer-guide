@@ -1245,7 +1245,7 @@ def run(
         return report.error(ctx, exit_codes.USAGE, f"runtime/.env lacks {', '.join(missing)}; run `grdm-dev secrets init --force` or `secrets rotate`")
     bad_lengths = _cas_key_problems(env)
     if bad_lengths:
-        return report.error(ctx, exit_codes.USAGE, f"runtime/.env has a value of the wrong length for {', '.join(bad_lengths)} (SPEC-02 §3); run `grdm-dev secrets rotate`")
+        return report.error(ctx, exit_codes.USAGE, f"runtime/.env has an unusable value (length, alphabet or a published default) for {', '.join(bad_lengths)} (SPEC-02 §3); run `grdm-dev secrets rotate`")
 
     try:
         man = _manifest.load(ctx)
