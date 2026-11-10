@@ -1085,14 +1085,14 @@ class ResetTests(unittest.TestCase):
 
 class ExitCodeTests(unittest.TestCase):
     def test_new_codes_have_messages_in_both_languages(self):
-        for code in (exit_codes.PREFLIGHT_FAILED, exit_codes.RESET_FAILED):
+        for code in (exit_codes.PREFLIGHT_FAILED, exit_codes.RESET_FAILED, exit_codes.DB_UPGRADE_FAILED):
             self.assertNotEqual(exit_codes.describe(code, "en"), "unknown exit code")
             self.assertNotEqual(exit_codes.describe(code, "ja"), "不明な終了コード")
 
     def test_spec_table_lists_them(self):
         text = (REPO_ROOT / "docs" / "spec" / "02_installer_cli.md").read_text(encoding="utf-8")
-        self.assertEqual(text.count("exit_codes[16]{code,meaning}:"), 2)
-        self.assertEqual(len(exit_codes.messages()), 16)
+        self.assertEqual(text.count("exit_codes[17]{code,meaning}:"), 2)
+        self.assertEqual(len(exit_codes.messages()), 17)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from .context import Context, find_repo_root
 
 # Each module exposes register(subparsers) and run(ctx, args). Order = help order.
 SUBCOMMAND_MODULES = [
-    "doctor", "plan", "secrets", "compose", "build", "lifecycle", "health",
+    "doctor", "plan", "secrets", "compose", "build", "lifecycle", "database", "health",
     "scan", "redteam", "accept", "upstream", "manifest_cmd", "docs", "report_cmd", "install",
 ]
 

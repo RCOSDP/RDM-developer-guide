@@ -1,7 +1,8 @@
 """grdm-dev up / down / reset — container lifecycle for the rendered profile (SPEC-02 §3, §7).
 
-up     `docker compose up -d`, then wait for health (exit 40 on timeout), then open the browser at
-       http://127.0.0.1:<GRDM_PORT_WEB> unless --no-open; the browser is only opened when stdin is a
+up     refuses (exit 15) a runtime/volumes/postgres_data written by another PostgreSQL major than the rendered
+       image (database.preflight, ADR-12); then `docker compose up -d`, then wait for health (exit 40 on timeout),
+       then open the browser at http://127.0.0.1:<GRDM_PORT_WEB> unless --no-open; the browser is only opened when stdin is a
        terminal. Idempotent: healthy services are left alone by Compose.
 down   `docker compose down` — containers stop, volumes stay.
 reset  down, then delete runtime/volumes/ after ctx.confirm(). Non-interactive without --yes → exit 2.
@@ -22,7 +23,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from . import compose, exit_codes, health, report
+from . import compose, database, exit_codes, health, report
 from .context import Context
 
 DEFAULT_TIMEOUT = 1800.0  # cold start: ember's first build under amd64 emulation took 13-25 min and osf_init runs migrations (real install runs 10-18; PR #33 review r1)
@@ -101,6 +102,10 @@ def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT
     bad_paths = compose.volume_path_problems(ctx.root, ctx.runtime)
     if bad_paths:
         return report.error(ctx, exit_codes.PREFLIGHT_FAILED, "unsafe volume path: " + "; ".join(bad_paths))
+    # a server refuses a data directory of another major; say so before Compose starts it (ADR-12)
+    db_problem = database.preflight(ctx, runner or health.default_runner)
+    if db_problem:
+        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, db_problem)
     runner = runner or streaming_runner
     rc, out = runner(health.compose_base(ctx) + ["up", "-d", "--remove-orphans"])
     if rc != 0:

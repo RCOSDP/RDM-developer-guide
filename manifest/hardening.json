@@ -38,7 +38,7 @@
       "reason": "The official postgres entrypoint starts as root, fixes ownership of the data directory (bind-mounted under runtime/volumes/), runs the init scripts, then drops to the postgres user with gosu. A fixed user: breaks first start on Linux hosts where the bind mount is owned by the developer.",
       "review": "2027-01-31",
       "service": "postgres",
-      "target": "M5 (postgres:15 with a pre-created data volume)"
+      "target": "M5 (postgres:18 adopted by ADR-12; the entrypoint still starts as root, so the exception stays until the data volume is pre-created for uid 999)"
     },
     {
       "cap_add": [
