@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-10. **Learned:** a host that lacks the prerequisites needs a script before `install.sh`, and that script must still end at `install.sh` so that the package stays the only decision path ([ADR-08](../docs/decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 前提条件の無いホストには `install.sh` の前にスクリプトが要るが、パッケージを唯一の判断の道筋に保つため、そのスクリプトは必ず `install.sh` で終わる（[ADR-08](../docs/decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the module contract (`register`/`run`, injectable runner) had to be fixed before several people could implement subcommands in parallel without stepping on each other. ／ 複数人が同時にサブコマンドを実装してもぶつからないよう、モジュールの契約（`register`/`run`、差し替え可能な runner）を先に固定する必要があると分かった。
 - Related: [docs/README.md](../docs/README.md) · [SPEC-02](../docs/spec/02_installer_cli.md) · [SPEC-04](../docs/spec/04_acceptance_tests.md)

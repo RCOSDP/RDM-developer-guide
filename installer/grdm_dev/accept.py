@@ -83,6 +83,16 @@ CHROMIUM_GLOBS = (
     "chromium_headless_shell*/chrome-headless-shell-*/chrome-headless-shell",
 )
 INSTALL_HINT = 'pip install -e "installer[accept]" && PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium'
+# Linux also needs Chromium's system libraries (`install-deps`, which asks for sudo), and Playwright's own Node.js
+# driver needs libatomic1, which the Ubuntu 24.04 cloud image lacks: without it even `playwright install` fails
+# with "libatomic.so.1: cannot open shared object file" (DEMO-21, arm64).
+LINUX_INSTALL_HINT = ("sudo apt-get install -y libatomic1 && " + INSTALL_HINT
+                      + " && PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install-deps chromium")
+
+
+def install_hint(system: str | None = None) -> str:
+    """The command that installs the [accept] extra and Chromium on this kind of host."""
+    return LINUX_INSTALL_HINT if (system if system is not None else sys.platform).startswith("linux") else INSTALL_HINT
 REQUIRED_MODULES = ("pytest", "playwright", "pytest_playwright")
 # Disposable-user mailbox domain. `.test` is reserved (RFC 2606): never a real person (POL-01).
 SEED_DOMAIN = "acceptance.test"
@@ -611,7 +621,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
 
     missing = missing_modules(importer)
     if missing:
-        return fail(exit_codes.USAGE, f"missing {', '.join(missing)}; run: {INSTALL_HINT}")
+        return fail(exit_codes.USAGE, f"missing {', '.join(missing)}; run: {install_hint()}")
 
     base_url = (getattr(args, "base_url", None) or default_base_url(ctx)).rstrip("/")
     problem = loopback_problem(base_url)
@@ -620,11 +630,11 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
 
     browsers = ctx.root / BROWSERS_PATH
     if chromium_executable(browsers) is None:
-        return fail(exit_codes.USAGE, f"no Chromium executable under {browsers}; run: {INSTALL_HINT}")
+        return fail(exit_codes.USAGE, f"no Chromium executable under {browsers}; run: {install_hint()}")
 
     suite_dir = ACCEPTANCE_DIR
     if not (suite_dir / "conftest.py").is_file():
-        return fail(exit_codes.USAGE, f"acceptance suite not found at {suite_dir}; reinstall: {INSTALL_HINT}")
+        return fail(exit_codes.USAGE, f"acceptance suite not found at {suite_dir}; reinstall: {install_hint()}")
     selection = select_tests(getattr(args, "only", None), suite_dir)
     if selection is None:
         return fail(exit_codes.USAGE, f"--only {args.only!r} matches no scenario in {suite_dir}")

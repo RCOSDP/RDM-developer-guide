@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.9 — 2026-11-10. **Learned:** an install command that works on a desktop can fail on a server image: on the Ubuntu 24.04 cloud image Playwright's own driver would not start without `libatomic1`, and Chromium needs system libraries, so on Linux the printed command installs both ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)). ／ デスクトップで動く導入コマンドがサーバーのイメージでは失敗しうる。Ubuntu 24.04 のクラウドイメージでは Playwright 自身のドライバーが `libatomic1` 無しに起動せず、Chromium にはシステムのライブラリが要る。そこで Linux では表示するコマンドが両方を入れる（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。
 - Version / 版: 0.8 — 2026-11-10. **Learned:** a known-asset exception written as a path prefix also accepts lookalike and unlisted paths, so a false pass was possible; each entry now names a whole path, an exact endpoint or a version plus file name (PR #35 review r1, R1-02). ／ パスの先頭で書いた既知資産の例外は、似たパスや一覧にないパスも受け入れ、偽の合格を生み得ると分かった。各項目はパス全体（正確な endpoint、または版とファイル名）で定める（PR #35 レビュー r1、R1-02）。
 - Version / 版: 0.7 — 2026-11-09. **Learned:** the GRDM pages of today load a few third-party assets (first real login, acceptance run 9), so "abort and fail" alone would keep every browser scenario red; rule 4 now keeps blocking them and counts only a fixed list that must be empty at M5. ／ 現在の GRDM の画面は少数の外部資産を読み込む（初の実ログイン、受入第 9 回）ため、「中断して失敗」だけではすべてのブラウザシナリオが不合格のままになる。規則 4 は遮断を続け、M5 までに空にする固定の一覧だけを件数の記録にとどめる。
 - Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -29,7 +30,7 @@ Acceptance tests drive a real browser against the environment that [SPEC-02](02_
 
 - Location: `installer/acceptance/`, one file per scenario, named `test_<scenario>.py`.
 - Runner: `grdm-dev accept [--profile ...] [--only <scenario>] [--json]`. It runs `pytest` inside the same `.venv/` that `install.sh` created ([SPEC-02 §2.2](02_installer_cli.md#english)) and exits 60 if any test fails.
-- Browsers: `grdm-dev accept` checks that Chromium is present under `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` and, if not, exits 2 and prints the exact install command (`pip install -e "installer[accept]"` then `playwright install chromium` with that variable). The download is a one-time setup step, never part of a test run. Nothing is installed outside the venv (a private box of Python tools for one project; see [REF-01](../reference/REF-01_Glossary.md)).
+- Browsers: `grdm-dev accept` checks that Chromium is present under `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` and, if not, exits 2 and prints the exact install command (`pip install -e "installer[accept]"` then `playwright install chromium` with that variable; on Linux it is preceded by `sudo apt-get install -y libatomic1` and followed by `playwright install-deps chromium`, which asks for `sudo` to add Chromium's system libraries). The download is a one-time setup step, never part of a test run. Nothing is installed outside the venv (a private box of Python tools for one project; see [REF-01](../reference/REF-01_Glossary.md)).
 - Target URL: always `http://127.0.0.1:<port>` as published by `compose render` ([ADR-02](../decisions/ADR-02_Network_Model.md); defaults in the ports table of [SPEC-02 §4](02_installer_cli.md#2-en-ports)). Tests read the ports from `runtime/.env` (`GRDM_PORT_<SERVICE>`); they never hard-code them.
 
 ### 2. Test tiers
@@ -150,7 +151,7 @@ The Mac Studio self-hosted runner is registered only with the private `-dev2027`
 
 - 置き場: `installer/acceptance/`。シナリオごとに一ファイル、名前は `test_<シナリオ>.py`。
 - 実行器: `grdm-dev accept [--profile ...] [--only <シナリオ>] [--json]`。`install.sh` が作った同じ `.venv/` の中で `pytest` を動かし（[SPEC-02 §2.2](02_installer_cli.md#japanese)）、一件でも失敗すれば終了 60。
-- ブラウザ: `grdm-dev accept` は `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` に Chromium があるかを確かめ、なければ終了コード 2 で導入コマンド（`pip install -e "installer[accept]"` のあと同じ変数を付けて `playwright install chromium`）をそのまま表示する。ダウンロードは一度だけの準備であり、試験の実行には含めない。venv（プロジェクトごとの Python 道具箱。[REF-01](../reference/REF-01_Glossary.md)）の外には何も入れない。
+- ブラウザ: `grdm-dev accept` は `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright/` に Chromium があるかを確かめ、なければ終了コード 2 で導入コマンド（`pip install -e "installer[accept]"` のあと同じ変数を付けて `playwright install chromium`。Linux では前に `sudo apt-get install -y libatomic1`、後に Chromium のシステムライブラリを `sudo` で入れる `playwright install-deps chromium` が付く）をそのまま表示する。ダウンロードは一度だけの準備であり、試験の実行には含めない。venv（プロジェクトごとの Python 道具箱。[REF-01](../reference/REF-01_Glossary.md)）の外には何も入れない。
 - 対象 URL: 常に `compose render` が公開した `http://127.0.0.1:<ポート>`（[ADR-02](../decisions/ADR-02_Network_Model.md)。既定値は [SPEC-02 §4](02_installer_cli.md#2-ja-ports) のポート表）。ポートは `runtime/.env`（`GRDM_PORT_<SERVICE>`）から読み、決め打ちしない。
 
 ### 2. 試験の段

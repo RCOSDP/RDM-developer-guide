@@ -33,11 +33,15 @@ gate judges the findings it has; at M4-M5 it makes the run incomplete (exit 51) 
 from __future__ import annotations
 
 import datetime as _dt
+import errno
 import json
+import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -618,11 +622,32 @@ def mask_secrets(data: Any, secrets: list[str]) -> Any:
 
 # --------------------------------------------------------------------------- scanners
 
+# Opening a FIFO blocks until the other end appears, and a symlink is followed, both before any type check could
+# run. So report files are opened without following links and without blocking, and the descriptor's type is
+# checked before a byte is read or written (PR #44 review r2 R2-02).
+_SAFE_OPEN = getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+
+
+def _regular_fd(fd: int, path: Path) -> int:
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError(errno.EINVAL, "not a regular file", str(path))
+    return fd
+
+
+def _write_report_file(path: Path, text: str) -> None:
+    """Write `text` to `path` only if it is, or becomes, a regular file; a FIFO, symlink or device raises OSError."""
+    fd = _regular_fd(os.open(path, os.O_WRONLY | os.O_CREAT | _SAFE_OPEN, 0o666), path)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.truncate(0)
+        fh.write(text)
+
+
 def _save_raw(ctx: Context, name: str, text: str, secrets: list[str]) -> Path:
     """Save a scanner's raw output under runtime/reports/ with runtime/.env values masked."""
     ctx.reports_dir.mkdir(parents=True, exist_ok=True)
     path = ctx.reports_dir / name
-    path.write_text(mask_secrets(text, secrets), encoding="utf-8")
+    _write_report_file(path, mask_secrets(text, secrets))
     return path
 
 
@@ -892,6 +917,47 @@ def services_healthy(ctx: Context, runner: Runner, which: Callable[[str], bool],
     return True
 
 
+def private_reports_problem(ctx: Context) -> str | None:
+    """Why the ZAP work directories may not be made writable for every uid, or None.
+
+    A 0777 work directory is safe only below an ancestor that no other host user can enter. That ancestor is
+    runtime/: it must be a real directory (not a symlink), owned by this user, with no group or other bits; and
+    reports/ below it must be a real directory owned by this user. `secrets init` creates runtime/ this way, but a
+    copied or older runtime/ may be 0755, so the invariant is checked, not assumed (PR #44 review r1 R3)."""
+    uid = os.getuid()
+    for path, private in ((ctx.runtime, True), (ctx.reports_dir, False)):
+        try:
+            st = os.lstat(path)
+        except OSError as exc:
+            return f"{path} cannot be inspected ({exc.strerror})"
+        if stat.S_ISLNK(st.st_mode):
+            return f"{path} is a symbolic link"
+        if not stat.S_ISDIR(st.st_mode):
+            return f"{path} is not a directory"
+        if st.st_uid != uid:
+            return f"{path} belongs to uid {st.st_uid}, not to this user (uid {uid})"
+        if private and stat.S_IMODE(st.st_mode) & 0o077:
+            return f"{path} has mode {oct(stat.S_IMODE(st.st_mode))}; it must be 0700 (chmod 700 {path})"
+    return None
+
+
+def _read_zap_report(path: Path) -> tuple[Any, str | None]:
+    """The parsed report, refusing anything but a regular file (a symlink planted in the work directory is not
+    followed). (None, None) when there is no file."""
+    try:
+        fd = os.open(path, os.O_RDONLY | _SAFE_OPEN)
+    except FileNotFoundError:
+        return None, None
+    except OSError as exc:
+        return None, f"ZAP report {path.name} could not be opened safely ({exc.strerror}); a symlink is refused"
+    try:
+        fd = _regular_fd(fd, path)
+    except OSError:
+        return None, f"ZAP report {path.name} is not a regular file (a FIFO, device or socket is refused)"
+    with os.fdopen(fd, "r", encoding="utf-8") as fh:
+        return _json_or_empty(fh.read()), None
+
+
 def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
             secrets: list[str] | None = None) -> tuple[list[dict], dict, list[str]]:
     _require(which, "docker")
@@ -904,23 +970,44 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
     ctx.reports_dir.mkdir(parents=True, exist_ok=True)
     findings: list[dict] = []
     problems: list[str] = []
+    unsafe = private_reports_problem(ctx)
+    if unsafe:  # fail closed: no world-writable directory, no ZAP run, the dynamic part is incomplete (exit 51)
+        problems.append(f"ZAP not run: {unsafe}; its work directories must sit below a private runtime/")
+        return [], _tool("zap", "stable", len(targets), problems), notes
     for svc, port in targets.items():
         url = f"http://{svc}:{port}"  # service name, never 127.0.0.1 (SPEC-03 §4.3)
         out_name = f"zap_{svc}_{ts}.json"
-        argv = ["docker", "run", "--rm", "--network", network, "-v", f"{ctx.reports_dir}:/zap/wrk:rw",
+        # ZAP writes as its own uid (1000, "zap"). On Linux a host directory owned by another uid is not writable
+        # for it, so zap-baseline exited 0 without a report (DEMO-21 run 3, host uid 2001). Each target gets its
+        # own work directory, writable by any uid: created exclusively under an unpredictable name, below the
+        # runtime/ whose 0700 mode private_reports_problem() has just verified, holding only this report, and
+        # removed once the masked copy is saved in reports/.
+        wrk = Path(tempfile.mkdtemp(prefix=f"zap_wrk_{svc}_{ts}_", dir=ctx.reports_dir))
+        os.chmod(wrk, 0o777)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- exclusive, unpredictable ZAP work directory below a runtime/ verified as 0700 and owned by this user; removed in `finally`
+        argv = ["docker", "run", "--rm", "--network", network, "-v", f"{wrk}:/zap/wrk:rw",
                 ZAP_IMAGE, "zap-baseline.py", "-t", url, "-J", out_name, "-I"]
-        rc, out = runner(argv)
-        if rc == 127:
-            raise ScannerMissing("docker", "docker not found")
-        out_path = ctx.reports_dir / out_name
-        data = _json_or_empty(out_path.read_text(encoding="utf-8")) if out_path.exists() else _json_or_empty(out)
+        try:
+            rc, out = runner(argv)
+            if rc == 127:
+                raise ScannerMissing("docker", "docker not found")
+            data, refused = _read_zap_report(wrk / out_name)
+            if refused:
+                problems.append(refused)
+                continue
+            if data is None:
+                data = _json_or_empty(out)
+        finally:
+            shutil.rmtree(wrk, ignore_errors=True)
         if data is None:
             problems.append(f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull or the scan may have failed")
             continue
         if rc not in ZAP_OK_CODES:
             problems.append(f"zap-baseline exited {rc} for {url}")
-        if out_path.exists():
+        try:
             _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
+        except OSError as exc:
+            problems.append(f"ZAP report {out_name} could not be saved in reports/ ({exc.strerror}); only a regular file is written")
+            continue
         findings.extend(normalize_zap(data, url))
     return findings, _tool("zap", "stable", len(targets), problems), notes
 

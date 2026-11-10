@@ -10,6 +10,8 @@ import io
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -134,6 +136,7 @@ class ScanTestBase(unittest.TestCase):
         services = services if services is not None else {"web": hardened(ports=["127.0.0.1:5000:5000"], networks=["grdm", "grdm-edge"])}
         doc = {"services": services, "networks": networks if networks is not None else NETWORKS}
         (self.root / "runtime").mkdir(exist_ok=True)
+        os.chmod(self.root / "runtime", 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture: the private runtime/ that `secrets init` leaves
         (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps(doc))
 
     def run_scan(self, runner, which=all_tools, **flags):
@@ -685,6 +688,112 @@ class DynamicTests(ScanTestBase):
         code, data, _ = self.run_scan(fake_runner(compose_ps=None))
         self.assertEqual(code, exit_codes.OK)
         self.assertTrue(any("dynamic (ZAP) part skipped" in n for n in data["notes"]))
+
+    def test_zap_writes_into_its_own_world_writable_directory_that_is_removed(self):
+        # DEMO-21 run 3: ZAP (uid 1000) could not write into runtime/reports owned by host uid 2001.
+        self.write_compose()
+        ps = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+        base = fake_runner(compose_ps=ps)
+        seen = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"]:
+                mount = Path(argv[argv.index("-v") + 1].split(":")[0])
+                seen.append((mount, oct(mount.stat().st_mode & 0o777)))
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.OK, data["tools"])
+        reports = self.root / "runtime" / "reports"
+        self.assertEqual(len(seen), 1)
+        mount, mode = seen[0]
+        self.assertEqual(mount.parent, reports)
+        self.assertEqual(mode, "0o777")
+        self.assertFalse(mount.exists())
+        self.assertEqual(len(list(reports.glob("zap_web_*.json"))), 1)
+        self.assertEqual(list(reports.glob("zap_wrk_*")), [])
+
+    def _zap_ready(self):
+        self.write_compose()
+        return json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+
+    def test_zap_refuses_a_runtime_that_others_can_enter(self):
+        # PR #44 review r1 R3: with runtime/ at 0755 the 0777 work directory was reachable by other local users.
+        ps = self._zap_ready()
+        os.chmod(self.root / "runtime", 0o755)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture: the permissive runtime/ the scan must refuse
+        calls = []
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, calls=calls), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("must be 0700", data["tools"][0]["result"])
+        self.assertEqual([c for c in calls if c[:2] == ["docker", "run"]], [])
+        self.assertEqual(list((self.root / "runtime" / "reports").glob("zap_wrk_*")), [])
+
+    def test_zap_refuses_symlinked_runtime_or_reports(self):
+        ps = self._zap_ready()
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir(mode=0o700)
+        reports = self.root / "runtime" / "reports"
+        reports.symlink_to(elsewhere, target_is_directory=True)
+        calls = []
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, calls=calls), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("symbolic link", data["tools"][0]["result"])
+        self.assertEqual([c for c in calls if c[:2] == ["docker", "run"]], [])
+        self.assertEqual(list(elsewhere.glob("zap_wrk_*")), [])
+
+    def test_zap_work_directory_names_are_unpredictable_and_reports_symlinks_are_refused(self):
+        ps = self._zap_ready()
+        outside = self.root / "outside.json"
+        outside.write_text('{"site": [{"alerts": [{"pluginid": "1", "riskcode": "3", "alert": "planted"}]}]}')
+        base = fake_runner(compose_ps=ps)
+        mounts = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"]:
+                wrk = Path(argv[argv.index("-v") + 1].split(":")[0])
+                mounts.append(wrk.name)
+                (wrk / argv[argv.index("-J") + 1]).symlink_to(outside)  # what another user could plant
+                return 0, ""
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("symlink is refused", data["tools"][0]["result"])
+        self.assertNotIn("planted", json.dumps(data["findings"]))
+        self.assertEqual(len(mounts), 1)
+        self.assertRegex(mounts[0], r"^zap_wrk_web_\S+_[A-Za-z0-9_]{6,}$")
+        self.assertTrue(outside.exists())
+
+    def test_fifo_report_is_refused_without_blocking(self):
+        # PR #44 review r2 R2-02: os.open on a FIFO with no writer blocked before the type check. Bounded by a child.
+        fifo = self.root / "report.json"
+        os.mkfifo(fifo)
+        code = ("import sys; from pathlib import Path; from grdm_dev import scan; "
+                "print(scan._read_zap_report(Path(sys.argv[1]))[1])")
+        cp = subprocess.run([sys.executable, "-c", code, str(fifo)], capture_output=True, text=True, timeout=10,
+                            env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1])))
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("not a regular file", cp.stdout)
+
+    def test_zap_does_not_write_into_a_fifo_in_reports(self):
+        ps = self._zap_ready()
+        reports = self.root / "runtime" / "reports"
+        reports.mkdir()
+        base = fake_runner(compose_ps=ps)
+        planted = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"] and not planted:
+                name = argv[argv.index("-J") + 1]
+                os.mkfifo(reports / name)  # a FIFO where the masked copy will be saved
+                # A reader keeps the test bounded: without it a regression would block in open() instead of failing.
+                planted.append(os.open(reports / name, os.O_RDONLY | os.O_NONBLOCK))
+                self.addCleanup(os.close, planted[-1])
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("only a regular file is written", data["tools"][0]["result"])
 
     def test_dynamic_targets_service_names_on_compose_network(self):
         self.write_compose({

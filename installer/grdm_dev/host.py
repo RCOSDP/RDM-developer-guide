@@ -46,7 +46,20 @@ REQUIRED_TOOLS = ("git",)
 SCANNER_TOOLS = ("trivy", "gitleaks", "semgrep")
 WITHOUT_SCAN_ENV = "GRDM_WITHOUT_SCAN"  # install.sh's opt-out of the [scan] extra: semgrep is then absent on purpose
 BINFMT_AMD64_FILES = ("/proc/sys/fs/binfmt_misc/qemu-x86_64", "/proc/sys/fs/binfmt_misc/rosetta")
-ENABLE_AMD64_EMULATION = "docker run --privileged --rm tonistiigi/binfmt --install amd64"
+# The QEMU registration image, pinned by digest (tag qemu-v10.2.3-68). Kept in step with BINFMT_IMAGE in
+# installer/install-ubuntu.sh; a test compares the two.
+BINFMT_IMAGE = "tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
+ENABLE_AMD64_EMULATION = f"docker run --privileged --rm {BINFMT_IMAGE} --install amd64"
+# Replacing a registered handler: the kernel refuses a second entry with the same name, so remove it first.
+REPLACE_AMD64_EMULATION = (f"docker run --privileged --rm {BINFMT_IMAGE} --uninstall qemu-x86_64 && "
+                           f"docker run --privileged --rm {BINFMT_IMAGE} --install amd64")
+# Emulator builds measured to crash while building a core image, matched against `<interpreter> --version`.
+# Ubuntu 24.04's qemu-user-static 1:8.2.2+ds-0ubuntu1.18 stops modular-file-renderer's build with
+# "QEMU internal SIGSEGV" in the libgvc6 post-install script, while tonistiigi/binfmt's 8.1.5, 9.2.2 and
+# 10.2.3 install the same package (DEMO-21 run 1). Only the measured build is listed; the version alone is not the cause.
+KNOWN_BAD_QEMU = (
+    (re.compile(r"qemu-x86_64 version 8\.2\.2 \(Debian 1:8\.2\.2\+ds-0ubuntu"), "Ubuntu 24.04 qemu-user-static 8.2.2"),
+)
 
 
 def default_runner(argv: list[str]) -> tuple[int, str]:
@@ -82,6 +95,7 @@ class Probe:
     tools: Optional[dict[str, bool]] = None  # name -> found, for REQUIRED_TOOLS + SCANNER_TOOLS; None = not probed
     repo_root: str = ""                 # resolved repository root; "" = not probed
     binfmt_amd64: Optional[bool] = None  # Linux: an enabled amd64 handler in binfmt_misc; None = unknown
+    binfmt_amd64_qemu: str = ""         # Linux: first line of the registered qemu-x86_64 interpreter's --version; "" = unknown
     repo_modes_enforced: Optional[bool] = None  # WSL2: the checkout's filesystem keeps chmod 0600; None = unknown
 
     @classmethod
@@ -103,6 +117,7 @@ class Probe:
             tools=_probe_tools(),
             repo_root=str(root.resolve()),
             binfmt_amd64=_binfmt_amd64() if system == "Linux" else None,
+            binfmt_amd64_qemu=_binfmt_amd64_qemu(runner or default_runner) if system == "Linux" else "",
         )
         if classify_os(p)[0] == "wsl2":
             p.repo_modes_enforced = _modes_enforced(root)
@@ -165,6 +180,33 @@ def _binfmt_amd64() -> Optional[bool]:
     if not Path("/proc/sys/fs/binfmt_misc").is_dir():
         return None
     return any(_read_text(path).splitlines()[:1] == ["enabled"] for path in BINFMT_AMD64_FILES)
+
+
+def _binfmt_amd64_qemu(runner: Runner, entry: str = BINFMT_AMD64_FILES[0]) -> str:
+    """The `--version` line of the registered qemu-x86_64 interpreter when that file is on this host, else "".
+    A handler registered from a container with the F flag (tonistiigi/binfmt) has no host file: unknown, not bad.
+    The path is resolved first: Ubuntu's x86_64-binfmt-P refuses `--version` under its own name."""
+    interpreter = next((line.split(None, 1)[1].strip() for line in _read_text(entry).splitlines()
+                        if line.startswith("interpreter ") and len(line.split(None, 1)) == 2), "")
+    if not interpreter:
+        return ""
+    path = Path(interpreter)
+    try:
+        path = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return ""
+    if not path.is_file():
+        return ""
+    rc, out = runner([str(path), "--version"])
+    return (out or "").strip().splitlines()[0] if rc == 0 and (out or "").strip() else ""
+
+
+def known_bad_qemu(version_line: str) -> Optional[str]:
+    """The name of a measured-bad emulator build matching `version_line`, else None."""
+    for pattern, name in KNOWN_BAD_QEMU:
+        if pattern.search(version_line or ""):
+            return name
+    return None
 
 
 def _modes_enforced(root: Path) -> Optional[bool]:
@@ -359,6 +401,13 @@ def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> 
         info.prerequisite_problems.append(
             f"amd64 emulation is not enabled but {names} need it; run this (and again after a reboot): {ENABLE_AMD64_EMULATION} / "
             f"amd64 エミュレーションが無効ですが {names} に必要です。次を実行してください（再起動のたびに必要）: {ENABLE_AMD64_EMULATION}"
+        )
+    elif bad := known_bad_qemu(probe.binfmt_amd64_qemu):
+        info.prerequisite_problems.append(
+            f"the registered amd64 emulator is {bad} ({probe.binfmt_amd64_qemu}), which crashes with `QEMU internal SIGSEGV` while building {names}; "
+            f"replace it (and again after a reboot, while qemu-user-static is installed): {REPLACE_AMD64_EMULATION} / "
+            f"登録されている amd64 エミュレーターは {bad}（{probe.binfmt_amd64_qemu}）で、{names} のビルド中に `QEMU internal SIGSEGV` で落ちます。"
+            f"次で置き換えてください（qemu-user-static が入っている間は再起動のたびに必要）: {REPLACE_AMD64_EMULATION}"
         )
 
 

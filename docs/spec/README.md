@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-10. **Learned:** the installer specification also governs the scripts that run before the installer, so an index line must name them ([ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ インストーラーの仕様は、インストーラーの前に動くスクリプトも定めるので、索引の行にも名指しする（[ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - Version / 版: 0.2 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** the installer, the security gate and the acceptance tests had to be written down as rules before any code, otherwise each implementer would fill the gaps differently. ／ インストーラー、セキュリティの門、受入試験は、コードより先に規則として書いておかないと、実装する人ごとに隙間の埋め方が変わると分かった。
 - Normative for: [SPEC-00 Overview](./00_overview.md) through [SPEC-06 Documentation Conventions](./06_documentation_conventions.md).
@@ -25,7 +26,7 @@ A *specification* is a rule book that implementers must follow. This folder cont
 |---|---|---|
 | SPEC-00 | [00_overview.md](./00_overview.md) | Component map, milestones, roles, the big picture. |
 | SPEC-01 | [01_manifest.md](./01_manifest.md) | The manifest: which upstream commits and PRs the installer builds. |
-| SPEC-02 | [02_installer_cli.md](./02_installer_cli.md) | The `grdm-dev` CLI and `install.sh`: host checks, secrets, compose, build, health, reports. |
+| SPEC-02 | [02_installer_cli.md](./02_installer_cli.md) | The `grdm-dev` CLI, `install.sh` and the per-OS prerequisite scripts: host checks, secrets, compose, build, health, reports. |
 | SPEC-03 | [03_security_gate.md](./03_security_gate.md) | SBOM, CVE scan, static analysis, ZAP, AI red team, per-milestone thresholds. |
 | SPEC-04 | [04_acceptance_tests.md](./04_acceptance_tests.md) | Playwright Python acceptance: success and rejection cases per feature. |
 | SPEC-05 | [05_upstream_tracking.md](./05_upstream_tracking.md) | Daily mirror and diff report, weekly AI integration PR, COS reference tracking. |
@@ -63,7 +64,7 @@ flowchart TD
 |---|---|---|
 | SPEC-00 | [00_overview.md](./00_overview.md) | 部品の地図、節目、役割、全体像。 |
 | SPEC-01 | [01_manifest.md](./01_manifest.md) | マニフェスト：どの上流のコミットと PR を組むか。 |
-| SPEC-02 | [02_installer_cli.md](./02_installer_cli.md) | `grdm-dev` CLI と `install.sh`：ホスト判定、秘密、compose、ビルド、健康確認、報告。 |
+| SPEC-02 | [02_installer_cli.md](./02_installer_cli.md) | `grdm-dev` CLI、`install.sh`、OS ごとの前提条件スクリプト：ホスト判定、秘密、compose、ビルド、健康確認、報告。 |
 | SPEC-03 | [03_security_gate.md](./03_security_gate.md) | SBOM、CVE スキャン、静的解析、ZAP、AI レッドチーム、節目ごとの基準。 |
 | SPEC-04 | [04_acceptance_tests.md](./04_acceptance_tests.md) | Playwright Python 受入：機能ごとの成功・拒否ケース。 |
 | SPEC-05 | [05_upstream_tracking.md](./05_upstream_tracking.md) | 日次ミラーと差分報告、週次の AI 統合 PR、COS 参照追跡。 |
