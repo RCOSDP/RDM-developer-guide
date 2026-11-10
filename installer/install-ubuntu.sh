@@ -3,12 +3,15 @@
 # (ADR-08, SPEC-02 §2.3). It only prepares the host: every installation decision stays in install.sh and grdm-dev.
 #
 # What it may change, after showing it and asking: apt packages (git, python3, python3-venv, curl, gnupg,
-# ca-certificates), Docker Engine with the Compose and buildx plugins from Docker's signed apt repository, the
-# docker group, qemu-user-static for amd64 emulation on arm64, and trivy and gitleaks in ~/.local/bin.
+# ca-certificates, and libatomic1 with GRDM_WITH_ACCEPT=1), Docker Engine with the Compose and buildx plugins
+# from Docker's signed apt repository, the docker group, amd64 emulation on arm64 (QEMU registered by the pinned
+# BINFMT_IMAGE, not Ubuntu's qemu-user-static, whose 8.2.2 build crashed while building modular-file-renderer:
+# DEMO-21 run 1), and trivy and gitleaks in ~/.local/bin.
 # Inside WSL2 Docker comes from Docker Desktop, so the Docker Engine steps are skipped.
 #
-# Trust: the apt signing key is accepted only when its fingerprint equals DOCKER_SIGNER_FPR, and the
-# scanner tarballs only when their SHA-256 equals the values below (copied from each release's checksums file).
+# Trust: the apt signing key is accepted only when its fingerprint equals DOCKER_SIGNER_FPR, the scanner
+# tarballs only when their SHA-256 equals the values below (copied from each release's checksums file), and
+# the emulator image only by its digest.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +28,10 @@ DOCKER_CONFLICTS="docker.io docker-doc docker-compose docker-compose-v2 podman-d
 TRIVY_VERSION="0.75.0"
 GITLEAKS_VERSION="8.21.2"
 LOCAL_BIN="${HOME}/.local/bin"
+# Same value as BINFMT_IMAGE in installer/grdm_dev/host.py (a test compares them). Tag qemu-v10.2.3-68.
+BINFMT_IMAGE="tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
+# Emulator builds measured to crash; same pattern as KNOWN_BAD_QEMU in host.py.
+KNOWN_BAD_QEMU_RE='qemu-x86_64 version 8\.2\.2 \(Debian 1:8\.2\.2\+ds-0ubuntu'
 
 prereq_usage() {
   cat <<'EOF'
@@ -76,8 +83,12 @@ fi
 # --- detection (read-only) -------------------------------------------------------------------------
 pkg_installed() { [ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null || true)" = "install ok installed" ]; }
 
+APT_PACKAGES="git python3 python3-venv curl gnupg ca-certificates"
+# GRDM_WITH_ACCEPT=1 (install.sh's [accept] extra): Playwright's Node.js driver needs libatomic1, which the Ubuntu 24.04
+# cloud image lacks (DEMO-21). Chromium's own libraries come later from `playwright install-deps`.
+if [ "${GRDM_WITH_ACCEPT:-0}" = "1" ]; then APT_PACKAGES="${APT_PACKAGES} libatomic1"; fi
 APT_MISSING=""
-for pkg in git python3 python3-venv curl gnupg ca-certificates; do
+for pkg in ${APT_PACKAGES}; do
   if ! pkg_installed "${pkg}"; then APT_MISSING="${APT_MISSING} ${pkg}"; fi
 done
 APT_MISSING="${APT_MISSING# }"
@@ -103,11 +114,23 @@ if [ "${NEED_ENGINE}" = "1" ]; then
   fi
 fi
 
+qemu_version_line() {  # the registered interpreter's `--version` line when it is a file on this host, else nothing
+  interp="$(awk '$1 == "interpreter" { print $2; exit }' "${binfmt}" 2>/dev/null || true)"
+  if [ -z "${interp}" ]; then return 0; fi
+  real="$(readlink -f "${interp}" 2>/dev/null || true)"  # Ubuntu's x86_64-binfmt-P refuses --version under its own name
+  if [ -z "${real}" ] || [ ! -f "${real}" ]; then return 0; fi
+  "${real}" --version 2>/dev/null | head -n 1 || true
+}
+emulation_ok() {  # enabled, with the F flag (usable from inside a container), and not a build measured to crash
+  grep -q '^enabled' "${binfmt}" 2>/dev/null && grep -q '^flags:.*F' "${binfmt}" 2>/dev/null \
+    && ! qemu_version_line | grep -Eq "${KNOWN_BAD_QEMU_RE}"
+}
 NEED_EMULATION=0
+BAD_EMULATOR=""
+binfmt="${GRDM_PREREQ_BINFMT_DIR:-/proc/sys/fs/binfmt_misc}/qemu-x86_64"
 if [ "${ARCH}" = "arm64" ] && [ "${IS_WSL}" = "0" ]; then
-  # The F flag is what makes the interpreter usable from inside a container.
-  binfmt="${GRDM_PREREQ_BINFMT_DIR:-/proc/sys/fs/binfmt_misc}/qemu-x86_64"
-  if ! grep -q '^enabled' "${binfmt}" 2>/dev/null || ! grep -q '^flags:.*F' "${binfmt}" 2>/dev/null; then NEED_EMULATION=1; fi
+  if ! emulation_ok; then NEED_EMULATION=1; fi
+  if qemu_version_line | grep -Eq "${KNOWN_BAD_QEMU_RE}"; then BAD_EMULATOR="$(qemu_version_line)"; fi
 fi
 
 export PATH="${LOCAL_BIN}:${PATH}"
@@ -122,9 +145,12 @@ if [ "${NEED_ENGINE}" = "1" ]; then
   prereq_plan "sudo: add Docker's signed apt repository and install ${DOCKER_PACKAGES}, then start the docker service" \
     "sudo: Docker の署名付き apt リポジトリを追加し、${DOCKER_PACKAGES} を入れて docker サービスを起動する"
 fi
-if [ "${NEED_EMULATION}" = "1" ]; then
-  prereq_plan "sudo: install qemu-user-static so that amd64 images can run on this arm64 host" \
-    "sudo: この arm64 ホストで amd64 イメージを動かすため qemu-user-static を入れる"
+if [ -n "${BAD_EMULATOR}" ]; then
+  prereq_plan "sudo: replace the registered amd64 emulator (${BAD_EMULATOR}), which crashes while building modular-file-renderer, with QEMU from ${BINFMT_IMAGE}" \
+    "sudo: 登録済みの amd64 エミュレーター（${BAD_EMULATOR}）は modular-file-renderer のビルド中に落ちるため、${BINFMT_IMAGE} の QEMU に置き換える"
+elif [ "${NEED_EMULATION}" = "1" ]; then
+  prereq_plan "sudo: register QEMU from ${BINFMT_IMAGE} so that amd64 images can run on this arm64 host (until the next reboot)" \
+    "sudo: この arm64 ホストで amd64 イメージを動かすため ${BINFMT_IMAGE} の QEMU を登録する（次の再起動まで有効）"
 fi
 if [ "${NEED_TRIVY}" = "1" ]; then
   prereq_plan "download trivy ${TRIVY_VERSION} (SHA-256 checked) into ${LOCAL_BIN}" "trivy ${TRIVY_VERSION} を（SHA-256 を検証して）${LOCAL_BIN} に入れる"
@@ -185,11 +211,18 @@ EOF
 fi
 
 if [ "${NEED_EMULATION}" = "1" ]; then
-  prereq_step 11 "update the apt package lists" prereq_as_root apt-get update
-  prereq_step 11 "install amd64 emulation" prereq_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-user-static
-  if [ "${PREREQ_DRY_RUN}" = "0" ] && ! grep -q '^enabled' "${binfmt}" 2>/dev/null; then
-    prereq_fail 11 "amd64 emulation is not registered in the kernel after installing qemu-user-static (${binfmt})" \
-      "qemu-user-static を入れた後もカーネルに amd64 エミュレーションが登録されていません（${binfmt}）"
+  # The kernel refuses a second entry with the same name, so an existing one is removed first.
+  if [ -e "${binfmt}" ]; then
+    prereq_step 11 "remove the registered amd64 emulator" prereq_as_root docker run --privileged --rm "${BINFMT_IMAGE}" --uninstall qemu-x86_64
+  fi
+  prereq_step 11 "register amd64 emulation" prereq_as_root docker run --privileged --rm "${BINFMT_IMAGE}" --install amd64
+  if [ "${PREREQ_DRY_RUN}" = "0" ] && ! emulation_ok; then
+    prereq_fail 11 "amd64 emulation is not usable after registering it from ${BINFMT_IMAGE} (${binfmt})" \
+      "${BINFMT_IMAGE} から登録した後も amd64 エミュレーションを使えません（${binfmt}）"
+  fi
+  if [ "${PREREQ_DRY_RUN}" = "0" ] && pkg_installed qemu-user-static; then
+    prereq_say "Note: qemu-user-static is installed, so its emulator returns at the next reboot; run this script again after a reboot, or remove it: sudo apt-get remove qemu-user-static" \
+      "注意: qemu-user-static が入っているため、次の再起動でそのエミュレーターが戻ります。再起動後にこのスクリプトをもう一度実行するか、削除してください: sudo apt-get remove qemu-user-static"
   fi
 fi
 

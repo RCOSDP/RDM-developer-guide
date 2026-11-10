@@ -21,6 +21,7 @@ WINDOWS = INSTALLER / "install-windows.ps1"
 
 MUTATING = ("sudo", "apt-get", "curl", "gpg", "usermod", "systemctl", "brew", "open", "sg", "wsl.exe")
 UBUNTU_RELEASE = 'ID=ubuntu\nVERSION_ID="24.04"\n'
+BINFMT_IMAGE = "tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0"
 DOCKER_OK = """#!/bin/sh
 case "$*" in
   "version --format"*) echo 29.1.0 ;;
@@ -50,7 +51,7 @@ class ScriptRun(unittest.TestCase):
         self.calls = self.root / "calls.log"
         self.bin.mkdir()
         self.home.mkdir()
-        for tool in ("awk", "sed", "grep", "dirname", "mktemp", "rm", "tr", "id", "cat", "bash", "mkdir", "sh"):
+        for tool in ("awk", "sed", "grep", "dirname", "mktemp", "rm", "tr", "id", "cat", "bash", "mkdir", "sh", "head", "readlink"):
             src = shutil.which(tool)
             if src:
                 os.symlink(src, self.bin / tool)
@@ -104,10 +105,85 @@ class UbuntuTests(ScriptRun):
         self._host("Linux", "aarch64")
         cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
         self.assertEqual(cp.returncode, 0, cp.stderr)
-        self.assertIn("qemu-user-static", cp.stdout)
+        # QEMU comes from the pinned image, never from Ubuntu's qemu-user-static (DEMO-21 run 1).
+        self.assertIn(f"sudo docker run --privileged --rm {BINFMT_IMAGE} --install amd64", cp.stdout)
+        self.assertNotIn("--uninstall", cp.stdout)
+        self.assertNotIn("apt-get install -y qemu-user-static", cp.stdout)
         self.assertIn("trivy_0.75.0_Linux-ARM64.tar.gz", cp.stdout)
         self.assertIn("gitleaks_8.21.2_linux_arm64.tar.gz", cp.stdout)
         self.assert_nothing_changed()
+
+    def _binfmt_entry(self, flags, version_line=None):
+        """A fake binfmt_misc entry; with version_line, its interpreter is a host file (reached through a symlink,
+        like Ubuntu's x86_64-binfmt-P) that prints that line for --version."""
+        interpreter = "/usr/bin/qemu-x86_64-from-a-container"
+        if version_line is not None:
+            real = self.root / "qemu-x86_64-static"
+            real.write_text(f'#!/bin/sh\n[ "$1" = --version ] && echo "{version_line}" && echo Copyright\n')
+            real.chmod(0o755)
+            link = self.root / "x86_64-binfmt-P"
+            link.symlink_to(real)
+            interpreter = str(link)
+        (self.root / "binfmt").mkdir()
+        (self.root / "binfmt" / "qemu-x86_64").write_text(f"enabled\ninterpreter {interpreter}\nflags: {flags}\n")
+
+    def _arm_ready(self):
+        self._host("Linux", "aarch64")
+        self._stub("dpkg-query", '#!/bin/sh\nprintf "install ok installed"\n')
+        self._stub("docker", DOCKER_OK)
+        self._stub("trivy", "#!/bin/sh\nexit 0\n")
+        self._stub("gitleaks", "#!/bin/sh\nexit 0\n")
+
+    def test_arm64_measured_bad_ubuntu_qemu_is_replaced(self):
+        self._arm_ready()
+        self._binfmt_entry("OPF", "qemu-x86_64 version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("replace the registered amd64 emulator (qemu-x86_64 version 8.2.2", cp.stdout)
+        self.assertIn(f"sudo docker run --privileged --rm {BINFMT_IMAGE} --uninstall qemu-x86_64", cp.stdout)
+        self.assertIn(f"sudo docker run --privileged --rm {BINFMT_IMAGE} --install amd64", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_arm64_good_emulation_is_kept(self):
+        for version_line in (None, "qemu-x86_64 version 10.2.3"):
+            with self.subTest(version_line=version_line):
+                shutil.rmtree(self.root / "binfmt", ignore_errors=True)
+                for name in ("qemu-x86_64-static", "x86_64-binfmt-P"):
+                    (self.root / name).unlink(missing_ok=True)
+                self._arm_ready()
+                self._binfmt_entry("POCF", version_line)
+                cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+                self.assertEqual(cp.returncode, 0, cp.stderr)
+                self.assertIn("nothing to change", cp.stdout)
+                self.assertNotIn("binfmt", cp.stdout)
+                self.assert_nothing_changed()
+
+    def test_arm64_handler_without_f_flag_is_registered_again(self):
+        self._arm_ready()
+        self._binfmt_entry("OP")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("register QEMU from", cp.stdout)
+        self.assertIn("--uninstall qemu-x86_64", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_accept_extra_adds_libatomic(self):
+        self._host("Linux", "x86_64")
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=dict(self.env, GRDM_WITH_ACCEPT="1"))
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("libatomic1", cp.stdout)
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertNotIn("libatomic1", cp.stdout)
+        self.assert_nothing_changed()
+
+    def test_binfmt_image_and_bad_build_match_doctor(self):
+        import sys
+        sys.path.insert(0, str(INSTALLER))
+        from grdm_dev import host
+        text = UBUNTU.read_text()
+        self.assertIn(f'BINFMT_IMAGE="{host.BINFMT_IMAGE}"', text)
+        self.assertRegex(host.BINFMT_IMAGE, r"@sha256:[0-9a-f]{64}$")
+        self.assertIn(f"KNOWN_BAD_QEMU_RE='{host.KNOWN_BAD_QEMU[0][0].pattern}'", text)
 
     def test_second_run_is_a_no_op(self):
         self._host("Linux", "x86_64")

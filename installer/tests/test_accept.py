@@ -155,6 +155,15 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("playwright install chromium", err)
         self.assertEqual(runner.calls, [])
 
+    def test_linux_hint_adds_libatomic_and_system_libraries(self):
+        # DEMO-21: on the Ubuntu 24.04 arm64 cloud image Playwright's driver could not start without libatomic1.
+        linux = accept.install_hint("linux")
+        self.assertTrue(linux.startswith("sudo apt-get install -y libatomic1 && "))
+        self.assertIn("playwright install chromium", linux)
+        self.assertIn("playwright install-deps chromium", linux)
+        self.assertEqual(accept.install_hint("darwin"), accept.INSTALL_HINT)
+        self.assertNotIn("apt-get", accept.install_hint("darwin"))
+
     def test_non_loopback_base_url_is_refused(self):
         for url in ("http://localhost:5000", "http://192.168.1.10:5000", "https://127.0.0.1:5000", "http://example.com"):
             runner = FakeRunner()

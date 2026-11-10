@@ -119,3 +119,41 @@ class LifecycleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DefaultTimeoutTests(unittest.TestCase):
+    """DEMO-21 run 2: on Linux arm64 QEMU took 44 min for ember's first build, so 1800 s stopped a good install."""
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        shutil.copytree(Path(__file__).resolve().parents[2] / "manifest", self.root / "manifest")
+
+    def timeout(self, profile, system, machine):
+        return lifecycle.default_timeout(Context(root=self.root, profile=profile), system=system, machine=machine)
+
+    def test_linux_arm64_with_amd64_services_waits_longer(self):
+        self.assertEqual(self.timeout("core", "Linux", "aarch64"), lifecycle.QEMU_TIMEOUT)
+        self.assertGreaterEqual(lifecycle.QEMU_TIMEOUT, 2 * 44 * 60)
+
+    def test_other_hosts_and_profiles_keep_the_default(self):
+        self.assertEqual(self.timeout("core", "Linux", "x86_64"), lifecycle.DEFAULT_TIMEOUT)
+        self.assertEqual(self.timeout("core", "Darwin", "arm64"), lifecycle.DEFAULT_TIMEOUT)
+        self.assertEqual(self.timeout("minimum", "Linux", "aarch64"), lifecycle.DEFAULT_TIMEOUT)
+
+    def test_unreadable_manifest_keeps_the_default(self):
+        (self.root / "manifest" / "upstreams.json").write_text("{not json")
+        self.assertEqual(self.timeout("core", "Linux", "aarch64"), lifecycle.DEFAULT_TIMEOUT)
+
+    def test_explicit_timeout_wins_and_none_means_default(self):
+        seen = []
+        original = lifecycle.run_up
+        self.addCleanup(setattr, lifecycle, "run_up", original)
+        lifecycle.run_up = lambda ctx, **kw: seen.append(kw["timeout"]) or 0
+        ctx = Context(root=self.root, profile="core")
+        lifecycle.run(ctx, argparse.Namespace(lifecycle_action="up", no_open=True, timeout=12.0))
+        lifecycle.run(ctx, argparse.Namespace(lifecycle_action="up", no_open=True, timeout=None))
+        self.assertEqual(seen[0], 12.0)
+        self.assertEqual(seen[1], lifecycle.default_timeout(ctx))

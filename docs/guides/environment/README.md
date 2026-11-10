@@ -5,6 +5,7 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 1.3 — 2026-11-10. **Learned:** on a Linux server image the acceptance browser needs two more steps than on a Mac, a library for Playwright's driver and Chromium's system libraries, so §3.9 lists them ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ Linux のサーバーイメージでは受入試験のブラウザに Mac より二つ多い手順、Playwright のドライバー用のライブラリと Chromium のシステムライブラリが要るので、§3.9 に載せた（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
 - Version / 版: 1.2 — 2026-11-10. **Learned:** telling a reader that the installer checks each prerequisite is not the same as helping them get one, so the guide now starts from a script for each OS ([ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 「インストーラーが前提条件を確認する」と伝えることは、それを揃える手助けにはならない。そこで手引きは OS ごとのスクリプトから始める（[ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - Version / 版: 1.1 — 2026-11-06. **Learned:** the Project Metadata edit page needs a waffle flag that no setup step turned on, so the legacy startup steps now set `ember_edit_draft_registration_page` once after the first migration (PR #17); the 2027 installer has no equivalent step yet. ／ Project Metadata の編集画面には、どの手順も有効にしていなかった waffle フラグが必要なため、旧ガイドの起動手順に初回マイグレーション後の `ember_edit_draft_registration_page` 設定を追加した（PR #17）。2027 インストーラーには相当する手順がまだ無いと分かった。
 - Version / 版: 1.0 — 2026-11-06. **Learned:** full startup is not yet verified by a recorded run: the ember-osf-web (the browser interface) base image is end-of-life and current Docker (the tool that runs containers: boxes that each hold one program and everything it needs) refuses to pull it, so the manifest (the list of components and the exact source revisions they are built from) already configures a digest-pinned prebuilt image for ember-osf-web as a fallback until M4 modernizes its Dockerfile (DEMO-20, `manifest/upstreams.json`). ／ 完全な起動はまだ実行記録で検証できていない。ember-osf-web（ブラウザ画面）のベースイメージがサポート終了で現行 Docker（コンテナ＝一つのプログラムと必要なものを入れた箱を動かす道具）が取得を拒むため、M4 で Dockerfile を近代化するまでの代替として、manifest（部品と、それを組む正確なソース版の一覧）にはダイジェスト固定の配布済みイメージがすでに設定されている（DEMO-20、`manifest/upstreams.json`）。
@@ -243,6 +244,18 @@ The acceptance tests ([SPEC-04](../../spec/04_acceptance_tests.md)) are not run 
 ```bash
 .venv/bin/pip install -e "installer[accept]"
 PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install chromium
+```
+
+On Linux (Ubuntu 24.04) two more commands are needed, both with `sudo` ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). Run this one **before** the two commands above, because Playwright's driver does not start without it:
+
+```bash
+sudo apt-get install -y libatomic1
+```
+
+and this one **after** them, to add Chromium's system libraries (it asks for `sudo` itself):
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install-deps chromium
 ```
 
 Then run the tests with `--seed`, which creates disposable test users, runs the browser scenarios, and removes those users again within the same run (there is no persistent seed step):
@@ -620,6 +633,18 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 ```bash
 .venv/bin/pip install -e "installer[accept]"
 PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install chromium
+```
+
+Linux（Ubuntu 24.04）では、`sudo` を使うコマンドがあと二つ要ります（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。次のコマンドは上の二つの**前に**実行します。これが無いと Playwright のドライバーが起動しません：
+
+```bash
+sudo apt-get install -y libatomic1
+```
+
+次のコマンドは上の二つの**後に**実行し、Chromium のシステムライブラリを入れます（自分で `sudo` を求めます）：
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright .venv/bin/playwright install-deps chromium
 ```
 
 次に `--seed` を付けて試験を実行します。`--seed` は使い捨ての試験利用者を作成し、ブラウザのシナリオを実行し、同じ一回の実行の中でその利用者を削除します（事前に別途「シード」しておく手順はありません）：

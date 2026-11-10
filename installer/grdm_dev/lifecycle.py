@@ -4,7 +4,8 @@ up     finishes or rolls back an interrupted `db upgrade`/`db rollback`, then re
        runtime/volumes/postgres_data written by another PostgreSQL major than the rendered image, or one whose major
        cannot be read (database.recover_pending, database.preflight, ADR-12); then `docker compose up -d`, then wait for health (exit 40 on timeout),
        then open the browser at http://127.0.0.1:<GRDM_PORT_WEB> unless --no-open; the browser is only opened when stdin is a
-       terminal. Idempotent: healthy services are left alone by Compose.
+       terminal. Idempotent: healthy services are left alone by Compose. Without --timeout the wait is
+       DEFAULT_TIMEOUT, or QEMU_TIMEOUT on Linux arm64 when the profile has amd64 services (default_timeout).
 down   `docker compose down` — containers stop, volumes stay.
 reset  down, then delete runtime/volumes/ after ctx.confirm(). Non-interactive without --yes → exit 2.
        On Linux the files belong to the containers' uids, so the host user cannot remove them: the contents
@@ -19,15 +20,38 @@ Runner: `runner(argv) -> (rc, stdout)`; tests inject a fake and never need Docke
 from __future__ import annotations
 
 import json
+import platform
 import shutil
 import sys
 import webbrowser
 from pathlib import Path
 
-from . import compose, database, exit_codes, health, report
+from . import compose, database, exit_codes, health, manifest as _manifest, plan, report
 from .context import Context
 
 DEFAULT_TIMEOUT = 1800.0  # cold start: ember's first build under amd64 emulation took 13-25 min and osf_init runs migrations (real install runs 10-18; PR #33 review r1)
+# Linux arm64 emulates amd64 with QEMU, which is slower than Rosetta: ember's first build took 44 min there, on one
+# core, so more CPUs do not help, and 1800 s stopped an otherwise healthy install with exit 40 (DEMO-21 run 2).
+# About twice the measurement.
+QEMU_TIMEOUT = 5400.0
+_ARM64 = ("aarch64", "arm64")
+
+
+def default_timeout(ctx: Context, system: str | None = None, machine: str | None = None) -> float:
+    """The health wait when --timeout is not given: QEMU_TIMEOUT on Linux arm64 when a service of the profile runs as
+    linux/amd64 (manifest build_platform, as doctor counts them), otherwise DEFAULT_TIMEOUT. On macOS Docker Desktop
+    reports Darwin here and emulates with Rosetta, so it keeps the default. An unreadable manifest keeps the default."""
+    system = system if system is not None else platform.system()
+    machine = (machine if machine is not None else platform.machine()).lower()
+    if system != "Linux" or machine not in _ARM64:
+        return DEFAULT_TIMEOUT
+    try:
+        man = _manifest.load(ctx)
+        services = _manifest.services_for_profile(man, plan.resolve_profile(ctx))
+    except (_manifest.ManifestError, ValueError, OSError):
+        return DEFAULT_TIMEOUT
+    emulated = [s for s in services if "amd64" in str(man.component(s.component).get("build_platform") or "")]
+    return QEMU_TIMEOUT if emulated else DEFAULT_TIMEOUT
 
 
 def default_runner(argv: list[str]) -> tuple[int, str]:
@@ -68,7 +92,8 @@ def recreate(ctx: Context, runner=None) -> int:
 def register(subparsers) -> None:
     up = subparsers.add_parser("up", help="start the profile and wait for health; exit 40 on failure")
     up.add_argument("--no-open", dest="no_open", action="store_true", help="do not open the browser")
-    up.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help=f"seconds to wait for health (default {int(DEFAULT_TIMEOUT)})")
+    up.add_argument("--timeout", type=float, default=None,
+                    help=f"seconds to wait for health (default {int(DEFAULT_TIMEOUT)}; {int(QEMU_TIMEOUT)} on Linux arm64 with amd64 services)")
     up.set_defaults(_module=sys.modules[__name__], lifecycle_action="up")
     down = subparsers.add_parser("down", help="stop containers, keep volumes")
     down.set_defaults(_module=sys.modules[__name__], lifecycle_action="down")
@@ -79,7 +104,9 @@ def register(subparsers) -> None:
 def run(ctx: Context, args, runner=None, prober=None, opener=None, sleep=None, rmtree=None) -> int:
     action = getattr(args, "lifecycle_action", None)
     if action == "up":
-        return run_up(ctx, no_open=bool(getattr(args, "no_open", False)), timeout=float(getattr(args, "timeout", DEFAULT_TIMEOUT)),
+        given = getattr(args, "timeout", None)
+        timeout = float(given) if given is not None else default_timeout(ctx)
+        return run_up(ctx, no_open=bool(getattr(args, "no_open", False)), timeout=timeout,
                       runner=runner, prober=prober, opener=opener, sleep=sleep)
     if action == "down":
         return run_down(ctx, runner=runner)

@@ -240,8 +240,23 @@ class ArmEmulationTests(PreflightBase):
     def test_missing_emulation_is_exit_13_and_prints_the_command(self):
         code, _, err = self.doctor(self.arm(binfmt_amd64=False), preflight_runner())
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
-        self.assertIn("docker run --privileged --rm tonistiigi/binfmt --install amd64", err)
+        self.assertIn(host.ENABLE_AMD64_EMULATION, err)
+        self.assertIn("tonistiigi/binfmt:qemu-v10.2.3-68@sha256:", err)
         self.assertIn("mfr", err)
+
+    def test_measured_bad_ubuntu_qemu_is_exit_13_and_prints_the_replacement(self):
+        # DEMO-21 run 1: Ubuntu 24.04's qemu-user-static crashed in libgvc6's post-install script after a 45-minute build.
+        bad = "qemu-x86_64 version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)"
+        code, _, err = self.doctor(self.arm(binfmt_amd64=True, binfmt_amd64_qemu=bad), preflight_runner())
+        self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
+        self.assertIn("QEMU internal SIGSEGV", err)
+        self.assertIn("--uninstall qemu-x86_64", err)
+        self.assertIn(host.REPLACE_AMD64_EMULATION, err)
+
+    def test_other_or_unknown_qemu_builds_pass(self):
+        for line in ("", "qemu-x86_64 version 10.2.3", "qemu-x86_64 version 8.2.2", "qemu-x86_64 version 9.2.2 (Debian 1:9.2.2+ds-1)"):
+            with self.subTest(line=line):
+                self.assertEqual(self.doctor(self.arm(binfmt_amd64=True, binfmt_amd64_qemu=line), preflight_runner())[0], exit_codes.OK)
 
     def test_unreadable_binfmt_is_a_warning(self):
         code, out, _ = self.doctor(self.arm(binfmt_amd64=None), preflight_runner())
@@ -251,6 +266,45 @@ class ArmEmulationTests(PreflightBase):
     def test_not_probed_on_amd64_or_macos(self):
         self.assertEqual(self.doctor(self.ubuntu(binfmt_amd64=False), preflight_runner())[0], exit_codes.OK)
         self.assertEqual(self.doctor(self.mac(binfmt_amd64=False), preflight_runner())[0], exit_codes.OK)
+
+
+class QemuProbeTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def entry(self, interpreter):
+        path = self.root / "qemu-x86_64"
+        path.write_text(f"enabled\ninterpreter {interpreter}\nflags: OPF\noffset 0\n")
+        return str(path)
+
+    def test_resolves_the_interpreter_and_reads_its_version(self):
+        real = self.root / "qemu-x86_64-static"
+        real.write_text("")
+        link = self.root / "x86_64-binfmt-P"
+        link.symlink_to(real)
+        seen = []
+
+        def runner(argv):
+            seen.append(argv)
+            return 0, "qemu-x86_64 version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)\nCopyright\n"
+
+        line = host._binfmt_amd64_qemu(runner, self.entry(str(link)))
+        self.assertEqual(seen, [[str(real.resolve()), "--version"]])
+        self.assertEqual(host.known_bad_qemu(line), "Ubuntu 24.04 qemu-user-static 8.2.2")
+
+    def test_container_registered_handler_is_unknown_not_bad(self):
+        def runner(argv):
+            raise AssertionError("must not run a file that is not on this host")
+
+        self.assertEqual(host._binfmt_amd64_qemu(runner, self.entry("/usr/bin/qemu-x86_64-does-not-exist")), "")
+        self.assertEqual(host._binfmt_amd64_qemu(runner, str(self.root / "missing-entry")), "")
+
+    def test_failing_version_is_unknown(self):
+        real = self.root / "qemu"
+        real.write_text("")
+        self.assertEqual(host._binfmt_amd64_qemu(lambda argv: (1, "has to be run using kernel binfmt-misc"), self.entry(str(real))), "")
 
 
 class RepoPathTests(PreflightBase):
