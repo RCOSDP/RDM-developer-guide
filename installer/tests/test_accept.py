@@ -4,11 +4,13 @@ import json
 import os
 import re
 import stat
+import sys
 import tempfile
 import unittest
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 from urllib.parse import quote
 
 from acceptance import netguard
@@ -304,17 +306,24 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("order_by('id')[0:0]", user_a)
 
     def _c6_success(self):
-        """test_c6_admin_success and its helpers, without pytest/Playwright: compiled from the source."""
-        import ast
-        from acceptance import selectors
-        src = (accept.ACCEPTANCE_DIR / "test_c6_admin.py").read_text()
-        tree = ast.parse(src)
-        funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
-        for f in funcs:
-            f.decorator_list = []
-        ns = {"sel": selectors, "quote": __import__("urllib.parse", fromlist=["quote"]).quote}
-        exec(compile(ast.Module(body=funcs, type_ignores=[]), "test_c6_admin.py", "exec"), ns)
-        return ns["test_c6_admin_success"]
+        """test_c6_admin_success imported for real, with pytest and the Playwright conftest replaced by stubs
+        (neither is installed for the unit tests); the function under test is the unmodified source."""
+        import importlib
+        import types
+
+        class _Mark:
+            def __getattr__(self, _name):
+                return lambda *a, **k: (lambda f: f)
+
+        fake_pytest = types.ModuleType("pytest")
+        fake_pytest.mark = _Mark()
+        fake_conftest = types.ModuleType("acceptance.conftest")
+        fake_conftest.api = lambda ctx: ctx
+        with mock.patch.dict(sys.modules, {"pytest": fake_pytest, "acceptance.conftest": fake_conftest}):
+            sys.modules.pop("acceptance.test_c6_admin", None)
+            module = importlib.import_module("acceptance.test_c6_admin")
+            sys.modules.pop("acceptance.test_c6_admin", None)
+        return module.test_c6_admin_success
 
     def _run_c6_against(self, listing):
         """Run C6 success on a fake admin app whose institution list is `listing(query)` -> e-mails."""
