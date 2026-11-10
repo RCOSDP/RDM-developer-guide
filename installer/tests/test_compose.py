@@ -410,6 +410,33 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertNotIn("/mongo-tls/mongodb.pem", " ".join(mongo["command"]))
         self.assertFalse([v for v in sharejs["volumes"] if v.startswith("mongo_data")])
 
+    def test_osf_services_reach_sharejs_mongo_over_verified_tls(self):
+        """osf.io's addons.wiki share_db() verifies mongo's certificate (RDM-osf.io-dev2027 PR #9; review r1 asks for
+        renderer tests of both environment entries and all four read-only mounts). Without SHAREJS_DB_URL osf.io built
+        `mongodb://postgres:5432/sharejs` from DB_HOST and OSF_DB_PORT."""
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            env_text = (root / "runtime" / "config" / "osf.env").read_text(encoding="utf-8")
+            env = dict(line.split("=", 1) for line in env_text.splitlines() if "=" in line and not line.startswith("#"))
+            self.assertEqual(env["SHAREJS_DB_URL"], "mongodb://mongo:27017/sharejs?ssl=true")
+            self.assertEqual(env["SHAREJS_DB_CA_FILE"], "/mongo-tls/mongodb.crt")
+            for weak in ("ssl_cert_reqs", "ssl_match_hostname", "tlsinsecure", "tlsallowinvalid"):
+                self.assertNotIn(weak, env["SHAREJS_DB_URL"].lower())  # nothing in the URL weakens verification
+            doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            for name in ("web", "api", "admin", "worker"):
+                svc = doc["services"][name]
+                self.assertIn("osf.env", " ".join(svc.get("env_file", [])), name)
+                self.assertIn("mongo_tls:/mongo-tls:ro", svc["volumes"], name)
+                self.assertFalse([v for v in svc["volumes"] if v.startswith("mongo_data")], name)  # never the private key
+            # the certificate the CA path names is the one mongo exports, issued for the host name in the URL
+            mongo_cmd = " ".join(doc["services"]["mongo"]["command"])
+            self.assertIn("cp /data/db/tls/mongodb.crt /mongo-tls/mongodb.crt", mongo_cmd)
+            self.assertIn("subjectAltName=DNS:mongo", mongo_cmd)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     def test_tmpfs_mounts_carry_mode_1777(self):
         root = make_root()
         try:
