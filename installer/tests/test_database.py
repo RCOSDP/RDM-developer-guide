@@ -801,6 +801,83 @@ class DatabaseTests(unittest.TestCase):
         self._unreadable()
         self.assertIsNone(database.data_major(self.data, undecodable, TARGET))
 
+    # ------------------------------------------------------------------ review r3: the CLI entry point never leaks OSError
+
+    def cli(self, *args, runner):
+        from grdm_dev import cli, health
+        refuse_compose = lambda argv: (99, "")  # noqa: E731 - `up` must never reach a real Docker in a unit test
+        with mock.patch.object(health, "default_runner", runner), mock.patch.object(lifecycle, "streaming_runner", refuse_compose), \
+                redirect_stdout(self.out), redirect_stderr(self.err):
+            return cli.main(["--root", str(self.root), "--yes", *args])
+
+    def _pending_after_both_renames(self):
+        runner = self._crash_before_swap("upgrade")
+        database._swap(self.data, self.new, self.kept)  # the renames happened, the record and the journal removal did not
+        return runner
+
+    def test_r3_01_eio_on_the_recovery_sync_is_exit_15_at_every_entry_point(self):
+        for args in (("db", "upgrade"), ("db", "rollback"), ("db", "recover"), ("up", "--no-open"), ("reset",)):
+            with self.subTest(command=" ".join(args)):
+                self.fresh()
+                runner = self._pending_after_both_renames()
+                real = database._fsync_dir
+
+                def sync(path):
+                    if Path(path) == self.data.parent:
+                        raise OSError(errno.EIO, "injected volumes sync")
+                    real(path)
+
+                with mock.patch.object(database, "_fsync_dir", side_effect=sync):
+                    self.assertEqual(self.cli(*args, runner=runner), exit_codes.DB_UPGRADE_FAILED)
+                self.assertTrue(self.journal.exists())
+                self.assertEqual(self.major(), "18")
+                self.assertEqual(self.cli("db", "recover", runner=runner), exit_codes.OK)
+                self.assertFalse(self.journal.exists())
+                self.assertTrue((self.backup / "upgrade.json").exists())
+
+    def _eio_at_each_fsync(self, args, prepare):
+        """Run `args` through cli.main once to count os.fsync calls, then again with EIO at each one in turn."""
+        self.fresh()
+        runner = prepare()
+        real, calls = os.fsync, []
+        with mock.patch.object(database.os, "fsync", side_effect=lambda fd: (calls.append(fd), real(fd))):
+            self.assertEqual(self.cli(*args, runner=runner), exit_codes.OK, self.err.getvalue())
+        self.assertTrue(calls)
+        for nth in range(len(calls)):
+            with self.subTest(command=" ".join(args), fsync=nth + 1):
+                self.fresh()
+                runner = prepare()
+                count = []
+
+                def fsync(fd, nth=nth):
+                    count.append(fd)
+                    if len(count) == nth + 1:
+                        raise OSError(errno.EIO, "injected fsync")
+                    real(fd)
+
+                with mock.patch.object(database.os, "fsync", side_effect=fsync):
+                    code = self.cli(*args, runner=runner)
+                self.assertEqual(code, exit_codes.DB_UPGRADE_FAILED, self.err.getvalue())
+                self.assertIn("injected fsync", self.err.getvalue())
+                self.assertEqual(self.cli("db", "recover", runner=runner), exit_codes.OK, self.err.getvalue())
+                self.assertFalse(self.journal.exists())
+                self.assertIn(self.major(), ("9.6", "18"))
+                self.assertEqual(runner.present, set())
+        return len(calls)
+
+    def test_r3_01_eio_at_each_fsync_of_db_upgrade_is_exit_15_through_the_cli(self):
+        self.assertGreaterEqual(self._eio_at_each_fsync(("db", "upgrade"), FakeDocker), 5)
+
+    def test_r3_01_eio_at_each_fsync_of_db_rollback_is_exit_15_through_the_cli(self):
+        def upgraded():
+            self._upgraded()
+            return FakeDocker()
+
+        self.assertGreaterEqual(self._eio_at_each_fsync(("db", "rollback"), upgraded), 4)
+
+    def test_r3_01_eio_at_each_fsync_of_db_recover_is_exit_15_through_the_cli(self):
+        self.assertGreaterEqual(self._eio_at_each_fsync(("db", "recover"), self._pending_after_both_renames), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

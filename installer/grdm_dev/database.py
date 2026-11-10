@@ -738,12 +738,22 @@ def run_status(ctx: Context, runner: Runner) -> int:
     return exit_codes.OK
 
 
+def _os_failure(ctx: Context, exc: OSError) -> str:
+    """A filesystem error (EIO, ENOSPC, …) as an exit-15 message that says whether an operation is still pending."""
+    pending = journal_path(ctx).exists()
+    return (f"filesystem error: {exc}; " + (f"the journal {journal_path(ctx)} is kept, `up` refuses, and `grdm-dev db recover` "
+                                           f"finishes or rolls back once the error is gone" if pending else
+                                           "no operation is pending; see `grdm-dev db status`"))
+
+
 def run_recover(ctx: Context, runner: Runner) -> int:
     try:
         with operation_lock(ctx):
             outcome = recover(ctx, runner)
-    except (UpgradeError, OSError) as exc:
+    except UpgradeError as exc:
         return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, f"recovery failed: {exc}; the journal {journal_path(ctx)} is kept")
+    except OSError as exc:
+        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, _os_failure(ctx, exc))
     report.emit(ctx, "db_recover", {"pending": outcome is not None, "outcome": outcome})
     return exit_codes.OK
 
@@ -758,6 +768,8 @@ def run_upgrade(ctx: Context, runner: Runner, sleep: Callable[[float], None], us
             return _upgrade_locked(ctx, svc, runner, sleep, user, stamp, disk_usage)
     except UpgradeError as exc:
         return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, str(exc))
+    except OSError as exc:  # e.g. an fsync that fails while the pending operation is recovered first (PR #42 review r3 R3-01)
+        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, _os_failure(ctx, exc))
 
 
 def _upgrade_locked(ctx: Context, svc: dict[str, Any], runner: Runner, sleep: Callable[[float], None],
@@ -828,6 +840,7 @@ def _upgrade_locked(ctx: Context, svc: dict[str, Any], runner: Runner, sleep: Ca
             return report.error(ctx, exit_codes.DB_UPGRADE_FAILED,
                                 f"{reason}; recovery failed ({again}); the journal {journal_path(ctx)} is kept and `up` refuses until "
                                 f"`grdm-dev db recover` succeeds")
+        outcome = outcome or f"nothing is pending any more; see `grdm-dev db status` for {journal['data_dir']}"
         report.emit(ctx, "db_upgrade", {"changed": False, "failed": reason, "steps": journal["steps"], "recovery": outcome})
         return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, f"{reason}; {outcome}")
     report.emit(ctx, "db_upgrade", {"changed": True, **{k: journal[k] for k in ("from", "to", "source_image", "image", "data_dir", "kept", "dump", "at", "steps")}})
@@ -921,8 +934,10 @@ def run_rollback(ctx: Context, runner: Runner, stamp: str | None = None) -> int:
     try:
         with operation_lock(ctx):
             return _rollback_locked(ctx, runner, stamp)
-    except (UpgradeError, OSError) as exc:
+    except UpgradeError as exc:
         return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, str(exc))
+    except OSError as exc:
+        return report.error(ctx, exit_codes.DB_UPGRADE_FAILED, _os_failure(ctx, exc))
 
 
 def _rollback_locked(ctx: Context, runner: Runner, stamp: str | None) -> int:
