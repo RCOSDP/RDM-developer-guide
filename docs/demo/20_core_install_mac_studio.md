@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.12 — 2026-11-10. **Learned:** a stack that starts and passes health can still have a broken trust link: osf.io kept its upstream default HMAC key while WaterButler signed with a generated one, and only a real upload exposed it. ／ 起動してヘルス検査に通る環境でも、信頼の連携が壊れていることがある。osf.io は上流の既定の HMAC 鍵のまま、WaterButler は生成した鍵で署名しており、実際のアップロードで初めて露見した。
+- Version / 版: 0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
+  0.13 — 2026-11-10. **Learned:** a security fix is proven only by a rejection case that runs against the image containing it, so the full acceptance run is repeated after every pin change. ／ セキュリティ修正は、その修正を含むイメージに対して拒否ケースを実行して初めて証明される。固定版を変えるたびに受入を全件やり直す。
+  0.12 — 2026-11-10. **Learned:** a stack that starts and passes health can still have a broken trust link: osf.io kept its upstream default HMAC key while WaterButler signed with a generated one, and only a real upload exposed it. ／ 起動してヘルス検査に通る環境でも、信頼の連携が壊れていることがある。osf.io は上流の既定の HMAC 鍵のまま、WaterButler は生成した鍵で署名しており、実際のアップロードで初めて露見した。
   0.11 — 2026-11-06. **Learned:** the cold start passes once the one emulated service that could not start natively is built natively (ADR-07): 31 minutes from empty volumes to a scanned, reported environment, bounded by the ember build and the migrations. ／ ネイティブで起動できなかった唯一のエミュレーションのサービスをネイティブで組む（ADR-07）と、コールドスタートは通る。空のボリュームから検査・報告済みの環境まで 31 分で、上限は ember のビルドと migration。
   0.10 — 2026-11-06. **Learned:** a warm success is not a cold-start success: with fresh volumes the emulated Elasticsearch 2 took 38 minutes to open its port and the database initialisation gave up; the same program on a native arm64 JRE starts in 5 seconds, so EOL amd64-only middleware must be built natively instead of emulated (review r1 of PR #33 asked for the cold start). ／ 温まった状態の成功はコールドスタートの成功ではない。新しいボリュームではエミュレーション下の Elasticsearch 2 がポートを開くまで 38 分かかり、データベース初期化が諦めた。同じプログラムは arm64 ネイティブの JRE で 5 秒で起動するので、amd64 しか無い EOL ミドルウェアはエミュレーションでなくネイティブで組む（PR #33 のレビュー r1 がコールドスタートを求めた）。
   0.9 — 2026-11-06. **Learned:** the install command succeeds end to end on run 18; the scanners found what the staged gate (ADR-03) predicted for an EOL stack, so the number to beat at M4/M5 is now written down instead of guessed. ／ 第 18 回で導入コマンドが端から端まで成功した。スキャナーは段階化した門（ADR-03）が EOL スタックに予測したとおりの結果を出し、M4/M5 で下回るべき数が推測ではなく記録になった。
@@ -464,6 +466,21 @@ What the runs found:
 
 Open after these runs: C2, C4, C5 and C6 still fail (selectors, wiki bundle wiring, preview, admin path).
 
+### Acceptance run — 2026-11-10, every merged security fix, 12 of 12
+
+Run [`acc-20261110T015520Z-ab4cc7`](runs/acc-20261110T015520Z-ab4cc7/results.toon): **12 of 12 pass**. The stack was built from the pins in this branch (osf.io `fe90e5c3`, WaterButler `45e97a51`, MFR `749e58d3`, wiki-frontend `5985d18b`, y-websocket `d4d1cfae`, cas-overlay `22610b76`), after `secrets rotate` added the keys the new CAS and conversion service need.
+
+| Scenario | Success | Rejection | What made it pass |
+|---|---|---|---|
+| C1 Login | pass | pass (401) | seed `have_email` |
+| C2 Project | pass | pass (403) | selectors |
+| C3 Files | pass | pass (403) | one HMAC key for WaterButler and osf.io |
+| C4 Wiki | pass | pass (4401) | JWT on the y-websocket upgrade, token refresh in the client, bundle path in `edit.mako` |
+| C5 Preview | pass | pass (401) | MFR forwards credentials only on the OSF→WaterButler hop; Google Analytics removed from the PDF viewer |
+| C6 Admin | pass | pass (403) | admin assets served locally, so no CDN request; an affiliated institution admin sees a member of its institution, and neither an unaffiliated user nor a user of a second institution, in the list and in an explicit search |
+
+One run before this one failed on C5 and C6 although the fixes were merged: `compose render` had run before `build`, and it takes image tags from the last build record, so the old images kept running. Rendering again after the build fixed it.
+
 ---
 
 <a id="japanese"></a>
@@ -906,6 +923,21 @@ run21:
 - **外部資産。** 既知の資産は遮断を続け、件数のみ記録する（[SPEC-04](../spec/04_acceptance_tests.md#japanese)）。Google Analytics はビルド後の ember の設定から削除した。
 
 この時点の残件: C2、C4、C5、C6 は未合格（セレクタ、wiki バンドルの配線、プレビュー、管理画面のパス）。
+
+### 受入の実行 — 2026-11-10、マージ済みのセキュリティ修正をすべて含む、12 件中 12 件
+
+実行 [`acc-20261110T015520Z-ab4cc7`](runs/acc-20261110T015520Z-ab4cc7/results.toon): **12 件中 12 件合格**。このブランチの固定版（osf.io `fe90e5c3`、WaterButler `45e97a51`、MFR `749e58d3`、wiki-frontend `5985d18b`、y-websocket `d4d1cfae`、cas-overlay `22610b76`）から組み、新しい CAS と変換サービスが要る鍵を `secrets rotate` で加えたスタックで実行した。
+
+| シナリオ | 成功 | 拒否 | 合格させたもの |
+|---|---|---|---|
+| C1 ログイン | 合格 | 合格（401） | 種データの `have_email` |
+| C2 プロジェクト | 合格 | 合格（403） | セレクタ |
+| C3 ファイル | 合格 | 合格（403） | WaterButler と osf.io の HMAC 鍵を一つに |
+| C4 Wiki | 合格 | 合格（4401） | y-websocket の接続時の JWT、クライアントのトークン更新、`edit.mako` のバンドルの場所 |
+| C5 プレビュー | 合格 | 合格（401） | MFR は OSF から WaterButler への転送でだけ資格情報を渡す。PDF ビューアから Google Analytics を削除 |
+| C6 管理画面 | 合格 | 合格（403） | 管理画面の資産をローカルで配信し CDN へ出ない。所属機関の管理者には、一覧でも明示の検索でも、自機関の利用者が見え、無所属の利用者と別機関の利用者は見えない |
+
+この直前の実行は、修正をマージ済みなのに C5 と C6 で失敗した。`compose render` を `build` より先に実行しており、render は直前のビルド記録からイメージのタグを取るため、古いイメージのまま動いていた。ビルドのあとに render し直して解決した。
 
 ---
 

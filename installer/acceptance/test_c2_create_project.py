@@ -17,7 +17,7 @@ def test_c2_create_project_success(logged_in_page, base_url, api_url, api_write,
     page.click(sel.WEB["create_project_button"])
     page.fill(sel.WEB["create_project_title"], title)
     page.click(sel.WEB["create_project_submit"])
-    # TODO(M2): confirm the modal navigates to /<node_id>/ (legacy UI shows a "Go to new project" link).
+    page.click(sel.WEB["create_project_go"])  # the modal stays on the dashboard and offers this link
     page.wait_for_url(lambda url: same_origin(url, base_url) and "/dashboard" not in url, timeout=60_000)
     page.wait_for_selector(f"text={title}", timeout=30_000)
 

@@ -50,7 +50,7 @@ def make_root(dotenv: str | None = fake_secrets(), hardening=True) -> Path:
     return root
 
 
-PUBLISHING = {"web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas"}
+PUBLISHING = {"web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas", "y_websocket", "sharejs"}
 
 
 def ps_runner(bindings: dict[str, int] | None = None, rc: int = 0):
@@ -146,7 +146,7 @@ class ComposeRenderTests(unittest.TestCase):
             for dep in svc.get("depends_on", []):
                 self.assertIn(dep, services, f"{name} depends on {dep} outside the profile")
         published = {name: svc["ports"] for name, svc in services.items() if "ports" in svc}
-        self.assertEqual(set(published), set(plan.DEFAULT_PORTS))
+        self.assertEqual(set(published), set(plan.DEFAULT_PORTS) | {"y_websocket", "sharejs"})
         self.assertEqual(published["web"], ["127.0.0.1:5000:5000"])
         # volumes map under runtime/volumes/<name> and the directories exist
         for name, vol in doc["volumes"].items():
@@ -177,6 +177,9 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("'reviews': {", local_py)
         self.assertIn("MFR_SERVER_URL = 'http://127.0.0.1:7778'", local_py)
         self.assertIn("CAS_SERVER_URL = 'http://127.0.0.1:8080'", local_py)
+        mfr_env = (cfg / "mfr.env").read_text(encoding="utf-8")
+        self.assertIn("OSF_PROVIDER_CONFIG_CREDENTIAL_SOURCE_ORIGINS=http://web:5000", mfr_env)
+        self.assertIn("OSF_PROVIDER_CONFIG_CREDENTIAL_TARGET_ORIGINS=http://wb:7777", mfr_env)
         self.assertIn("SECRET_KEY = environ['SECRET_KEY']", local_py)
         self.assertIn("DEFAULT_HMAC_SECRET = environ['WATERBUTLER_HMAC_SECRET']", local_py)
         self.assertNotIn("CHANGEME", local_py)
@@ -198,6 +201,36 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("./config/osf/local.py:/code/website/settings/local.py:ro", doc["services"]["web"]["volumes"])
         self.assertIn("-osfhost=127.0.0.1:5050", " ".join(doc["services"]["fakecas"]["command"]))  # one `sh -c` string
         self.assertEqual(doc["services"]["web"]["ports"], ["127.0.0.1:5050:5000"])
+
+    def test_browser_collaboration_urls_use_only_published_loopback_ports(self):
+        root = make_root("GRDM_PORT_Y_WEBSOCKET=1240\n" + fake_secrets())
+        rc, _, _, _ = render(root)
+        self.assertEqual(rc, 0)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertEqual(doc["services"]["y_websocket"]["ports"], ["127.0.0.1:1240:1234"])
+        self.assertEqual(doc["services"]["sharejs"]["ports"], ["127.0.0.1:7007:7007"])
+        self.assertIn("./config/osf/wiki_local.py:/code/addons/wiki/settings/local.py:ro", doc["services"]["web"]["volumes"])
+        wiki = (root / "runtime" / "config" / "osf" / "wiki_local.py").read_text(encoding="utf-8")
+        self.assertIn("Y_WEBSOCKET_URL = '127.0.0.1:1240'", wiki)
+        self.assertIn("SHAREJS_URL = '127.0.0.1:7007'", wiki)
+        self.assertNotIn("localhost", wiki)
+        self.assertNotIn("SHAREJS_HOST", wiki)  # server-side address; only the browser URL is rewritten
+
+    def test_wiki_local_omits_services_that_are_not_published(self):
+        wiki = compose.render_wiki_local_py({"sharejs": 7007})
+        self.assertIn("SHAREJS_URL = '127.0.0.1:7007'", wiki)
+        self.assertNotIn("Y_WEBSOCKET_URL", wiki)
+
+    def test_only_web_opts_out_of_osf_debug_mode(self):
+        root = make_root(fake_secrets())
+        rc, _, _, _ = render(root)
+        self.assertEqual(rc, 0)
+        local_py = (root / "runtime" / "config" / "osf" / "local.py").read_text(encoding="utf-8")
+        self.assertIn("DEBUG_MODE = environ.get('GRDM_OSF_DEBUG_MODE', 'True') == 'True'", local_py)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertEqual(doc["services"]["web"]["environment"]["GRDM_OSF_DEBUG_MODE"], "False")
+        for service in ("api", "admin", "worker", "osf_init"):
+            self.assertNotIn("GRDM_OSF_DEBUG_MODE", doc["services"][service]["environment"], service)
 
     def test_missing_env_exits_2_with_hint(self):
         rc, _, err, _ = render(make_root(dotenv=None))
@@ -990,6 +1023,10 @@ class ComposeRenderTests(unittest.TestCase):
         for service in ("wb", "wb_worker"):
             for key in ("SERVER_CONFIG_HMAC_SECRET", "OSFSTORAGE_PROVIDER_CONFIG_HMAC_SECRET"):
                 self.assertEqual(resolved["services"][service]["environment"][key], env["WATERBUTLER_HMAC_SECRET"], f"{service}.{key}")
+        # DEBUG=False runserver serves no static files without --insecure (loopback development only); admin pages need them.
+        self.assertIn("--insecure", resolved["services"]["admin"]["command"])
+        # osf.io mints wiki tokens from Y_WEBSOCKET_SECRET; y-websocket verifies them with JWT_SECRET.
+        self.assertEqual(resolved["services"]["web"]["environment"]["Y_WEBSOCKET_SECRET"], resolved["services"]["y_websocket"]["environment"]["JWT_SECRET"])
         for service in ("web", "api", "admin", "worker", "osf_init"):
             self.assertEqual(resolved["services"][service]["environment"]["WATERBUTLER_HMAC_SECRET"], env["WATERBUTLER_HMAC_SECRET"], service)
 
@@ -1058,7 +1095,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("compose:", out)
         self.assertIn("network: grdm", out)
         self.assertIn("grdm-edge", out)
-        self.assertIn("ports[7]", out)
+        self.assertIn("ports[9]", out)
 
     def test_non_render_action_is_usage_error(self):
         ctx = Context(root=make_root(), yes=True)

@@ -18,3 +18,7 @@ docs/guides/*/waterbutler/
 # Compose service templates (data, not code). They name in-network endpoints (plain-text WebSocket to the y_websocket service);
 # traffic stays inside the Compose network `grdm` (ADR-02) and is never published to the host or the LAN.
 installer/grdm_dev/templates/
+# Review records: verbatim prose that SPEC-06 §8 forbids editing. They quote code and rule names in text
+# (for example a plain-text WebSocket URL inside a sentence), which Semgrep's generic matching reports as
+# code. Only Markdown records are excluded; no executable file lives here.
+docs/reviews/*.md

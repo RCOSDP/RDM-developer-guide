@@ -1,0 +1,40 @@
+............                                                             [100%]
+=============================== warnings summary ===============================
+test_c1_login.py::test_c1_login_success[chromium]
+  test_c1_login.py:10: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_success[chromium]
+  test_c2_create_project.py:11: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_rejection[chromium]
+  test_c2_create_project.py:39: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+  test_c3_file_upload.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+  test_c3_file_upload.py:43: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:85: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+  test_c5_file_preview.py:16: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]
+  test_c5_file_preview.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_success[chromium]
+  test_c6_admin.py:28: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_rejection[chromium]
+  test_c6_admin.py:48: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c1_login.py::test_c1_login_rejection
+  test_c1_login.py:20: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 10 deselected, 12 warnings in 71.48s (0:01:11)

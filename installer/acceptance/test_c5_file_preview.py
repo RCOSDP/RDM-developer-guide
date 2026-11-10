@@ -3,14 +3,14 @@ import pytest
 
 from acceptance import selectors as sel
 from acceptance.netguard import same_origin
-from acceptance.test_c3_file_upload import download_link, upload
+from acceptance.test_c3_file_upload import upload
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C5", "File preview")]
 
 
 def _file_page_url(base_url: str, node_id: str, path: str) -> str:
     # osfstorage paths are "/<file id>"; the web file page is /<node>/files/osfstorage/<file id>/
-    return f"{base_url}/{node_id}/files/osfstorage{path.rstrip('/')}/"  # TODO(M2): confirm
+    return f"{base_url}/{node_id}/files/osfstorage{path.rstrip('/')}/"
 
 
 @pytest.mark.case("success")
@@ -27,13 +27,16 @@ def test_c5_file_preview_success(logged_in_page, project, base_url, service_url,
 
 
 @pytest.mark.case("rejection")
-def test_c5_file_preview_rejection(logged_in_page, project, service_url, tmp_pdf, run_id, api_context, record_property):
-    """The preview URL of a private file without a session -> 401/403."""
+def test_c5_file_preview_rejection(logged_in_page, project, base_url, service_url, tmp_pdf, run_id, api_context, record_property):
+    """The preview URL the web app embeds for a private file, requested without a session -> 401/403."""
     page = logged_in_page
-    wb = service_url("wb")
-    entity = upload(page.context, wb, project, f"c5-private-{run_id}.pdf", tmp_pdf)
-    file_url = download_link(entity, wb, project)
-    anon = api_context()
-    resp = anon.get(service_url("mfr") + sel.MFR["render"].format(file_url=file_url))
+    mfr = service_url("mfr")
+    entity = upload(page.context, service_url("wb"), project, f"c5-private-{run_id}.pdf", tmp_pdf)
+    # Its `url=` is the web app's container-internal address, the only one mfr can reach; a host-only URL such as
+    # http://127.0.0.1:7777/... is mfr's own loopback inside its container and answers 400 before any permission check.
+    page.goto(_file_page_url(base_url, project, entity["attributes"]["path"]), wait_until="domcontentloaded")
+    render_url = page.evaluate("() => window.contextVars.file.urls.render")
+    assert same_origin(render_url, mfr), f"render URL must be the mfr origin {mfr}: {render_url}"
+    resp = api_context().get(render_url)
     record_property("http_status", resp.status)
     assert resp.status in (401, 403), f"anonymous preview returned {resp.status}"

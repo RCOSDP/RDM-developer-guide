@@ -3,10 +3,12 @@
   "component": "osf.io",
   "profile": "core",
   "command": [
-    "invoke",
-    "adminserver",
-    "-h",
-    "0.0.0.0"
+    "python3",
+    "manage.py",
+    "runserver",
+    "0.0.0.0:8001",
+    "--nothreading",
+    "--insecure"
   ],
   "environment": {
     "DJANGO_SETTINGS_MODULE": "admin.base.settings",

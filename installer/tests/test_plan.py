@@ -45,7 +45,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(data["platform"], "linux/arm64")
         self.assertEqual(data["network"], "grdm")
         ports = {r["service"]: r for r in data["ports"]}
-        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS))
+        # SPEC-02 §4 table plus the two browser-facing wiki collaboration ports (C4; §4 lets render assign them)
+        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS) | {"y_websocket", "sharejs"})
+        self.assertEqual(ports["y_websocket"]["host_port"], 1234)
+        self.assertEqual(ports["sharejs"]["host_port"], 7007)
         for name, port in plan.DEFAULT_PORTS.items():
             self.assertEqual(ports[name]["host_port"], port)
             self.assertEqual(ports[name]["url"], f"http://127.0.0.1:{port}")
@@ -95,7 +98,7 @@ class PlanTests(unittest.TestCase):
         rc, out, _ = run_plan(root, json_output=False)
         self.assertEqual(rc, 0)
         self.assertIn("plan:", out)
-        self.assertIn("ports[7]{service,host_port,container_port,url,source}:", out)
+        self.assertIn("ports[9]{service,host_port,container_port,url,source}:", out)
         self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
         self.assertTrue((root / "runtime" / "reports" / "plan_latest.json").exists())
 
