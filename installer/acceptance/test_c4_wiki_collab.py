@@ -89,11 +89,11 @@ def test_c4_wiki_collab_rejection(two_contexts, login, user_a, base_url, project
     login(page_a, user_a)
     page_a.goto(_wiki_edit_url(base_url, project), wait_until="domcontentloaded")
     # The web page tells the browser where the socket is: `host:port` without a scheme; the room is the document
-    # id (wikiPageMilkdown.js: new WebsocketProvider('ws://' + urls.y_websocket, metadata.docId, ...)).
+    # id (wikiPageMilkdown.js: new WebsocketProvider('ws://' + urls.y_websocket, metadata.docId, ...)).  # nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket -- comment quoting the app; no socket here
     endpoint = page_a.evaluate("() => { const w = window.contextVars && window.contextVars.wiki; "
                                "return w && w.urls.y_websocket && w.metadata.docId ? w.urls.y_websocket + '/' + w.metadata.docId : null; }")
     assert endpoint, "wiki page did not expose the websocket endpoint (window.contextVars.wiki)"
-    ws_url = f"ws://{endpoint}"
+    ws_url = f"ws://{endpoint}"  # nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket -- loopback-only y-websocket of the dev stack, asserted on the next line
     assert is_loopback_origin(ws_url, WS_SCHEMES), f"websocket URL must be exactly ws://127.0.0.1:<port>: {ws_url}"
 
     page_anon.goto(base_url + sel.PATHS["login"], wait_until="domcontentloaded")  # same origin, no session

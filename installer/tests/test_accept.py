@@ -277,7 +277,7 @@ class AcceptTests(unittest.TestCase):
         rc, err, _ = self.run_accept(self.args(seed=True), runner)
         self.assertEqual(rc, exit_codes.OK, err)
         seed_calls = [a for a, _ in runner.calls if "manage.py" in a]
-        self.assertEqual(len(seed_calls), 5)  # user_a, user_b, institution_member, admin, cleanup
+        self.assertEqual(len(seed_calls), 6)  # user_a, user_b, institution_member, other_institution_member, admin, cleanup
         self.assertEqual(seed_calls[0][:3], ["docker", "compose", "exec"])
         self.assertIn("web", seed_calls[0])
         self.assertIn("create_confirmed", seed_calls[0][-1])
@@ -285,23 +285,71 @@ class AcceptTests(unittest.TestCase):
         self.assertIn("delete()", seed_calls[-1][-1])
         # pytest ran between seeding and cleanup
         order = ["seed" if "manage.py" in a else "pytest" for a, _ in runner.calls]
-        self.assertEqual(order, ["seed", "seed", "seed", "seed", "pytest", "seed"])
+        self.assertEqual(order, ["seed", "seed", "seed", "seed", "seed", "pytest", "seed"])
 
     def test_seed_makes_admin_an_affiliated_institution_admin_and_leaves_user_a_unaffiliated(self):
         runner = FakeRunner()
         self.run_accept(self.args(seed=True), runner)
-        snippets = [a[-1] for a, _ in runner.calls if "manage.py" in a][:4]
+        snippets = [a[-1] for a, _ in runner.calls if "manage.py" in a][:5]
         for snippet in snippets:
             self.assertIn("u.is_superuser = False", snippet)
-        user_a, user_b, member, admin = snippets
+        user_a, user_b, member, other, admin = snippets
         self.assertIn("u.is_staff = True", admin)
-        self.assertIn("u.is_staff = False", user_a)
-        self.assertIn("u.is_staff = False", user_b)
-        self.assertIn("order_by('id')[:1]", admin)
-        self.assertIn("u.is_staff = False", member)
-        self.assertIn("order_by('id')[:1]", member)
-        self.assertIn("order_by('id')[:0]", user_b)  # an affiliated user's login does not reach the dashboard
-        self.assertIn("order_by('id')[:0]", user_a)
+        for snippet in (user_a, user_b, member, other):
+            self.assertIn("u.is_staff = False", snippet)
+        self.assertIn("order_by('id')[0:1]", admin)   # only the first institution
+        self.assertIn("order_by('id')[0:1]", member)  # the admin's institution
+        self.assertIn("order_by('id')[1:2]", other)   # only a different institution (PR #40 review r1 R1-01)
+        self.assertIn("order_by('id')[0:0]", user_b)  # an affiliated user's login does not reach the dashboard
+        self.assertIn("order_by('id')[0:0]", user_a)
+
+    def _c6_success(self):
+        """test_c6_admin_success and its helpers, without pytest/Playwright: compiled from the source."""
+        import ast
+        from acceptance import selectors
+        src = (accept.ACCEPTANCE_DIR / "test_c6_admin.py").read_text()
+        tree = ast.parse(src)
+        funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+        for f in funcs:
+            f.decorator_list = []
+        ns = {"sel": selectors, "quote": __import__("urllib.parse", fromlist=["quote"]).quote}
+        exec(compile(ast.Module(body=funcs, type_ignores=[]), "test_c6_admin.py", "exec"), ns)
+        return ns["test_c6_admin_success"]
+
+    def _run_c6_against(self, listing):
+        """Run C6 success on a fake admin app whose institution list is `listing(query)` -> e-mails."""
+        users = {k: {"email": f"{k}@acceptance.test", "password": "x"} for k in ("admin", "a", "member", "other")}
+
+        class Resp:
+            status = 200
+
+        class Page:
+            query = ""
+
+            def goto(self, url, **_):
+                self.query = url.split("?", 1)[1] if "?" in url else ""
+                return Resp()
+
+            def inner_text(self, _sel):
+                return "GUID\tEmail\n" + "\n".join(listing(self.query))
+
+            def __getattr__(self, _name):
+                return lambda *a, **k: None
+
+        self._c6_success()(Page(), lambda s: "http://127.0.0.1:8001", users["admin"], users["a"], users["member"],
+                           users["other"], lambda *a: None)
+
+    def test_c6_fails_when_the_institution_filter_is_removed(self):
+        everyone_affiliated = ["member@acceptance.test", "other@acceptance.test"]
+        def leaky(query):  # every affiliated user, whatever the admin's institution
+            return [e for e in everyone_affiliated if not query or e.split("@")[0] in query]
+        with self.assertRaisesRegex(AssertionError, "another institution"):
+            self._run_c6_against(leaky)
+
+    def test_c6_passes_when_only_the_admins_institution_is_listed(self):
+        def filtered(query):
+            return [e for e in ["member@acceptance.test"] if not query or e.split("@")[0] in query]
+        self._run_c6_against(filtered)
 
     def test_seed_failure_is_52(self):
         runner = FakeRunner(seed_rc=1)

@@ -5,7 +5,7 @@
     "name": "Login via fakecas",
     "case": "success",
     "status": "passed",
-    "duration_ms": 5064,
+    "duration_ms": 5103,
     "http_status": 200,
     "evidence": null,
     "known_external_blocked": 7
@@ -16,7 +16,7 @@
     "name": "Create project",
     "case": "success",
     "status": "passed",
-    "duration_ms": 8151,
+    "duration_ms": 7847,
     "http_status": 200,
     "evidence": null,
     "known_external_blocked": 14
@@ -27,7 +27,7 @@
     "name": "Create project",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 6748,
+    "duration_ms": 7110,
     "http_status": 403,
     "evidence": null,
     "known_external_blocked": 8
@@ -38,7 +38,7 @@
     "name": "Upload and download file",
     "case": "success",
     "status": "passed",
-    "duration_ms": 8581,
+    "duration_ms": 3954,
     "http_status": 200,
     "evidence": null,
     "known_external_blocked": 4
@@ -49,7 +49,7 @@
     "name": "Upload and download file",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 6130,
+    "duration_ms": 6047,
     "http_status": 403,
     "evidence": null,
     "known_external_blocked": 8
@@ -60,7 +60,7 @@
     "name": "Wiki collaborative edit",
     "case": "success",
     "status": "passed",
-    "duration_ms": 10562,
+    "duration_ms": 10163,
     "http_status": 200,
     "evidence": null,
     "known_external_blocked": 18
@@ -71,7 +71,7 @@
     "name": "Wiki collaborative edit",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 7088,
+    "duration_ms": 6774,
     "http_status": 4401,
     "evidence": null,
     "known_external_blocked": 13
@@ -82,7 +82,7 @@
     "name": "File preview",
     "case": "success",
     "status": "passed",
-    "duration_ms": 20795,
+    "duration_ms": 10977,
     "http_status": 200,
     "evidence": null,
     "known_external_blocked": 9
@@ -93,7 +93,7 @@
     "name": "File preview",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 10232,
+    "duration_ms": 9919,
     "http_status": 401,
     "evidence": null,
     "known_external_blocked": 9
@@ -104,10 +104,10 @@
     "name": "Institution admin screen",
     "case": "success",
     "status": "passed",
-    "duration_ms": 873,
+    "duration_ms": 1184,
     "http_status": 200,
     "evidence": null,
-    "known_external_blocked": 3
+    "known_external_blocked": 5
   },
   {
     "nodeid": "test_c6_admin.py::test_c6_admin_rejection[chromium]",
@@ -115,7 +115,7 @@
     "name": "Institution admin screen",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 2463,
+    "duration_ms": 2181,
     "http_status": 403,
     "evidence": null,
     "known_external_blocked": 3
@@ -126,7 +126,7 @@
     "name": "Login via fakecas",
     "case": "rejection",
     "status": "passed",
-    "duration_ms": 176,
+    "duration_ms": 164,
     "http_status": 401,
     "evidence": null,
     "known_external_blocked": 0

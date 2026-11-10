@@ -39,6 +39,9 @@ ADMIN = {
     "login": "/account/login/",            # verified on the real admin app (LoginView, admin/common_auth/urls.py)
     # UserIdentificationAdminListView: staff, not superuser, affiliated; lists the admin's own institution
     "institution_users": "/user_identification_information_admin/",
+    # the same view's search by e-mail (UserIdentificationListView.user_list: GET username), still limited to the
+    # admin's institution: an explicit search cannot be beaten by pagination
+    "institution_users_search": "/user_identification_information_admin/?username={email}",
 }
 
 # --- fakecas login form (upstream README: any username, password = the user's e-mail) -------------
