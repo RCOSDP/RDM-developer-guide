@@ -91,18 +91,20 @@ fi
 # credential anywhere below it.
 SHARED_FS_RE='^(virtiofs|9p|fuse\.sshfs|vboxsf|fuse\.vmhgfs-fuse|fuse\.virtiofsd)$'
 CREDENTIAL_FILES=".config/gh/hosts.yml .git-credentials .netrc .docker/config.json"
-decode_mount_field() {  # the kernel writes space, tab, newline and backslash in mount paths as \040 \011 \012 \134
-  m="$1"
-  m="${m//\\040/ }"
-  m="${m//\\011/$'\t'}"
-  m="${m//\\012/$'\n'}"
-  m="${m//\\134/\\}"  # last, so a decoded backslash cannot start another escape (PR #44 review r1 R1)
-  printf '%s' "${m}"
+decode_mount_field() {  # sets DECODED_MOUNT; the kernel writes space, tab, newline and backslash as \040 \011 \012 \134
+  # A variable, not $(...): command substitution strips trailing newlines, so "host\012" would become "host"
+  # (PR #44 review r2 R2-01).
+  DECODED_MOUNT="$1"
+  DECODED_MOUNT="${DECODED_MOUNT//\\040/ }"
+  DECODED_MOUNT="${DECODED_MOUNT//\\011/$'\t'}"
+  DECODED_MOUNT="${DECODED_MOUNT//\\012/$'\n'}"
+  DECODED_MOUNT="${DECODED_MOUNT//\\134/\\}"  # last, so a decoded backslash cannot start another escape (review r1 R1)
 }
 EXPOSED=""
 while read -r _src raw_mnt fstype _rest; do
   if printf '%s\n' "${fstype}" | grep -Eq "${SHARED_FS_RE}"; then
-    mnt="$(decode_mount_field "${raw_mnt}")"
+    decode_mount_field "${raw_mnt}"
+    mnt="${DECODED_MOUNT}"
     for c in ${CREDENTIAL_FILES}; do
       if [ -e "${mnt}/${c}" ]; then EXPOSED="${EXPOSED} '${mnt}/${c}'"; fi
     done

@@ -33,6 +33,7 @@ gate judges the findings it has; at M4-M5 it makes the run incomplete (exit 51) 
 from __future__ import annotations
 
 import datetime as _dt
+import errno
 import json
 import os
 import platform
@@ -621,11 +622,32 @@ def mask_secrets(data: Any, secrets: list[str]) -> Any:
 
 # --------------------------------------------------------------------------- scanners
 
+# Opening a FIFO blocks until the other end appears, and a symlink is followed, both before any type check could
+# run. So report files are opened without following links and without blocking, and the descriptor's type is
+# checked before a byte is read or written (PR #44 review r2 R2-02).
+_SAFE_OPEN = getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+
+
+def _regular_fd(fd: int, path: Path) -> int:
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError(errno.EINVAL, "not a regular file", str(path))
+    return fd
+
+
+def _write_report_file(path: Path, text: str) -> None:
+    """Write `text` to `path` only if it is, or becomes, a regular file; a FIFO, symlink or device raises OSError."""
+    fd = _regular_fd(os.open(path, os.O_WRONLY | os.O_CREAT | _SAFE_OPEN, 0o666), path)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.truncate(0)
+        fh.write(text)
+
+
 def _save_raw(ctx: Context, name: str, text: str, secrets: list[str]) -> Path:
     """Save a scanner's raw output under runtime/reports/ with runtime/.env values masked."""
     ctx.reports_dir.mkdir(parents=True, exist_ok=True)
     path = ctx.reports_dir / name
-    path.write_text(mask_secrets(text, secrets), encoding="utf-8")
+    _write_report_file(path, mask_secrets(text, secrets))
     return path
 
 
@@ -923,14 +945,16 @@ def _read_zap_report(path: Path) -> tuple[Any, str | None]:
     """The parsed report, refusing anything but a regular file (a symlink planted in the work directory is not
     followed). (None, None) when there is no file."""
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        fd = os.open(path, os.O_RDONLY | _SAFE_OPEN)
     except FileNotFoundError:
         return None, None
     except OSError as exc:
         return None, f"ZAP report {path.name} could not be opened safely ({exc.strerror}); a symlink is refused"
+    try:
+        fd = _regular_fd(fd, path)
+    except OSError:
+        return None, f"ZAP report {path.name} is not a regular file (a FIFO, device or socket is refused)"
     with os.fdopen(fd, "r", encoding="utf-8") as fh:
-        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
-            return None, f"ZAP report {path.name} is not a regular file"
         return _json_or_empty(fh.read()), None
 
 
@@ -979,7 +1003,11 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
             continue
         if rc not in ZAP_OK_CODES:
             problems.append(f"zap-baseline exited {rc} for {url}")
-        _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
+        try:
+            _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
+        except OSError as exc:
+            problems.append(f"ZAP report {out_name} could not be saved in reports/ ({exc.strerror}); only a regular file is written")
+            continue
         findings.extend(normalize_zap(data, url))
     return findings, _tool("zap", "stable", len(targets), problems), notes
 

@@ -10,6 +10,8 @@ import io
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -761,6 +763,37 @@ class DynamicTests(ScanTestBase):
         self.assertEqual(len(mounts), 1)
         self.assertRegex(mounts[0], r"^zap_wrk_web_\S+_[A-Za-z0-9_]{6,}$")
         self.assertTrue(outside.exists())
+
+    def test_fifo_report_is_refused_without_blocking(self):
+        # PR #44 review r2 R2-02: os.open on a FIFO with no writer blocked before the type check. Bounded by a child.
+        fifo = self.root / "report.json"
+        os.mkfifo(fifo)
+        code = ("import sys; from pathlib import Path; from grdm_dev import scan; "
+                "print(scan._read_zap_report(Path(sys.argv[1]))[1])")
+        cp = subprocess.run([sys.executable, "-c", code, str(fifo)], capture_output=True, text=True, timeout=10,
+                            env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1])))
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("not a regular file", cp.stdout)
+
+    def test_zap_does_not_write_into_a_fifo_in_reports(self):
+        ps = self._zap_ready()
+        reports = self.root / "runtime" / "reports"
+        reports.mkdir()
+        base = fake_runner(compose_ps=ps)
+        planted = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"] and not planted:
+                name = argv[argv.index("-J") + 1]
+                os.mkfifo(reports / name)  # a FIFO where the masked copy will be saved
+                # A reader keeps the test bounded: without it a regression would block in open() instead of failing.
+                planted.append(os.open(reports / name, os.O_RDONLY | os.O_NONBLOCK))
+                self.addCleanup(os.close, planted[-1])
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("only a regular file is written", data["tools"][0]["result"])
 
     def test_dynamic_targets_service_names_on_compose_network(self):
         self.write_compose({

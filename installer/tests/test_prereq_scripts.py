@@ -199,6 +199,23 @@ class UbuntuTests(ScriptRun):
         self.assertEqual(cp.returncode, 0, cp.stderr)
         self.assertIn("would stop with exit 10", cp.stdout)
 
+    def test_trailing_newlines_in_mount_names_are_kept(self):
+        # PR #44 review r2 R2-01: $(...) stripped the trailing newline of "host\012", so host/.netrc was checked.
+        self._host("Linux", "x86_64")
+        cases = (("host\n", "host\\012"), ("host\n\n", "host\\012\\012"), ("host\\012", "host\\134012"))
+        for fstype in ("virtiofs", "9p", "fuse.sshfs", "vboxsf", "fuse.vmhgfs-fuse", "fuse.virtiofsd"):
+            for name, encoded in cases:
+                with self.subTest(fstype=fstype, name=repr(name)):
+                    base = self.root / f"nl-{fstype}"
+                    (base / name).mkdir(parents=True, exist_ok=True)
+                    (base / name / ".netrc").write_text("dummy\n")
+                    (base / "host").mkdir(exist_ok=True)  # the wrong, stripped path exists but holds nothing
+                    self.mounts.write_text(f"share {base}/{encoded} {fstype} ro 0 0\n")
+                    cp = self._run(UBUNTU, "--yes", env_extra=self.env)
+                    self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+                    self.assertIn("host credentials are visible", cp.stderr)
+                    self.assert_nothing_changed()
+
     def test_shared_folder_without_credentials_or_local_disk_passes(self):
         self._host("Linux", "x86_64")
         for fstype, creds in (("virtiofs", False), ("ext4", True)):
