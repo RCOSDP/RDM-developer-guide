@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-10. **Learned:** the first Linux run of `grdm-dev db upgrade`, as uid 2001, moved PostgreSQL 9.6 to 18 in 12 seconds with 531 objects verified, and with develop's acceptance fixes the core suite passes 12 of 12 on Linux arm64 too; and the setup record had understated an exposure: the host's `~/.config/gh` was readable in the VM until the home mount was removed, so `install-ubuntu.sh` now stops when it finds credentials on a shared folder. ／ uid 2001 での `grdm-dev db upgrade` の Linux での最初の実行は、PostgreSQL 9.6 を 18 へ 12 秒で移し、531 個の対象を照合した。develop の受入試験の修正を入れると、コアの試験は Linux arm64 でも 12 件中 12 件合格する。また準備の記録は露出を小さく書いていた。ホームの mount を外すまで、ホストの `~/.config/gh` は VM から読めた。そこで `install-ubuntu.sh` は共有フォルダに資格情報を見つけると止まる。
+- Version / 版: 0.4 — 2026-11-10. **Learned:** fix 4b changed files that cannot be published yet: `installer-prereq-lint.yml` and its helper wait on branch `feat/per-os-installers` for a token with the `workflow` scope, so on develop Semgrep has no workflow of this branch to read. ／ 修正 4b が変えたファイルはまだ公開できない。`installer-prereq-lint.yml` とその補助は `workflow` スコープのトークンをブランチ `feat/per-os-installers` で待つので、develop では Semgrep が読むこのブランチのワークフローは無い。
+  0.3 — 2026-11-10. **Learned:** the first Linux run of `grdm-dev db upgrade`, as uid 2001, moved PostgreSQL 9.6 to 18 in 12 seconds with 531 objects verified, and with develop's acceptance fixes the core suite passes 12 of 12 on Linux arm64 too; and the setup record had understated an exposure: the host's `~/.config/gh` was readable in the VM until the home mount was removed, so `install-ubuntu.sh` now stops when it finds credentials on a shared folder. ／ uid 2001 での `grdm-dev db upgrade` の Linux での最初の実行は、PostgreSQL 9.6 を 18 へ 12 秒で移し、531 個の対象を照合した。develop の受入試験の修正を入れると、コアの試験は Linux arm64 でも 12 件中 12 件合格する。また準備の記録は露出を小さく書いていた。ホームの mount を外すまで、ホストの `~/.config/gh` は VM から読めた。そこで `install-ubuntu.sh` は共有フォルダに資格情報を見つけると止まる。
   0.2 — 2026-11-10. **Learned:** a Linux host user whose uid is not 1000 is the case that finds ownership bugs the Mac hides: after the volumes (PR #36) it was the ZAP report directory, and only the full sequence through `scan` and `report` (run 4, exit 0) shows that none is left on this host. ／ uid が 1000 でない Linux のホスト利用者こそ、Mac が隠す所有者の不具合を見つける。ボリューム（PR #36）の次は ZAP の報告ディレクトリだった。この機械に残りが無いと示せるのは、`scan` と `report` まで通した一連の実行（第 4 回、終了 0）だけである。
   0.1 — 2026-11-10. **Learned:** the dry runs of [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) could not show three Linux facts that a real run did: Ubuntu's own amd64 emulator crashes inside a long build, QEMU makes the first ember build twice as slow as on the Mac, and the cloud image lacks a library that the acceptance browser's driver needs. ／ [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) の dry run では分からず、実際の実行で分かった Linux の事実が三つあった。Ubuntu 自身の amd64 エミュレーターは長いビルドの中で落ち、QEMU では ember の初回ビルドが Mac の 2 倍遅く、クラウドイメージには受入試験のブラウザのドライバーが要るライブラリが無い。
 - Normative source: [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md)
@@ -233,6 +234,7 @@ run5:
 - **WSL2** (a way to run Linux inside Windows; see [REF-01](../reference/REF-01_Glossary.md)): not run. Docker comes from Docker Desktop, whose bind mounts behave like the Mac's, so 4a is not expected there; the checkout must be inside WSL. It needs Windows 11 hardware ([ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)).
 - **Emulation after a reboot:** the QEMU registration is not persistent. While Ubuntu's `qemu-user-static` is installed, its 8.2.2 handler returns at boot; `doctor` then stops with exit 13, and running `install-ubuntu.sh` again replaces it.
 - **Acceptance:** done in run 5 (12 of 12) after develop took the fixes of PR #40.
+- **CI workflows:** `installer-prereq-lint.yml`, `installer-full.yml` and the helper of fix 4b, `.github/scripts/Test-PowerShellSyntax.ps1`, are pending on branch `feat/per-os-installers` until they are pushed with a token that has the `workflow` scope. Everything else of this record is on develop.
 - **Cold start time:** with images already built, `up` from empty volumes took about 40 minutes on this VM, nearly all of it ember's first build under QEMU. Building the images from nothing took about 60 minutes more (runs 1 and 2).
 
 ---
@@ -457,6 +459,7 @@ run5:
 - **WSL2:** 未実行。Docker は Docker Desktop から来て、その bind mount は Mac と同じく振る舞うので 4a は起きないと見込む。チェックアウトは WSL の中に置く。Windows 11 の実機が要る（[ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - **再起動後のエミュレーション:** QEMU の登録は残らない。Ubuntu の `qemu-user-static` が入っている間は起動時に 8.2.2 が戻り、`doctor` が終了 13 で止まる。`install-ubuntu.sh` をもう一度実行すると置き換える。
 - **受入試験:** develop が PR #40 の修正を取り込んだ後、第 5 回で完了（12 件中 12 件）。
+- **CI のワークフロー:** `installer-prereq-lint.yml`・`installer-full.yml` と修正 4b の補助 `.github/scripts/Test-PowerShellSyntax.ps1` は、`workflow` スコープのトークンで push されるまでブランチ `feat/per-os-installers` で保留中。この記録のほかの部分はすべて develop にある。
 - **コールドスタートの時間:** イメージが組めている状態で、空のボリュームからの `up` はこの VM で約 40 分。ほぼすべてが QEMU での ember の初回ビルドである。何も無い状態からのイメージのビルドには、さらに約 60 分かかった（第 1・2 回）。
 
 ---
