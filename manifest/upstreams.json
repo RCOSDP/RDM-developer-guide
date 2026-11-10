@@ -322,7 +322,7 @@
       ],
       "id": "modular-file-renderer",
       "integration_branch": "develop",
-      "integration_sha": "dac70e2209f9b4104ee2d190d7462cf18eef3c9f",
+      "integration_sha": "749e58d317bc34cca8ba0640fb0f42f8d74d196d",
       "integration_repo": "RDM-modular-file-renderer-dev2027",
       "note": null,
       "platforms": [
