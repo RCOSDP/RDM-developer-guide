@@ -82,13 +82,19 @@ def load_hardening():
 
 
 class ComposeRenderTests(unittest.TestCase):
+    def render_core_doc(self):
+        root = make_root()
+        rc, _, err, _ = render(root)
+        self.assertEqual(rc, exit_codes.OK, err)
+        return json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+
     def test_render_core_writes_valid_json_with_baseline_controls(self):
         root = make_root()
         rc, out, err, ctx = render(root)
         self.assertEqual(rc, exit_codes.OK, err)
         text = (root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8")
         doc = json.loads(text)  # Compose accepts JSON
-        self.assertEqual(list(doc["networks"]), ["grdm", "grdm-edge"])  # grdm first: scan --dynamic attaches ZAP to it
+        self.assertEqual(list(doc["networks"]), ["grdm", "grdm-edge", "grdm-convert"])  # grdm first: scan --dynamic attaches ZAP to it
         self.assertIs(doc["networks"]["grdm"]["internal"], True)
         self.assertNotIn("internal", doc["networks"]["grdm-edge"])
         self.assertNotIn(FORBIDDEN, text)
@@ -102,10 +108,11 @@ class ComposeRenderTests(unittest.TestCase):
             relaxed = exceptions.get(name, set())
             # grdm (internal) everywhere; grdm-edge only where a 127.0.0.1 port is published
             if name in PUBLISHING:
-                self.assertEqual(svc["networks"], ["grdm", "grdm-edge"], name)
+                expected = ["grdm", "grdm-convert", "grdm-edge"] if name == "mfr" else ["grdm", "grdm-edge"]
+                self.assertEqual(svc["networks"], expected, name)
                 self.assertEqual(svc["labels"]["org.gakunin-rdm.egress"], "published", name)
             else:
-                self.assertEqual(svc["networks"], ["grdm"], name)
+                self.assertEqual(svc["networks"], ["grdm-convert"] if name == "unoconv" else ["grdm"], name)
                 self.assertEqual(svc["labels"]["org.gakunin-rdm.egress"], "none", name)
             self.assertEqual(svc["cap_drop"], ["ALL"], name)
             self.assertIn("no-new-privileges:true", svc["security_opt"], name)
@@ -342,6 +349,25 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertAlmostEqual(compose.detect_docker_memory_gib(lambda argv: (0, str(4 * 1024 ** 3))), 4.0)
 
     # ---- tmpfs mounts are world-writable (real install run 11)
+
+    def test_converter_is_reachable_only_from_mfr_and_requires_a_credential(self):
+        doc = self.render_core_doc()
+        self.assertIs(doc["networks"]["grdm-convert"]["internal"], True)
+        on_convert = sorted(n for n, svc in doc["services"].items() if "grdm-convert" in svc.get("networks", []))
+        self.assertEqual(on_convert, ["mfr", "unoconv"])
+        credential = doc["services"]["unoconv"]["environment"]["CONVERT_SECRET"]
+        self.assertTrue(credential)
+        self.assertEqual(doc["services"]["mfr"]["environment"]["UNOCONV_CONVERT_SECRET"], credential)
+
+    def test_sharejs_trusts_only_the_public_mongo_certificate(self):
+        doc = self.render_core_doc()
+        sharejs, mongo = doc["services"]["sharejs"], doc["services"]["mongo"]
+        self.assertEqual(sharejs["environment"]["MONGO_TLS_CA_FILE"], "/mongo-tls/mongodb.crt")
+        self.assertIn("mongo_tls:/mongo-tls:ro", sharejs["volumes"])
+        self.assertIn("mongo_tls:/mongo-tls", mongo["volumes"])
+        # the private key lives in mongo_data, which sharejs does not mount
+        self.assertNotIn("/mongo-tls/mongodb.pem", " ".join(mongo["command"]))
+        self.assertFalse([v for v in sharejs["volumes"] if v.startswith("mongo_data")])
 
     def test_tmpfs_mounts_carry_mode_1777(self):
         root = make_root()

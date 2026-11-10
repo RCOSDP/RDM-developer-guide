@@ -46,7 +46,7 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
 
 Template schema (templates/<service>.json): service, component, profile?, container_port?,
 host_port?, expose?, command?, environment?, env_files?, volumes? ([{volume|config|config_dir,
-target, ro?}]), tmpfs?, user?, depends_on? (service names, or {service, condition} for the Compose
+target, ro?}]), tmpfs?, user?, only_networks?, extra_networks?, depends_on? (service names, or {service, condition} for the Compose
 long form, e.g. `service_completed_successfully` on a one-shot), restart?, one_shot? (a container
 that runs to completion: rendered with `restart: "no"`, and `health` accepts `exited` with code 0),
 weight, mem_min_mb, pids_limit, note?. Strings may use
@@ -90,6 +90,7 @@ from .plan import (
 
 NETWORK = "grdm"               # internal: true — service-to-service only, no egress
 EDGE_NETWORK = "grdm-edge"     # plain bridge — only services that publish a port on 127.0.0.1 (+ --egress)
+CONVERT_NETWORK = "grdm-convert"  # internal: true — mfr and the document converter, nothing else (ADR-07)
 EGRESS_ENV_KEY = "GRDM_EGRESS_SERVICES"
 EGRESS_NONE = "none"
 PROJECT_NAME = "grdm-dev"
@@ -591,8 +592,11 @@ def render_service(
     if deps:
         out["depends_on"] = deps
     # grdm (internal) for every service; grdm-edge only where a port is published or egress was granted.
+    # A template may replace grdm (`only_networks`) or add to it (`extra_networks`): the converter of untrusted
+    # documents shares a network with mfr only.
     on_edge = svc.name in published or svc.name in egress
-    out["networks"] = [NETWORK, EDGE_NETWORK] if on_edge else [NETWORK]
+    networks = list(tpl.get("only_networks") or [NETWORK]) + list(tpl.get("extra_networks", []))
+    out["networks"] = networks + [EDGE_NETWORK] if on_edge else networks
     out["restart"] = "no" if tpl.get("one_shot") else tpl.get("restart", "unless-stopped")
     if tpl.get("stdin_open"):
         # invoke (osf.io's task runner) spawns a stdin-forwarding thread that calls FIONREAD on fd 0 and
@@ -670,6 +674,7 @@ def render_compose(
         "networks": {
             NETWORK: {"driver": "bridge", "internal": True, "name": f"{PROJECT_NAME}_{NETWORK}"},
             EDGE_NETWORK: {"driver": "bridge", "name": f"{PROJECT_NAME}_{EDGE_NETWORK}"},
+            CONVERT_NETWORK: {"driver": "bridge", "internal": True, "name": f"{PROJECT_NAME}_{CONVERT_NETWORK}"},
         },
         "volumes": volumes,
         "services": rendered,

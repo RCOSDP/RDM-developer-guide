@@ -8,7 +8,8 @@
     "sharejs.env"
   ],
   "environment": {
-    "SHAREJS_COOKIE_SECRET": "${SHAREJS_SECRET}"
+    "SHAREJS_COOKIE_SECRET": "${SHAREJS_SECRET}",
+    "MONGO_TLS_CA_FILE": "/mongo-tls/mongodb.crt"
   },
   "tmpfs": [
     "/tmp"
@@ -20,5 +21,12 @@
   ],
   "weight": 1,
   "mem_min_mb": 128,
-  "pids_limit": 256
+  "pids_limit": 256,
+  "volumes": [
+    {
+      "volume": "mongo_tls",
+      "target": "/mongo-tls",
+      "ro": true
+    }
+  ]
 }

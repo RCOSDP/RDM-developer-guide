@@ -5,8 +5,9 @@
 # root. MFR's LibreOffice 6.1 UNO client cannot talk to a newer listener ("Binary URP bridge disposed
 # during call"), so MFR now posts the document here over HTTP (RDM-modular-file-renderer-dev2027,
 # fix/unoconv-client-compat, UNOCONV_CONVERT_URL) and no UNO bridge crosses a version boundary.
-# The service only runs `soffice --convert-to` with a fresh profile per request, so the wb_tmp volume
-# is no longer shared with this container: runs as uid 1000 with a read-only root and a tmpfs /tmp.
+# The service only runs `soffice --convert-to` with a fresh profile per request after a bearer check,
+# so the wb_tmp volume is no longer shared with this container: runs as uid 1000 with a read-only root
+# and a tmpfs /tmp. CONVERT_SECRET is required; the service refuses to start without it.
 # libreoffice-nogui without recommends leaves out X11, Java and the desktop integration.
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 LABEL org.opencontainers.image.base.name="debian:trixie-slim" \
