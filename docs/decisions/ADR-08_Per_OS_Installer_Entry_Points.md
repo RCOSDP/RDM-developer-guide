@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-10. **Learned:** "the installer checks each prerequisite" only moved the first failure later: without Trivy and gitleaks an otherwise perfect install still stops with exit 51 at its `scan` step, so prerequisites are everything the whole sequence needs, not only what its first step needs. ／ 「インストーラーが各前提条件を確認する」は最初の失敗を後ろへずらしただけだった。Trivy と gitleaks が無いと、ほかが完璧でも導入は `scan` の段で終了 51 になる。前提条件とは最初の段に要るものではなく、一連の手順全体に要るものである。
+- Version / 版: 0.2 — 2026-11-10. **Learned:** the first real run of `install-ubuntu.sh`, on an Ubuntu 24.04 arm64 virtual machine, settled two rows of §5 and showed that a distribution's own emulator package is not a safe prerequisite: it crashed inside a build, so emulation now comes from a digest-pinned image ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)). ／ `install-ubuntu.sh` の最初の実際の実行（Ubuntu 24.04 arm64 の仮想マシン）で §5 の二行が決着し、ディストリビューション自身のエミュレーターのパッケージは安全な前提条件ではないと分かった。ビルドの中で落ちたので、エミュレーションはダイジェストで固定したイメージから入れる（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。
+  0.1 — 2026-11-10. **Learned:** "the installer checks each prerequisite" only moved the first failure later: without Trivy and gitleaks an otherwise perfect install still stops with exit 51 at its `scan` step, so prerequisites are everything the whole sequence needs, not only what its first step needs. ／ 「インストーラーが各前提条件を確認する」は最初の失敗を後ろへずらしただけだった。Trivy と gitleaks が無いと、ほかが完璧でも導入は `scan` の段で終了 51 になる。前提条件とは最初の段に要るものではなく、一連の手順全体に要るものである。
 - Status: Proposed for the owner's approval, 2026-11-10 (M2). Review date: after the first recorded run of each script on owner hardware.
 - Records a decision for: [SPEC-02 §1, §2.3, §8, §9, §10](../spec/02_installer_cli.md#english)
 - Parent index / 親索引: [Decision records](README.md)
@@ -65,11 +66,11 @@ options[4]{option,decision_path,risk,chosen}:
 
 | Claim | Status on GitHub-hosted runners |
 |---|---|
-| Docker Engine installed from Docker's apt repository | Not exercised when the runner image already has Docker 27 or newer, because the script then skips it. Needs a clean Ubuntu 24.04 machine. |
+| Docker Engine installed from Docker's apt repository | Not exercised when the runner image already has Docker 27 or newer, because the script then skips it. **Proven on a clean Ubuntu 24.04 arm64 virtual machine** ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)); amd64 still needs a clean machine. |
 | WSL2 on `windows-latest` | **Unverified.** Nested virtualization (a virtual machine inside a virtual machine, which WSL2 needs) is doubtful on these runners, and no full run has been attempted. CI only parses the script and does a dry run. |
 | UAC prompt, restart after enabling WSL, first-user creation, Docker Desktop's WSL integration | Need a person and real Windows 11 hardware. UAC is the Windows prompt that asks for administrator rights. |
 | macOS with Docker Desktop | Hosted macOS runners provide no Docker engine, so CI is dry-run only. M2 acceptance on the Mac Studio remains the evidence. |
-| amd64 emulation on arm64 Ubuntu | Exercised by `installer-full.yml` once the owner runs it; not yet run. |
+| amd64 emulation on arm64 Ubuntu | **Proven on a virtual machine** ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)): Ubuntu's `qemu-user-static` 8.2.2 crashed, so the script registers QEMU from a digest-pinned `tonistiigi/binfmt` image. Not persistent across reboots. |
 
 The SPEC-02 §8 phrase "checked in CI as build-only" for Windows is withdrawn: CI checks the Windows script's syntax and dry run only.
 
@@ -126,11 +127,11 @@ options[4]{option,decision_path,risk,chosen}:
 
 | 主張 | GitHub ホスト型ランナーでの状況 |
 |---|---|
-| Docker の apt リポジトリからの Docker Engine の導入 | ランナーのイメージに Docker 27 以上があると、スクリプトは飛ばすので試されない。まっさらな Ubuntu 24.04 が要る。 |
+| Docker の apt リポジトリからの Docker Engine の導入 | ランナーのイメージに Docker 27 以上があると、スクリプトは飛ばすので試されない。**まっさらな Ubuntu 24.04 arm64 の仮想マシンで実証済み**（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。amd64 はまだまっさらな機械が要る。 |
 | `windows-latest` での WSL2 | **未検証。** WSL2 に要る入れ子の仮想化（仮想マシンの中の仮想マシン）はこのランナーでは疑わしく、完全な実行は試していない。CI はスクリプトの解析と dry run だけを行う。 |
 | UAC の確認、WSL 有効化後の再起動、最初の利用者の作成、Docker Desktop の WSL 連携 | 人と実機の Windows 11 が要る。UAC は管理者権限を求める Windows の確認画面である。 |
 | macOS と Docker Desktop | ホスト型の macOS ランナーには Docker エンジンが無いので、CI は dry run のみ。証拠は引き続き Mac Studio での M2 受入である。 |
-| arm64 の Ubuntu での amd64 エミュレーション | 所有者が `installer-full.yml` を動かせば試される。まだ実行していない。 |
+| arm64 の Ubuntu での amd64 エミュレーション | **仮想マシンで実証済み**（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。Ubuntu の `qemu-user-static` 8.2.2 は落ちたので、スクリプトはダイジェストで固定した `tonistiigi/binfmt` イメージから QEMU を登録する。再起動をまたいでは残らない。 |
 
 SPEC-02 §8 の Windows の「CI ではビルド確認のみ」という記述は取り下げる。CI が確かめるのは Windows のスクリプトの構文と dry run だけである。
 

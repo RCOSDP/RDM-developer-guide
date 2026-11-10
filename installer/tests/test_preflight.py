@@ -245,7 +245,7 @@ class ArmEmulationTests(PreflightBase):
         self.assertIn("mfr", err)
 
     def test_measured_bad_ubuntu_qemu_is_exit_13_and_prints_the_replacement(self):
-        # DEMO-21 run 1: Ubuntu 24.04's qemu-user-static crashed in libgvc6's post-install script after a 45-minute build.
+        # DEMO-21 run 1: Ubuntu 24.04's qemu-user-static crashed in libgvc6's post-install script after a 48-minute run.
         bad = "qemu-x86_64 version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)"
         code, _, err = self.doctor(self.arm(binfmt_amd64=True, binfmt_amd64_qemu=bad), preflight_runner())
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)

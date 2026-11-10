@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="2" failures="7" skipped="0" tests="14" time="278.879" timestamp="2026-11-10T14:29:42.567289+09:00" hostname="lima-grdm-ubuntu2404"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="5.629"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="7" /></properties></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_success[chromium]" time="34.434"><properties><property name="known_external_blocked" value="7" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.fill: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;input#projectName, input[name='title']&quot;)">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = &lt;function api_write.&lt;locals&gt;._write at 0xf59ac21e3c40&gt;
+run_id = 'acc-20261110T052932Z-f1da54'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac21e37e0&gt;
+
+    @pytest.mark.case("success")
+    def test_c2_create_project_success(logged_in_page, base_url, api_url, api_write, run_id, record_property):
+        """A new project created in the UI appears with its title and the user as admin."""
+        page = logged_in_page
+        title = f"acceptance C2 {run_id}"
+        page.goto(base_url + sel.PATHS["new_project"], wait_until="domcontentloaded")
+        page.click(sel.WEB["create_project_button"])
+&gt;       page.fill(sel.WEB["create_project_title"], title)
+
+installer/acceptance/test_c2_create_project.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:17731: in fill
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:1229: in fill
+    return await self._main_frame.fill(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:736: in fill
+    return await self._channel.fill(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl.utils.zones.Zone object at 0xf59ac2060f80&gt;
+func = &lt;function ChannelOwner._wrap_api_call.&lt;locals&gt;.finish.&lt;locals&gt;.&lt;lambda&gt; at 0xf59ac21e3ec0&gt;
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -&gt; R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+&gt;           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.fill: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for locator("input#projectName, input[name='title']")
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError</failure></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_rejection[chromium]" time="5.453"><properties><property name="http_status" value="403" /><property name="known_external_blocked" value="8" /></properties></testcase><testcase classname="test_c3_file_upload" name="test_c3_file_upload_success[chromium]" time="13.164"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="4" /></properties></testcase><testcase classname="test_c3_file_upload" name="test_c3_file_upload_rejection[chromium]" time="15.382"><properties><property name="http_status" value="403" /><property name="known_external_blocked" value="8" /></properties></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="66.599"><properties><property name="known_external_blocked" value="13" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;.CodeMirror textarea, textarea#editor&quot;) to be visible">two_contexts = (&lt;Page url='http://127.0.0.1:5000/emu7y/wiki/home/?edit&amp;view&amp;menu'&gt;, &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;)
+login = &lt;function login.&lt;locals&gt;._login at 0xf59ac213fb00&gt;
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = &lt;function api_write.&lt;locals&gt;._write at 0xf59ac18d5080&gt;
+add_contributor = &lt;function add_contributor.&lt;locals&gt;._add at 0xf59ac18d5580&gt;
+run_id = 'acc-20261110T052932Z-f1da54'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac18d5e40&gt;
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+        login(page_a, user_a)
+        login(page_b, user_b)
+    
+        created = api_write(page_a.context, "POST", api_url + sel.API["nodes"], {
+            "data": {"type": "nodes", "attributes": {"title": "acceptance C4", "category": "project", "public": False}}
+        })
+        assert created.status == 201, created.text()[:200]
+        node_id = created.json()["data"]["id"]
+        try:
+            add_contributor(page_a.context, node_id, user_id_of(page_b.context, api_url), "write")
+    
+&gt;           resp_a = _open_editor(page_a, base_url, node_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c4_wiki_collab.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:26: in _open_editor
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21403: in wait_for_selector
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:464: in wait_for_selector
+    return await self._main_frame.wait_for_selector(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:418: in wait_for_selector
+    result = await self._channel.waitForSelector(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:398: in _mapped
+    return mapper(await awaitable)
+                  ^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl.utils.zones.Zone object at 0xf59ac21fb7a0&gt;
+func = &lt;function ChannelOwner._wrap_api_call.&lt;locals&gt;.finish.&lt;locals&gt;.&lt;lambda&gt; at 0xf59ac21e3f60&gt;
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -&gt; R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+&gt;           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.
+E           Call log:
+E             - waiting for locator(".CodeMirror textarea, textarea#editor") to be visible
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError</failure></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_rejection[chromium]" time="66.847"><properties><property name="known_external_blocked" value="13" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;.CodeMirror textarea, textarea#editor&quot;) to be visible">two_contexts = (&lt;Page url='http://127.0.0.1:5000/pk8qs/wiki/home/?edit&amp;view&amp;menu'&gt;, &lt;Page url='about:blank'&gt;)
+login = &lt;function login.&lt;locals&gt;._login at 0xf59ac18d7c40&gt;
+user_a = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', project = 'pk8qs'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac0ab7380&gt;
+
+    @pytest.mark.case("rejection")
+    def test_c4_wiki_collab_rejection(two_contexts, login, user_a, base_url, project, record_property):
+        """A logged-out context connecting to the wiki websocket is closed with code 4401."""
+        page_a, page_anon = two_contexts
+        login(page_a, user_a)
+&gt;       _open_editor(page_a, base_url, project)
+
+installer/acceptance/test_c4_wiki_collab.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:26: in _open_editor
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21403: in wait_for_selector
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:464: in wait_for_selector
+    return await self._main_frame.wait_for_selector(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:418: in wait_for_selector
+    result = await self._channel.waitForSelector(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:398: in _mapped
+    return mapper(await awaitable)
+                  ^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl.utils.zones.Zone object at 0xf59ac1fa6ff0&gt;
+func = &lt;function ChannelOwner._wrap_api_call.&lt;locals&gt;.finish.&lt;locals&gt;.&lt;lambda&gt; at 0xf59ac21d5c60&gt;
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -&gt; R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+&gt;           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.
+E           Call log:
+E             - waiting for locator(".CodeMirror textarea, textarea#editor") to be visible
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError</failure></testcase><testcase classname="test_c5_file_preview" name="test_c5_file_preview_success[chromium]" time="64.103"><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;iframe#mfrIframe, iframe[src*='render']&quot;) to be visible">logged_in_page = &lt;Page url='http://127.0.0.1:5000/e9fkz/'&gt;, project = '3eqsj'
+base_url = 'http://127.0.0.1:5000'
+service_url = &lt;function service_url.&lt;locals&gt;._url at 0xf59ac2137e20&gt;
+tmp_pdf = b'%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\n2 0 obj&lt;&lt;/Type/Pages/Kids[3 0 R]/Count 1&gt;&gt;endobj\n3 0 obj&lt;&lt;/Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+run_id = 'acc-20261110T052932Z-f1da54'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac207a480&gt;
+
+    @pytest.mark.case("success")
+    def test_c5_file_preview_success(logged_in_page, project, base_url, service_url, tmp_pdf, run_id, record_property):
+        """An uploaded PDF renders inside the mfr iframe (mfr answers 200 for the render request)."""
+        page = logged_in_page
+        entity = upload(page.context, service_url("wb"), project, f"c5-{run_id}.pdf", tmp_pdf)
+        mfr = service_url("mfr")
+        with page.expect_response(lambda r: same_origin(r.url, mfr) and "/render" in r.url, timeout=90_000) as render:
+            page.goto(_file_page_url(base_url, project, entity["attributes"]["path"]), wait_until="domcontentloaded")
+&gt;           page.wait_for_selector(sel.WEB["file_preview_iframe"], timeout=60_000)
+
+installer/acceptance/test_c5_file_preview.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21403: in wait_for_selector
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:464: in wait_for_selector
+    return await self._main_frame.wait_for_selector(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:418: in wait_for_selector
+    result = await self._channel.waitForSelector(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:398: in _mapped
+    return mapper(await awaitable)
+                  ^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl.utils.zones.Zone object at 0xf59ac1b72d20&gt;
+func = &lt;function ChannelOwner._wrap_api_call.&lt;locals&gt;.finish.&lt;locals&gt;.&lt;lambda&gt; at 0xf59ac207d440&gt;
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -&gt; R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+&gt;           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded.
+E           Call log:
+E             - waiting for locator("iframe#mfrIframe, iframe[src*='render']") to be visible
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError</failure></testcase><testcase classname="test_c5_file_preview" name="test_c5_file_preview_success[chromium]" time="0.133"><properties><property name="known_external_blocked" value="8" /></properties><error message="failed on teardown with &quot;Failed: request(s) would have left the machine: ['http://localhost:7007/text.js', 'http://localhost:7007/share.js']&quot;">request = &lt;SubRequest 'external_guard' for &lt;Function test_c5_file_preview_success[chromium]&gt;&gt;
+
+    @pytest.fixture(autouse=True)
+    def external_guard(request):
+        """Collect the loopback-guard offenders of one test and fail it if any guard (browser, websocket,
+        API) saw a URL that would have left the machine. Every browser context is created by our
+        `new_context` below (pytest-playwright's default `context` fixture calls it too), which attaches
+        the guard itself; requesting `context` from here created a fixture cycle
+        (external_guard -&gt; context -&gt; new_context -&gt; external_guard, first real acceptance run)."""
+        offenders: list[str] = []
+        before = len(_OFFENDERS)
+        known_before = len(_KNOWN_EXTERNAL)
+        yield offenders
+        offenders.extend(_OFFENDERS[before:])
+        request.node.user_properties.append(("known_external_blocked", len(_KNOWN_EXTERNAL) - known_before))
+        if offenders:
+&gt;           pytest.fail(f"request(s) would have left the machine: {offenders[:5]}")
+E           Failed: request(s) would have left the machine: ['http://localhost:7007/text.js', 'http://localhost:7007/share.js']
+
+installer/acceptance/conftest.py:274: Failed</error></testcase><testcase classname="test_c5_file_preview" name="test_c5_file_preview_rejection[chromium]" time="3.588"><properties><property name="http_status" value="400" /><property name="known_external_blocked" value="4" /></properties><failure message="AssertionError: anonymous preview returned 400&#10;assert 400 in (401, 403)&#10; +  where 400 = &lt;APIResponse url='http://127.0.0.1:7778/render?url=http://127.0.0.1:7777/v1/resources/9s8zt/providers/osfstorage/6af2acda8924f6000909d245' status=400 status_text='Bad Request'&gt;.status">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;, project = '9s8zt'
+service_url = &lt;function service_url.&lt;locals&gt;._url at 0xf59ac2137e20&gt;
+tmp_pdf = b'%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\n2 0 obj&lt;&lt;/Type/Pages/Kids[3 0 R]/Count 1&gt;&gt;endobj\n3 0 obj&lt;&lt;/Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+run_id = 'acc-20261110T052932Z-f1da54'
+api_context = &lt;function api_context.&lt;locals&gt;._new at 0xf59ac18def20&gt;
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac1e72e80&gt;
+
+    @pytest.mark.case("rejection")
+    def test_c5_file_preview_rejection(logged_in_page, project, service_url, tmp_pdf, run_id, api_context, record_property):
+        """The preview URL of a private file without a session -&gt; 401/403."""
+        page = logged_in_page
+        wb = service_url("wb")
+        entity = upload(page.context, wb, project, f"c5-private-{run_id}.pdf", tmp_pdf)
+        file_url = download_link(entity, wb, project)
+        anon = api_context()
+        resp = anon.get(service_url("mfr") + sel.MFR["render"].format(file_url=file_url))
+        record_property("http_status", resp.status)
+&gt;       assert resp.status in (401, 403), f"anonymous preview returned {resp.status}"
+E       AssertionError: anonymous preview returned 400
+E       assert 400 in (401, 403)
+E        +  where 400 = &lt;APIResponse url='http://127.0.0.1:7778/render?url=http://127.0.0.1:7777/v1/resources/9s8zt/providers/osfstorage/6af2acda8924f6000909d245' status=400 status_text='Bad Request'&gt;.status
+
+installer/acceptance/test_c5_file_preview.py:39: AssertionError</failure></testcase><testcase classname="test_c6_admin" name="test_c6_admin_success[chromium]" time="0.668"><properties><property name="http_status" value="404" /></properties><failure message="AssertionError: institution users page returned 404&#10;assert (&lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt; is not None and 404 == 200)&#10; +  where 404 = &lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt;.status">page = &lt;Page url='http://127.0.0.1:8001/institutions/1/users/'&gt;
+service_url = &lt;function service_url.&lt;locals&gt;._url at 0xf59ac2137e20&gt;
+admin_user = {'email': '***', 'password': '***'}
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac1e71da0&gt;
+
+    @pytest.mark.case("success")
+    def test_c6_admin_success(page, service_url, admin_user, record_property):
+        """The institution admin signs in to the admin app and sees the institution's user list."""
+        admin_url = service_url("admin")
+        _admin_login(page, admin_url, admin_user)
+        # TODO(M2): the institution id of the seeded admin; "1" assumes the first institution created by --seed.
+        resp = page.goto(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), wait_until="domcontentloaded")
+        record_property("http_status", resp.status if resp else None)
+&gt;       assert resp is not None and resp.status == 200, f"institution users page returned {resp and resp.status}"
+E       AssertionError: institution users page returned 404
+E       assert (&lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt; is not None and 404 == 200)
+E        +  where 404 = &lt;Response url='http://127.0.0.1:8001/institutions/1/users/' request=&lt;Request url='http://127.0.0.1:8001/institutions/1/users/' method='GET'&gt;&gt;.status
+
+installer/acceptance/test_c6_admin.py:27: AssertionError</failure></testcase><testcase classname="test_c6_admin" name="test_c6_admin_success[chromium]" time="0.003"><properties><property name="http_status" value="404" /><property name="known_external_blocked" value="0" /></properties><error message="failed on teardown with &quot;Failed: request(s) would have left the machine: ['http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css']&quot;">request = &lt;SubRequest 'external_guard' for &lt;Function test_c6_admin_success[chromium]&gt;&gt;
+
+    @pytest.fixture(autouse=True)
+    def external_guard(request):
+        """Collect the loopback-guard offenders of one test and fail it if any guard (browser, websocket,
+        API) saw a URL that would have left the machine. Every browser context is created by our
+        `new_context` below (pytest-playwright's default `context` fixture calls it too), which attaches
+        the guard itself; requesting `context` from here created a fixture cycle
+        (external_guard -&gt; context -&gt; new_context -&gt; external_guard, first real acceptance run)."""
+        offenders: list[str] = []
+        before = len(_OFFENDERS)
+        known_before = len(_KNOWN_EXTERNAL)
+        yield offenders
+        offenders.extend(_OFFENDERS[before:])
+        request.node.user_properties.append(("known_external_blocked", len(_KNOWN_EXTERNAL) - known_before))
+        if offenders:
+&gt;           pytest.fail(f"request(s) would have left the machine: {offenders[:5]}")
+E           Failed: request(s) would have left the machine: ['http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css', 'https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css', 'http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css']
+
+installer/acceptance/conftest.py:274: Failed</error></testcase><testcase classname="test_c6_admin" name="test_c6_admin_rejection[chromium]" time="2.279"><properties><property name="known_external_blocked" value="3" /></properties><failure message="AssertionError: admin screen answered 404 to an ordinary user&#10;assert 404 in (301, 302, 303, 307, 403)&#10; +  where 404 = &lt;APIResponse url='http://127.0.0.1:8001/institutions/1/users/' status=404 status_text='Not Found'&gt;.status">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard/'&gt;
+service_url = &lt;function service_url.&lt;locals&gt;._url at 0xf59ac2137e20&gt;
+api_url = 'http://127.0.0.1:8000'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0xf59ac0680360&gt;
+
+    @pytest.mark.case("rejection")
+    def test_c6_admin_rejection(logged_in_page, service_url, api_url, record_property):
+        """An ordinary user opening the admin URL -&gt; 403 or redirect to login; the API answers exactly 403."""
+        client = api(logged_in_page.context)
+        admin_url = service_url("admin")
+        screen = client.get(admin_url + sel.ADMIN["institution_users"].format(institution_id="1"), max_redirects=0)
+&gt;       assert screen.status in (301, 302, 303, 307, 403), f"admin screen answered {screen.status} to an ordinary user"
+E       AssertionError: admin screen answered 404 to an ordinary user
+E       assert 404 in (301, 302, 303, 307, 403)
+E        +  where 404 = &lt;APIResponse url='http://127.0.0.1:8001/institutions/1/users/' status=404 status_text='Not Found'&gt;.status
+
+installer/acceptance/test_c6_admin.py:37: AssertionError</failure></testcase><testcase classname="test_c1_login" name="test_c1_login_rejection" time="0.048"><properties><property name="http_status" value="401" /><property name="known_external_blocked" value="0" /></properties></testcase></testsuite></testsuites>
