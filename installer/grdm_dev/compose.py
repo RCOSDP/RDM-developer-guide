@@ -31,7 +31,10 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
-  (sha12 from the build report when present), `grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>` for
+  (sha12 from the build report when present and equal to the manifest pin; a recorded build that
+  differs from the pin is stale, so the pinned tag is rendered, `stale_build_tags` lists it in the
+  report and stderr says to run `grdm-dev build` before `up`; the build report's tag is used as is
+  only for a component the manifest does not pin), `grdm-dev/<overlay>:<base_sha12>-<overlay_sha12>` for
   an overlay component (SPEC-01 §3 `overlay_of`, ADR-06: `wiki_assets` runs the wiki-frontend bundle
   builder once, copies `/code/website/static/public/js/` into the named volume `wiki_static` and
   exits — `restart: "no"`; web/api/admin/worker mount that volume read-only at
@@ -1095,6 +1098,49 @@ def built_image_tags(ctx: Context) -> dict[str, str]:
     }
 
 
+def split_stale_build_tags(man: _manifest.Manifest, recorded: dict[str, str]) -> tuple[dict[str, str], list[dict[str, str]]]:
+    """Keep the build report's tags that agree with the manifest pin; return the others as stale.
+
+    `grdm-dev build` always builds the pinned commit, so a recorded tag that differs from the tag the
+    manifest pins means the pin moved after the last build. Using the record then runs the old image
+    without a word (it happened on 2026-11-10: the pin of osf.io moved and `compose render` ran before
+    `build`). For a stale component the manifest pin wins, and the caller warns. A component the manifest
+    does not pin (no `integration_sha` and no merged upstream, or an overlay whose base is unpinned) keeps
+    the recorded tag, because nothing else names the commit that was built.
+
+    Returns (tags to use, stale rows {component, pinned, recorded, image}).
+    """
+    usable: dict[str, str] = {}
+    stale: list[dict[str, str]] = []
+    for cid, tag in recorded.items():
+        try:
+            comp = man.component(cid)
+        except KeyError:
+            continue  # a component no longer in the manifest renders nothing
+        base = man.component(comp.overlay_of) if comp.is_overlay else None
+        pinned = comp.sha12 if base is None else (
+            _manifest.overlay_tag(base.sha12, comp.sha12) if (base.sha12 and comp.sha12) else None)
+        if not comp.is_built or pinned is None or tag == pinned:
+            usable[cid] = tag
+            continue
+        stale.append({"component": cid, "pinned": pinned, "recorded": tag, "image": comp.local_image(pinned)})
+    return usable, stale
+
+
+def stale_build_warning(stale: list[dict[str, str]]) -> str:
+    """The loud stderr block for `compose render` when the last build is older than the manifest pin."""
+    lines = ["", "[grdm-dev] compose render: WARNING: the last build does not match the manifest pin", ""]
+    for row in stale:
+        lines.append(f"  {row['component']}: manifest pins {row['pinned']}, last build recorded {row['recorded']}")
+    lines += [
+        "",
+        "  The rendered file uses the pinned tag(s), not the recorded build, so old images never run silently.",
+        "  Fix: run `grdm-dev build` now, then `grdm-dev up` (`up` cannot start an image that was never built).",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def detect_memory_gib() -> float | None:
     """Physical memory from os.sysconf (Linux, macOS); None when unknown. No subprocess, no Docker."""
     try:
@@ -1275,7 +1321,10 @@ def run(
         man = _manifest.load(ctx)
         profile = resolve_profile(ctx, env)
         auth = getattr(args, "auth", None) or _manifest.AUTH_FAKECAS
-        services = _manifest.services_for_profile(man, profile, auth, image_tags=built_image_tags(ctx))
+        image_tags, stale_builds = split_stale_build_tags(man, built_image_tags(ctx))
+        services = _manifest.services_for_profile(man, profile, auth, image_tags=image_tags)
+        rendered_components = {s.component for s in services}
+        stale_builds = [row for row in stale_builds if row["component"] in rendered_components]
         hardening = load_hardening(ctx.root)
         service_platforms = {
             s.name: str(man.component(s.component).get("build_platform"))
@@ -1403,6 +1452,9 @@ def run(
         "volumes": list(compose["volumes"]),
         "config_files": [f"{CONFIG_DIR}/{rel}" for rel in configs],
         "written": written or ["(unchanged)"],
+        "stale_build_tags": stale_builds,
     }
+    if stale_builds:
+        sys.stderr.write(stale_build_warning(stale_builds))
     report.emit(ctx, "compose", data)
     return exit_codes.OK

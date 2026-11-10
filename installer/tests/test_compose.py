@@ -868,20 +868,77 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertLessEqual(total, 64 * 1024 * compose.MEMORY_SHARE + 2048)
         self.assertTrue(all(0.5 <= s["cpus"] <= 4.0 for s in big.values()))
 
-    def test_build_report_tags_win_over_manifest(self):
+    def test_build_report_tag_that_matches_the_pin_is_used_without_warning(self):
         root = make_root()
+        pins = {c["id"]: c["integration_sha"][:12] for c in json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))["components"]
+                if c.get("integration_sha")}
         reports = root / "runtime" / "reports"
         reports.mkdir(parents=True)
         (reports / "build_latest.json").write_text(json.dumps({"components": [
-            {"component": "osf.io", "sha12": "feedfacecafe", "status": "built"},
+            {"component": "osf.io", "sha12": pins["osf.io"], "status": "built"},
             {"component": "waterbutler", "sha12": "000000000000", "status": "build-failed"},
         ]}), encoding="utf-8")
-        rc, _, _, _ = render(root)
-        self.assertEqual(rc, 0)
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(doc["services"]["web"]["image"], "grdm-dev/osf.io:feedfacecafe")
+        self.assertEqual(doc["services"]["web"]["image"], f"grdm-dev/osf.io:{pins['osf.io']}")
         self.assertTrue(doc["services"]["wb"]["image"].startswith("grdm-dev/waterbutler:"))
-        self.assertNotEqual(doc["services"]["wb"]["image"], "grdm-dev/waterbutler:000000000000")
+        self.assertNotEqual(doc["services"]["wb"]["image"], "grdm-dev/waterbutler:000000000000")  # a failed build is no record
+        self.assertEqual(json.loads(out)["stale_build_tags"], [])
+        self.assertNotIn("WARNING", err)
+
+    def test_build_older_than_the_pin_renders_the_pin_and_warns_with_the_fix(self):
+        """2026-11-10: the osf.io pin moved and `compose render` ran before `build`; the old image ran silently.
+        A recorded build that differs from the pin is stale: the pinned tag is rendered, the report lists it and
+        stderr names the fix (`grdm-dev build`, then `up`)."""
+        root = make_root()
+        comps = {c["id"]: c for c in json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))["components"]}
+        osf12, wiki12 = comps["osf.io"]["integration_sha"][:12], comps["wiki-frontend"]["integration_sha"][:12]
+        reports = root / "runtime" / "reports"
+        reports.mkdir(parents=True)
+        (reports / "build_latest.json").write_text(json.dumps({"components": [
+            {"component": "osf.io", "sha12": "feedfacecafe", "image_tag": "feedfacecafe", "status": "built"},
+            {"component": "wiki-frontend", "sha12": wiki12, "image_tag": f"feedfacecafe-{wiki12}", "status": "built",
+             "overlay_of": "osf.io", "base_sha12": "feedfacecafe"},
+        ]}), encoding="utf-8")
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)  # a warning, not a stop: `install` renders before it builds
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        for name in ("web", "api", "admin", "worker"):
+            self.assertEqual(doc["services"][name]["image"], f"grdm-dev/osf.io:{osf12}", name)
+        self.assertEqual(doc["services"]["wiki_assets"]["image"], f"grdm-dev/wiki-frontend:{osf12}-{wiki12}")
+        self.assertFalse(any("feedfacecafe" in str(s.get("image")) for s in doc["services"].values()))
+        stale = {r["component"]: r for r in json.loads(out)["stale_build_tags"]}
+        self.assertEqual(stale["osf.io"], {"component": "osf.io", "pinned": osf12, "recorded": "feedfacecafe",
+                                           "image": f"grdm-dev/osf.io:{osf12}"})
+        self.assertEqual(stale["wiki-frontend"]["pinned"], f"{osf12}-{wiki12}")  # the base half moved
+        self.assertEqual(stale["wiki-frontend"]["recorded"], f"feedfacecafe-{wiki12}")
+        self.assertIn("WARNING: the last build does not match the manifest pin", err)
+        self.assertIn(f"osf.io: manifest pins {osf12}, last build recorded feedfacecafe", err)
+        self.assertIn("run `grdm-dev build` now, then `grdm-dev up`", err)
+
+    def test_stale_split_keeps_the_record_for_an_unpinned_component_and_ignores_unrendered_ones(self):
+        root = make_root()
+        path = root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            if comp["id"] == "waterbutler":  # no pin at all: only the build record names the commit that was built
+                comp.pop("integration_sha", None)
+                for up in comp.get("upstreams", []):
+                    up["status"] = "open"
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        from grdm_dev import manifest as _manifest
+        man = _manifest.load(path)
+        self.assertIsNone(man.component("waterbutler").sha12)
+        usable, stale = compose.split_stale_build_tags(man, {"waterbutler": "abcdefabcdef", "no-such-component": "123456789012"})
+        self.assertEqual(usable, {"waterbutler": "abcdefabcdef"})
+        self.assertEqual(stale, [])
+        osf12 = man.component("osf.io").sha12
+        usable, stale = compose.split_stale_build_tags(man, {"osf.io": osf12})
+        self.assertEqual((usable, stale), ({"osf.io": osf12}, []))
+        usable, stale = compose.split_stale_build_tags(man, {"osf.io": "feedfacecafe"})
+        self.assertEqual(usable, {})
+        self.assertEqual([r["component"] for r in stale], ["osf.io"])
 
     def test_overlay_one_shot_copies_the_bundle_into_a_volume_that_osf_services_mount_read_only(self):
         """SPEC-01 §3 overlay_of (ADR-06): wiki_assets runs grdm-dev/wiki-frontend:<osf12>-<wiki12> once, fills `wiki_static`,
@@ -940,19 +997,21 @@ class ComposeRenderTests(unittest.TestCase):
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["wiki_assets"]["origin"], "overlay")
         self.assertEqual(rows["web"]["origin"], "built")
-        # the build report's image_tag (what `grdm-dev build` actually tagged) wins over the manifest-derived tag
+        # the build report's image_tag (what `grdm-dev build` actually tagged) is used when it matches the pin;
+        # a record that differs from the pin is stale (test_build_older_than_the_pin_renders_the_pin_and_warns_with_the_fix)
         reports = root / "runtime" / "reports"
         reports.mkdir(parents=True, exist_ok=True)
         (reports / "build_latest.json").write_text(json.dumps({"components": [
-            {"component": "osf.io", "sha12": "feedfacecafe", "image_tag": "feedfacecafe", "status": "built"},
-            {"component": "wiki-frontend", "sha12": "0123456789ab", "image_tag": "feedfacecafe-0123456789ab", "status": "built",
-             "overlay_of": "osf.io", "base_sha12": "feedfacecafe"},
+            {"component": "osf.io", "sha12": osf12, "image_tag": osf12, "status": "built"},
+            {"component": "wiki-frontend", "sha12": wiki12, "image_tag": f"{osf12}-{wiki12}", "status": "built",
+             "overlay_of": "osf.io", "base_sha12": osf12},
         ]}), encoding="utf-8")
-        rc, _, _, _ = render(root)
+        rc, out, _, _ = render(root)
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(doc["services"]["wiki_assets"]["image"], "grdm-dev/wiki-frontend:feedfacecafe-0123456789ab")
-        self.assertEqual(doc["services"]["web"]["image"], "grdm-dev/osf.io:feedfacecafe")
+        self.assertEqual(doc["services"]["wiki_assets"]["image"], f"grdm-dev/wiki-frontend:{osf12}-{wiki12}")
+        self.assertEqual(doc["services"]["web"]["image"], f"grdm-dev/osf.io:{osf12}")
+        self.assertEqual(json.loads(out)["stale_build_tags"], [])
 
     def test_rendered_file_survives_compose_interpolation_with_the_full_env(self):
         """PR #30 review r1 R1-01: Compose interpolates `$VAR`/`${VAR}` in every string before the container shell runs.
