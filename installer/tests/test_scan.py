@@ -248,7 +248,7 @@ class BaselineValidatorTests(ScanTestBase):
                 by_service.setdefault(a["service"], set()).add(a["control"])
             # every root-running service of the core profile is covered by a recorded `user` exception
             # (elasticsearch left this list in real install run 8: it now runs as uid 101; cas joined it)
-            for svc in ("postgres", "mongo", "rabbitmq", "unoconv", "cas"):
+            for svc in ("postgres", "mongo", "rabbitmq", "cas"):
                 self.assertIn("user", by_service[svc], svc)
             # and the full scan reports them under baseline_exceptions
             shutil.copytree(root / "runtime", self.root / "runtime", dirs_exist_ok=True)

@@ -9,7 +9,8 @@
   "host_port": 7778,
   "environment": {
     "PYTHONUNBUFFERED": "1",
-    "SERVER_CONFIG_HMAC_SECRET": "${MFR_SERVER_SECRET}"
+    "SERVER_CONFIG_HMAC_SECRET": "${MFR_SERVER_SECRET}",
+    "UNOCONV_CONVERT_SECRET": "${UNOCONV_CONVERT_SECRET}"
   },
   "env_files": [
     "mfr.env"
@@ -26,5 +27,8 @@
   ],
   "weight": 2,
   "mem_min_mb": 256,
-  "pids_limit": 512
+  "pids_limit": 512,
+  "extra_networks": [
+    "grdm-convert"
+  ]
 }

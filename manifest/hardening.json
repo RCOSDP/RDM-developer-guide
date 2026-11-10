@@ -97,21 +97,6 @@
     },
     {
       "cap_add": [
-        "CHOWN",
-        "DAC_OVERRIDE"
-      ],
-      "controls": [
-        "user",
-        "read_only",
-        "cap_add"
-      ],
-      "reason": "centerforopenscience/unoconv runs LibreOffice as root and writes its profile and lock files inside the image; the shared /tmp volume is needed to exchange files with mfr. Its entrypoint runs `chown -R www-data:www-data /home` before exec, which fails with cap_drop ALL and restarts the container forever (real install run 8), so CAP_CHOWN is added back. CAP_DAC_OVERRIDE is added because capabilities-dropped root still obeys file permissions: the shared wb_tmp volume belongs to uid 1000 (the writers wb, wb_worker and mfr), and without it LibreOffice cannot create its profile there (measured on the real image: `Unable to connect or start own listener`; with it a PDF is produced). Bounded to this one root container on the internal network; this is a transitional exception, not a proof of least privilege: a non-root converter or a shared group has not been tried with this image, and M4 replaces it (unoserver).",
-      "review": "2027-01-31",
-      "service": "unoconv",
-      "target": "M4 (unoserver, mfr PR #9)"
-    },
-    {
-      "cap_add": [
         "CHOWN"
       ],
       "controls": [
