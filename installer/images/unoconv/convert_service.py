@@ -105,7 +105,10 @@ def convert(job_dir, source, target, limit_sec):
     if PRLIMIT:
         argv = [PRLIMIT, "--fsize={}".format(MAX_OUTPUT_BYTES)] + argv
     env = {"HOME": job_dir, "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "TMPDIR": job_dir}
-    proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    # Semgrep sees os.environ in argv (CONVERT_SOFFICE, CONVERT_PRLIMIT, CONVERT_MAX_OUTPUT_BYTES). Those are the
+    # container's own configuration, set by compose render, not request data; argv is a list run without a shell,
+    # and the request's values reach it only as `target` (checked against FORMATS) and a path this service builds.
+    proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
                             env=env, cwd=job_dir, start_new_session=True)
     timed_out = False
     try:
