@@ -58,6 +58,11 @@
       "volume": "wiki_static",
       "target": "/code/website/static/public/js/wiki",
       "ro": true
+    },
+    {
+      "volume": "mongo_tls",
+      "target": "/mongo-tls",
+      "ro": true
     }
   ],
   "tmpfs": [

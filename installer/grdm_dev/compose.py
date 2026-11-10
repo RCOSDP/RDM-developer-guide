@@ -877,6 +877,9 @@ def render_osf_env(host_ports: dict[str, int]) -> str:
         ("OSF_DB_NAME", "osf"),
         ("OSF_DB_USER", "postgres"),
         ("DB_HOST", "postgres"),
+        # addons.wiki.share_db(): TLS to mongo, verified against the certificate mongo copies into mongo_tls
+        ("SHAREJS_DB_URL", "mongodb://mongo:27017/sharejs?ssl=true"),
+        ("SHAREJS_DB_CA_FILE", "/mongo-tls/mongodb.crt"),
         ("WATERBUTLER_URL", _ext(host_ports, "wb")),
         ("WATERBUTLER_INTERNAL_URL", "http://wb:7777"),
         ("CAS_SERVER_URL", _ext(host_ports, "fakecas")),
