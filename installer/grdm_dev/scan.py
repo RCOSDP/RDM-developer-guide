@@ -914,7 +914,7 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
         # enter, holds only this report, and is removed once the masked copy is saved in reports/.
         wrk = ctx.reports_dir / f"zap_wrk_{svc}_{ts}"
         wrk.mkdir(exist_ok=True)
-        os.chmod(wrk, 0o777)
+        os.chmod(wrk, 0o777)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- per-scan ZAP work directory inside runtime/ (0700), holds only the report, removed in `finally`
         argv = ["docker", "run", "--rm", "--network", network, "-v", f"{wrk}:/zap/wrk:rw",
                 ZAP_IMAGE, "zap-baseline.py", "-t", url, "-J", out_name, "-I"]
         try:
