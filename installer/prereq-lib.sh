@@ -17,7 +17,8 @@ PREREQ_FORWARD=()
 PREREQ_TMP=""
 PREREQ_PLAN_EN=()
 PREREQ_PLAN_JA=()
-PREREQ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Physical path (pwd -P): a symlinked checkout must be judged by where its files really are (PR #44 review r1 R2).
+PREREQ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 PREREQ_MESSAGES="${PREREQ_ROOT}/installer/grdm_dev/messages.tsv"
 
 prereq_say() {  # prereq_say <english> [<japanese>]

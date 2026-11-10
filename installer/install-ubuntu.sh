@@ -74,22 +74,37 @@ esac
 
 IS_WSL=0
 if [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi microsoft "${GRDM_PREREQ_PROC_VERSION:-/proc/version}" 2>/dev/null; then IS_WSL=1; fi
+# PREREQ_ROOT is the physical path, so a checkout reached through a symlink into /mnt/c is refused too (PR #44
+# review r1 R2). GRDM_PREREQ_WSL_WINDOWS_ROOT exists for the unit tests, which cannot create /mnt.
+WSL_WINDOWS_ROOT="${GRDM_PREREQ_WSL_WINDOWS_ROOT:-/mnt}"
+WSL_WINDOWS_ROOT="$(cd "${WSL_WINDOWS_ROOT}" 2>/dev/null && pwd -P || printf '%s' "${WSL_WINDOWS_ROOT}")"
 if [ "${IS_WSL}" = "1" ]; then
-  case "${PREREQ_ROOT}" in
-    /mnt/*) prereq_fail 10 "this checkout is on the Windows disk (${PREREQ_ROOT}); clone it inside WSL, for example under ~/ / このチェックアウトは Windows のディスク上にあります（${PREREQ_ROOT}）。~/ など WSL の中に clone してください" ;;
+  case "${PREREQ_ROOT}/" in
+    "${WSL_WINDOWS_ROOT}"/*) prereq_fail 10 "this checkout is on the Windows disk (${PREREQ_ROOT}); clone it inside WSL, for example under ~/ / このチェックアウトは Windows のディスク上にあります（${PREREQ_ROOT}）。~/ など WSL の中に clone してください" ;;
   esac
 fi
 
 # A virtual machine must not see the host's credentials. Lima's Ubuntu template mounts the host home directory
 # read-only even when the instance lists its own mounts (the template's list is merged in), which showed
-# ~/.config/gh to the VM in DEMO-21. Only existence is tested; no file is read.
+# ~/.config/gh to the VM in DEMO-21. Only existence is tested; no file is read. The check is deliberately narrow: it
+# looks for the four names below directly under each shared mount point (a shared home directory), not for every
+# credential anywhere below it.
 SHARED_FS_RE='^(virtiofs|9p|fuse\.sshfs|vboxsf|fuse\.vmhgfs-fuse|fuse\.virtiofsd)$'
 CREDENTIAL_FILES=".config/gh/hosts.yml .git-credentials .netrc .docker/config.json"
+decode_mount_field() {  # the kernel writes space, tab, newline and backslash in mount paths as \040 \011 \012 \134
+  m="$1"
+  m="${m//\\040/ }"
+  m="${m//\\011/$'\t'}"
+  m="${m//\\012/$'\n'}"
+  m="${m//\\134/\\}"  # last, so a decoded backslash cannot start another escape (PR #44 review r1 R1)
+  printf '%s' "${m}"
+}
 EXPOSED=""
-while read -r _src mnt fstype _rest; do
+while read -r _src raw_mnt fstype _rest; do
   if printf '%s\n' "${fstype}" | grep -Eq "${SHARED_FS_RE}"; then
+    mnt="$(decode_mount_field "${raw_mnt}")"
     for c in ${CREDENTIAL_FILES}; do
-      if [ -e "${mnt}/${c}" ]; then EXPOSED="${EXPOSED} ${mnt}/${c}"; fi
+      if [ -e "${mnt}/${c}" ]; then EXPOSED="${EXPOSED} '${mnt}/${c}'"; fi
     done
   fi
 done < "${GRDM_PREREQ_MOUNTS:-/proc/mounts}"

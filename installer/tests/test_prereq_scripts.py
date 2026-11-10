@@ -272,10 +272,51 @@ class UbuntuTests(ScriptRun):
         self.assertNotIn("download.docker.com", cp.stdout)
         self.assert_nothing_changed()
 
-    def test_wsl_refuses_a_checkout_on_the_windows_disk(self):
-        # The refusal is a path check, so a copy under a fake /mnt-like root cannot exercise it; assert the rule exists.
-        text = UBUNTU.read_text(encoding="utf-8")
-        self.assertIn("/mnt/*) prereq_fail 10", text)
+    def _copy_checkout(self, dest):
+        (dest / "installer" / "grdm_dev").mkdir(parents=True)
+        for name in ("install-ubuntu.sh", "prereq-lib.sh"):
+            shutil.copy2(INSTALLER / name, dest / "installer" / name)
+        shutil.copy2(INSTALLER / "grdm_dev" / "messages.tsv", dest / "installer" / "grdm_dev" / "messages.tsv")
+        return dest
+
+    def _wsl_run(self, checkout_link):
+        self._host("Linux", "x86_64")
+        env = dict(self.env, WSL_DISTRO_NAME="Ubuntu-24.04", GRDM_PREREQ_WSL_WINDOWS_ROOT=str(self.root / "win"))
+        return self._run(checkout_link / "installer" / "install-ubuntu.sh", "--dry-run", "--yes", env_extra=env)
+
+    def test_wsl_refuses_a_checkout_on_the_windows_disk_even_through_a_symlink(self):
+        # PR #44 review r1 R2: the logical path ~/rdm passed the /mnt/* check while the files were on the Windows disk.
+        real = self._copy_checkout(self.root / "win" / "c" / "Users" / "dev" / "rdm")
+        link = self.home / "rdm"
+        link.symlink_to(real, target_is_directory=True)
+        for checkout in (real, link):
+            with self.subTest(checkout=str(checkout)):
+                cp = self._wsl_run(checkout)
+                self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+                self.assertIn("on the Windows disk", cp.stderr)
+        self.assert_nothing_changed()
+
+    def test_wsl_accepts_a_checkout_inside_wsl(self):
+        (self.root / "win").mkdir()
+        checkout = self._copy_checkout(self.home / "rdm")
+        cp = self._wsl_run(checkout)
+        self.assertNotIn("on the Windows disk", cp.stderr)
+
+    def test_mount_escapes_are_decoded_before_the_credential_check(self):
+        # PR #44 review r1 R1: /proc/mounts writes "host home" as host\040home, which the check used literally.
+        self._host("Linux", "x86_64")
+        for name, encoded in (("host home", "host\\040home"), ("back\\slash", "back\\134slash"), ("tab\there", "tab\\011here")):
+            for fstype in ("virtiofs", "9p", "fuse.sshfs"):
+                with self.subTest(name=name, fstype=fstype):
+                    base = self.root / f"share-{fstype}"
+                    home = base / name
+                    (home / ".config" / "gh").mkdir(parents=True, exist_ok=True)
+                    (home / ".config" / "gh" / "hosts.yml").write_text("not read\n")
+                    self.mounts.write_text(f"/dev/vda1 / ext4 rw 0 0\nshare {base}/{encoded} {fstype} ro 0 0\n")
+                    cp = self._run(UBUNTU, "--yes", env_extra=self.env)
+                    self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+                    self.assertIn(f"{home}/.config/gh/hosts.yml", cp.stderr)
+                    self.assert_nothing_changed()
 
 
 class MacosTests(ScriptRun):
@@ -355,6 +396,71 @@ class SharedRules(unittest.TestCase):
             self.assertIn(code, known, f"{WINDOWS.name}: exit {code}")
 
 
+class WindowsBootScript(unittest.TestCase):
+    """Runs the bash that install-windows.ps1 sends into WSL, taken from its $bootLines, under bash with a fake
+    Windows-disk root (PR #44 review r1 R2: a home or checkout symlinked into /mnt/c passed a textual check)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.win = self.root / "win"
+        (self.win / "c").mkdir(parents=True)
+        self.boot = self._boot_text()
+
+    @staticmethod
+    def _boot_text():
+        text = WINDOWS.read_text(encoding="utf-8-sig")
+        block = text[text.index("$bootLines = @(") + len("$bootLines = @("):]
+        block = block[:block.index("\n)")]
+        lines = []
+        for entry in block.strip().splitlines():
+            entry = entry.strip().rstrip(",")
+            if entry.startswith("'"):
+                lines.append(entry[1:-1])
+            else:  # a PowerShell expandable string: the four substitutions it uses
+                entry = entry[1:-1].replace("`\"", "\"").replace("`$", "$")
+                entry = entry.replace("$(ConvertTo-BashWord $Branch)", "develop").replace("$(ConvertTo-BashWord $RepoUrl)", "/nonexistent.git")
+                entry = entry.replace("$Directory", "rdm").replace("$forwardWords", "--dry-run")
+                lines.append(entry)
+        return "\n".join(lines) + "\n"
+
+    def _run(self, home):
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home), "GRDM_WSL_WINDOWS_ROOT": str(self.win)}
+        return subprocess.run([_bash(), "-c", self.boot], env=env, cwd=str(home), capture_output=True, text=True, timeout=60)
+
+    def _checkout(self, path):
+        (path / ".git").mkdir(parents=True)
+        (path / "installer").mkdir()
+        (path / "installer" / "install-ubuntu.sh").write_text('echo "reached install-ubuntu.sh $*"\n')
+        return path
+
+    def test_symlinked_checkout_on_the_windows_disk_is_refused(self):
+        home = self.root / "home"
+        home.mkdir()
+        (home / "rdm").symlink_to(self._checkout(self.win / "c" / "rdm"), target_is_directory=True)
+        cp = self._run(home)
+        self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+        self.assertIn("is on the Windows disk", cp.stderr)
+        self.assertNotIn("reached", cp.stdout)
+
+    def test_symlinked_home_on_the_windows_disk_is_refused(self):
+        real_home = self.win / "c" / "Users" / "dev"
+        real_home.mkdir(parents=True)
+        home = self.root / "home"
+        home.symlink_to(real_home, target_is_directory=True)
+        cp = self._run(home)
+        self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+        self.assertIn("the WSL home directory is on the Windows disk", cp.stderr)
+
+    def test_checkout_inside_wsl_is_used(self):
+        home = self.root / "home"
+        self._checkout(home / "rdm")
+        cp = self._run(home)
+        self.assertEqual(cp.returncode, 0, cp.stdout + cp.stderr)
+        self.assertIn("reached install-ubuntu.sh --dry-run", cp.stdout)
+
+
 class WindowsScriptText(unittest.TestCase):
     """Text-level rules only; `Parser.ParseFile` and the dry run happen on windows-latest (installer-prereq-lint.yml)."""
 
@@ -371,7 +477,7 @@ class WindowsScriptText(unittest.TestCase):
 
     def test_clone_target_is_a_single_folder_name(self):
         self.assertIn(r"$Directory -notmatch '^[A-Za-z0-9._-]+$'", self.text)
-        self.assertIn('case "$HOME" in /mnt/*)', self.text)
+        self.assertIn('home_real="$(pwd -P)"', self.text)  # the physical checks themselves run in WindowsBootScript
 
     def test_runs_the_ubuntu_script_inside_wsl(self):
         self.assertIn("exec bash installer/install-ubuntu.sh", self.text)

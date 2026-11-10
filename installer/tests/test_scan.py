@@ -134,6 +134,7 @@ class ScanTestBase(unittest.TestCase):
         services = services if services is not None else {"web": hardened(ports=["127.0.0.1:5000:5000"], networks=["grdm", "grdm-edge"])}
         doc = {"services": services, "networks": networks if networks is not None else NETWORKS}
         (self.root / "runtime").mkdir(exist_ok=True)
+        os.chmod(self.root / "runtime", 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture: the private runtime/ that `secrets init` leaves
         (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps(doc))
 
     def run_scan(self, runner, which=all_tools, **flags):
@@ -709,6 +710,57 @@ class DynamicTests(ScanTestBase):
         self.assertFalse(mount.exists())
         self.assertEqual(len(list(reports.glob("zap_web_*.json"))), 1)
         self.assertEqual(list(reports.glob("zap_wrk_*")), [])
+
+    def _zap_ready(self):
+        self.write_compose()
+        return json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+
+    def test_zap_refuses_a_runtime_that_others_can_enter(self):
+        # PR #44 review r1 R3: with runtime/ at 0755 the 0777 work directory was reachable by other local users.
+        ps = self._zap_ready()
+        os.chmod(self.root / "runtime", 0o755)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- test fixture: the permissive runtime/ the scan must refuse
+        calls = []
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, calls=calls), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("must be 0700", data["tools"][0]["result"])
+        self.assertEqual([c for c in calls if c[:2] == ["docker", "run"]], [])
+        self.assertEqual(list((self.root / "runtime" / "reports").glob("zap_wrk_*")), [])
+
+    def test_zap_refuses_symlinked_runtime_or_reports(self):
+        ps = self._zap_ready()
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir(mode=0o700)
+        reports = self.root / "runtime" / "reports"
+        reports.symlink_to(elsewhere, target_is_directory=True)
+        calls = []
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, calls=calls), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("symbolic link", data["tools"][0]["result"])
+        self.assertEqual([c for c in calls if c[:2] == ["docker", "run"]], [])
+        self.assertEqual(list(elsewhere.glob("zap_wrk_*")), [])
+
+    def test_zap_work_directory_names_are_unpredictable_and_reports_symlinks_are_refused(self):
+        ps = self._zap_ready()
+        outside = self.root / "outside.json"
+        outside.write_text('{"site": [{"alerts": [{"pluginid": "1", "riskcode": "3", "alert": "planted"}]}]}')
+        base = fake_runner(compose_ps=ps)
+        mounts = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"]:
+                wrk = Path(argv[argv.index("-v") + 1].split(":")[0])
+                mounts.append(wrk.name)
+                (wrk / argv[argv.index("-J") + 1]).symlink_to(outside)  # what another user could plant
+                return 0, ""
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("symlink is refused", data["tools"][0]["result"])
+        self.assertNotIn("planted", json.dumps(data["findings"]))
+        self.assertEqual(len(mounts), 1)
+        self.assertRegex(mounts[0], r"^zap_wrk_web_\S+_[A-Za-z0-9_]{6,}$")
+        self.assertTrue(outside.exists())
 
     def test_dynamic_targets_service_names_on_compose_network(self):
         self.write_compose({
