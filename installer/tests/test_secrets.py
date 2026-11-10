@@ -1,4 +1,5 @@
 import argparse
+import base64
 import io
 import json
 import stat
@@ -318,6 +319,47 @@ class SecretsInitTests(unittest.TestCase):
             referenced.update(re.findall(r"\$\{?([A-Z][A-Z0-9_]*)", json.dumps(data)))
         generated = set(secrets.SECRET_KEYS) | set(secrets.default_non_secrets("core"))
         self.assertEqual(sorted(referenced - generated), [])
+
+    def test_generated_cas_keys_satisfy_the_rules_of_the_image(self):
+        """Every draw, because a length that is right on average still fails closed on the unlucky one."""
+        for _ in range(200):
+            values = secrets.fresh_secrets()
+            self.assertEqual(secrets.cas_key_problems(values), [])
+            self.assertEqual(secrets.check_no_defaults(values), [])
+            self.assertEqual(len(values["TGC_ENCRYPTION_KEY"]), 43)
+            self.assertEqual(len(values["TGC_SIGNING_KEY"]), 86)
+            self.assertEqual(len(values["OSF_API_INSTITUTIONS_AUTH_JWESECRET"].encode("utf-8")), 32)
+            self.assertGreaterEqual(len(values["OSF_API_INSTITUTIONS_AUTH_JWTSECRET"].encode("utf-8")), 32)
+            self.assertEqual(len(base64.urlsafe_b64decode(values["TGC_ENCRYPTION_KEY"] + "=")), 32)
+            self.assertEqual(len(base64.urlsafe_b64decode(values["TGC_SIGNING_KEY"] + "==")), 64)
+
+    def test_every_cas_rule_names_a_generated_key(self):
+        self.assertLessEqual(set(secrets.CAS_KEY_RULES), set(secrets.SECRET_KEYS))
+
+    def test_a_wrong_cas_key_length_is_rejected_by_name_only(self):
+        good = secrets.fresh_secrets()
+        for key, size in (("TGC_ENCRYPTION_KEY", 42), ("TGC_ENCRYPTION_KEY", 44), ("TGC_SIGNING_KEY", 43),
+                          ("OSF_API_INSTITUTIONS_AUTH_JWESECRET", 31), ("OSF_API_INSTITUTIONS_AUTH_JWESECRET", 33),
+                          ("OSF_API_INSTITUTIONS_AUTH_JWTSECRET", 31)):
+            values = {**good, key: "a" * size}
+            self.assertEqual(secrets.cas_key_problems(values), [key], (key, size))
+            self.assertIn(key, secrets.check_no_defaults(values))
+
+    def test_a_long_jwt_key_is_accepted(self):
+        values = {**secrets.fresh_secrets(), "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "a" * 200}
+        self.assertEqual(secrets.cas_key_problems(values), [])
+
+    def test_retired_cas_keys_are_not_generated_and_are_dropped_by_force(self):
+        retired = {"CAS_TGC_ENCRYPTION_KEY", "CAS_TGC_SIGNING_KEY", "CAS_WEBFLOW_ENCRYPTION_KEY", "CAS_WEBFLOW_SIGNING_KEY"}
+        self.assertEqual(retired & set(secrets.SECRET_KEYS), set())
+        self.assertLessEqual(retired, set(secrets.OBSOLETE_SECRET_KEYS))
+        ctx = make_ctx(self.root, profile="core")
+        path = self.root / "runtime" / ".env"
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=False)), exit_codes.OK)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("".join(f"{k}=old-value\n" for k in sorted(retired)))
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=True)), exit_codes.OK)
+        self.assertEqual(retired & set(secrets.read_env(path)), set())
 
     def test_no_action_is_usage_error(self):
         self.assertEqual(self.run_cmd(make_ctx(self.root), ns(secrets_action=None)), exit_codes.USAGE)

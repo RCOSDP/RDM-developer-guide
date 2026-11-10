@@ -21,8 +21,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN = "192.168.168.167"
 
 
+def fake_value(key: str) -> str:
+    """A placeholder of the length `compose render` accepts for this key."""
+    from grdm_dev import secrets as _secrets
+
+    return "x" * _secrets.CAS_KEY_RULES.get(key, (48, None))[0]
+
+
 def fake_secrets(**overrides) -> str:
-    values = {k: "x" * 48 for k in compose.REQUIRED_SECRETS}
+    values = {k: fake_value(k) for k in compose.REQUIRED_SECRETS}
     values.update(overrides)
     return "".join(f"{k}={v}\n" for k, v in values.items())
 
@@ -918,7 +925,7 @@ class ComposeRenderTests(unittest.TestCase):
         A minimal re-implementation of that pass over the rendered JSON (with every key `secrets init` writes) must
         resolve every reference and leave the one-shot's shell variables intact."""
         from grdm_dev import secrets as _secrets
-        env = {k: "x" * 48 for k in _secrets.SECRET_KEYS}
+        env = {k: fake_value(k) for k in _secrets.SECRET_KEYS}
         root = make_root("".join(f"{k}={v}\n" for k, v in env.items()))
         rc, _, err, _ = render(root)
         self.assertEqual(rc, 0, err)
@@ -990,7 +997,7 @@ class ComposeRenderTests(unittest.TestCase):
         """Read-only: `docker compose config` parses and interpolates the rendered file without touching the daemon's state."""
         import subprocess
         from grdm_dev import secrets as _secrets
-        root = make_root("".join(f"{k}={'x' * 48}\n" for k in _secrets.SECRET_KEYS))  # every key secrets init writes
+        root = make_root("".join(f"{k}={fake_value(k)}\n" for k in _secrets.SECRET_KEYS))  # every key secrets init writes
         rc, _, err, _ = render(root)
         self.assertEqual(rc, 0, err)
         try:
@@ -1057,6 +1064,124 @@ class ComposeRenderTests(unittest.TestCase):
         with redirect_stderr(io.StringIO()):
             rc = compose.run(ctx, argparse.Namespace(compose_command=None))
         self.assertEqual(rc, exit_codes.USAGE)
+
+
+class CasNativeImageTests(unittest.TestCase):
+    """ADR-07: the CAS built from the integration repository, its generated settings and its secrets."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = make_root()
+        rc, _, err, _ = render(cls.root)
+        assert rc == 0, err
+        cls.doc = json.loads((cls.root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        cls.cas = cls.doc["services"]["cas"]
+        cls.config = cls.root / "runtime" / "config"
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def properties(self) -> dict[str, str]:
+        text = (self.config / "cas" / "cas.properties").read_text(encoding="utf-8")
+        return dict(line.split("=", 1) for line in text.splitlines() if line and not line.startswith("#"))
+
+    def test_runs_the_built_image_natively(self):
+        self.assertEqual(self.cas["image"], "grdm-dev/cas-overlay:22610b7681a2")
+        self.assertEqual(self.cas["platform"], "linux/arm64")  # the render argument: no amd64 pin
+
+    def test_hardening_default_with_no_recorded_exception(self):
+        self.assertEqual(self.cas["user"], "1000:1000")
+        self.assertIs(self.cas["read_only"], True)
+        self.assertEqual(self.cas["cap_drop"], ["ALL"])
+        self.assertNotIn("cap_add", self.cas)
+        self.assertEqual(self.cas["security_opt"], ["no-new-privileges:true"])
+        self.assertEqual(self.cas["tmpfs"], ["/tmp:mode=1777"])
+        self.assertEqual(self.cas["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        self.assertNotIn("cas", load_hardening())
+
+    def test_starts_only_after_the_migrations_finish(self):
+        self.assertEqual(self.cas["depends_on"]["osf_init"], {"condition": "service_completed_successfully"})
+
+    def test_environment_is_exactly_what_the_image_reads(self):
+        self.assertEqual(self.cas["environment"], {
+            "DATABASE_PASSWORD": "${POSTGRES_PASSWORD}",
+            "OSF_DATABASE_PASSWORD": "${POSTGRES_PASSWORD}",
+            "TGC_ENCRYPTION_KEY": "${TGC_ENCRYPTION_KEY}",
+            "TGC_SIGNING_KEY": "${TGC_SIGNING_KEY}",
+            "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
+            "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
+        })
+
+    def test_mounts_properties_and_services_read_only(self):
+        self.assertEqual(self.cas["volumes"], ["./config/cas/cas.properties:/etc/cas/cas.properties:ro",
+                                               "./config/cas/services:/etc/cas/services:ro"])
+
+    def test_properties_point_at_the_migrated_database_over_plain_http(self):
+        props = self.properties()
+        self.assertEqual(props["osf.database.url"], "jdbc:postgresql://postgres:5432/osf")
+        self.assertEqual(props["database.url"], "jdbc:postgresql://postgres:5432/cas")
+        self.assertEqual(props["tgc.cookie.secure"], "false")
+        self.assertEqual(props["jsession.cookie.secure"], "false")
+        self.assertEqual(props["service.registry.config.location"], "file:/etc/cas/services")
+        self.assertEqual(props["osf.url"], "http://127.0.0.1:5000/")
+        for name in ("callutheran", "cord", "okstate"):
+            for key in ("cas.protocol", "client.name", "login.url", "prefix.url"):
+                self.assertIn(f"cas.{name}.{key}", props)
+
+    def test_no_secret_is_written_to_the_properties(self):
+        props = self.properties()
+        for key in ("database.password", "osf.database.password", "tgc.encryption.key", "tgc.signing.key",
+                    "osf.api.institutions.auth.jweSecret", "osf.api.institutions.auth.jwtSecret"):
+            self.assertNotIn(key, props)
+
+    def test_service_definition_allows_only_the_real_web_url(self):
+        service = json.loads((self.config / "cas" / "services" / "grdm-web.json").read_text(encoding="utf-8"))
+        self.assertEqual(service["@class"], "org.jasig.cas.services.RegexRegisteredService")
+        pattern = re.compile(service["serviceId"])
+        self.assertTrue(pattern.match("http://127.0.0.1:5000/login?next=/dashboard/"))
+        for url in ("http://evil.example.invalid/", "http://127.0.0.1:50001/", "http://127.0.0.1:5000.evil.invalid/", "https://127.0.0.1:5000/"):
+            self.assertIsNone(pattern.match(url), url)
+
+    def test_service_definition_follows_a_remapped_web_port(self):
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root, checker=lambda port: port != 5000)
+            self.assertEqual(rc, 0, err)
+            service = json.loads((root / "runtime" / "config" / "cas" / "services" / "grdm-web.json").read_text(encoding="utf-8"))
+            self.assertIn(":5001/", service["serviceId"])
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_osf_services_share_the_institution_keys_with_cas(self):
+        local = (self.config / "osf" / "api_local.py").read_text(encoding="utf-8")
+        self.assertIn("JWE_SECRET = environ['OSF_API_INSTITUTIONS_AUTH_JWESECRET'].encode('utf-8')", local)
+        self.assertIn("JWT_SECRET = environ['OSF_API_INSTITUTIONS_AUTH_JWTSECRET'].encode('utf-8')", local)
+        for name, svc in self.doc["services"].items():
+            if any("osf/api_local.py" in mount for mount in svc.get("volumes", [])):
+                self.assertEqual(svc["environment"]["OSF_API_INSTITUTIONS_AUTH_JWESECRET"], "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}", name)
+                self.assertEqual(svc["environment"]["OSF_API_INSTITUTIONS_AUTH_JWTSECRET"], "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}", name)
+
+    def test_a_wrong_key_length_stops_the_render(self):
+        root = make_root(fake_secrets(TGC_SIGNING_KEY="x" * 43))
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.USAGE)
+            self.assertIn("TGC_SIGNING_KEY", err)
+            self.assertNotIn("x" * 43, err)
+            self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_a_runtime_env_from_before_the_switch_stops_the_render_by_name(self):
+        env = fake_secrets().replace("TGC_ENCRYPTION_KEY=", "CAS_TGC_ENCRYPTION_KEY=")
+        root = make_root(env)
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.USAGE)
+            self.assertIn("TGC_ENCRYPTION_KEY", err)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":

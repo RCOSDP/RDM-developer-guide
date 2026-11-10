@@ -6,16 +6,22 @@
     8080
   ],
   "environment": {
-    "CAS_TGC_ENCRYPTION_KEY": "${CAS_TGC_ENCRYPTION_KEY}",
-    "CAS_TGC_SIGNING_KEY": "${CAS_TGC_SIGNING_KEY}",
-    "CAS_WEBFLOW_ENCRYPTION_KEY": "${CAS_WEBFLOW_ENCRYPTION_KEY}",
-    "CAS_WEBFLOW_SIGNING_KEY": "${CAS_WEBFLOW_SIGNING_KEY}",
-    "DATABASE_PASSWORD": "${POSTGRES_PASSWORD}"
+    "DATABASE_PASSWORD": "${POSTGRES_PASSWORD}",
+    "OSF_DATABASE_PASSWORD": "${POSTGRES_PASSWORD}",
+    "TGC_ENCRYPTION_KEY": "${TGC_ENCRYPTION_KEY}",
+    "TGC_SIGNING_KEY": "${TGC_SIGNING_KEY}",
+    "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
+    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}"
   },
   "volumes": [
     {
       "config": "cas/cas.properties",
-      "target": "/code/etc/cas.properties",
+      "target": "/etc/cas/cas.properties",
+      "ro": true
+    },
+    {
+      "config_dir": "cas/services",
+      "target": "/etc/cas/services",
       "ro": true
     }
   ],
@@ -24,10 +30,14 @@
   ],
   "user": "1000:1000",
   "depends_on": [
-    "postgres"
+    "postgres",
+    {
+      "service": "osf_init",
+      "condition": "service_completed_successfully"
+    }
   ],
   "weight": 2,
   "mem_min_mb": 512,
   "pids_limit": 512,
-  "note": "Uses database `cas` on the shared postgres (created by config/postgres-init). Not published on the host while fakecas is the auth provider."
+  "note": "Built from the integration repository (ADR-07); runs as uid 1000 on a read-only root with only /tmp writable. Waits for osf_init because its context validates the migrated osf schema (hbm2ddl validate) and exits 254 on an empty database. Uses database `cas` on the shared postgres (created by config/postgres-init). Not published on the host while fakecas is the auth provider."
 }

@@ -94,7 +94,7 @@ class RepositoryAccessTests(PreflightBase):
         repos = {argv[-2].rsplit("/", 1)[1].removesuffix(".git") for argv in ls_remote_calls(runner)}
         self.assertIn("RDM-osf.io-dev2027", repos)
         self.assertNotIn("RDM-ember-osf-web-dev2027", repos)  # prebuilt: never cloned
-        self.assertNotIn("RDM-cas-overlay-dev2027", repos)
+        self.assertIn("RDM-cas-overlay-dev2027", repos)       # built natively since ADR-07 covered it
         self.assertNotIn("RDM-rdmcp-dev2027", repos)          # full profile only
 
     def test_denied_repository_is_exit_13_and_explains_the_token(self):

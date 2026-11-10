@@ -356,12 +356,11 @@ def run(ctx: Context, args, runner=None) -> int:
             dockerfile = context_dir / "Dockerfile"
             overlay_arg = (base_id, bsha12)
             extra = {"overlay_of": base_id, "base_repo": brepo, "base_sha12": bsha12, "context": str(context_dir)}
-        base_digest = None
+        base_digest = comp.get("base_image_digest")  # SPEC-03 §3.4: recorded as a label on the built image
         recipe = comp.get("build_dockerfile")
         if recipe:
             # SPEC-01 §3 build_dockerfile (MC-16): this repository's recipe over the pinned checkout
             dockerfile = ctx.root / str(recipe)
-            base_digest = comp.get("base_image_digest")
             sys.stderr.write(f"[grdm-dev] build: {cid} uses the recipe {recipe} over {repo} (build_dockerfile; see manifest note)\n")
             if not dockerfile.is_file():
                 rows.append({"component": cid, "repo": repo, "sha12": sha12, "platforms": ",".join(platforms), "status": "source-failed"})
