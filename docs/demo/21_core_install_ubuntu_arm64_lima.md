@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.2 — 2026-11-10. **Learned:** a Linux host user whose uid is not 1000 is the case that finds ownership bugs the Mac hides: after the volumes (PR #36) it was the ZAP report directory, and only the full sequence through `scan` and `report` (run 4, exit 0) shows that none is left on this host. ／ uid が 1000 でない Linux のホスト利用者こそ、Mac が隠す所有者の不具合を見つける。ボリューム（PR #36）の次は ZAP の報告ディレクトリだった。この機械に残りが無いと示せるのは、`scan` と `report` まで通した一連の実行（第 4 回、終了 0）だけである。
+- Version / 版: 0.3 — 2026-11-10. **Learned:** the first Linux run of `grdm-dev db upgrade`, as uid 2001, moved PostgreSQL 9.6 to 18 in 12 seconds with 531 objects verified, and with develop's acceptance fixes the core suite passes 12 of 12 on Linux arm64 too; and the setup record had understated an exposure: the host's `~/.config/gh` was readable in the VM until the home mount was removed, so `install-ubuntu.sh` now stops when it finds credentials on a shared folder. ／ uid 2001 での `grdm-dev db upgrade` の Linux での最初の実行は、PostgreSQL 9.6 を 18 へ 12 秒で移し、531 個の対象を照合した。develop の受入試験の修正を入れると、コアの試験は Linux arm64 でも 12 件中 12 件合格する。また準備の記録は露出を小さく書いていた。ホームの mount を外すまで、ホストの `~/.config/gh` は VM から読めた。そこで `install-ubuntu.sh` は共有フォルダに資格情報を見つけると止まる。
+  0.2 — 2026-11-10. **Learned:** a Linux host user whose uid is not 1000 is the case that finds ownership bugs the Mac hides: after the volumes (PR #36) it was the ZAP report directory, and only the full sequence through `scan` and `report` (run 4, exit 0) shows that none is left on this host. ／ uid が 1000 でない Linux のホスト利用者こそ、Mac が隠す所有者の不具合を見つける。ボリューム（PR #36）の次は ZAP の報告ディレクトリだった。この機械に残りが無いと示せるのは、`scan` と `report` まで通した一連の実行（第 4 回、終了 0）だけである。
   0.1 — 2026-11-10. **Learned:** the dry runs of [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) could not show three Linux facts that a real run did: Ubuntu's own amd64 emulator crashes inside a long build, QEMU makes the first ember build twice as slow as on the Mac, and the cloud image lacks a library that the acceptance browser's driver needs. ／ [ADR-08](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) の dry run では分からず、実際の実行で分かった Linux の事実が三つあった。Ubuntu 自身の amd64 エミュレーターは長いビルドの中で落ち、QEMU では ember の初回ビルドが Mac の 2 倍遅く、クラウドイメージには受入試験のブラウザのドライバーが要るライブラリが無い。
 - Normative source: [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md)
 - Related: [docs/demo/README.md](README.md) · [DEMO-20 Core install on Mac Studio](20_core_install_mac_studio.md) · [ADR-08 Per-OS installer entry points](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)
@@ -186,12 +187,52 @@ run4:
 
 Findings by severity (report-only at M1, [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)): 817 critical, 4355 high, 4392 medium, 2164 low, 5 info.
 
+### Correction to the setup — the home mount did expose the credentials
+
+The warning in the setup says the home mount "would have shown" the host's GitHub credentials. That understates it. The VM's first boot mounted `/Users/komiyama` read-only, and a directory listing confirmed it, so `~/.config/gh/hosts.yml` was readable inside the VM from the first boot until the mount was removed from `lima.yaml` and the VM restarted, a few minutes later. Nothing read the file, and no repository or tool had been copied into the VM by then. Since commit 45b49be, `install-ubuntu.sh` stops with exit 10 when a shared folder (virtiofs, 9p, sshfs and similar) holds `.config/gh/hosts.yml`, `.git-credentials`, `.netrc` or `.docker/config.json`. The environment guide now has the Lima steps: delete the `"~"` mount before the first start, then check `mount`.
+
+### Run 5 — rebased onto develop 50740b1 (PR #40–#43), database upgrade
+
+PostgreSQL (the main database where GRDM keeps its records; see [REF-01](../reference/REF-01_Glossary.md)) moved from 9.6 to 18.6 on develop (PR #42, [ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md)), so the existing data had to be upgraded before `up`. The branch was rebased twice; the commits named above became 8538324 (fixes 1–3, was 48859d7) and 05ff502 (fix 4, was 0c46a82). The host mirrors were refreshed with `git fetch`. The manifest now pins osf.io 8fc45de4; WaterButler (45e97a51) and modular-file-renderer (749e58d3) stay at their pinned commits.
+
+```toon
+run5:
+  head: 45b49be
+  steps[10]{step,code,seconds,note}:
+    down,0,3,""
+    doctor,0,0,""
+    "compose render",0,1,""
+    build,0,14,"images already built from the same pins"
+    "db status",0,10,"data 9.6, image 18 (postgres:18.6, digest pinned): upgrade-needed"
+    "db upgrade",0,12,"see below"
+    "db status",0,0,"data 18: current"
+    up,0,296,"healthy; ember's built pages were kept in their volume"
+    "secrets rotate",0,293,"every secret regenerated, containers recreated, healthy"
+    health,0,0,""
+  db_upgrade:
+    user: "grdm, uid 2001 (the data directory belongs to uid 999)"
+    steps: "start-old, count-old, dump, stop-old, init-new, restore, verify, stop-new, swap: all ok"
+    dump_bytes: 4546929
+    verified: "531 objects compared (row counts per table, sequences, extensions) in 3 databases (cas, osf, postgres) and 1 role"
+    kept: "runtime/volumes/postgres_data.pg9.6-20261110T055459Z"
+```
+
+### Acceptance run — stack of run 5: **12 of 12**
+
+| Run ID | Scope | Result |
+|---|---|---|
+| [`acc-20261110T060511Z-80ee06`](runs/acc-20261110T060511Z-80ee06/results.toon) | Core C1–C6 | **12 of 12 passed**, exit 0 |
+
+### Run 6 — the one command on the same stack
+
+`GRDM_WITH_ACCEPT=1 ./installer/install-ubuntu.sh --yes --profile core` exited 0 after 273 s: every step through `scan` (Trivy, Semgrep, gitleaks and ZAP all `ok`) and `report`. `grdm-dev health` exited 0 afterwards. Findings by severity: 808 critical, 4328 high, 4470 medium, 2267 low, 6 info.
+
 ### What remains
 
 - **Ubuntu 24.04 amd64:** not run. No emulation is needed there, so failures 1, 2 and the arm64 part of 3 do not apply; failure 4a (ZAP as uid 1000) and the PR #36 ownership path do, and need a clean amd64 machine.
 - **WSL2** (a way to run Linux inside Windows; see [REF-01](../reference/REF-01_Glossary.md)): not run. Docker comes from Docker Desktop, whose bind mounts behave like the Mac's, so 4a is not expected there; the checkout must be inside WSL. It needs Windows 11 hardware ([ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)).
 - **Emulation after a reboot:** the QEMU registration is not persistent. While Ubuntu's `qemu-user-static` is installed, its 8.2.2 handler returns at boot; `doctor` then stops with exit 13, and running `install-ubuntu.sh` again replaces it.
-- **Acceptance:** C2, C4, C5 and C6 wait for the branch `fix/accept-c2-c6`.
+- **Acceptance:** done in run 5 (12 of 12) after develop took the fixes of PR #40.
 - **Cold start time:** with images already built, `up` from empty volumes took about 40 minutes on this VM, nearly all of it ember's first build under QEMU. Building the images from nothing took about 60 minutes more (runs 1 and 2).
 
 ---
@@ -370,12 +411,52 @@ run4:
 
 重大度ごとの検出数（M1 では報告のみ、[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)）: critical 817、high 4355、medium 4392、low 2164、info 5。
 
+### 準備の訂正 — ホームの mount は資格情報を実際に見せていた
+
+準備の Warning は、ホームの mount がホストの GitHub 資格情報を「見せてしまうところだった」と書いたが、それは小さく書きすぎである。VM の最初の起動で `/Users/komiyama` が読み取り専用で mount され、ディレクトリの一覧で確かめた。最初の起動から、`lima.yaml` から mount を外して VM を再起動するまでの数分間、`~/.config/gh/hosts.yml` は VM の中から読めた。そのファイルを読んだものは無く、その時点で VM にはリポジトリも道具も入れていなかった。コミット 45b49be 以降、`install-ubuntu.sh` は共有フォルダ（virtiofs・9p・sshfs など）に `.config/gh/hosts.yml`・`.git-credentials`・`.netrc`・`.docker/config.json` があると終了 10 で止まる。環境ガイドには Lima の手順（最初の起動の前に `"~"` の mount を消し、`mount` で確かめる）を加えた。
+
+### 第 5 回 — develop 50740b1（PR #40〜#43）へ rebase、PostgreSQL 18
+
+develop で PostgreSQL（GRDM が記録を保つ主なデータベース。[REF-01](../reference/REF-01_Glossary.md)）が 9.6 から 18.6 に上がった（PR #42、[ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md)）ので、`up` の前に既存のデータを移す必要があった。ブランチを 2 度 rebase したので、上に書いたコミットは 8538324（修正 1〜3、旧 48859d7）と 05ff502（修正 4、旧 0c46a82）になった。ホストのミラーは `git fetch` で更新した。manifest は osf.io を 8fc45de4 に固定し、WaterButler（45e97a51）と modular-file-renderer（749e58d3）は固定したコミットのまま。
+
+```toon
+run5:
+  head: 45b49be
+  steps[10]{step,code,seconds,note}:
+    down,0,3,""
+    doctor,0,0,""
+    "compose render",0,1,""
+    build,0,14,"同じ固定から組んだイメージが既にある"
+    "db status",0,10,"データ 9.6、イメージ 18（postgres:18.6、ダイジェスト固定）: upgrade-needed"
+    "db upgrade",0,12,"下を参照"
+    "db status",0,0,"データ 18: current"
+    up,0,296,"健康。ember の組み上がったページはボリュームに残っていた"
+    "secrets rotate",0,293,"秘密をすべて作り直し、コンテナを再作成して健康"
+    health,0,0,""
+  db_upgrade:
+    user: "grdm、uid 2001（データディレクトリは uid 999 の所有）"
+    steps: "start-old、count-old、dump、stop-old、init-new、restore、verify、stop-new、swap: すべて ok"
+    dump_bytes: 4546929
+    verified: "3 つのデータベース（cas、osf、postgres）と 1 つのロールで 531 個の対象（表ごとの行数、シーケンス、拡張）を照合"
+    kept: "runtime/volumes/postgres_data.pg9.6-20261110T055459Z"
+```
+
+### 受入試験の実行 — 第 5 回のスタック: **12 件中 12 件**
+
+| 実行 ID | 範囲 | 結果 |
+|---|---|---|
+| [`acc-20261110T060511Z-80ee06`](runs/acc-20261110T060511Z-80ee06/results.toon) | コア C1〜C6 | **12 件中 12 件合格**、終了 0 |
+
+### 第 6 回 — 同じスタックで一つのコマンド
+
+`GRDM_WITH_ACCEPT=1 ./installer/install-ubuntu.sh --yes --profile core` は 273 秒で終了 0。`scan`（Trivy・Semgrep・gitleaks・ZAP がすべて `ok`）と `report` まですべての段が通った。その後の `grdm-dev health` も終了 0。重大度ごとの検出数: critical 808、high 4328、medium 4470、low 2267、info 6。
+
 ### 残っていること
 
 - **Ubuntu 24.04 amd64:** 未実行。エミュレーションが要らないので、失敗 1・2 と 3 の arm64 の部分は当てはまらない。失敗 4a（uid 1000 の ZAP）と PR #36 の所有者処理は当てはまるので、まっさらな amd64 の機械が要る。
 - **WSL2:** 未実行。Docker は Docker Desktop から来て、その bind mount は Mac と同じく振る舞うので 4a は起きないと見込む。チェックアウトは WSL の中に置く。Windows 11 の実機が要る（[ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
 - **再起動後のエミュレーション:** QEMU の登録は残らない。Ubuntu の `qemu-user-static` が入っている間は起動時に 8.2.2 が戻り、`doctor` が終了 13 で止まる。`install-ubuntu.sh` をもう一度実行すると置き換える。
-- **受入試験:** C2・C4・C5・C6 はブランチ `fix/accept-c2-c6` を待つ。
+- **受入試験:** develop が PR #40 の修正を取り込んだ後、第 5 回で完了（12 件中 12 件）。
 - **コールドスタートの時間:** イメージが組めている状態で、空のボリュームからの `up` はこの VM で約 40 分。ほぼすべてが QEMU での ember の初回ビルドである。何も無い状態からのイメージのビルドには、さらに約 60 分かかった（第 1・2 回）。
 
 ---
