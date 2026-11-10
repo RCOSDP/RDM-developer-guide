@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-05. **Learned:** listing every term in one place showed that about a third of them (CAS, SAML, IdP/SP, Shibboleth, GakuNin) belong to one topic — login — and that newcomers stumble there first, so the login terms were written to read as one connected story. ／ 全部の語を一か所に並べてみると、約三分の一（CAS、SAML、IdP/SP、Shibboleth、GakuNin）が「ログイン」という一つの話題に属し、新入社員はまずそこでつまずくと分かった。そこでログインの語は一つの続いた話として読めるように書いた。
+- Version / 版: 0.2 — 2026-11-10. **Learned:** a glossary row that names a version goes stale with the first upgrade, so the PostgreSQL row now names the record that set the version (ADR-12). ／ 版を書いた用語の行は最初の更新で古くなるので、PostgreSQL の行は版を決めた記録（ADR-12）を示す。
+  0.1 — 2026-11-05. **Learned:** listing every term in one place showed that about a third of them (CAS, SAML, IdP/SP, Shibboleth, GakuNin) belong to one topic — login — and that newcomers stumble there first, so the login terms were written to read as one connected story. ／ 全部の語を一か所に並べてみると、約三分の一（CAS、SAML、IdP/SP、Shibboleth、GakuNin）が「ログイン」という一つの話題に属し、新入社員はまずそこでつまずくと分かった。そこでログインの語は一つの続いた話として読めるように書いた。
 - Applies to: every document in this repository. Documents still add a short note on first use and link here ([SPEC-06 §3](../spec/06_documentation_conventions.md)). `grdm-dev docs check` uses the **Term** column of the English table as its word list.
 - Related: [docs/README.md](../README.md) · [SPEC-00 Overview](../spec/00_overview.md) · [SPEC-01 Manifest](../spec/01_manifest.md) · [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-03 Security Gate](../spec/03_security_gate.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](../spec/05_upstream_tracking.md) · [POL-01](../policy/POL-01_Developer_Environment_2027_Position.md) · [ADR-01](../decisions/ADR-01_Integration_Repository_Placement.md) · [ADR-02](../decisions/ADR-02_Network_Model.md) · [ADR-03](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md)
 
@@ -121,7 +122,7 @@
 | rdmcp / MCP | A way for AI assistants to talk to GRDM through a standard plug. | Model Context Protocol server for GRDM (`RDM-rdmcp-private`). | [SPEC-00](../spec/00_overview.md) |
 | AIPF | A GRDM data connector for the AI platform (private). | `RDM-aipf_mcp_data_grdm-private`, an MCP data source for GRDM. | [SPEC-00](../spec/00_overview.md) |
 | Elasticsearch | The search engine inside GRDM. | ES 2 and 6.3.1 today; consolidated on ES 8 in M5. | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
-| PostgreSQL | The main database where GRDM keeps its records. | PostgreSQL 9.6 today; 15 or later in M5. | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
+| PostgreSQL | The main database where GRDM keeps its records. | PostgreSQL 18 (ADR-12); it was 9.6 until 2026-11. | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
 | MongoDB | An older database GRDM still uses for a few things. | MongoDB 3.4 (sharejs); retired in M5. | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
 | RabbitMQ | The message queue: a line where jobs wait for a worker. | AMQP broker used by Celery workers in osf.io. | [SPEC-00](../spec/00_overview.md) |
 | Redis | A very fast memory store used for caching and sessions. | In-memory key-value store used by osf.io and wb/mfr. | [SPEC-00](../spec/00_overview.md) |
@@ -251,7 +252,7 @@
 | rdmcp / MCP | AI アシスタントが標準の差し込み口で GRDM と話す仕組み。 | GRDM 向けの Model Context Protocol サーバ（`RDM-rdmcp-private`）。 | [SPEC-00](../spec/00_overview.md) |
 | AIPF | AI 基盤向けの GRDM データ接続部品（非公開）。 | `RDM-aipf_mcp_data_grdm-private`。GRDM の MCP データソース。 | [SPEC-00](../spec/00_overview.md) |
 | Elasticsearch | GRDM の中の検索エンジン。 | 現在は ES 2 と 6.3.1。M5 で ES 8 に集約。 | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
-| PostgreSQL | GRDM が記録を保存する主なデータベース。 | 現在は PostgreSQL 9.6。M5 で 15 以降。 | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
+| PostgreSQL | GRDM が記録を保存する主なデータベース。 | PostgreSQL 18（ADR-12）。2026-11 までは 9.6。 | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
 | MongoDB | GRDM が一部でまだ使っている古いデータベース。 | MongoDB 3.4（sharejs 用）。M5 で廃止。 | [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md) |
 | RabbitMQ | メッセージの待ち行列。仕事が作業者を待つ列。 | osf.io の Celery ワーカーが使う AMQP ブローカー。 | [SPEC-00](../spec/00_overview.md) |
 | Redis | キャッシュやセッションに使う、とても速いメモリの保管庫。 | osf.io と wb/mfr が使うインメモリのキー値ストア。 | [SPEC-00](../spec/00_overview.md) |

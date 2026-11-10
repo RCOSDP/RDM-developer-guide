@@ -6,6 +6,7 @@ code	en	ja
 12	a required port on 127.0.0.1 is in use and no free alternative was found	127.0.0.1 の必要なポートが使用中で、空きの代替がない
 13	install prerequisite missing: git, repository access, amd64 emulation, or a checkout path Docker cannot use	導入の前提が不足: git、リポジトリの読み取り権限、amd64 エミュレーション、または Docker が使えない配置先
 14	reset could not delete runtime/volumes/	reset が runtime/volumes/ を削除できない
+15	PostgreSQL data directory needs `grdm-dev db upgrade`, or the upgrade or rollback failed (the old directory is kept)	PostgreSQL のデータディレクトリに `grdm-dev db upgrade` が要る、または更新か巻き戻しに失敗（旧ディレクトリは残る）
 20	manifest invalid or TOON excerpt disagrees with JSON	manifest が不正、または TOON 抄録が JSON と一致しない
 30	image build failed	イメージのビルドに失敗
 40	health check failed, or a port listens on a non-loopback address	健康確認に失敗、またはループバック以外のアドレスでポートが待ち受けている

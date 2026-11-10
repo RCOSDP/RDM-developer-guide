@@ -45,7 +45,7 @@ class ManifestLoadTests(unittest.TestCase):
         self.assertTrue(osf.is_built)
         self.assertEqual(len(osf.sha12), 12)
         self.assertTrue(osf.local_image().startswith("grdm-dev/osf.io:"))
-        self.assertEqual(man.component("postgres").image_reference(), "postgres:9.6")
+        self.assertEqual(man.component("postgres").image_reference(), "postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42")  # ADR-12
         # dict compatibility for modules written against raw JSON
         self.assertEqual(osf["id"], "osf.io")
         self.assertEqual(osf.get("integration_repo"), "RDM-osf.io-dev2027")
@@ -186,7 +186,7 @@ class ServicesForProfileTests(unittest.TestCase):
         self.assertEqual(services["admin"].profile, "core")
         pg = services["postgres"]
         self.assertIsNone(pg.build)
-        self.assertEqual(pg.image, "postgres:9.6")
+        self.assertEqual(pg.image, "postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42")
         self.assertEqual(pg.role, "infra")
 
     def test_image_tag_override_from_build_report(self):

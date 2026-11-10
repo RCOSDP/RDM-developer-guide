@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.11 — 2026-11-10. **Learned:** an open row that a later all-green row depends on must be closed in the same change, or the board contradicts itself (PR #40 review r1 R1-03). ／ 後の全件合格の行が前提にしている未完了の行は、同じ変更で閉じなければボードが自己矛盾する（PR #40 レビュー r1 R1-03）。
+- Version / 版: 0.13 — 2026-11-10. **Learned:** an owner decision changes a waiting row into a working row the same day, so the M5 rows now name the chosen paths, and a merged-looking row keeps its review state (PR #42 review r1). ／ 所有者の判断は待ちの行をその日のうちに作業中の行に変えるので、M5 の行は選ばれた道を書き、マージ済みに見える行もレビューの状態を保つ（PR #42 レビュー r1）。
+  0.12 — 2026-11-10. **Learned:** M5 work started before M2 closed, so M5 gets its own open-items table now (rule 3): one part is done and measured (PostgreSQL 18), the other two wait for owner decisions (ADR-13). ／ M5 の作業は M2 が閉じる前に始まったので、M5 にも今から専用の残件表を置く（規則 3）。一つは完了して測定済み（PostgreSQL 18）、残る二つは所有者の判断待ち（ADR-13）。
+  0.11 — 2026-11-10. **Learned:** an open row that a later all-green row depends on must be closed in the same change, or the board contradicts itself (PR #40 review r1 R1-03). ／ 後の全件合格の行が前提にしている未完了の行は、同じ変更で閉じなければボードが自己矛盾する（PR #40 レビュー r1 R1-03）。
   0.10 — 2026-11-10. **Learned:** a scenario that passes only on a stack built from the pinned commits is evidence; a pass on a stack still running older images is not, because Compose kept the tags recorded by the previous build. ／ 固定した版から組んだスタックで通った試験だけが証拠になる。古いイメージのままのスタックでの合格は証拠にならない。Compose は前回のビルドが記録したタグを使い続けたからである。
   0.9 — 2026-11-10. **Learned:** acceptance counts per scenario belong on the board, because a single pass count hides which link is broken. ／ 受入の件数はシナリオごとにボードへ書く。合格数だけでは、どの連携が壊れているか分からない。
   0.8 — 2026-11-06. **Learned:** a warm success and a cold-start success are two different rows: the cold start needed one more architecture decision (ADR-07) before it passed. ／ 温まった状態の成功とコールドスタートの成功は別の行である。コールドスタートは通るまでにもう一つ設計判断（ADR-07）を要した。
@@ -34,7 +36,7 @@
 | M2 | Core 6 install with one command on Mac Studio; Playwright acceptance passes; amd64 builds | Report + allow-list (fewer entries than M1) | **In progress**: one-command install of the core profile succeeded on the Mac Studio in real install run 18 (PR #33, [DEMO-20](../demo/20_core_install_mac_studio.md#english)): build, up, health --network, scan, report all exit 0; Playwright acceptance not passed yet (first run 0 of 12, see §2b) |
 | M3 | 5 subsystems start; one success + one rejection case each | Report + allow-list (fewer entries than M2) | Planned |
 | M4 | Waterbutler, mfr, osf.io on Python 3.13 | Stop on HIGH or above; first AI red-team run | Planned |
-| M5 | ES2 and mongo removed; ES8 + postgres 15 or later; distributable abroad | Zero CRITICAL/HIGH; zero open AI red-team paths | Planned |
+| M5 | ES2 and mongo removed; ES8 + postgres 15 or later; distributable abroad | Zero CRITICAL/HIGH; zero open AI red-team paths | **Groundwork** (§2c): PostgreSQL 18 with `db upgrade` proposed ([ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#english)); ES2 and mongo findings await owner decisions ([ADR-13](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)) |
 
 ### 2. Open items for M1
 
@@ -65,13 +67,24 @@
 | Trivy image scan and allow-list count (fewer than M1) | ✅ Measured in run 18 (Trivy alone): 1835 CRITICAL / 8290 HIGH / 9763 MEDIUM / 3886 LOW over 22 targets; run 21 with the native Elasticsearch 2: 1769 / 8030 / 9550 / 3676; allow-list 0 entries (M1: 0). Semgrep, gitleaks and ZAP ran too (ZAP: 1 HIGH, 9 MEDIUM, 13 LOW to triage at M3) |
 | Default branch switched to `develop` (owner) | ⏳ After M2 passes |
 
+
+### 2c. Open items for M5
+
+| Item | Status |
+|---|---|
+| PostgreSQL 9.6 → 18.6, `grdm-dev db status/upgrade/rollback`, `up` refuses a mismatched major (exit 15) | 🔄 PR #42 (review r1 changes addressed) ([ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#english)): osf.io DB tests equal on 9.6 and 18 (781 passed, same 13 failed or erred); a 9.6 cluster upgraded in 37 s with 531 objects equal; CAS and fakecas log in; rollback measured; after review r1 a journal and a lock make a crash at any step recoverable (SIGKILL and SIGTERM measured, ADR-12 §4.1). PR #42. Not run on amd64 or on a Linux host |
+| SCRAM for PostgreSQL | ⏳ Owner: CAS needs a JDBC driver ≥ 42.2 in RDM-cas-overlay-dev2027 (42.1.4 fails with `authentication type 10`) |
+| Elasticsearch 2 retirement | 🔄 Owner decision 2026-11-10: port osf.io search to Elasticsearch 8, keeping full-text search; in progress in the osf.io integration repository ([ADR-13 §4](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)) |
+| MongoDB and sharejs retirement | 🔄 Owner decision 2026-11-10: the file-page editor moves from sharejs to y-websocket, then sharejs and mongo are retired by ADR-13 §3; in progress |
+| Elasticsearch 6 → 8 (metrics) | ⏳ Not started |
+
 ### 3. Rules
 
 This board is the **single source of truth** for milestone progress:
 
 1. Every document that mentions a milestone must link to this board.
 2. The "Status" column above is authoritative; status updates require a PR with evidence (demo run or acceptance pass).
-3. "Open items" has one table per milestone that has started (§2 for M1, §2b for M2); later milestones get their own tables when they start.
+3. "Open items" has one table per milestone that has started (§2 for M1, §2b for M2, §2c for M5); later milestones get their own tables when they start.
 
 ---
 
@@ -88,7 +101,7 @@ This board is the **single source of truth** for milestone progress:
 | M2 | コア 6 本が Mac Studio で一発導入。Playwright 受入合格。amd64 ビルド | 報告＋許容リスト（M1 より件数を減らす） | **進行中**: core プロファイルの一発導入が実機第 18 回で Mac Studio 上で成功（PR #33、[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）: build・up・health --network・scan・report がすべて終了 0。Playwright 受入は未合格（初回 12 中 0、§2b 参照） |
 | M3 | サブシステム 5 本が起動。各 1 本の正常系＋拒否ケース | 報告＋許容リスト（M2 より件数を減らす） | 計画中 |
 | M4 | waterbutler・mfr・osf.io を Python 3.13 へ | HIGH 以上で停止。AI レッドチーム初回 | 計画中 |
-| M5 | ES2・mongo 廃止。ES8＋postgres 15 以降。海外配布可 | CRITICAL/HIGH ゼロ。AI レッドチームの未解決経路ゼロ | 計画中 |
+| M5 | ES2・mongo 廃止。ES8＋postgres 15 以降。海外配布可 | CRITICAL/HIGH ゼロ。AI レッドチームの未解決経路ゼロ | **下準備**（§2c）: `db upgrade` 付きの PostgreSQL 18 を提案（[ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#japanese)）。ES2 と mongo の事実は所有者の判断待ち（[ADR-13](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)） |
 
 ### 2. M1 の残件
 
@@ -119,13 +132,24 @@ This board is the **single source of truth** for milestone progress:
 | Trivy のイメージ検査と許容リスト件数（M1 より少なく） | ✅ 第 18 回で計測（Trivy 単独）: 22 対象で CRITICAL 1835 / HIGH 8290 / MEDIUM 9763 / LOW 3886。ネイティブ Elasticsearch 2 の第 21 回: 1769 / 8030 / 9550 / 3676。許容リスト 0 件（M1: 0）。Semgrep・gitleaks・ZAP も実行（ZAP: HIGH 1・MEDIUM 9・LOW 13 は M3 で精査） |
 | 既定ブランチを `develop` へ切替（所有者） | ⏳ M2 合格後 |
 
+
+### 2c. M5 の残件
+
+| 項目 | ステータス |
+|---|---|
+| PostgreSQL 9.6 → 18.6、`grdm-dev db status/upgrade/rollback`、`up` は版の不一致を拒む（終了 15） | 🔄 PR #42（レビュー r1 の指摘に対応）（[ADR-12](../decisions/ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md#japanese)）: osf.io の DB 試験は 9.6 と 18 で同じ（781 合格、同じ 13 件が失敗かエラー）。9.6 のクラスタを 37 秒で更新し 531 件が一致。CAS と fakecas はログインできた。巻き戻しも測定。レビュー r1 の後、操作記録とロックでどの段階のクラッシュも復旧できる（SIGKILL と SIGTERM を測定、ADR-12 §4.1）。amd64 と Linux のホストでは未実行 |
+| PostgreSQL の SCRAM | ⏳ 所有者: RDM-cas-overlay-dev2027 で CAS に 42.2 以降の JDBC ドライバーが要る（42.1.4 は `authentication type 10` で失敗） |
+| Elasticsearch 2 の退役 | 🔄 2026-11-10 の所有者の判断: 全文検索を保ったまま osf.io の検索を Elasticsearch 8 へ移植する。osf.io の統合リポジトリで進行中（[ADR-13 §4](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)） |
+| MongoDB と sharejs の退役 | 🔄 2026-11-10 の所有者の判断: ファイルページのエディタを sharejs から y-websocket へ移し、その後 ADR-13 §3 の手順で sharejs と mongo を退役させる。進行中 |
+| Elasticsearch 6 → 8（メトリクス） | ⏳ 未着手 |
+
 ### 3. 規則
 
 このボードは節目進行状況の**唯一の正本**です：
 
 1. 節目を言及するすべての文書はこのボードへリンクしなければならない。
 2. 上記の「ステータス」列が権威あるものである。ステータス更新には PR と証跡（実行結果または受入合格）が必要。
-3. 「残件」は着手した節目ごとに表を持つ（M1 は §2、M2 は §2b）。後の節目は着手時に専用の表を追加する。
+3. 「残件」は着手した節目ごとに表を持つ（M1 は §2、M2 は §2b、M5 は §2c）。後の節目は着手時に専用の表を追加する。
 
 ---
 

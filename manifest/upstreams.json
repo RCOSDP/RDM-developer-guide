@@ -764,14 +764,14 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "postgres:9.6",
-      "base_image_digest": null,
+      "base_image": "postgres:18.6",
+      "base_image_digest": "sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42",
       "candidate_prs": [],
       "id": "postgres",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
-      "note": null,
+      "note": "PostgreSQL 18.6, the newest released major (19 is in beta), pinned by its index digest (ADR-12). osf.io's Django 1.11.28 with psycopg2 2.7.3 (libpq 11) ran its migrations, populate_institutions and 807 DB tests on it with the same outcome as on 9.6 (781 passed, the same 13 failed or erred on both); CAS's JDBC driver 42.1.4 cannot do SCRAM, so the template keeps --auth-host=md5, which also makes initdb set password_encryption=md5. A 9.6 data directory is moved by `grdm-dev db upgrade` (dump and restore, the old directory kept); `up` refuses a directory of another major.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -786,7 +786,7 @@
       ],
       "target_image": {
         "M4": null,
-        "M5": "postgres:15"
+        "M5": "postgres:18 (adopted early, ADR-12); SCRAM once CAS has JDBC 42.2 or later"
       },
       "upstreams": []
     },
