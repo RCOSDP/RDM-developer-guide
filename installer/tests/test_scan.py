@@ -686,6 +686,30 @@ class DynamicTests(ScanTestBase):
         self.assertEqual(code, exit_codes.OK)
         self.assertTrue(any("dynamic (ZAP) part skipped" in n for n in data["notes"]))
 
+    def test_zap_writes_into_its_own_world_writable_directory_that_is_removed(self):
+        # DEMO-21 run 3: ZAP (uid 1000) could not write into runtime/reports owned by host uid 2001.
+        self.write_compose()
+        ps = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+        base = fake_runner(compose_ps=ps)
+        seen = []
+
+        def runner(argv):
+            if argv[:2] == ["docker", "run"]:
+                mount = Path(argv[argv.index("-v") + 1].split(":")[0])
+                seen.append((mount, oct(mount.stat().st_mode & 0o777)))
+            return base(argv)
+
+        code, data, _ = self.run_scan(runner, dynamic=True)
+        self.assertEqual(code, exit_codes.OK, data["tools"])
+        reports = self.root / "runtime" / "reports"
+        self.assertEqual(len(seen), 1)
+        mount, mode = seen[0]
+        self.assertEqual(mount.parent, reports)
+        self.assertEqual(mode, "0o777")
+        self.assertFalse(mount.exists())
+        self.assertEqual(len(list(reports.glob("zap_web_*.json"))), 1)
+        self.assertEqual(list(reports.glob("zap_wrk_*")), [])
+
     def test_dynamic_targets_service_names_on_compose_network(self):
         self.write_compose({
             "web": hardened(ports=["127.0.0.1:5000:5000"], networks=["grdm", "grdm-edge"]),

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import os
 import platform
 import re
 import shutil
@@ -907,20 +908,29 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
     for svc, port in targets.items():
         url = f"http://{svc}:{port}"  # service name, never 127.0.0.1 (SPEC-03 §4.3)
         out_name = f"zap_{svc}_{ts}.json"
-        argv = ["docker", "run", "--rm", "--network", network, "-v", f"{ctx.reports_dir}:/zap/wrk:rw",
+        # ZAP writes as its own uid (1000, "zap"). On Linux a host directory owned by another uid is not writable
+        # for it, so zap-baseline exited 0 without a report (DEMO-21 run 3, host uid 2001). Each target gets its
+        # own work directory, writable by any uid: it sits inside runtime/ (0700), which no other host user can
+        # enter, holds only this report, and is removed once the masked copy is saved in reports/.
+        wrk = ctx.reports_dir / f"zap_wrk_{svc}_{ts}"
+        wrk.mkdir(exist_ok=True)
+        os.chmod(wrk, 0o777)
+        argv = ["docker", "run", "--rm", "--network", network, "-v", f"{wrk}:/zap/wrk:rw",
                 ZAP_IMAGE, "zap-baseline.py", "-t", url, "-J", out_name, "-I"]
-        rc, out = runner(argv)
-        if rc == 127:
-            raise ScannerMissing("docker", "docker not found")
-        out_path = ctx.reports_dir / out_name
-        data = _json_or_empty(out_path.read_text(encoding="utf-8")) if out_path.exists() else _json_or_empty(out)
+        try:
+            rc, out = runner(argv)
+            if rc == 127:
+                raise ScannerMissing("docker", "docker not found")
+            out_path = wrk / out_name
+            data = _json_or_empty(out_path.read_text(encoding="utf-8")) if out_path.exists() else _json_or_empty(out)
+        finally:
+            shutil.rmtree(wrk, ignore_errors=True)
         if data is None:
             problems.append(f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull or the scan may have failed")
             continue
         if rc not in ZAP_OK_CODES:
             problems.append(f"zap-baseline exited {rc} for {url}")
-        if out_path.exists():
-            _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
+        _save_raw(ctx, out_name, json.dumps(data, ensure_ascii=False, indent=2), secrets or [])
         findings.extend(normalize_zap(data, url))
     return findings, _tool("zap", "stable", len(targets), problems), notes
 
