@@ -80,6 +80,25 @@ if [ "${IS_WSL}" = "1" ]; then
   esac
 fi
 
+# A virtual machine must not see the host's credentials. Lima's Ubuntu template mounts the host home directory
+# read-only even when the instance lists its own mounts (the template's list is merged in), which showed
+# ~/.config/gh to the VM in DEMO-21. Only existence is tested; no file is read.
+SHARED_FS_RE='^(virtiofs|9p|fuse\.sshfs|vboxsf|fuse\.vmhgfs-fuse|fuse\.virtiofsd)$'
+CREDENTIAL_FILES=".config/gh/hosts.yml .git-credentials .netrc .docker/config.json"
+EXPOSED=""
+while read -r _src mnt fstype _rest; do
+  if printf '%s\n' "${fstype}" | grep -Eq "${SHARED_FS_RE}"; then
+    for c in ${CREDENTIAL_FILES}; do
+      if [ -e "${mnt}/${c}" ]; then EXPOSED="${EXPOSED} ${mnt}/${c}"; fi
+    done
+  fi
+done < "${GRDM_PREREQ_MOUNTS:-/proc/mounts}"
+if [ -n "${EXPOSED}" ]; then
+  prereq_stop 10 "host credentials are visible in this machine through a shared folder:${EXPOSED}" \
+    "Remove that mount, then run this script again. Lima: delete the \"~\" entry under mounts: in ~/.lima/<vm>/lima.yaml, then limactl stop <vm> && limactl start <vm>." \
+    "共有フォルダを通じてホストの資格情報がこの機械から見えます。その mount を外してから、もう一度実行してください。Lima では ~/.lima/<vm>/lima.yaml の mounts: から \"~\" の項目を消し、limactl stop <vm> && limactl start <vm> を実行します。"
+fi
+
 # --- detection (read-only) -------------------------------------------------------------------------
 pkg_installed() { [ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null || true)" = "install ok installed" ]; }
 

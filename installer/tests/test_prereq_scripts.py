@@ -84,8 +84,10 @@ class UbuntuTests(ScriptRun):
         super().setUp()
         self.release = self.root / "os-release"
         self.release.write_text(UBUNTU_RELEASE)
+        self.mounts = self.root / "mounts"
+        self.mounts.write_text("/dev/vda1 / ext4 rw,relatime 0 0\n")
         self.env = {"GRDM_PREREQ_OS_RELEASE": str(self.release), "GRDM_PREREQ_PROC_VERSION": str(self.root / "none"),
-                    "GRDM_PREREQ_BINFMT_DIR": str(self.root / "binfmt")}
+                    "GRDM_PREREQ_BINFMT_DIR": str(self.root / "binfmt"), "GRDM_PREREQ_MOUNTS": str(self.mounts)}
         self._stub("dpkg-query", "#!/bin/sh\nexit 1\n")
 
     def test_fresh_amd64_plans_engine_and_scanners(self):
@@ -189,6 +191,37 @@ class UbuntuTests(ScriptRun):
             self.assertNotIn("|", run)
         helper = REPO / ".github" / "scripts" / "Test-PowerShellSyntax.ps1"
         self.assertIn("Parser]::ParseFile", helper.read_text())
+
+    def _shared_home(self, fstype, with_credentials):
+        home = self.root / "host-home"
+        (home / ".config" / "gh").mkdir(parents=True)
+        if with_credentials:
+            (home / ".config" / "gh" / "hosts.yml").write_text("not read by the script\n")
+        self.mounts.write_text(f"/dev/vda1 / ext4 rw 0 0\nlima-abc {home} {fstype} ro,relatime 0 0\n")
+        return home
+
+    def test_shared_host_credentials_stop_with_exit_10(self):
+        # DEMO-21: Lima's template mounted the host home read-only, so ~/.config/gh was visible in the VM.
+        self._host("Linux", "x86_64")
+        home = self._shared_home("virtiofs", True)
+        cp = self._run(UBUNTU, "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 10, cp.stdout + cp.stderr)
+        self.assertIn(f"{home}/.config/gh/hosts.yml", cp.stderr)
+        self.assertIn("lima.yaml", cp.stderr)
+        self.assert_nothing_changed()
+        cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertIn("would stop with exit 10", cp.stdout)
+
+    def test_shared_folder_without_credentials_or_local_disk_passes(self):
+        self._host("Linux", "x86_64")
+        for fstype, creds in (("virtiofs", False), ("ext4", True)):
+            with self.subTest(fstype=fstype):
+                shutil.rmtree(self.root / "host-home", ignore_errors=True)
+                self._shared_home(fstype, creds)
+                cp = self._run(UBUNTU, "--dry-run", "--yes", env_extra=self.env)
+                self.assertEqual(cp.returncode, 0, cp.stderr)
+                self.assertNotIn("would stop with exit 10", cp.stdout)
 
     def test_binfmt_image_and_bad_build_match_doctor(self):
         import sys
