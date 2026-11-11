@@ -88,7 +88,8 @@ FORBIDDEN_DEFAULTS = frozenset({"postgres", "changeme", "guest", "password", "se
 DEFAULT_ALLOWLIST: dict[str, Any] = {
     "schema_version": 1,
     "note": "Accepted findings (SPEC-03 §5.1). Every entry needs cve, component, reason, owner, "
-            "expires, added_at; optional severity. Only the owner approves additions.",
+            "expires, added_at; optional severity and image (limits the entry to that image's OS "
+            "packages). Only the owner approves additions.",
     "fields": list(ALLOWLIST_FIELDS),
     "entries": [],
 }
@@ -184,6 +185,10 @@ def validate_allowlist(entries: Any, today: _dt.date) -> tuple[list[dict], list[
             findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", str(e.get("component", "")), loc,
                                      f"missing or empty field(s): {', '.join(missing)}"))
             continue
+        if "image" in e and (not isinstance(e["image"], str) or not e["image"].strip()):
+            findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
+                                     "image, when present, must be a non-empty image name"))
+            continue
         if str(e["owner"]).strip().lower() == "team":
             findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
                                      "owner must be a person or a role, never 'team'"))
@@ -203,8 +208,17 @@ def validate_allowlist(entries: Any, today: _dt.date) -> tuple[list[dict], list[
 
 
 def _entry_matches(entry: dict, finding: dict) -> bool:
+    """Same CVE, and the finding's package starts with the entry's package name. An entry with an
+    `image` (a name without tag, e.g. grdm-dev/waterbutler) only matches findings in that image's OS
+    packages, whose location is Trivy's target `<image>:<tag> (<os>)`: a Debian package without a fix
+    in one image must not hide the same CVE in another image where a fixed version exists."""
     if entry["cve"] != finding["id"]:
         return False
+    image = entry.get("image")
+    if image:
+        loc = finding.get("location", "") or ""
+        if not (loc == image or loc.startswith(image + ":") or loc.startswith(image + "@")):
+            return False
     comp = entry.get("component", "*")
     if comp in ("", "*"):
         return True

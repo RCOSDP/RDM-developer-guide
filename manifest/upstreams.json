@@ -197,8 +197,8 @@
           "title": "Python 3.13, dependency update, multi-stage image (WIP)"
         }
       ],
-      "base_image": "python:3.6-slim-buster",
-      "base_image_digest": null,
+      "base_image": "python:3.13-slim",
+      "base_image_digest": "sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90",
       "candidate_prs": [
         {
           "number": 98,
@@ -231,9 +231,9 @@
       ],
       "id": "waterbutler",
       "integration_branch": "develop",
-      "integration_sha": "45e97a51fb7eb058fc08ce6df8a13d6996532f0b",
+      "integration_sha": "3319c10679165b421c0425771779d068f19b9724",
       "integration_repo": "RDM-waterbutler-dev2027",
-      "note": null,
+      "note": "Python 3.13.18 on Debian 13 (RDM-waterbutler PR #101 merged in the integration repository), base pinned by its index digest. The runtime stage runs as a named uid/gid 1000 user, which Celery 5 needs to start the worker under the templates' user 1000:1000; wb.json, wb_worker.json and wb.env are unchanged. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -295,8 +295,8 @@
           "title": "Python/dependency update, multi-stage (WIP)"
         }
       ],
-      "base_image": "python:3.5-slim-buster",
-      "base_image_digest": null,
+      "base_image": "python:3.13-slim",
+      "base_image_digest": "sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90",
       "candidate_prs": [
         {
           "number": 6,
@@ -322,14 +322,13 @@
       ],
       "id": "modular-file-renderer",
       "integration_branch": "develop",
-      "integration_sha": "749e58d317bc34cca8ba0640fb0f42f8d74d196d",
+      "integration_sha": "f9da1db3c253c27c2dbc1a728390cbb0e373c94c",
       "integration_repo": "RDM-modular-file-renderer-dev2027",
-      "note": null,
+      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision, 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
-      "build_platform": "linux/amd64",
       "profile": "core",
       "role": "core",
       "services": [

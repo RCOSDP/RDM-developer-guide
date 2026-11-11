@@ -242,7 +242,10 @@ class ArmEmulationTests(PreflightBase):
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
         self.assertIn(host.ENABLE_AMD64_EMULATION, err)
         self.assertIn("tonistiigi/binfmt:qemu-v10.2.3-68@sha256:", err)
-        self.assertIn("mfr", err)
+        # ember_osf_web is the emulated service left once MFR builds natively on Python 3.13 (its manifest entry
+        # no longer pins build_platform linux/amd64), so MFR must not be named as needing emulation
+        self.assertIn("ember_osf_web", err)
+        self.assertNotIn("mfr", err)
 
     def test_measured_bad_ubuntu_qemu_is_exit_13_and_prints_the_replacement(self):
         # DEMO-21 run 1: Ubuntu 24.04's qemu-user-static crashed in libgvc6's post-install script after a 48-minute run.

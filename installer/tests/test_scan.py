@@ -504,6 +504,46 @@ class AllowlistTests(ScanTestBase):
         self.assertEqual(active, [])
         self.assertEqual(findings[0]["id"], "ALLOWLIST-MALFORMED")
 
+    # An entry scoped to one image (Debian 13 packages without a fix in the Python 3.13 WaterButler and
+    # MFR images) must not hide the same CVE in another image, where a fixed version may exist.
+    SCOPED = {"cve": "CVE-2025-0001", "component": "util-linux", "image": "grdm-dev/waterbutler",
+              "reason": "no fixed version in Debian 13", "owner": "AID", "expires": "2027-01-01",
+              "added_at": "2026-11-11"}
+
+    def test_image_scoped_entry_matches_only_that_image(self):
+        def finding(location):
+            return scan._finding("trivy", "CVE-2025-0001", "HIGH", "util-linux@2.41-5", location, "t")
+        self.assertTrue(scan._entry_matches(self.SCOPED, finding("grdm-dev/waterbutler:3319c1067916 (debian 13.2)")))
+        self.assertFalse(scan._entry_matches(self.SCOPED, finding("postgres:9.6 (debian 9.13)")))
+        self.assertFalse(scan._entry_matches(self.SCOPED, finding("grdm-dev/waterbutler-extra:1 (debian 13.2)")))
+        # a language package's location is a path inside the image, so a scoped entry never matches it
+        self.assertFalse(scan._entry_matches(self.SCOPED, finding("usr/local/lib/python3.13/site-packages")))
+        unscoped = {k: v for k, v in self.SCOPED.items() if k != "image"}
+        self.assertTrue(scan._entry_matches(unscoped, finding("postgres:9.6 (debian 9.13)")))
+
+    def test_image_scoped_entry_in_a_full_scan(self):
+        trivy = json.dumps({"Results": [
+            {"Target": "grdm-dev/waterbutler:3319c1067916 (debian 13.2)", "Vulnerabilities": [
+                {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "util-linux",
+                 "InstalledVersion": "2.41-5", "Title": "t"}]},
+            {"Target": "postgres:9.6 (debian 9.13)", "Vulnerabilities": [
+                {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "util-linux",
+                 "InstalledVersion": "2.29.2-1", "Title": "t"}]}]})
+        self.write_manifest("allowlist.json", {"entries": [self.SCOPED]})
+        code, data, _ = self.run_scan(fake_runner(trivy_json=trivy))
+        self.assertEqual(code, exit_codes.OK)
+        allowed = [f for f in data["findings"] if f["id"] == "CVE-2025-0001"]
+        self.assertTrue(allowed)  # the postgres one stays open in every target the fake runner answers for
+        self.assertTrue(all(f["location"].startswith("postgres:") for f in allowed))
+        self.assertGreater(data["allowlisted"], 0)
+
+    def test_empty_image_is_malformed(self):
+        for bad in ("", "  ", 3):
+            active, findings = scan.validate_allowlist([dict(self.SCOPED, image=bad)], TODAY)
+            self.assertEqual(active, [], bad)
+            self.assertEqual(findings[0]["id"], "ALLOWLIST-MALFORMED", bad)
+            self.assertIn("image", findings[0]["title"])
+
 
 class ScannerRobustnessTests(ScanTestBase):
     """Finding 5: scanner errors never become `ok`; Trivy covers every image and lockfile tree."""

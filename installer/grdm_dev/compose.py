@@ -27,7 +27,7 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   scaled from the detected memory (argument; default 16 GiB), `platform:` from the argument or
   host detection; per-service exceptions come from manifest/hardening.json (SPEC-03 §3.3);
 * `platform:` is the argument or the detected host platform, except for a service whose manifest
-  component carries `build_platform` (SPEC-01; e.g. mfr, ember-osf-web on
+  component carries `build_platform` (SPEC-01; e.g. ember-osf-web on
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component

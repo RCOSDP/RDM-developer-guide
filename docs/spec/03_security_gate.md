@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.13 — 2026-11-10. **Learned:** a type check that runs after a blocking open never runs: a FIFO in place of a report hung the scan, so report files are opened with `O_NONBLOCK` and `O_NOFOLLOW` and their descriptor type is checked before any read or write; and the private-parent check is a snapshot, so the user's own checkout and its ancestors are a precondition, not something the scan defends ([PR #44 review r2](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r2.md)). ／ 止まる open の後の型検査は実行されない。報告の代わりの FIFO でスキャンが止まったので、報告ファイルは `O_NONBLOCK` と `O_NOFOLLOW` で開き、読み書きの前に記述子の型を確かめる。また非公開の親の確認は一時点のもので、利用者自身のチェックアウトと祖先は前提条件であり、スキャンが守るものではない（[PR #44 レビュー r2](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r2.md)）。
+- Version / 版: 0.14 — 2026-11-11. **Learned:** an entry that names only a CVE and a package would also hide that CVE in every other image that carries the package, including older Debian images where a fixed version exists, so an entry for packages without a fix in one image now names that image (`image`), as the Python 3.13 WaterButler and MFR images first needed. ／ CVE とパッケージだけを書いた項目は、そのパッケージを持つ他のすべてのイメージ（修正版がある古い Debian のイメージを含む）でも同じ CVE を隠してしまう。そのため、あるイメージで修正版の無いパッケージの項目はそのイメージを名指し（`image`）するようにした。Python 3.13 の WaterButler と MFR のイメージで初めて必要になった。
+  0.13 — 2026-11-10. **Learned:** a type check that runs after a blocking open never runs: a FIFO in place of a report hung the scan, so report files are opened with `O_NONBLOCK` and `O_NOFOLLOW` and their descriptor type is checked before any read or write; and the private-parent check is a snapshot, so the user's own checkout and its ancestors are a precondition, not something the scan defends ([PR #44 review r2](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r2.md)). ／ 止まる open の後の型検査は実行されない。報告の代わりの FIFO でスキャンが止まったので、報告ファイルは `O_NONBLOCK` と `O_NOFOLLOW` で開き、読み書きの前に記述子の型を確かめる。また非公開の親の確認は一時点のもので、利用者自身のチェックアウトと祖先は前提条件であり、スキャンが守るものではない（[PR #44 レビュー r2](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r2.md)）。
   0.12 — 2026-11-10. **Learned:** a world-writable directory is safe only while its private parent really is private, so the ZAP work directories are created only after `runtime/` is verified as a 0700 real directory owned by the user, under unpredictable names, and a report that is a symlink is refused ([PR #44 review r1](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R3). ／ 誰でも書けるディレクトリが安全なのは、非公開の親が実際に非公開である間だけである。そこで ZAP の作業ディレクトリは、`runtime/` が利用者の所有の実ディレクトリで 0700 だと確かめてから、予測できない名前で作り、シンボリックリンクの報告は拒む（[PR #44 レビュー r1](../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R3）。
   0.11 — 2026-11-10. **Learned:** a hardening exception that blames an image's start command expires with that image, so building CAS from source removed it entirely, while the secure-cookie default had to be switched off explicitly and in one place because the stack is plain HTTP on loopback (ADR-07 §7). ／ イメージの起動コマンドを理由にした堅牢化の例外はそのイメージとともに期限が切れる。CAS をソースから組むとこの例外はまるごと消えた。一方、スタックはループバック上の平文 HTTP なので、Secure Cookie の既定は一か所で明示して切る必要があった（ADR-07 §7）。
   0.10 — 2026-11-10. **Learned:** a converter behind HTTP needs no shared volume and no capability, so the exception for its old image could be removed once the client was changed. ／ HTTP の背後の変換サービスは共有ボリュームも capability も要らないので、クライアントを変えた時点で旧イメージの例外を除けた。
@@ -148,7 +149,7 @@ The *allow-list* is the written list of findings we know about, have judged, and
 
 Rules:
 
-1. Every entry has all six fields: `cve`, `component`, `reason`, `owner`, `expires`, `added_at`. An entry with a missing field is invalid and the scan fails with exit 50.
+1. Every entry has all six fields: `cve`, `component`, `reason`, `owner`, `expires`, `added_at`. An entry with a missing field is invalid and the scan fails with exit 50. Two fields are optional: `severity`, and `image`, an image name without tag (for example `grdm-dev/waterbutler`). An entry with `image` only matches findings in that image's OS packages (Trivy target `<image>:<tag> (<os>)`), so a package without a fixed version in one image does not hide the same CVE in another image; an empty `image` is invalid like a missing field.
 2. `reason` says why the finding is not exploitable here or why it cannot be fixed yet (for example "code path not reachable in dev profile", "fix requires Python 3.13 port scheduled for M4").
 3. `owner` is a person or a role from the [role table](../decisions/ADR-04_AI_Autonomy_and_Roles.md), never "team".
 4. `expires` is a date no later than the start of the next milestone. On expiry the entry is ignored and the finding counts again.
@@ -377,7 +378,7 @@ flowchart TD
 
 決まり:
 
-1. 各項目は六つの欄をすべて持つ: `cve`、`component`、`reason`、`owner`、`expires`、`added_at`。欄が欠けた項目は無効で、スキャンは終了コード 50 で失敗する。
+1. 各項目は六つの欄をすべて持つ: `cve`、`component`、`reason`、`owner`、`expires`、`added_at`。欄が欠けた項目は無効で、スキャンは終了コード 50 で失敗する。任意の欄が二つある: `severity` と、タグを除いたイメージ名の `image`（例: `grdm-dev/waterbutler`）。`image` を持つ項目は、そのイメージの OS パッケージの検出（Trivy の対象 `<image>:<tag> (<os>)`）にだけ当てはまる。あるイメージで修正版の無いパッケージが、別のイメージの同じ CVE を隠さないためである。空の `image` は欄の欠けと同じく無効。
 2. `reason` には、ここでは悪用できない理由か、まだ直せない理由を書く（例:「開発プロファイルでは到達しないコード経路」「修正には M4 予定の Python 3.13 移植が必要」）。
 3. `owner` は人か、[役割表](../decisions/ADR-04_AI_Autonomy_and_Roles.md) の役割。「チーム」とは書かない。
 4. `expires` は次の節目の開始日以前の日付。期限が切れた項目は無視され、その検出は再び数えられる。
