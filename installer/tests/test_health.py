@@ -123,6 +123,34 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(sorted(probed), ["http://127.0.0.1:5000/login/", "http://127.0.0.1:8000/"])  # web probed at /login/ (HTTP_PATHS)
         self.assertIn("services[3]", self.out.getvalue())
 
+    def _with_ember(self):
+        compose = json.loads(json.dumps(COMPOSE))
+        compose["services"]["ember_osf_web"] = {"image": "grdm-dev/ember-osf-web:0246b5a3b34b", "ports": ["127.0.0.1:4200:4200"]}
+        (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps(compose))
+        return "\n".join(json.dumps(ps_row(s)) for s in ("web", "api", "postgres", "ember_osf_web"))
+
+    def test_ember_is_probed_at_healthz(self):
+        """The static ember image answers GET /healthz with 200 "ok" (PR #2 review r1 R1-03)."""
+        ps = self._with_ember()
+        probed = []
+
+        def prober(url):
+            probed.append(url)
+            return True, "HTTP 200"
+
+        self.assertEqual(self.run_cmd(False, make_runner(ps), prober), exit_codes.OK)
+        self.assertIn("http://127.0.0.1:4200/healthz", probed)
+
+    def test_ember_healthz_must_answer_200(self):
+        """Any status below 500 counts elsewhere, but a 404 on /healthz means the image does not serve it: exit 40."""
+        ps = self._with_ember()
+
+        def prober(url):
+            return True, ("HTTP 404" if url.endswith("/healthz") else "HTTP 200")
+
+        self.assertEqual(self.run_cmd(False, make_runner(ps), prober), exit_codes.HEALTH_FAILED)
+        self.assertIn("ember_osf_web", self.err.getvalue())
+
     def test_unhealthy_service_is_40(self):
         self.assertEqual(self.run_cmd(False, make_runner(PS_BAD)), exit_codes.HEALTH_FAILED)
         self.assertIn("api", self.err.getvalue())

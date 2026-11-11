@@ -27,7 +27,7 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   scaled from the detected memory (argument; default 16 GiB), `platform:` from the argument or
   host detection; per-service exceptions come from manifest/hardening.json (SPEC-03 §3.3);
 * `platform:` is the argument or the detected host platform, except for a service whose manifest
-  component carries `build_platform` (SPEC-01; e.g. ember-osf-web on
+  component carries `build_platform` (SPEC-01; for example
   "linux/amd64"): that value is written instead so Compose runs the image built by `grdm-dev build`
   under emulation on an arm64 host;
 * `image:` is the manifest-derived reference: `grdm-dev/<component>:<sha12>` for a built component
@@ -40,8 +40,8 @@ Output is JSON (Compose accepts JSON because JSON is YAML). Rules applied to eve
   exits — `restart: "no"`; web/api/admin/worker mount that volume read-only at
   `/code/website/static/public/js/wiki/` and depend on it with `condition:
   service_completed_successfully`; the report row says `origin: overlay`), `base_image[@digest]` for infra, and
-  the `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; e.g.
-  ember-osf-web until M4). A prebuilt service gets `platform:` from `build_platform` like any
+  the `prebuilt_image` reference itself for a component that bypasses the build (SPEC-01 §3; no
+  component uses it at present). A prebuilt service gets `platform:` from `build_platform` like any
   other, and the report row says `origin: prebuilt`; `scan` sees it as one more compose image;
 * named volumes are local bind volumes under runtime/volumes/<name>;
 * secrets never enter generated files: the compose file references `${KEY}` and Compose reads
@@ -52,7 +52,8 @@ host_port?, expose?, command?, environment?, env_files?, volumes? ([{volume|conf
 target, ro?}]), tmpfs?, user?, only_networks?, extra_networks?, depends_on? (service names, or {service, condition} for the Compose
 long form, e.g. `service_completed_successfully` on a one-shot), restart?, one_shot? (a container
 that runs to completion: rendered with `restart: "no"`, and `health` accepts `exited` with code 0),
-weight, mem_min_mb, pids_limit, note?. Strings may use
+healthcheck? (written as the Compose `healthcheck:` as is, `$` escaped in `test` like `command`; e.g.
+ember_osf_web's busybox `wget` of /healthz), weight, mem_min_mb, pids_limit, note?. Strings may use
 `{{HOST_PORT:<service>}}` / `{{CONTAINER_PORT:<service>}}`. `command` strings are written for the
 container shell: every `$` in them is escaped to `$$` on output, so Compose does not interpolate
 them; `environment` values are the only place where `${KEY}` means a value from runtime/.env.
@@ -342,7 +343,7 @@ def scale_resources(services: list[_manifest.Service], memory_gib: float, cpus: 
     # Memory in two passes so the floors (`mem_min_mb`) do not push the total past the budget: a
     # service whose weighted share is below its floor gets the floor; the budget that remains is
     # then shared by weight among the others. Only when the floors alone exceed the budget does the
-    # total exceed it (real install run 10: ember needs 8 GiB under emulation on a 47 GiB Docker VM).
+    # total exceed it (real install run 10: the former prebuilt ember needed 8 GiB under emulation on a 47 GiB Docker VM).
     floors = {s.name: int(s.template.get("mem_min_mb", 128)) for s in services}
     weights = {s.name: float(s.template.get("weight", 1)) for s in services}
     if sum(floors.values()) > budget_mb and not allow_overcommit:
@@ -580,6 +581,13 @@ def render_service(
         out["env_file"] = [f"./{CONFIG_DIR}/{name}" for name in tpl["env_files"]]
     if tpl.get("volumes"):
         out["volumes"] = [_mount(v) for v in tpl["volumes"]]
+    if tpl.get("healthcheck"):
+        # The template states the probe instead of relying on the image's HEALTHCHECK, so the Compose file
+        # shows what `docker compose ps` reports as health (ember_osf_web: wget of /healthz; no curl in the image).
+        check = dict(tpl["healthcheck"])
+        if isinstance(check.get("test"), list):
+            check["test"] = [escape_compose_dollar(str(c)) for c in check["test"]]
+        out["healthcheck"] = check
     if tpl.get("tmpfs"):
         # Compose's short `tmpfs:` entry mounts with mode 0755 owned by root (unlike `docker run --tmpfs`,
         # which uses 1777), so a non-root service could not write to it (real install run 11:

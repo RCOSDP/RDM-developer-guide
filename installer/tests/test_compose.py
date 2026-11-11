@@ -385,7 +385,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertLessEqual(total, 48 * 1024 * compose.MEMORY_SHARE)  # floors fit, so the sum stays inside the budget
 
     def test_infeasible_memory_floors_are_exit_10_unless_overcommit_is_explicit(self):
-        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (ember alone needs 8 GiB)."""
+        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (8320 MiB > 70 % of 8 GiB)."""
         rc, err, _, _ = self._render_with_vm(8 * 1024 ** 3)
         self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
         self.assertIn("memory floors", err)
@@ -395,16 +395,29 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertGreater(sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values()), 8 * 1024 * compose.MEMORY_SHARE)
 
     def test_sum_of_floors_fits_the_documented_minimum_vm(self):
-        """SPEC-02 §8: the core profile needs a 24 GiB Docker VM on Apple Silicon (ember 8 GiB floor under emulation)."""
-        rc, _, report, _ = self._render_with_vm(24 * 1024 ** 3, host_gib=64.0)
+        """SPEC-02 §8: the core floors add up to 8320 MiB, so the computed lower bound is 8320 / 0.7 / 1024 = 11.6 GiB:
+        a 12 GiB Docker VM renders, an 11 GiB one is exit 10 (PR #2 review r1 R1-03: ember's 8 GiB floor is gone)."""
+        rc, _, report, _ = self._render_with_vm(12 * 1024 ** 3, host_gib=64.0)
         self.assertEqual(rc, exit_codes.OK)
-        self.assertEqual(report["memory_gib"], 24.0)
+        self.assertEqual(report["memory_gib"], 12.0)
+        rc, err, _, _ = self._render_with_vm(11 * 1024 ** 3, host_gib=64.0)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("8320 MiB", err)
+
+    def test_core_floor_sum_is_8320_mib(self):
+        from grdm_dev import manifest as _manifest
+
+        man = _manifest.load(Context(root=REPO_ROOT))
+        services = compose.with_owner_init(_manifest.services_for_profile(man, "core"), compose.load_hardening(REPO_ROOT))
+        self.assertEqual(sum(int(s.template.get("mem_min_mb", 128)) for s in services), 8320)
+        self.assertAlmostEqual(compose.memory_floor_need_gib(services), 8320 / 0.7 / 1024)
+        self.assertAlmostEqual(round(compose.memory_floor_need_gib(services), 3), 11.607)
 
     def test_small_host_caps_the_budget_below_the_vm(self):
-        """A 16 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
-        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=16.0)
+        """An 8 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
+        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=8.0)
         self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
-        self.assertIn("16.0 GiB", err)
+        self.assertIn("8.0 GiB", err)
 
     def test_detect_docker_memory_gib_tolerates_bad_output(self):
         self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (1, "")))
@@ -527,61 +540,117 @@ class ComposeRenderTests(unittest.TestCase):
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["mfr"]["platform"], "linux/amd64")
 
+    # ---- ember_osf_web: the static image built from RDM-ember-osf-web-dev2027 (PR #2 review r1 R1-03)
+
+    def test_ember_osf_web_is_the_static_image(self):
+        root = make_root()
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        svc = doc["services"]["ember_osf_web"]
+        self.assertRegex(svc["image"], r"^grdm-dev/ember-osf-web:[0-9a-f]{12}$")
+        self.assertEqual(svc["platform"], "linux/arm64")  # no build_platform: the host platform, no emulation
+        self.assertNotIn("command", svc)                   # the image's entrypoint renders index.html and execs nginx
+        self.assertNotIn("entrypoint", svc)
+        self.assertEqual(svc["environment"], {
+            "OSF_URL": "http://127.0.0.1:5000/",
+            "OSF_API_URL": "http://127.0.0.1:8000",
+            "OSF_RENDER_URL": "http://127.0.0.1:7778/render",
+            "OSF_FILE_URL": "http://127.0.0.1:7777/",
+            "OSF_HELP_URL": "http://127.0.0.1:4200/help",
+            "CAS_URL": "http://127.0.0.1:8080",
+            "OSF_COOKIE_DOMAIN": "127.0.0.1",
+            "CSP_MODE": "enforce",
+        })
+        # every URL passes the entrypoint's check (the container exits 1 otherwise)
+        url_re = re.compile(r"^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$")
+        for key in ("OSF_URL", "OSF_API_URL", "OSF_RENDER_URL", "OSF_FILE_URL", "OSF_HELP_URL", "CAS_URL"):
+            self.assertRegex(svc["environment"][key], url_re, key)
+        self.assertRegex(svc["environment"]["OSF_COOKIE_DOMAIN"], r"^[A-Za-z0-9.-]+$")
+        self.assertEqual(svc["user"], "101:101")
+        self.assertIs(svc["read_only"], True)
+        self.assertEqual(svc["tmpfs"], ["/tmp:mode=1777"])
+        self.assertEqual(svc["cap_drop"], ["ALL"])
+        self.assertNotIn("cap_add", svc)
+        self.assertIn("no-new-privileges:true", svc["security_opt"])
+        self.assertNotIn("volumes", svc)
+        self.assertNotIn("depends_on", svc)  # builds nothing at start; waits for nothing
+        self.assertEqual(svc["ports"], ["127.0.0.1:4200:4200"])
+        self.assertEqual(svc["healthcheck"]["test"], ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4200/healthz"])
+        self.assertNotIn("curl", json.dumps(svc))
+        self.assertEqual(svc["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        self.assertGreaterEqual(int(svc["mem_limit"].rstrip("m")), 128)
+        # ember_osf_web mounts nothing; web still mounts the (now unfilled) ember_osf_web_dist at /ember_osf_web,
+        # which osf.io reads only when PROXY_EMBER_APPS is off (local.py sets it on)
+        mounters = {s for s, v in doc["services"].items() if any(m.startswith("ember_osf_web_dist:") for m in v.get("volumes", []))}
+        self.assertIn("web", mounters)
+        self.assertNotIn("ember_osf_web", mounters)
+        rows = {r["service"]: r for r in json.loads(out)["services"]}
+        self.assertEqual(rows["ember_osf_web"]["origin"], "built")
+
+    def test_ember_cas_url_follows_the_auth_provider(self):
+        root = make_root()
+        rc, _, err, _ = render(root, profile="full", auth="shibboleth")
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertEqual(doc["services"]["ember_osf_web"]["environment"]["CAS_URL"], "http://127.0.0.1:5000")
+
+    def test_ember_memory_limit_stays_small(self):
+        """The static image is nginx: at 16 GiB its share is a few hundred MiB at most, not the former 8 GiB floor."""
+        doc = self.render_core_doc()
+        self.assertLess(int(doc["services"]["ember_osf_web"]["mem_limit"].rstrip("m")), 512)
+
+    def test_healthcheck_in_a_template_escapes_dollar(self):
+        from grdm_dev import manifest as _manifest
+
+        svc = _manifest.Service(name="x", component="c", role="core", image="i", profile="core", build=None,
+                                template={"healthcheck": {"test": ["CMD-SHELL", "test -n \"$HOME\""], "retries": 3}})
+        out = compose.render_service(svc, in_profile={"x"}, host_ports={}, container_ports={}, published={}, hardening={},
+                                     resources={}, platform_string="linux/arm64")
+        self.assertEqual(out["healthcheck"], {"test": ["CMD-SHELL", "test -n \"$$HOME\""], "retries": 3})
+
     # ---- prebuilt_image (SPEC-01 §3): compose runs the digest-pinned reference as image:
+    # No component uses it now; the tests put the former ember fallback back on a copy of the manifest.
+
+    PREBUILT = "registry.example.invalid/rdm-ember-osf-web@sha256:" + "e" * 64
+
+    def _with_prebuilt_ember(self, root, note=True):
+        path = root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            if comp["id"] == "ember-osf-web":
+                comp["prebuilt_image"] = self.PREBUILT
+                comp["build_platform"] = "linux/amd64"
+                if not note:
+                    comp["note"] = None
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def test_prebuilt_image_is_the_compose_image_with_build_platform(self):
         root = make_root()
-        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
-        ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
+        self._with_prebuilt_ember(root)
         reports = root / "runtime" / "reports"
         reports.mkdir(parents=True)
         (reports / "build_latest.json").write_text(json.dumps({"components": [
-            {"component": "ember-osf-web", "sha12": "", "status": "prebuilt", "image": ember["prebuilt_image"]},
+            {"component": "ember-osf-web", "sha12": "", "status": "prebuilt", "image": self.PREBUILT},
         ]}), encoding="utf-8")
         rc, out, err, _ = render(root)
         self.assertEqual(rc, 0, err)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         svc = doc["services"]["ember_osf_web"]
-        self.assertEqual(svc["image"], ember["prebuilt_image"])
-        self.assertRegex(svc["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
-        command = " ".join(svc["command"])
-        self.assertLess(command.index("ember build"), command.index('node -e "$$1"'))  # /code is read-only: dist, after the build
-        self.assertLess(command.index('node -e "$$1"'), command.index("ember serve"))   # and before every serve (test_ember_ga_guard)
-        self.assertNotIn("config/environment.js", command)
-        self.assertIn("GoogleAnalytics is still in the built page", command)
-        self.assertEqual(svc["platform"], ember["build_platform"])
+        self.assertEqual(svc["image"], self.PREBUILT)
         self.assertEqual(svc["platform"], "linux/amd64")
         self.assertEqual(svc["cap_drop"], ["ALL"])  # hardening applies to a prebuilt service like any other
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["ember_osf_web"]["origin"], "prebuilt")
-        self.assertEqual(rows["ember_osf_web"]["image"], ember["prebuilt_image"])
+        self.assertEqual(rows["ember_osf_web"]["image"], self.PREBUILT)
         self.assertEqual(rows["web"]["origin"], "built")
         self.assertEqual(rows["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(rows["postgres"]["origin"], "pinned")
         self.assertFalse(any(v["image"].startswith("grdm-dev/ember-osf-web") for v in doc["services"].values()))
 
-    def test_removing_prebuilt_image_renders_the_local_build_tag(self):
-        root = make_root()
-        path = root / "manifest" / "upstreams.json"
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for comp in data["components"]:
-            if comp["id"] == "ember-osf-web":
-                del comp["prebuilt_image"]
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        rc, out, err, _ = render(root)
-        self.assertEqual(rc, 0, err)
-        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertTrue(doc["services"]["ember_osf_web"]["image"].startswith("grdm-dev/ember-osf-web:"))
-        self.assertEqual({r["service"]: r for r in json.loads(out)["services"]}["ember_osf_web"]["origin"], "built")
-
     def test_prebuilt_without_note_is_rejected_at_render(self):
         root = make_root()
-        path = root / "manifest" / "upstreams.json"
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for comp in data["components"]:
-            if comp["id"] == "ember-osf-web":
-                comp["note"] = None
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self._with_prebuilt_ember(root, note=False)
         rc, out, err, _ = render(root)
         self.assertEqual(rc, exit_codes.MANIFEST_INVALID)
         self.assertIn("MC-06", err)

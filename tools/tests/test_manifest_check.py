@@ -381,12 +381,15 @@ class PrebuiltImageTests(unittest.TestCase):
         """The TOON excerpt lists ids, roles, repos, profiles, upstreams and adopted PRs only (SPEC-01 §2)."""
         self.assertEqual(mc.compare_toon(prebuilt_manifest(), mc.parse_toon(VALID_TOON)), [])
 
-    def test_real_manifest_ember_osf_web_is_prebuilt_by_digest_with_note(self):
+    def test_real_manifest_builds_ember_osf_web_from_its_pinned_commit(self):
+        """PR #2 review r1 R1-03: the static ember image is built from source; no component is prebuilt any more."""
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
         ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
-        self.assertRegex(ember["prebuilt_image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
-        self.assertIn("M4", ember["note"])
-        self.assertEqual(ember["build_platform"], "linux/amd64")  # the pinned digest is the linux/amd64 manifest
+        self.assertNotIn("prebuilt_image", ember)
+        self.assertNotIn("build_platform", ember)  # the Node build stage runs on the build platform; nginx is multi-arch
+        self.assertRegex(ember["integration_sha"], r"^[0-9a-f]{40}$")
+        self.assertRegex(ember["base_image_digest"], r"^sha256:[0-9a-f]{64}$")
+        self.assertFalse([c["id"] for c in data["components"] if c.get("prebuilt_image")])
         self.assertEqual(mc.check_manifest_files(REPO_ROOT / "manifest" / "upstreams.json", REPO_ROOT / "manifest" / "upstreams.toon"), [])
 
 

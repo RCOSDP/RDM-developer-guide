@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 1.5 — 2026-11-10. **Learned:** a safety check should say what it does not cover: the shared-folder check looks for four names directly under each shared mount point, decoded as the kernel escapes them, not for every credential anywhere ([PR #44 review r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1). ／ 安全のための検査は、何を見ないかも言うべきである。共有フォルダの検査は、カーネルのエスケープを復号した各共有 mount 先の直下にある四つの名前だけを探し、どこにある資格情報でも見つけるわけではない（[PR #44 レビュー r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1）。
+- Version / 版: 1.6 — 2026-11-11. **Learned:** a troubleshooting entry that names a workaround goes stale the day the workaround ends: ember-osf-web is built from source again as a static image, so the DEMO-20 cases now say that the prebuilt image was the past state and what `build` does now (RDM-ember-osf-web-dev2027 PR #2 review r1 R1-03). ／ 回避策を名指しする障害対応の項は、その回避策が終わった日に古くなる。ember-osf-web は再びソースから静的なイメージとして組まれるので、DEMO-20 の事例は事前ビルド済みのイメージが過去の状態だったことと、いまの `build` の動きを書くようにした（RDM-ember-osf-web-dev2027 PR #2 レビュー r1 R1-03）。
+  1.5 — 2026-11-10. **Learned:** a safety check should say what it does not cover: the shared-folder check looks for four names directly under each shared mount point, decoded as the kernel escapes them, not for every credential anywhere ([PR #44 review r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1). ／ 安全のための検査は、何を見ないかも言うべきである。共有フォルダの検査は、カーネルのエスケープを復号した各共有 mount 先の直下にある四つの名前だけを探し、どこにある資格情報でも見つけるわけではない（[PR #44 レビュー r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1）。
   1.4 — 2026-11-10. **Learned:** a test VM is only isolated if nothing of the host is shared by default: Lima's Ubuntu template mounted the host home and showed `~/.config/gh` inside the VM, so the Lima steps below share only read-only mirrors and `install-ubuntu.sh` stops when credentials are visible ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ テスト用の VM は、既定でホストの何も共有しないときだけ隔離されている。Lima の Ubuntu テンプレートはホームを mount し `~/.config/gh` を VM から見せたので、下の Lima の手順は読み取り専用のミラーだけを共有し、`install-ubuntu.sh` は資格情報が見えると止まる（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
   1.3 — 2026-11-10. **Learned:** on a Linux server image the acceptance browser needs two more steps than on a Mac, a library for Playwright's driver and Chromium's system libraries, so §3.9 lists them ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ Linux のサーバーイメージでは受入試験のブラウザに Mac より二つ多い手順、Playwright のドライバー用のライブラリと Chromium のシステムライブラリが要るので、§3.9 に載せた（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
 - Version / 版: 1.2 — 2026-11-10. **Learned:** telling a reader that the installer checks each prerequisite is not the same as helping them get one, so the guide now starts from a script for each OS ([ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 「インストーラーが前提条件を確認する」と伝えることは、それを揃える手助けにはならない。そこで手引きは OS ごとのスクリプトから始める（[ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
@@ -207,7 +208,7 @@ Build or pull all images:
 > **Real cases from DEMO-20:**
 >
 > - **modular-file-renderer (the file preview service):** Built with emulation (`build_platform: linux/amd64`) because `pandas==0.25.1` has no arm64 *wheel* (a prebuilt Python package file; without one, pip must compile from source, which fails on this EOL base).
-> - **ember-osf-web:** The source build fails on every CPU because the base image uses Docker manifest v2 schema 1, which current Docker refuses. The manifest therefore already carries a digest-pinned `prebuilt_image` for ember-osf-web, which `build` pulls instead of building; this fallback stays until M4 modernizes the Dockerfile (`manifest/upstreams.json`, DEMO-20).
+> - **ember-osf-web:** At the time, the source build failed on every CPU because the base image used Docker manifest v2 schema 1, which current Docker refuses, so the manifest carried a digest-pinned `prebuilt_image` that `build` pulled instead (DEMO-20). The Dockerfile has since been modernized (RDM-ember-osf-web-dev2027 PR #2): `build` builds ember-osf-web from its pinned commit on your own CPU, without emulation, into a static nginx image, and the row says `built`.
 
 #### 3.6 `grdm-dev up`
 
@@ -392,9 +393,9 @@ This happens when an image cannot be built for your CPU architecture or a prebui
 **Real cases from DEMO-20:**
 
 1. **modular-file-renderer on arm64:** Built successfully with `build_platform: linux/amd64` (emulation) because the base Python 3.5 image has no arm64 wheel for `pandas==0.25.1`.
-2. **ember-osf-web on any platform:** The source build fails because the base image uses Docker manifest v2 schema 1, which current Docker refuses to pull.
+2. **ember-osf-web on any platform:** The source build failed because the base image used Docker manifest v2 schema 1, which current Docker refuses to pull.
 
-**Current state:** For ember-osf-web the manifest already contains a digest-pinned `prebuilt_image` (`niicloudoperation/rdm-ember-osf-web@sha256:...`, `manifest/upstreams.json`), so `build` pulls that image instead of building and reports it as `prebuilt`. The fallback stays until M4 modernizes the Dockerfile, when it must be removed. A failed source build therefore does not by itself mean the configured fallback fails; check the `prebuilt` row in the build report.
+**Current state:** ember-osf-web no longer uses a `prebuilt_image`: its modernized Dockerfile (RDM-ember-osf-web-dev2027 PR #2) runs the ember-cli build in a Node stage on your own CPU and produces a static nginx image, so `build` builds it like the other components (`manifest/upstreams.json`). That Node stage needs several GiB of Docker engine memory while it runs; if the ember-osf-web build fails with exit 30, check the engine's memory first.
 
 #### Health check failed (exit 40)
 
@@ -613,7 +614,7 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 > **DEMO-20 の実際のケース:**
 >
 > - **modular-file-renderer（ファイルのプレビューを作るサービス）:** `pandas==0.25.1` の arm64 *wheel*（ビルド済みの Python パッケージファイル。無いと pip がソースから組む必要があり、この EOL ベースでは失敗する）が存在しないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
-> - **ember-osf-web:** ベースイメージが Docker manifest v2 schema 1 を使っており現行 Docker が拒否するため、ソースからのビルドはどの CPU でも失敗します。そのため manifest には ember-osf-web 向けにダイジェスト固定の `prebuilt_image` がすでに設定されており、`build` はビルドの代わりにそれを取得します。この代替は M4 で Dockerfile を近代化するまで維持されます（`manifest/upstreams.json`、DEMO-20）。
+> - **ember-osf-web:** 当時は、ベースイメージが現行 Docker の拒否する Docker manifest v2 schema 1 を使っていたため、ソースからのビルドはどの CPU でも失敗し、manifest にはダイジェスト固定の `prebuilt_image` を設定して `build` がビルドの代わりにそれを取得していました（DEMO-20）。その後 Dockerfile は近代化されました（RDM-ember-osf-web-dev2027 PR #2）。いまの `build` は ember-osf-web を固定コミットからお使いの CPU 上でエミュレーションなしに静的な nginx のイメージへ組み、行は `built` になります。
 
 #### 3.6 `grdm-dev up`
 
@@ -798,9 +799,9 @@ sudo lsof -i :5000
 **DEMO-20 の実際のケース:**
 
 1. **modular-file-renderer on arm64:** ベース Python 3.5 イメージが arm64 向けの `pandas==0.25.1` wheel を持たないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
-2. **ember-osf-web on 任意プラットフォーム:** ベースイメージが Docker manifest v2 schema 1 を使っているため、現行 Docker が取得を拒み、ソースからのビルドは失敗。
+2. **ember-osf-web on 任意プラットフォーム:** ベースイメージが Docker manifest v2 schema 1 を使っていたため、現行 Docker が取得を拒み、ソースからのビルドは失敗していた。
 
-**現状:** ember-osf-web については manifest にダイジェスト固定の `prebuilt_image`（`niicloudoperation/rdm-ember-osf-web@sha256:...`、`manifest/upstreams.json`）がすでに設定されているため、`build` はビルドの代わりにそのイメージを取得し `prebuilt` と報告します。この代替は M4 で Dockerfile を近代化するまで維持され、その時点で削除が必要です。したがってソースビルドの失敗だけでは、設定済みの代替も失敗するとは言えません。ビルド報告の `prebuilt` 行を確認してください。
+**現状:** ember-osf-web はもう `prebuilt_image` を使いません。近代化した Dockerfile（RDM-ember-osf-web-dev2027 PR #2）は ember-cli のビルドをお使いの CPU 上の Node の段で実行して静的な nginx のイメージを作るので、`build` はほかの部品と同じようにこれを組みます（`manifest/upstreams.json`）。この Node の段は動いている間 Docker エンジンのメモリを数 GiB 使います。ember-osf-web のビルドが終了 30 で失敗したら、まずエンジンのメモリを確かめてください。
 
 #### 健康確認失敗（終了コード 40）
 

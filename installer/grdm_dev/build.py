@@ -31,8 +31,9 @@ image pinned by digest is NOT cloned or built. It is recorded in the build repor
 `prebuilt` and `image` = that reference, and the image is pulled through the runner (`docker pull
 --platform <build_platform or host> <reference>`) so that `up` does not pull implicitly; a failed
 pull is exit 30 like a failed build. The manifest checker only admits the field with a `note`
-(why, and until which milestone); ember-osf-web uses it because its Dockerfile's base image is a
-schema-1 manifest that current Docker refuses, until M4 modernizes the Dockerfile.
+(why, and until which milestone). ember-osf-web used it while its Dockerfile's base image was a
+schema-1 manifest that current Docker refuses; its modernized Dockerfile is built like any other
+component again, and no component uses the field at present.
 
 Overlay (SPEC-01 §3 `overlay_of`, ADR-06): a component whose manifest entry names a base component
 (wiki-frontend → osf.io) cannot be built from its own checkout. Real install run 4 on Mac Studio

@@ -370,8 +370,8 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "quay.io/centerforopenscience/ember-base + node:8-alpine",
-      "base_image_digest": null,
+      "base_image": "nginxinc/nginx-unprivileged:1.29-alpine",
+      "base_image_digest": "sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
       "candidate_prs": [
         {
           "number": 201,
@@ -404,22 +404,20 @@
       ],
       "id": "ember-osf-web",
       "integration_branch": "develop",
-      "integration_sha": "57d9c7ce9e7ecfef76b912953f2ff566c37035e5",
+      "integration_sha": "4180cb58bb36855dfc40e0b7262450d08f51d1d6",
       "integration_repo": "RDM-ember-osf-web-dev2027",
-      "note": "Prebuilt fallback (M2, second real install on Mac Studio): the Dockerfile's base image quay.io/centerforopenscience/ember-base is a Docker image manifest v2 schema 1 image that current Docker refuses (\"support for schema 1 has been removed\"), so the integration repository cannot be built on any host. Until M4 modernizes the Dockerfile (target_image.M4), the legacy guide's distribution image niicloudoperation/rdm-ember-osf-web:latest is run instead, pinned by its linux/amd64 manifest digest (resolved 2026-11-05 with docker buildx imagetools inspect). This bypasses the build-from-pinned-source guarantee of SPEC-01; prebuilt_image must be removed at M4.",
+      "note": "Built from the integration repository at develop after its PR #2 (static build, Node 24 LTS) and PR #3 (the file preview takes the API's render link, so MFR reaches the file from inside the network). Its multi-stage Dockerfile runs the ember-cli production build in a digest-pinned Node 24 stage on the build host's own platform (the output is platform-independent HTML, JS and CSS, so no architecture emulates the build; the build stage needs several GiB of engine memory at build time only) and the final stage is nginx-unprivileged (base_image, digest-pinned): uid 101, port 4200, read-only root with a /tmp tmpfs, no Node at run time. The entrypoint checks every value it writes (the backend URLs, OSF_COOKIE_DOMAIN, the CSP settings) as a whole against a strict per-field pattern, writes them URI-encoded into index.html, refuses to start on an invalid value or a Google Analytics adapter left in the page, and sets the CSP; GET /healthz answers ok. This replaces the prebuilt fallback (the distribution image ran ember serve and rebuilt the bundle under amd64 emulation with an 8 GiB floor) and removes prebuilt_image and build_platform (PR #2 review r1 R1-03).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
-      "build_platform": "linux/amd64",
-      "prebuilt_image": "niicloudoperation/rdm-ember-osf-web@sha256:65ee1fae52a33ec7dbc42546f5b3a240dddd70eb963d1ebe2ededa80135cc2e7",
       "profile": "core",
       "role": "core",
       "services": [
         "ember_osf_web"
       ],
       "target_image": {
-        "M4": "node LTS alpine, non-root",
+        "M4": "Node LTS build stage, nginx-unprivileged static, non-root",
         "M5": null
       },
       "upstreams": [
@@ -573,7 +571,7 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
-      "integration_sha": "d4d1cfaed2e4b10362237df1f3424b2a076a56fb",
+      "integration_sha": "97252369cf7e818f61d02dfb447ff76a213789fb",
       "integration_repo": "RDM-y-websocket-dev2027",
       "note": "Built from the pinned checkout, which enforces JWT authentication (RDM-osf.io#797), with the recipe in this repository instead of the integration repository's Dockerfile: dependencies come from the checkout's package-lock.json (npm ci) and the running image has no npm or yarn (SPEC-01 build_dockerfile).",
       "platforms": [
