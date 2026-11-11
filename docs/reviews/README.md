@@ -53,17 +53,18 @@ A review record includes:
 
 Nine review records written on 2026-11-10 were never saved in this folder: they lived only in a scratch directory of a session that ended. They are **not recreated**, because a record rebuilt from memory would not say what REV actually checked. Each one was posted as a comment on its pull request by REV (Codex Astra), and that comment is the reference. The repositories are private; they are named here by name and number only. The comment ID is the number at the end of the comment's address on the pull request page.
 
-| Repository | PR | Round | REV comment ID | Posted (UTC) | Verdict | Head reviewed |
-|---|---|---|---|---|---|---|
-| RDM-osf.io-dev2027 | #8 | r1 | 6757009993 | 2026-11-10 02:12 | changes requested（要修正） | `e7f23e13141f` |
-| RDM-osf.io-dev2027 | #8 | r2 | 6758141691 | 2026-11-10 03:28 | changes requested（要修正） | `8bb07f17c2` |
-| RDM-osf.io-dev2027 | #8 | r3 | 6759472716 | 2026-11-10 05:03 | pass（R2 の差分） | `49e5521451` |
-| RDM-osf.io-dev2027 | #10 | r1 | 6759171742 | 2026-11-10 04:41 | changes requested（要修正） | `5355858363b6` |
-| RDM-osf.io-dev2027 | #11 | r1 | 6759274738 | 2026-11-10 04:48 | changes requested（要修正） | `75ceaf5cb492` |
-| RDM-osf.io-dev2027 | #11 | r2 | 6760403905 | 2026-11-10 06:08 | changes requested（要修正） | `58ba83af4b7c` |
-| RDM-osf.io-dev2027 | #11 | r3 | 6763524193 | 2026-11-10 09:13 | pass（差分 58ba83a..3eb4042） | `3eb4042` |
-| RDM-osf.io-dev2027 | #12 | r1 | 6763575801 | 2026-11-10 09:16 | changes requested（要修正） | `aa30a37d` |
-| RDM-osf.io-dev2027 | #13 | r1 | 6763600948 | 2026-11-10 09:17 | changes requested（要修正） | `ef9e64261b` |
+```toon
+missing_records[9]{repository,pr,round,comment_id,posted_utc,verdict,head}:
+  RDM-osf.io-dev2027,#8,r1,6757009993,"2026-11-10 02:12","changes requested",e7f23e13141f
+  RDM-osf.io-dev2027,#8,r2,6758141691,"2026-11-10 03:28","changes requested",8bb07f17c2
+  RDM-osf.io-dev2027,#8,r3,6759472716,"2026-11-10 05:03","pass (R2 delta)",49e5521451
+  RDM-osf.io-dev2027,#10,r1,6759171742,"2026-11-10 04:41","changes requested",5355858363b6
+  RDM-osf.io-dev2027,#11,r1,6759274738,"2026-11-10 04:48","changes requested",75ceaf5cb492
+  RDM-osf.io-dev2027,#11,r2,6760403905,"2026-11-10 06:08","changes requested",58ba83af4b7c
+  RDM-osf.io-dev2027,#11,r3,6763524193,"2026-11-10 09:13","pass (delta 58ba83a..3eb4042)",3eb4042
+  RDM-osf.io-dev2027,#12,r1,6763575801,"2026-11-10 09:16","changes requested",aa30a37d
+  RDM-osf.io-dev2027,#13,r1,6763600948,"2026-11-10 09:17","changes requested",ef9e64261b
+```
 
 The owner decided on 2026-11-12 to note the gap and refer to these comments. From now on a review record is placed in this folder as soon as REV finishes it.
 
@@ -110,17 +111,18 @@ The owner decided on 2026-11-12 to note the gap and refer to these comments. Fro
 
 2026-11-10 に書かれたレビュー記録 9 件は、この場所に保存されませんでした。終了したセッションの作業用ディレクトリにだけあったためです。記憶から作り直した記録は REV が実際に何を調べたかを語れないので、**作り直しません**。各記録は、REV（Codex Astra）が PR へのコメントとして投稿しており、そのコメントを参照先とします。リポジトリは非公開なので、ここでは名前と番号だけを書きます。コメント ID は、PR のページにあるコメントのアドレスの末尾の数字です。
 
-| リポジトリ | PR | 回 | REV のコメント ID | 投稿（UTC） | 判定 | 対象の先頭 |
-|---|---|---|---|---|---|---|
-| RDM-osf.io-dev2027 | #8 | r1 | 6757009993 | 2026-11-10 02:12 | changes requested（要修正） | `e7f23e13141f` |
-| RDM-osf.io-dev2027 | #8 | r2 | 6758141691 | 2026-11-10 03:28 | changes requested（要修正） | `8bb07f17c2` |
-| RDM-osf.io-dev2027 | #8 | r3 | 6759472716 | 2026-11-10 05:03 | pass（R2 の差分） | `49e5521451` |
-| RDM-osf.io-dev2027 | #10 | r1 | 6759171742 | 2026-11-10 04:41 | changes requested（要修正） | `5355858363b6` |
-| RDM-osf.io-dev2027 | #11 | r1 | 6759274738 | 2026-11-10 04:48 | changes requested（要修正） | `75ceaf5cb492` |
-| RDM-osf.io-dev2027 | #11 | r2 | 6760403905 | 2026-11-10 06:08 | changes requested（要修正） | `58ba83af4b7c` |
-| RDM-osf.io-dev2027 | #11 | r3 | 6763524193 | 2026-11-10 09:13 | pass（差分 58ba83a..3eb4042） | `3eb4042` |
-| RDM-osf.io-dev2027 | #12 | r1 | 6763575801 | 2026-11-10 09:16 | changes requested（要修正） | `aa30a37d` |
-| RDM-osf.io-dev2027 | #13 | r1 | 6763600948 | 2026-11-10 09:17 | changes requested（要修正） | `ef9e64261b` |
+```toon
+missing_records[9]{repository,pr,round,comment_id,posted_utc,verdict,head}:
+  RDM-osf.io-dev2027,#8,r1,6757009993,"2026-11-10 02:12","changes requested（要修正）",e7f23e13141f
+  RDM-osf.io-dev2027,#8,r2,6758141691,"2026-11-10 03:28","changes requested（要修正）",8bb07f17c2
+  RDM-osf.io-dev2027,#8,r3,6759472716,"2026-11-10 05:03","pass（R2 の差分）",49e5521451
+  RDM-osf.io-dev2027,#10,r1,6759171742,"2026-11-10 04:41","changes requested（要修正）",5355858363b6
+  RDM-osf.io-dev2027,#11,r1,6759274738,"2026-11-10 04:48","changes requested（要修正）",75ceaf5cb492
+  RDM-osf.io-dev2027,#11,r2,6760403905,"2026-11-10 06:08","changes requested（要修正）",58ba83af4b7c
+  RDM-osf.io-dev2027,#11,r3,6763524193,"2026-11-10 09:13","pass（差分 58ba83a..3eb4042）",3eb4042
+  RDM-osf.io-dev2027,#12,r1,6763575801,"2026-11-10 09:16","changes requested（要修正）",aa30a37d
+  RDM-osf.io-dev2027,#13,r1,6763600948,"2026-11-10 09:17","changes requested（要修正）",ef9e64261b
+```
 
 所有者は 2026-11-12 に、欠落を明記してこれらのコメントを参照することに決めました。以後、REV のレビュー記録は完了したらすぐにこの場所へ収めます。
 
