@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.9 — 2026-11-10. **Learned:** an install command that works on a desktop can fail on a server image: on the Ubuntu 24.04 cloud image Playwright's own driver would not start without `libatomic1`, and Chromium needs system libraries, so on Linux the printed command installs both ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)). ／ デスクトップで動く導入コマンドがサーバーのイメージでは失敗しうる。Ubuntu 24.04 のクラウドイメージでは Playwright 自身のドライバーが `libatomic1` 無しに起動せず、Chromium にはシステムのライブラリが要る。そこで Linux では表示するコマンドが両方を入れる（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。
+- Version / 版: 0.10 — 2026-11-12. **Learned:** a second sign-in step is an acceptance matter, not only a unit-test matter: the admin screen cannot be reached by a seeded administrator with a password alone any more, so the seed must enrol the second factor with a secret the test owns, and the scenarios that edited through ShareJS had to move to the room that replaced it (C7). ／ 2 段階目のサインインは、単体試験だけでなく受入の問題である。種データの管理者はパスワードだけでは管理画面に届かなくなったので、種データが試験の持つ秘密で 2 段階目を登録しなければならず、ShareJS で編集していたシナリオは、それに替わった部屋へ移す必要があった（C7）。
+  0.9 — 2026-11-10. **Learned:** an install command that works on a desktop can fail on a server image: on the Ubuntu 24.04 cloud image Playwright's own driver would not start without `libatomic1`, and Chromium needs system libraries, so on Linux the printed command installs both ([DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)). ／ デスクトップで動く導入コマンドがサーバーのイメージでは失敗しうる。Ubuntu 24.04 のクラウドイメージでは Playwright 自身のドライバーが `libatomic1` 無しに起動せず、Chromium にはシステムのライブラリが要る。そこで Linux では表示するコマンドが両方を入れる（[DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md)）。
 - Version / 版: 0.8 — 2026-11-10. **Learned:** a known-asset exception written as a path prefix also accepts lookalike and unlisted paths, so a false pass was possible; each entry now names a whole path, an exact endpoint or a version plus file name (PR #35 review r1, R1-02). ／ パスの先頭で書いた既知資産の例外は、似たパスや一覧にないパスも受け入れ、偽の合格を生み得ると分かった。各項目はパス全体（正確な endpoint、または版とファイル名）で定める（PR #35 レビュー r1、R1-02）。
 - Version / 版: 0.7 — 2026-11-09. **Learned:** the GRDM pages of today load a few third-party assets (first real login, acceptance run 9), so "abort and fail" alone would keep every browser scenario red; rule 4 now keeps blocking them and counts only a fixed list that must be empty at M5. ／ 現在の GRDM の画面は少数の外部資産を読み込む（初の実ログイン、受入第 9 回）ため、「中断して失敗」だけではすべてのブラウザシナリオが不合格のままになる。規則 4 は遮断を続け、M5 までに空にする固定の一覧だけを件数の記録にとどめる。
 - Version / 版: 0.6 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -55,16 +56,19 @@ Acceptance tests drive a real browser against the environment that [SPEC-02](02_
 ### 4. Core scenarios (M2)
 
 ```toon
-core_scenarios[6]{id,scenario,success_case,rejection_case,services}:
+core_scenarios[7]{id,scenario,success_case,rejection_case,services}:
   C1,Login via fakecas,test user signs in and sees dashboard,"GET /dashboard without session -> 302 to login; API GET /v2/users/me/ -> 401","web api fakecas"
   C2,Create project,new project appears with title and user as admin,"second user (contributor read-only) PATCH /v2/nodes/<id>/ -> 403","web api"
   C3,Upload and download file,upload via waterbutler then download bytes equal,"anonymous GET of private file -> 401/403; non-contributor PUT -> 403","wb wb_worker osfstorage"
-  C4,Wiki collaborative edit,two browser contexts type and both see merged text,"logged-out context connecting to wiki websocket -> closed with 4401","web y_websocket sharejs"
+  C4,Wiki collaborative edit,two browser contexts type and both see merged text,"logged-out context connecting to wiki websocket -> closed with 4401","web y_websocket"
   C5,File preview,uploaded PDF renders in mfr iframe,"preview URL of private file without session -> 401/403","mfr unoconv"
   C6,Institution admin screen,institution admin lists institution users,"ordinary user opens admin URL -> 403 or redirect; API -> 403","admin api"
+  C7,File page collaborative edit,"two users edit one text file in the Edit panel; each sees the other's text within 5 s","socket without a token -> closed with 4401; non-contributor token request -> 403","web y_websocket"
 ```
 
 Scenario C4 uses two independent Playwright *browser contexts* (two separate browsers in one test, with their own cookies) so that the second user's cursor and text appear in the first user's page through the `y-websocket` service. `y_websocket` is part of the `core` profile ([SPEC-02 §4](02_installer_cli.md#2-en-ports)) because collaborative editing is an M2 scenario, so C4 runs and must pass in both `core` and `full`; it never skips.
+
+Scenario C6 logs in to the admin app in two steps: the password, then a one-time code (RDM-osf.io-dev2027 PR #10). `accept --seed` enrols and confirms the seeded administrator before the run with a random secret that only the test receives (`GRDM_ACCEPT_ADMIN_TOTP_SECRET`, masked in every report); the test computes the RFC 6238 code itself and never uses the grace setting that would let an administrator in without it, so the password alone must stop at the second step. A code is accepted once per 30 s step, so the helper waits for the next step instead of repeating one. Scenario C7 repeats C4 on the Edit panel of a file page, which moved from ShareJS to y-websocket in RDM-osf.io-dev2027 PR #12 ([ADR-13 §6](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)): it is the acceptance proof that the stack needs neither `sharejs` nor `mongo`. With `ENABLE_PUBLIC_ACCESS=false` (the default of `compose render`, [SPEC-02 §3](02_installer_cli.md#english)) every scenario already runs signed in, so nothing here depends on anonymous access, and the rejection cases double as checks of the mandatory sign-in.
 
 ### 5. Subsystem scenarios (M3)
 
@@ -129,7 +133,7 @@ evidence:
 
 | Milestone | Required green | Host | Note |
 |---|---|---|---|
-| M2 | C1–C6, every success and rejection case | Mac Studio arm64 (self-hosted runner) | amd64: `grdm-dev build --platform linux/amd64` succeeds on a GitHub runner; no acceptance |
+| M2 | C1–C7, every success and rejection case | Mac Studio arm64 (self-hosted runner) | amd64: `grdm-dev build --platform linux/amd64` succeeds on a GitHub runner; no acceptance |
 | M3 | M2 plus S1–S5 | Mac Studio arm64 | Shibboleth profile run separately from fakecas profile |
 | M4 | M3, unchanged after Python 3.13 migration | Mac Studio arm64 | Acceptance is the regression gate for the port |
 | M5 | M4 plus [SPEC-03](03_security_gate.md) final gate | Mac Studio arm64 and Ubuntu 24.04 amd64 | Full acceptance on both architectures |
@@ -176,16 +180,19 @@ The Mac Studio self-hosted runner is registered only with the private `-dev2027`
 ### 4. コアのシナリオ（M2）
 
 ```toon
-core_scenarios[6]{id,scenario,success_case,rejection_case,services}:
+core_scenarios[7]{id,scenario,success_case,rejection_case,services}:
   C1,fakecas でログイン,試験利用者がログインしダッシュボードを見る,"セッションなしで GET /dashboard -> ログインへ 302。API GET /v2/users/me/ -> 401","web api fakecas"
   C2,プロジェクト作成,題名付きの新プロジェクトができ利用者が管理者になる,"二人目（読取のみの共同研究者）が PATCH /v2/nodes/<id>/ -> 403","web api"
   C3,ファイルの上下載,waterbutler で上げたファイルを下ろしバイト列が一致,"匿名で非公開ファイルを GET -> 401/403。共同研究者でない人が PUT -> 403","wb wb_worker osfstorage"
   C4,Wiki 共同編集,二つのブラウザ文脈で入力し双方に統合された文が見える,"ログアウトした文脈が wiki の websocket に接続 -> 4401 で切断","web y_websocket sharejs"
   C5,ファイルプレビュー,上げた PDF が mfr の iframe に描かれる,"セッションなしで非公開ファイルのプレビュー URL -> 401/403","mfr unoconv"
   C6,機関管理画面,機関管理者が機関の利用者一覧を見る,"一般利用者が管理 URL を開く -> 403 か転送。API -> 403","admin api"
+  C7,ファイルページの共同編集,"二人が編集パネルで一つのテキストファイルを編集し、互いの文が 5 秒以内に見える","トークンなしのソケットが 4401 で閉じる。非共同作業者のトークン要求が 403","web y_websocket"
 ```
 
 シナリオ C4 は独立した二つの Playwright の「ブラウザ文脈」（一つの試験の中にある、cookie を別々に持つ二つのブラウザ）を使い、二人目の文字が `y-websocket` サービスを通して一人目の画面に現れることを確かめます。共同編集は M2 のシナリオなので `y_websocket` は `core` プロファイルに含まれ（[SPEC-02 §4](02_installer_cli.md#2-ja-ports)）、C4 は `core` でも `full` でも実行して合格が必須です。スキップはしません。
+
+シナリオ C6 は管理アプリに 2 段階でログインする。パスワードのあと、ワンタイムコードを入れる（RDM-osf.io-dev2027 PR #10）。`accept --seed` は実行の前に、種データの管理者を、試験だけが受け取るランダムな秘密（`GRDM_ACCEPT_ADMIN_TOTP_SECRET`。どの報告でも伏せ字）で登録・確認済みにし、試験は RFC 6238 のコードを自分で計算する。猶予の設定（これがあると管理者がコード無しで入れる）は決して使わないので、パスワードだけでは 2 段階目で止まらなければならない。コードは 30 秒の区間ごとに一度しか通らないので、補助関数は同じ区間のコードを繰り返さず、次の区間まで待つ。シナリオ C7 は C4 を、RDM-osf.io-dev2027 PR #12 で ShareJS から y-websocket に移ったファイルページの編集パネルで繰り返す（[ADR-13 §6](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)）。スタックに `sharejs` も `mongo` も要らないことの受入の証明である。`ENABLE_PUBLIC_ACCESS=false`（`compose render` の既定、[SPEC-02 §3](02_installer_cli.md#japanese)）では、どのシナリオもすでにログインして動くので、匿名のアクセスに頼るものはなく、拒否のケースは必須サインインの確認も兼ねる。
 
 ### 5. サブシステムのシナリオ（M3）
 
@@ -250,7 +257,7 @@ evidence:
 
 | 節目 | 全件合格が必要なもの | ホスト | 備考 |
 |---|---|---|---|
-| M2 | C1〜C6 の成功・拒否ケースすべて | Mac Studio arm64（セルフホストランナー） | amd64 は GitHub ランナーで `grdm-dev build --platform linux/amd64` が成功すること。受入は行わない |
+| M2 | C1〜C7 の成功・拒否ケースすべて | Mac Studio arm64（セルフホストランナー） | amd64 は GitHub ランナーで `grdm-dev build --platform linux/amd64` が成功すること。受入は行わない |
 | M3 | M2 に加え S1〜S5 | Mac Studio arm64 | Shibboleth プロファイルは fakecas プロファイルと別に実行 |
 | M4 | M3 が Python 3.13 移植後も変わらず合格 | Mac Studio arm64 | 受入が移植の回帰判定の門になる |
 | M5 | M4 に加え [SPEC-03](03_security_gate.md) の最終の門 | Mac Studio arm64 と Ubuntu 24.04 amd64 | 両アーキテクチャで全受入 |

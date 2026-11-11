@@ -5,10 +5,11 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-10. **Learned:** the header must say what the body records: once §4 held the owner's choices, "nothing yet" was wrong, while the record stays Proposed (PR #42 review r2). ／ 見出しは本文が記録するものを言わなければならない。§4 が所有者の選択を持った時点で「まだ無い」は誤りになったが、記録自体は提案中のまま（PR #42 レビュー r2）。
+- Version / 版: 0.4 — 2026-11-12. **Learned:** a retirement plan is finished when the consumer is gone, not when the replacement exists: sharejs and mongo could leave the installer only after osf.io's own reader (PR #12) was removed, and the ES 2 service only after osf.io's client moved (PR #11), so §6 records the order the installer followed and what is still left (Elasticsearch 6 for the metrics client). ／ 退役の計画は、置き換えができたときでなく、使う側がなくなったときに終わる。sharejs と mongo がインストーラーから消えてよいのは osf.io 自身の読み手（PR #12）が消えた後であり、ES 2 のサービスは osf.io のクライアントが移った後（PR #11）だった。§6 は、インストーラーが従った順序と、まだ残るもの（メトリクスのクライアントのための Elasticsearch 6）を記録する。
+  0.3 — 2026-11-10. **Learned:** the header must say what the body records: once §4 held the owner's choices, "nothing yet" was wrong, while the record stays Proposed (PR #42 review r2). ／ 見出しは本文が記録するものを言わなければならない。§4 が所有者の選択を持った時点で「まだ無い」は誤りになったが、記録自体は提案中のまま（PR #42 レビュー r2）。
   0.2 — 2026-11-10. **Learned:** a finding is only as wide as its measurement: the drafts claim covered one reader, the line count is a code surface rather than work measured, and "every page" meant the probed entry points; and once the owner has chosen, the record keeps the options as the reasons for the choice (§4, PR #42 review r1). ／ 事実の広さは測定の広さまでである。下書きの主張は一つの読み手にしか及ばず、行数は作業量の実測ではなくコードの範囲で、「すべてのページ」は調べた入口のことだった。所有者が選んだ後は、選択肢を選んだ理由として記録に残す（§4、PR #42 レビュー r1）。
   0.1 — 2026-11-10. **Learned:** a setting that "disables" a backend is not a supported mode until every reader handles the empty answer: `SEARCH_ENGINE = None` was accepted by every write path and broke every read path, and a client library pinned to an old server fails on the first header before any real incompatibility shows. ／ バックエンドを「無効にする」設定は、すべての読み手が空の答えを扱えるまで、支えられた動作モードではない。`SEARCH_ENGINE = None` はすべての書き込みの経路に受け入れられ、すべての読み取りの経路を壊した。また古いサーバーに合わせたクライアントライブラリは、本当の非互換が見える前に最初のヘッダーで失敗する。
-- Status: Proposed (2026-11-10, M5 groundwork); the owner approves the record. The owner chose the paths on 2026-11-10 (§4); nothing is removed by this record.
+- Status: Proposed (2026-11-10, M5 groundwork); the owner approves the record. The owner chose the paths on 2026-11-10 (§4); the installer side of both is implemented in §6 (ADR-14 for Elasticsearch 8).
 - Records a decision for: the owner's chosen direction of 2026-11-10 (§4) — the Elasticsearch 8 port and the move of the file-page editor to y-websocket before sharejs and mongo are retired. The record itself stays Proposed, and the implementations are other pull requests: this one removes nothing. It will change `manifest/upstreams.json` (`elasticsearch2`, `mongo`, `sharejs`), [SPEC-04](../spec/04_acceptance_tests.md#english) (C4 services) and the osf.io integration repository.
 - Related: [docs/decisions/README.md](README.md) · [ADR-07 §5](ADR-07_Native_Builds_of_EOL_Middleware.md#english) (sharejs on Node 24) · [ADR-12 PostgreSQL 18](ADR-12_PostgreSQL_18_and_Data_Directory_Upgrade.md) · [Status board](../status/README.md#english)
 
@@ -112,6 +113,14 @@ _search.search = _empty
 _search.search_contributor = search_contributor
 ```
 
+### 6. Implementation in the installer (2026-11-12)
+
+The order the installer followed, one consumer at a time:
+
+1. *RDM-osf.io-dev2027 PR #12* (merged): the file page and the wiki edit on y-websocket and osf.io no longer reads MongoDB (`pymongo` stays only for `bson`). Only then were `sharejs`, `mongo`, `templates/sharejs.json`, `templates/mongo.json`, `installer/images/sharejs/`, `sharejs.env`, the loopback port 7007, `SHAREJS_URL`, the volumes `mongo_data` and `mongo_tls`, `SHAREJS_SECRET` and the mongo hardening exception removed. y-websocket gained a volume (`y_websocket_data`) and `YPERSISTENCE=/data` with `YPERSISTENCE_DOC_PREFIX=file-`, so drafts of file rooms survive a restart and the last user leaving (the question of step 2); wiki rooms stay in memory. osf.io receives `Y_WEBSOCKET_INTERNAL_URL` (it deletes the room of a replaced file version) and the shared secret.
+2. *RDM-osf.io-dev2027 PR #11*: Elasticsearch 8, recorded in [ADR-14](ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md). The `elasticsearch2` component, `templates/elasticsearch.json` (kept as a pointer for review links) and the recipe `installer/images/elasticsearch2/` (kept as a pointer) are gone; the osf_init wait loop for the emulated ES 2 became `invoke search_ensure_index`.
+3. *Left:* `elasticsearch6` (the metrics client), PostgreSQL 15 or later is done (ADR-12). M5's "ES2 and mongo removed" is therefore met in the installer; the rest of M5 (zero CRITICAL/HIGH, red team) is not part of this record.
+
 ---
 
 <a id="japanese"></a>
@@ -173,6 +182,14 @@ paths[3]{path,where,cost,keeps}:
 ### 5. 道 B の試作（著者の報告）
 
 測定のログと試作は使い捨てのファイルだったので、§2 の数値は著者の報告による。再現のための試作を英語の節 §5 に載せた。Django が検索のモジュールを用意する前に読み込んだ。
+
+### 6. インストーラーでの実施（2026-11-12）
+
+インストーラーが従った順序。使う側を一つずつなくした。
+
+1. *RDM-osf.io-dev2027 PR #12*（マージ済み）: ファイルページと wiki が y-websocket で編集され、osf.io は MongoDB を読まなくなった（`pymongo` は `bson` のためだけに残る）。それを待って初めて、`sharejs`、`mongo`、`templates/sharejs.json`、`templates/mongo.json`、`installer/images/sharejs/`、`sharejs.env`、ループバックのポート 7007、`SHAREJS_URL`、ボリューム `mongo_data` と `mongo_tls`、`SHAREJS_SECRET`、mongo の堅牢化の例外を外した。y-websocket にはボリューム（`y_websocket_data`）と `YPERSISTENCE=/data`、`YPERSISTENCE_DOC_PREFIX=file-` を与え、ファイルの部屋の下書きが再起動と最後の利用者の退出を越えて残るようにした（手順 2 の問い）。wiki の部屋はメモリのまま。osf.io には `Y_WEBSOCKET_INTERNAL_URL`（置き換えたファイル版の部屋を消すため）と共通の秘密を渡す。
+2. *RDM-osf.io-dev2027 PR #11*: Elasticsearch 8（[ADR-14](ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md)）。部品 `elasticsearch2`、`templates/elasticsearch.json`（レビューのリンクのため指し示すだけのファイルとして残す）、レシピ `installer/images/elasticsearch2/`（同じく指し示すだけ）は無くなり、エミュレーションの ES 2 を待つ osf_init のループは `invoke search_ensure_index` になった。
+3. *残り:* `elasticsearch6`（メトリクスのクライアント）。PostgreSQL 15 以降は済んでいる（ADR-12）。したがって M5 の「ES2・mongo 廃止」はインストーラーでは満たされ、M5 の残り（CRITICAL/HIGH ゼロ、レッドチーム）はこの記録の対象ではない。
 
 ---
 

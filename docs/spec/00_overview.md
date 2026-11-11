@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.5 — 2026-11-10. **Learned:** per-volume init containers multiplied hardening exceptions and still missed redis and the other uid-1000 volumes, so one generic owner step, derived from each volume's writers, replaces them (cross-OS audit, 2026-11-10). ／ ボリュームごとの init コンテナは堅牢化の例外を増やすだけで redis や他の uid 1000 のボリュームを取りこぼしていた。各ボリュームの書き手から導く一つの汎用の所有者設定の段に置き換えると分かった（OS 横断の監査、2026-11-10）。
+- Version / 版: 0.6 — 2026-11-12. **Learned:** an inventory that is also a diagram has two places to go stale: the retired components were removed from the table, the diagram and the sentence about them together, and the component count (20 to 18) is now the one `manifest check` compares with the TOON excerpt. ／ 図でもある部品の一覧は、古くなる場所が二つある。退役した部品は表・図・それについての文から同時に外し、部品数（20 から 18）は `manifest check` が TOON の抜粋と照らし合わせる数になった。
+  0.5 — 2026-11-10. **Learned:** per-volume init containers multiplied hardening exceptions and still missed redis and the other uid-1000 volumes, so one generic owner step, derived from each volume's writers, replaces them (cross-OS audit, 2026-11-10). ／ ボリュームごとの init コンテナは堅牢化の例外を増やすだけで redis や他の uid 1000 のボリュームを取りこぼしていた。各ボリュームの書き手から導く一つの汎用の所有者設定の段に置き換えると分かった（OS 横断の監査、2026-11-10）。
 - Version / 版: 0.4 — 2026-11-06. **Learned:** a component can be a repository whose image is only a build tool: wiki-frontend is an overlay built from the osf.io tree plus its files, and its single service `wiki_assets` runs once to copy the wiki editor bundle into a volume, so the inventory shows that service, not a `wiki` server ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)); and, independently, a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 部品のイメージがビルド道具にすぎないこともあると分かった。wiki-frontend は osf.io の木に自分のファイルを重ねて組むオーバーレイで、唯一のサービス `wiki_assets` は Wiki エディタの束をボリュームへ写すために一度だけ動く。一覧には `wiki` サーバでなくそのサービスを載せる（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。また別に、用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.3 — 2026-11-06. **Learned:** a component can be a repository whose image is only a build tool: wiki-frontend is an overlay built from the osf.io tree plus its files, and its single service `wiki_assets` runs once to copy the wiki editor bundle into a volume, so the inventory shows that service, not a `wiki` server ([SPEC-01 §3](01_manifest.md#english) `overlay_of`, [ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)). ／ 部品のイメージがビルド道具にすぎないこともあると分かった。wiki-frontend は osf.io の木に自分のファイルを重ねて組むオーバーレイで、唯一のサービス `wiki_assets` は Wiki エディタの束をボリュームへ写すために一度だけ動く。一覧には `wiki` サーバでなくそのサービスを載せる（[SPEC-01 §3](01_manifest.md#japanese) の `overlay_of`、[ADR-06](../decisions/ADR-06_Wiki_Frontend_Overlay.md)）。
 - Version / 版: 0.3 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
@@ -53,11 +54,10 @@ flowchart LR
   end
   subgraph infra["Infrastructure"]
     PG[(postgres)]
-    ES[(elasticsearch)]
+    ES[(elasticsearch8)]
+    ES6[(elasticsearch6)]
     MQ[rabbitmq]
-    MG[("mongo (legacy)")]
     RD[(redis)]
-    SJ[sharejs]
     UNO[unoconv]
   end
   subgraph subs["Subsystems (y-websocket in profile core, the others in full)"]
@@ -69,7 +69,7 @@ flowchart LR
   end
   B --> EMB & OSFW & OSFA & OSFM & CAS & WIKI
   OSFW & OSFA & OSFM & OSFK --> PG & ES & MQ & RD
-  OSFW --> SJ & MG
+  OSFW & OSFA --> ES6
   WB --> OSFA
   MFR --> WB & UNO
   WIKI --> YWS
@@ -82,7 +82,7 @@ The inventory in TOON (a compact text form of JSON; see [SPEC-06 §4](06_documen
 
 <!-- canonical: manifest/upstreams.json -->
 ```toon
-components[20]{id,role,services,integration_repo,profile}:
+components[18]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
   waterbutler,core,"wb,wb_worker",RDM-waterbutler-dev2027,core
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
@@ -90,12 +90,10 @@ components[20]{id,role,services,integration_repo,profile}:
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
   wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
-  elasticsearch2,infra,elasticsearch,null,minimum
+  elasticsearch8,infra,"elasticsearch8,elasticsearch8_setup",null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
   rabbitmq,infra,rabbitmq,null,minimum
-  mongo,infra,mongo,null,core
   redis,infra,redis,null,core
-  sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
   y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
@@ -105,7 +103,7 @@ components[20]{id,role,services,integration_repo,profile}:
   aipf_mcp_data_grdm,subsystem,aipf_mcp_data_grdm,RDM-aipf_mcp_data_grdm-dev2027,full
 ```
 
-`mongo` and `elasticsearch2` are legacy and are removed at M5 ([§5](#5-milestone-ladder)).
+`mongo`, `sharejs` and `elasticsearch2` are gone: Elasticsearch 8 replaced Elasticsearch 2 ([ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md)) and the editors moved to y-websocket ([ADR-13 §6](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#english)); `elasticsearch6` stays for the metrics client.
 
 `fakecas` and the Shibboleth (the software that lets you log in once with your university account; see [REF-01](../reference/REF-01_Glossary.md)) test IdP (an *IdP*, identity provider, is the server that checks who you are when you log in) are both login helpers for development. They are mutually exclusive: the installer starts one or the other, never both.
 
@@ -215,11 +213,10 @@ flowchart LR
   end
   subgraph infra["基盤"]
     PG[(postgres)]
-    ES[(elasticsearch)]
+    ES[(elasticsearch8)]
+    ES6[(elasticsearch6)]
     MQ[rabbitmq]
-    MG[("mongo（旧）")]
     RD[(redis)]
-    SJ[sharejs]
     UNO[unoconv]
   end
   subgraph subs["サブシステム（y-websocket は core、ほかは full）"]
@@ -231,7 +228,7 @@ flowchart LR
   end
   B --> EMB & OSFW & OSFA & OSFM & CAS & WIKI
   OSFW & OSFA & OSFM & OSFK --> PG & ES & MQ & RD
-  OSFW --> SJ & MG
+  OSFW & OSFA --> ES6
   WB --> OSFA
   MFR --> WB & UNO
   WIKI --> YWS
@@ -244,7 +241,7 @@ flowchart LR
 
 <!-- canonical: manifest/upstreams.json -->
 ```toon
-components[20]{id,role,services,integration_repo,profile}:
+components[18]{id,role,services,integration_repo,profile}:
   osf.io,core,"web,api,admin,worker",RDM-osf.io-dev2027,minimum
   waterbutler,core,"wb,wb_worker",RDM-waterbutler-dev2027,core
   modular-file-renderer,core,mfr,RDM-modular-file-renderer-dev2027,core
@@ -252,12 +249,10 @@ components[20]{id,role,services,integration_repo,profile}:
   cas-overlay,core,cas,RDM-cas-overlay-dev2027,core
   wiki-frontend,core,wiki_assets,RDM-wiki-frontend-dev2027,core
   postgres,infra,postgres,null,minimum
-  elasticsearch2,infra,elasticsearch,null,minimum
+  elasticsearch8,infra,"elasticsearch8,elasticsearch8_setup",null,minimum
   elasticsearch6,infra,elasticsearch6,null,core
   rabbitmq,infra,rabbitmq,null,minimum
-  mongo,infra,mongo,null,core
   redis,infra,redis,null,core
-  sharejs,infra,sharejs,null,core
   unoconv,infra,unoconv,null,core
   fakecas,infra,fakecas,null,minimum
   y-websocket,subsystem,y_websocket,RDM-y-websocket-dev2027,core
@@ -267,7 +262,7 @@ components[20]{id,role,services,integration_repo,profile}:
   aipf_mcp_data_grdm,subsystem,aipf_mcp_data_grdm,RDM-aipf_mcp_data_grdm-dev2027,full
 ```
 
-`mongo` と `elasticsearch2` は旧来の部品で、M5 で廃止します（[§5](#5-節目のはしご)）。
+`mongo`・`sharejs`・`elasticsearch2` は無くなりました。Elasticsearch 8 が Elasticsearch 2 に替わり（[ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md)）、編集は y-websocket へ移りました（[ADR-13 §6](../decisions/ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md#japanese)）。`elasticsearch6` はメトリクスのクライアントのために残ります。
 
 `fakecas` と Shibboleth（大学のアカウントで一度ログインすれば済むようにするソフト。[REF-01](../reference/REF-01_Glossary.md)）のテスト IdP（IdP＝アイデンティティプロバイダ。ログインのときに「あなたは誰か」を確かめるサーバ）は、どちらも開発用のログインの助け役です。二つは排他で、インストーラーはどちらか一方だけを起動します。
 
