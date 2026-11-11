@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
+- Version / 版: 0.19 — 2026-11-12. **Learned:** a candidate that combines unmerged pull requests proves the installer, not the pull requests: the first acceptance run found three defects that none of the unit tests or any single PR could show (a development server that stalls on Django 2.2, a CDN script the static ember names, a WaterButler that sends no CORS header), and the run that passes records exactly which commits it combined and that they are not pushed. ／ 未マージの PR を組み合わせた候補が証明するのは、PR でなくインストーラーである。最初の受入は、単体試験にも一つの PR にも見えない欠陥を三つ見つけた（Django 2.2 で止まる開発用サーバー、静的な ember が名指しする CDN のスクリプト、CORS ヘッダーを送らない WaterButler）。合格した実行は、組み合わせたコミットが何で、push されていないことを正確に記録する。
+  0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
   0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same Trivy totals at MFR `9771b8cf` show that the merge changed nothing (the whole scan has one more ZAP MEDIUM, 10,983 → 10,984). ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ Trivy の件数になったことで、マージで何も変わっていないと分かる（検査全体では ZAP の MEDIUM が 1 件増え、10,983 → 10,984）。
   0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
   0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
@@ -573,6 +574,32 @@ Scan totals: 10,984 findings, of which 726 CRITICAL, 3,782 HIGH, 4,148 MEDIUM, 2
 
 **After PR #45 review r1 (same stack, 2026-11-11 14:18 UTC).** The allow-list matcher was changed (R1-01). Each of the 58 entries now names the exact `name@version` packages of its image, taken from the raw Trivy reports. A Trivy finding is accepted only while its `FixedVersion` is empty and its `Status` is a no-fix status, and only for the OS packages of that image. `scan` and `report` were run again, and both exited 0. `scan_20261111T141804Z` has the same totals as above: 10,984 open findings and 177 allow-listed, matched by all 58 entries. Replaying the stored reports `20261111T132241Z` through the new matcher gives the same 177. The new unit tests show that the old matcher accepted a fixed version, an unrelated package and a name prefix.
 
+### Acceptance run — 2026-11-12, local osf.io candidate with Elasticsearch 8, y-websocket only, mandatory sign-in and the admin second factor, 14 of 14
+
+Stack: the installer at branch `feat/installer-osf-integration` on the Mac Studio (project `grdm-dev`, Colima), from the previous pins and PostgreSQL 18. osf.io is a **local candidate, not a pushed commit**: RDM-osf.io-dev2027 develop `73ff43b3c2` (with #13 Django 2.2, #12 y-websocket editor, #14 render URL) merged with the heads of the open PR #8 (mandatory sign-in, `c9d293dd1a`), #10 (admin two-step sign-in, `834d1b62c0`) and #11 (Elasticsearch 8, `b4bc134188`); conflicts resolved by hand in `admin/common_auth/urls.py`, `admin/base/settings/defaults.py`, `api/base/authentication/backends.py`, `website/search/views.py`, `api/search/views.py`, `website/search/elastic_search.py` and `.github/scripts/ci/run-tests.sh`, which the three PRs will meet again when they are rebased). The manifest pins it at `9e1fb9c8597d` (served through a local bare mirror and `GIT_CONFIG_*` `url.<mirror>.insteadOf`; the installer has no local-source mechanism and gained none). y-websocket `97252369cf` (PR #5) and ember-osf-web `4180cb58bb` (PR #2, #3) are real merge commits.
+
+| Step | Exit | Result |
+|---|---|---|
+| `secrets rotate` | 40 | Rolled back by design: the old stack's former ember image did not become healthy in 300 s while the builds ran, so the old `runtime/.env` was restored; this is why `secrets init --missing` was added |
+| `secrets init --missing` | 0 | Added `ELASTIC8_PASSWORD` and `ELASTIC8_OSF_PASSWORD`, dropped `SHAREJS_SECRET`; no other value changed |
+| `compose render` | 0 | |
+| `build` | 0 | osf.io `9e1fb9c8597d` (about 55 min cold: `scipy` and friends compile on Alpine 3.9), y-websocket, ember-osf-web (static nginx), wiki-frontend overlay `9e1fb9c8597d-5985d18b75da`, `elasticsearch8:8.19.24-1` |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 23 services healthy; `elasticsearch8` healthy in 25 s; `osf_init` applied the merge migrations and `addons_twofactor` 0006/0007 and wrote the institutions into Elasticsearch 8; the sharejs, mongo and Elasticsearch 2 containers were removed as orphans |
+| `accept --seed --only core` (first) | 60 | 13 failing, three installer defects found and fixed (below) |
+| `accept --seed --only core` (final) | 0 | Run [`acc-20261111T230217Z-d8363c`](runs/acc-20261111T230217Z-d8363c/results.toon): **14 of 14 pass** (C1–C7, success and rejection) |
+| `scan` | 0 | `scan_20261111T231702Z` (commit `a14fb70`): baseline pass with no new exception (mongo's is gone, elasticsearch8 needs none); Trivy 22 targets, Semgrep, gitleaks ok; ZAP: `web` skipped with a note, `admin` and `ember_osf_web` scanned; gate report-only, pass |
+
+Defects found by the first acceptance run on the candidate, each fixed in the installer with a test:
+
+1. **`api` and `admin` stalled for 30 s at a time** (C2, C4, C6, C7 timed out; 12 errors at teardown). Django 2.2's development server keeps a connection open, and `runserver --nothreading` (what `invoke apiserver` starts) waits on a browser's idle second connection until the socket times out. Both now run the threaded `manage.py runserver`.
+2. **C1 and every browser scenario failed the loopback guard** on `https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js`, which the static ember `index.html` names although the build ships `/zxcvbn.js`. It is a version-pinned entry of the known external assets, and a finding for the ember repository.
+3. **The file page could not read its file** (C7, "Could not GET file contents"): the 3.13 WaterButler sends no CORS header when `CORS_ALLOW_ORIGIN` is empty. `wb.env` now lists exactly web's and ember's origins.
+
+Checked on the same stack outside the scenarios: an authenticated owner finds a private project through `/api/v1/search/` and API v2 (1 hit), another user finds none (0), user search returns only the user themself, anonymous search answers 401 (PR #8's boundary on the Elasticsearch 8 index); an administrator without TOTP lands on `/account/login/two-factor/setup/` and the admin pages redirect to the sign-in without the second factor; y-websocket's LevelDB in `y_websocket_data` holds the file rooms. Not run: amd64, a Linux host, the Shibboleth profile with admin `idp` mode, `ENABLE_PUBLIC_ACCESS=true`, the unpushed `images.yml` smoke test, and a migration of an installation that holds Elasticsearch 2 data (`invoke migrate_search`).
+
+Scan totals: 6,200 findings (CRITICAL 314, HIGH 1,875, MEDIUM 2,654, LOW 1,353, INFO 4) and 177 allow-listed by the 58 entries; the totals fell from 10,984 (CRITICAL 726, HIGH 3,782) because Elasticsearch 2, MongoDB and sharejs left the stack. The new `elasticsearch8` image adds 2 HIGH and 30 MEDIUM Trivy findings (listed per package, not allow-listed). `allowlist_baseline` is still 0 against 58 entries, so the M2 count condition stays open (status board).
+
 ---
 
 <a id="japanese"></a>
@@ -1118,6 +1145,32 @@ RDM-modular-file-renderer-dev2027 PR #7 は `9771b8cf` としてマージされ�
 検査の件数: 10,984 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,148、LOW 2,322、INFO 6。これとは別に、58 項目の許容リストで 177 件を許容した。道具ごとの内訳: Trivy 726/3,769/4,139/2,310（CRITICAL/HIGH/MEDIUM/LOW）、Semgrep は HIGH 12、gitleaks は 0、ZAP は HIGH 1・MEDIUM 9・LOW 12・INFO 6。ZAP の MEDIUM が 1 件多いことを除けば、上の実行と同じである。
 
 **PR #45 レビュー r1 の後（同じスタック、2026-11-11 14:18 UTC）。** 許容リストの照合を変えた（R1-01）。58 項目はそれぞれ、自分のイメージの正確な `name@version` のパッケージを名指しする。一覧は Trivy の生の報告から取った。Trivy の検出を許容するのは、`FixedVersion` が空で `Status` が修正版なしの状態の間だけで、対象はそのイメージの OS パッケージだけである。`scan` と `report` をやり直し、どちらも終了 0 だった。`scan_20261111T141804Z` の件数は上と同じで、未許容が 10,984 件、許容が 177 件。177 件は 58 項目すべてが当てはまった結果である。保存した報告 `20261111T132241Z` を新しい照合に通しても同じ 177 件になる。新しい単体試験では、古い照合が修正版のある検出、名指していないパッケージ、名前の前方一致を許容していたことが示された。
+
+### 受入の実行 — 2026-11-12、ローカルの osf.io 候補、Elasticsearch 8・y-websocket のみ・必須サインイン・管理者の第二要素、14 件中 14 件
+
+スタック: Mac Studio（プロジェクト `grdm-dev`、Colima）で、ブランチ `feat/installer-osf-integration` のインストーラーを、以前の固定版と PostgreSQL 18 から進めた。osf.io は**ローカルの候補で、push 済みのコミットではない**。RDM-osf.io-dev2027 の develop `73ff43b3c2`（#13 Django 2.2、#12 y-websocket のエディタ、#14 の render URL を含む）に、開いている PR #8（必須サインイン、`c9d293dd1a`）、#10（管理画面の 2 段階サインイン、`834d1b62c0`）、#11（Elasticsearch 8、`b4bc134188`）の先頭をマージしたもの。手で解消した競合は `admin/common_auth/urls.py`、`admin/base/settings/defaults.py`、`api/base/authentication/backends.py`、`website/search/views.py`、`api/search/views.py`、`website/search/elastic_search.py`、`.github/scripts/ci/run-tests.sh` で、三つの PR はリベースのときに同じものに出会う。manifest は `9e1fb9c8597d` に固定した（ローカルの bare ミラーと、`GIT_CONFIG_*` の `url.<ミラー>.insteadOf` で渡した。インストーラーにローカル参照の仕組みは無く、足してもいない）。y-websocket `97252369cf`（PR #5）と ember-osf-web `4180cb58bb`（PR #2・#3）は実際のマージコミットである。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `secrets rotate` | 40 | 設計どおり巻き戻した。ビルド中で旧スタックの以前の ember イメージが 300 秒で健全にならず、古い `runtime/.env` を戻した。このため `secrets init --missing` を足した |
+| `secrets init --missing` | 0 | `ELASTIC8_PASSWORD` と `ELASTIC8_OSF_PASSWORD` を足し、`SHAREJS_SECRET` を捨てた。ほかの値は変えていない |
+| `compose render` | 0 | |
+| `build` | 0 | osf.io `9e1fb9c8597d`（コールドで約 55 分。Alpine 3.9 で `scipy` などをコンパイルする）、y-websocket、ember-osf-web（静的な nginx）、wiki-frontend のオーバーレイ `9e1fb9c8597d-5985d18b75da`、`elasticsearch8:8.19.24-1` |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 23 サービスが正常。`elasticsearch8` は 25 秒で健全。`osf_init` が統合の migration と `addons_twofactor` の 0006・0007 を適用し、機関を Elasticsearch 8 へ書いた。sharejs・mongo・Elasticsearch 2 のコンテナは孤児として消えた |
+| `accept --seed --only core`（最初） | 60 | 13 件失敗。インストーラーの欠陥を三つ見つけ、直した（下記） |
+| `accept --seed --only core`（最終） | 0 | 実行 [`acc-20261111T230217Z-d8363c`](runs/acc-20261111T230217Z-d8363c/results.toon): **14 件中 14 件合格**（C1〜C7、成功と拒否） |
+| `scan` | 0 | `scan_20261111T231702Z`（コミット `a14fb70`）: 基本対策は合格で、新しい例外なし（mongo の例外は消え、elasticsearch8 は要らない）。Trivy 22 対象・Semgrep・gitleaks は ok。ZAP は `web` を注つきで飛ばし、`admin` と `ember_osf_web` を検査。門は報告のみで合格 |
+
+候補での最初の受入が見つけた欠陥。いずれもインストーラーで試験つきで直した。
+
+1. **`api` と `admin` が 30 秒ずつ止まった**（C2・C4・C6・C7 がタイムアウト、後片付けで 12 件のエラー）。Django 2.2 の開発用サーバーは接続を開いたままにし、`runserver --nothreading`（`invoke apiserver` が起動する）はブラウザの使われない二本目の接続を、ソケットがタイムアウトするまで待つ。どちらもスレッドありの `manage.py runserver` で動かす。
+2. **C1 とすべてのブラウザのシナリオがループバックの監視に失敗した**。対象は `https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js` で、ビルドが `/zxcvbn.js` を同梱するのに、静的な ember の `index.html` がそれを名指しする。版つきで既知の外部アセットに足し、ember リポジトリへの指摘にした。
+3. **ファイルページが自分のファイルを読めなかった**（C7、「Could not GET file contents」）。3.13 の WaterButler は `CORS_ALLOW_ORIGIN` が空だと CORS ヘッダーを送らない。`wb.env` に web と ember の起点だけを列挙した。
+
+同じスタックでシナリオの外から確認したこと。認証した所有者は `/api/v1/search/` と API v2 で非公開プロジェクトを見つけ（1 件）、別の利用者は見つけず（0 件）、利用者検索は本人だけを返し、匿名の検索は 401（PR #8 の境界が Elasticsearch 8 の索引で保たれる）。TOTP 未登録の管理者は `/account/login/two-factor/setup/` へ着き、第二要素なしでは管理画面がサインインへ転送される。`y_websocket_data` の LevelDB にファイルの部屋がある。未確認: amd64、Linux のホスト、管理者の `idp` モードの Shibboleth プロファイル、`ENABLE_PUBLIC_ACCESS=true`、push していない `images.yml` の smoke test、Elasticsearch 2 のデータを持つ導入の移行（`invoke migrate_search`）。
+
+検査の件数: 6,200 件（CRITICAL 314、HIGH 1,875、MEDIUM 2,654、LOW 1,353、INFO 4）。これとは別に、58 項目の許容リストで 177 件を許容した。Elasticsearch 2・MongoDB・sharejs がスタックから消えたので、10,984 件（CRITICAL 726、HIGH 3,782）から減った。新しい `elasticsearch8` イメージは Trivy で HIGH 2 件と MEDIUM 30 件を足す（パッケージ単位で記録し、許容はしていない）。`allowlist_baseline` は 58 項目に対しまだ 0 なので、M2 の件数の条件は開いたままである（状況表）。
 
 ---
 
