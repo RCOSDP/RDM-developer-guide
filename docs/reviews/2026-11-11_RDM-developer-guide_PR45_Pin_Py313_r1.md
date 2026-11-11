@@ -5,6 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-11. **Learned:** REV changed only link destinations for publication (scratch-path evidence links replaced by repository-relative links or by plain-text references). ／ REV が公開用にリンク参照先のみを変更した（scratch パスの証跡リンクをリポジトリ相対リンクまたは平文参照に変更）。
+- Publication provenance / 公開版の来歴: REV（担当レビュワ）issued this publication version from the unchanged original `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md` (SHA-256: `7fc95a749e802996d83147b4c6b66c1403eff0ea4571d41287a7ad571e5e2a13`); the original file and scratch evidence remain unchanged, and all text other than this version/provenance metadata and the explicitly stated publication references is verbatim. For r2, its existing repository-relative links already resolve and require no changes. ／ REV が上記原本から公開版を発行した。原本と scratch 証跡は未変更で、版・来歴の追記と明示した公開用参照以外の本文は原文どおり。r2 の既存のリポジトリ相対リンクは有効で変更不要。
 - Version / 版: 0.1 — 2026-11-11. **Learned:** a no-fix snapshot does not make an exception safe for future scans unless package identity and fix availability remain part of matching. ／ 現時点で修正版が無いことだけでは将来の検査も安全にならず、パッケージの同一性と修正版の有無を照合に残す必要がある。
 - Applies to: RCOSDP/RDM-developer-guide PR #45, head `3c5dd0c31944b9b3450ff34eb0808ad1e26f8728`, base `eb8c4e96977b06bd3bb0fd42b03f0872806be08a`.
 - Reviewer: REV（担当レビュワ, Codex Astra）.
