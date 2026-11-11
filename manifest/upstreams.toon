@@ -1,7 +1,7 @@
 schema_version: 1
 generated_at: 2026-11-05
 note: "Names and SHAs only. This repository is public: no URLs to private repositories, no credentials."
-components[20]:
+components[18]:
   - id: osf.io
     role: core
     integration_repo: RDM-osf.io-dev2027
@@ -107,19 +107,13 @@ components[20]:
     profile: minimum
     upstreams[0]:
     adopted_prs[0]:
-  - id: elasticsearch2
+  - id: elasticsearch8
     role: infra
     integration_repo: null
     profile: minimum
     upstreams[0]:
     adopted_prs[0]:
   - id: elasticsearch6
-    role: infra
-    integration_repo: null
-    profile: core
-    upstreams[0]:
-    adopted_prs[0]:
-  - id: mongo
     role: infra
     integration_repo: null
     profile: core
@@ -132,12 +126,6 @@ components[20]:
     upstreams[0]:
     adopted_prs[0]:
   - id: redis
-    role: infra
-    integration_repo: null
-    profile: core
-    upstreams[0]:
-    adopted_prs[0]:
-  - id: sharejs
     role: infra
     integration_repo: null
     profile: core

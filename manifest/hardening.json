@@ -15,24 +15,6 @@
       ],
       "controls": [
         "user",
-        "read_only",
-        "cap_add"
-      ],
-      "reason": "mongo:3.4 generates its TLS certificate under /etc/ssl at start-up, chowns it and the data directory, then drops to mongodb with gosu (same sequence as the upstream compose file, with CN=mongo instead of the loopback alias).",
-      "review": "2027-01-31",
-      "service": "mongo",
-      "target": "M5 (removed)"
-    },
-    {
-      "cap_add": [
-        "CHOWN",
-        "DAC_OVERRIDE",
-        "FOWNER",
-        "SETGID",
-        "SETUID"
-      ],
-      "controls": [
-        "user",
         "cap_add"
       ],
       "reason": "The official postgres entrypoint starts as root, fixes ownership of the data directory (bind-mounted under runtime/volumes/), runs the init scripts, then drops to the postgres user with gosu. A fixed user: breaks first start on Linux hosts where the bind mount is owned by the developer.",

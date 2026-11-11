@@ -47,10 +47,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(data["platform"], "linux/arm64")
         self.assertEqual(data["network"], "grdm")
         ports = {r["service"]: r for r in data["ports"]}
-        # SPEC-02 §4 table plus the two browser-facing wiki collaboration ports (C4; §4 lets render assign them)
-        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS) | {"y_websocket", "sharejs"})
+        # SPEC-02 §4 table plus the browser-facing y-websocket port (C4, C7; §4 lets render assign it)
+        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS) | {"y_websocket"})
         self.assertEqual(ports["y_websocket"]["host_port"], 1234)
-        self.assertEqual(ports["sharejs"]["host_port"], 7007)
+        self.assertNotIn("sharejs", ports)  # retired (ADR-13)
         for name, port in plan.DEFAULT_PORTS.items():
             self.assertEqual(ports[name]["host_port"], port)
             self.assertEqual(ports[name]["url"], f"http://127.0.0.1:{port}")
@@ -100,7 +100,7 @@ class PlanTests(unittest.TestCase):
         rc, out, _ = run_plan(root, json_output=False)
         self.assertEqual(rc, 0)
         self.assertIn("plan:", out)
-        self.assertIn("ports[9]{service,host_port,container_port,url,source}:", out)
+        self.assertIn("ports[8]{service,host_port,container_port,url,source}:", out)
         self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
         self.assertTrue((root / "runtime" / "reports" / "plan_latest.json").exists())
 
@@ -133,7 +133,7 @@ class PlanTests(unittest.TestCase):
         data = json.loads(out)
         ember = {r["service"]: r for r in data["services"]}["ember_osf_web"]
         self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
-        self.assertEqual(ember["build_from"], "RDM-ember-osf-web-dev2027@0246b5a3b34b")
+        self.assertEqual(ember["build_from"], "RDM-ember-osf-web-dev2027@4180cb58bb36")
         self.assertEqual(ember["origin"], "built")
         self.assertEqual(data["prebuilt_images"], [])
 

@@ -10,10 +10,10 @@ from grdm_dev.context import Context
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # SPEC-02 §4 profiles table
-MINIMUM = {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"}
+MINIMUM = {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch8", "elasticsearch8_setup", "rabbitmq", "fakecas"}
 # `wiki_assets` is the one-shot service of the wiki-frontend overlay (SPEC-01 §3 overlay_of, ADR-06); there is no `wiki` server.
-CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_assets", "volume_access_check_999", "mongo",
-                  "sharejs", "elasticsearch6", "redis", "y_websocket"}
+CORE = MINIMUM | {"admin", "worker", "wb", "wb_worker", "mfr", "unoconv", "ember_osf_web", "cas", "wiki_assets", "volume_access_check_999",
+                  "elasticsearch6", "redis", "y_websocket"}
 FULL_FAKECAS = CORE | {"rdmcp", "aipf_mcp_data_grdm", "oasys"}
 FULL_SHIBBOLETH = (FULL_FAKECAS - {"fakecas"}) | {"shibboleth_sp", "test_idp"}
 
@@ -122,13 +122,20 @@ class ServicesForProfileTests(unittest.TestCase):
             self.assertEqual(templates[name]["component"], self.man.component_for_service(name).id)
 
     def test_native_image_build_component_has_image_origin(self):
-        """ADR-07: elasticsearch runs grdm-dev/elasticsearch2:<tag> built from installer/images/, origin `image`."""
+        """ADR-07, ADR-14: elasticsearch8 runs grdm-dev/elasticsearch8:<tag> built from installer/images/, origin `image`."""
         services = {s.name: s for s in manifest.services_for_profile(self.man, "minimum")}
-        es = services["elasticsearch"]
-        self.assertEqual(es.image, "grdm-dev/elasticsearch2:2.4.6-1")
-        self.assertEqual(es.origin, "image")
-        self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
-        self.assertTrue(self.man.component("elasticsearch2").is_image_build)
+        for name in ("elasticsearch8", "elasticsearch8_setup"):  # the node and its one-shot share the image
+            es = services[name]
+            self.assertEqual(es.image, "grdm-dev/elasticsearch8:8.19.24-1")
+            self.assertEqual(es.origin, "image")
+            self.assertFalse(es.is_built); self.assertFalse(es.is_prebuilt)
+        self.assertTrue(self.man.component("elasticsearch8").is_image_build)
+
+    def test_retired_components_are_gone(self):
+        """ADR-13/ADR-14: Elasticsearch 2, MongoDB and ShareJS are not components any more."""
+        ids = {c.id for c in self.man.components}
+        self.assertFalse(ids & {"elasticsearch2", "mongo", "sharejs"}, ids)
+        self.assertFalse({"elasticsearch", "mongo", "sharejs"} & set(self.man.service_names))
 
     def test_cas_is_built_from_the_pinned_merge_commit(self):
         """ADR-07: no prebuilt image and no emulated platform; the image tag is the commit that carries the fixes."""
@@ -150,14 +157,14 @@ class ServicesForProfileTests(unittest.TestCase):
             self.assertIsNone(self.man.component(cid).get("build_platform"), cid)
         self.assertTrue(services["rabbitmq"].image.startswith("rabbitmq:3-management@sha256:"))
         # PR #37 review r1 R1-01: the image must be built from the commit that enforces JWT authentication
-        self.assertEqual(services["y_websocket"].image, "grdm-dev/y-websocket:d4d1cfaed2e4")
+        self.assertEqual(services["y_websocket"].image, "grdm-dev/y-websocket:97252369cf7e")
         hardening = json.loads((REPO_ROOT / "manifest" / "hardening.json").read_text(encoding="utf-8"))
         self.assertNotIn("elasticsearch6", {e["service"] for e in hardening["exceptions"]})
 
     def test_empty_image_build_is_a_manifest_error(self):
         """PR #34 review r1 R1-02: `image_build: {}` must not degrade into the plain base image."""
         data = json.loads(json.dumps(self.man_data)) if hasattr(self, "man_data") else json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
-        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
+        es = [c for c in data["components"] if c["id"] == "elasticsearch8"][0]
         es["image_build"] = {}
         with self.assertRaises(manifest.ManifestError):
             manifest.parse(data)
@@ -200,7 +207,7 @@ class ServicesForProfileTests(unittest.TestCase):
 
 
 PREBUILT_REF = "registry.example.invalid/rdm-ember-osf-web@sha256:" + "e" * 64
-EMBER_PR2_HEAD = "0246b5a3b34ba8dbf6341d2193ea27ae9f47cf0e"  # RDM-ember-osf-web-dev2027 PR #2; must become the merge commit
+EMBER_PR2_HEAD = "4180cb58bb36855dfc40e0b7262450d08f51d1d6"  # RDM-ember-osf-web-dev2027 develop after PR #2 and PR #3 (merge commits); name kept from the PR-head pin
 
 
 def with_prebuilt_ember(data):
@@ -228,7 +235,7 @@ class EmberStaticBuildTests(unittest.TestCase):
         self.assertEqual(ember.base_image, "nginxinc/nginx-unprivileged:1.29-alpine")
         self.assertRegex(ember.base_image_digest, r"^sha256:[0-9a-f]{64}$")
         self.assertEqual(ember.platforms, ["linux/arm64", "linux/amd64"])
-        self.assertIn("merge commit", ember.note)  # the PR-head pin is temporary and says so
+        self.assertNotIn("must move to the merge commit", ember.note)  # the PR-head pin is gone: the pin is develop
         svc = {s.name: s for s in manifest.services_for_profile(man, "core")}["ember_osf_web"]
         self.assertEqual(svc.origin, "built")
         self.assertEqual(svc.build.repo, "RDM-ember-osf-web-dev2027")

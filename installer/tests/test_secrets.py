@@ -143,6 +143,55 @@ class SecretsInitTests(unittest.TestCase):
         self.assertIn("--force", self.err.getvalue())
         self.assertEqual(secrets.read_env(self.root / "runtime" / ".env"), before)
 
+    def test_init_missing_adds_only_the_absent_keys_and_keeps_every_existing_value(self):
+        """ADR-14: an .env that predates ELASTIC8_* is upgraded without touching the passwords the data depends on."""
+        ctx = make_ctx(self.root, profile="core")
+        self.run_cmd(ctx, ns(secrets_action="init", force=False))
+        path = self.root / "runtime" / ".env"
+        old = secrets.read_env(path)
+        legacy = {k: v for k, v in old.items() if k not in ("ELASTIC8_PASSWORD", "ELASTIC8_OSF_PASSWORD", "GRDM_PORT_Y_WEBSOCKET")}
+        legacy["SHAREJS_SECRET"] = "retired-sharejs-secret-value-0123456789"
+        legacy["GRDM_PORT_WEB"] = "5001"  # a port that `compose render` remapped
+        secrets.write_env(path, legacy)
+        self.out.truncate(0); self.out.seek(0)
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=False, missing=True)), exit_codes.OK, self.err.getvalue())
+        after = secrets.read_env(path)
+        for key in secrets.SECRET_KEYS:
+            if key in legacy:
+                self.assertEqual(after[key], legacy[key], key)  # nothing the data depends on changed
+        self.assertNotEqual(after["ELASTIC8_PASSWORD"], after["ELASTIC8_OSF_PASSWORD"])
+        for key in ("ELASTIC8_PASSWORD", "ELASTIC8_OSF_PASSWORD"):
+            self.assertGreaterEqual(len(after[key]), 32)
+        self.assertEqual(after["GRDM_PORT_WEB"], "5001")
+        self.assertNotIn("SHAREJS_SECRET", after)  # retired keys go
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        printed = self.out.getvalue()
+        self.assertIn("ELASTIC8_PASSWORD", printed)  # names are reported ...
+        self.assertNotIn(after["ELASTIC8_PASSWORD"], printed)  # ... values never
+        self.assertEqual(secrets.check_no_defaults(after), [])
+        # a second run has nothing left to add
+        before = path.read_bytes()
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=False, missing=True)), exit_codes.OK)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_init_missing_without_a_file_is_a_plain_init_and_excludes_force(self):
+        ctx = make_ctx(self.root)
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=False, missing=True)), exit_codes.OK)
+        self.assertTrue(set(secrets.SECRET_KEYS) <= set(secrets.read_env(self.root / "runtime" / ".env")))
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=True, missing=True)), exit_codes.USAGE)
+        self.assertIn("choose one", self.err.getvalue())
+
+    def test_init_missing_refuses_a_default_looking_secret(self):
+        ctx = make_ctx(self.root)
+        self.run_cmd(ctx, ns(secrets_action="init", force=False))
+        path = self.root / "runtime" / ".env"
+        values = secrets.read_env(path)
+        values["POSTGRES_PASSWORD"] = "postgres"
+        secrets.write_env(path, values)
+        self.assertEqual(self.run_cmd(ctx, ns(secrets_action="init", force=False, missing=True)), exit_codes.USAGE)
+        self.assertIn("secrets rotate", self.err.getvalue())
+        self.assertEqual(secrets.read_env(path)["POSTGRES_PASSWORD"], "postgres")
+
     # ----------------------------------------------------------------- rotate (review PR #21 finding 1)
 
     def _rendered(self, services=("web", "postgres", "rabbitmq")):

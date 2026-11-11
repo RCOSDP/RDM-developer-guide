@@ -172,8 +172,8 @@ class MemoryFloorTests(PreflightBase):
     def test_floors_match_the_compose_budget(self):
         services = manifest.services_for_profile(manifest.load(Context(root=self.root)), "core")
         need = compose.memory_floor_need_gib(services)
-        # SPEC-02 §8: the core floors add up to 8320 MiB, a computed lower bound of 8320 / 0.7 / 1024 GiB
-        self.assertEqual(sum(int(s.template.get("mem_min_mb", 128)) for s in services), 8320)
+        # SPEC-02 §8: the core floors add up to 8512 MiB, a computed lower bound of 8512 / 0.7 / 1024 GiB
+        self.assertEqual(sum(int(s.template.get("mem_min_mb", 128)) for s in services), 8512)
         self.assertGreater(need, 11.0)   # an 11 GiB Docker VM cannot hold core
         self.assertLess(need, 12.0)      # a 12 GiB one can (the static ember image no longer needs 8 GiB)
 
@@ -182,7 +182,7 @@ class MemoryFloorTests(PreflightBase):
         self.assertEqual(code, exit_codes.HOST_UNSUPPORTED)
         self.assertIn("--profile minimum", err)
         self.assertIn("--memory-gib", err)
-        self.assertIn("11.6 GiB", err)
+        self.assertIn("11.9 GiB", err)
 
     def test_core_fits_16_gib(self):
         code, _, _ = self.doctor(self.ubuntu(memory_bytes=16 * GIB), preflight_runner(vm_bytes=16 * GIB))
@@ -418,13 +418,13 @@ class OwnerInitTests(unittest.TestCase):
     def test_each_writable_volume_goes_to_its_writers_uid(self):
         cmd = self.render()["volume_owner_init"]["command"][2]
         self.assertIn("fix 999:999 /volumes/redis_data", cmd)
-        for name in ("elasticsearch_data", "elasticsearch6_data", "ember_osf_web_dist", "wiki_static", "wb_tmp", "osfstoragecache"):
+        for name in ("elasticsearch8_data", "elasticsearch8_ca", "y_websocket_data", "elasticsearch6_data", "ember_osf_web_dist", "wiki_static", "wb_tmp", "osfstoragecache"):
             self.assertIn(f"fix 1000:1000 /volumes/{name}", cmd)
 
     def test_self_managing_volumes_are_left_alone(self):
         services = self.render()
         init = services["volume_owner_init"]
-        for name in ("postgres_data", "mongo_data", "rabbitmq_data"):
+        for name in ("postgres_data", "rabbitmq_data"):
             self.assertNotIn(name, init["command"][2])
             self.assertFalse([v for v in init["volumes"] if v.startswith(f"{name}:")])
         self.assertNotIn("volume_owner_init", services["postgres"].get("depends_on", {}))
@@ -455,7 +455,7 @@ class OwnerInitTests(unittest.TestCase):
     def test_every_writer_waits_for_it(self):
         services = self.render()
         wait = {"condition": "service_completed_successfully"}
-        for name in ("redis", "elasticsearch", "elasticsearch6", "wb", "wb_worker", "mfr", "wiki_assets", "web"):
+        for name in ("redis", "elasticsearch8", "elasticsearch6", "y_websocket", "wb", "wb_worker", "mfr", "wiki_assets", "web"):
             self.assertEqual(services[name]["depends_on"]["volume_owner_init"], wait, name)
         # the static ember image writes only its /tmp tmpfs: no volume, so it waits for nothing (PR #2 review r1 R1-03)
         self.assertNotIn("depends_on", services["ember_osf_web"])

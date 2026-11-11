@@ -59,7 +59,7 @@ container shell: every `$` in them is escaped to `$$` on output, so Compose does
 them; `environment` values are the only place where `${KEY}` means a value from runtime/.env.
 
 Upstream settings are rewritten under runtime/config/ (ADR-02 §3.3): osf/local.py, osf/api_local.py,
-osf.env, wb.env, mfr.env, sharejs.env, postgres-init/10-cas.sql, cas/cas.properties, cas/services/. Internal URLs use
+osf.env, wb.env, mfr.env, postgres-init/10-cas.sql, cas/cas.properties, cas/services/. Internal URLs use
 service names, browser-facing URLs use http://127.0.0.1:<port>.
 """
 from __future__ import annotations
@@ -97,6 +97,8 @@ EDGE_NETWORK = "grdm-edge"     # plain bridge — only services that publish a p
 CONVERT_NETWORK = "grdm-convert"  # internal: true — mfr and the document converter, nothing else (ADR-07)
 EGRESS_ENV_KEY = "GRDM_EGRESS_SERVICES"
 EGRESS_NONE = "none"
+PUBLIC_ACCESS_ENV_KEY = "GRDM_ENABLE_PUBLIC_ACCESS"
+PUBLIC_ACCESS_CHOICES = ("true", "false")
 PROJECT_NAME = "grdm-dev"
 COMPOSE_FILE = "docker-compose.yml"
 CONFIG_DIR = "config"
@@ -141,6 +143,10 @@ def register(subparsers) -> None:
     r.add_argument("--egress", metavar="SERVICES",
                    help=f"comma-separated services to attach to {EDGE_NETWORK} so they can reach the Internet "
                         f"(default: the value of {EGRESS_ENV_KEY} in runtime/.env; `{EGRESS_NONE}` clears it)")
+    r.add_argument("--public-access", choices=PUBLIC_ACCESS_CHOICES, metavar="{true,false}",
+                   help=f"osf.io ENABLE_PUBLIC_ACCESS for web, api, admin, worker and osf_init: false requires authentication "
+                        f"for every data route, true allows anonymous viewing of public projects "
+                        f"(default: the value of {PUBLIC_ACCESS_ENV_KEY} in runtime/.env, else false)")
     p.set_defaults(_module=sys.modules[__name__])
 
 
@@ -757,8 +763,11 @@ def render_website_local_py(host_ports: dict[str, int]) -> str:
         "PREPRINT_PROVIDER_DOMAINS = {'enabled': False, 'prefix': 'http://local.', 'suffix': ':4201/'}",
         "",
         "SEARCH_ENGINE = 'elastic'",
-        "ELASTIC_URI = 'elasticsearch:9200'",
-        "ELASTIC6_URI = 'elasticsearch6:9200'",
+        "# Elasticsearch 8 over TLS with the installation's own CA (ADR-14); the user name and password come from the",
+        "# service environment (ELASTIC_USERNAME, ELASTIC_PASSWORD), never from this file.",
+        "ELASTIC_URI = 'https://elasticsearch8:9200'",
+        "ELASTIC_CA_CERTS = '/es-ca/ca.crt'",
+        "ELASTIC6_URI = 'elasticsearch6:9200'  # django-elasticsearch-metrics only",
         "ELASTIC_TIMEOUT = 10",
         "",
         "USE_EMAIL = False",
@@ -860,34 +869,38 @@ def render_wiki_local_py(published: dict[str, int]) -> str:
 
     Upstream defaults are `localhost:<port>`, which is not the loopback origin of ADR-02. Only a service that
     `compose render` really publishes is rewritten: advertising a port nothing listens on would be worse.
-    SHAREJS_HOST / SHAREJS_PORT stay untouched; they address sharejs from the server side.
+    ShareJS and MongoDB are retired (ADR-13): there is no SHAREJS_URL to rewrite.
     """
     lines = [
         "# -*- coding: utf-8 -*-",
         f"# {GENERATED_HEADER}",
         "# Browser-facing collaboration endpoints only (ADR-02 §3.3): published services on the loopback address.",
     ]
-    for setting, service in (("Y_WEBSOCKET_URL", "y_websocket"), ("SHAREJS_URL", "sharejs")):
+    for setting, service in (("Y_WEBSOCKET_URL", "y_websocket"),):
         if service in published:
             lines.append(f"{setting} = '{LOOPBACK}:{published[service]}'")
     return "\n".join(lines) + "\n"
 
 
-def render_osf_env(host_ports: dict[str, int]) -> str:
+def render_osf_env(host_ports: dict[str, int], public_access: str = "false") -> str:
     return _env_text([
         ("DOMAIN", _ext(host_ports, "web", "/")),
         ("INTERNAL_DOMAIN", "http://web:5000/"),
         ("API_DOMAIN", _ext(host_ports, "api", "/")),
-        ("ELASTIC_URI", "elasticsearch:9200"),
+        ("ELASTIC_URI", "https://elasticsearch8:9200"),
+        ("ELASTIC_CA_CERTS", "/es-ca/ca.crt"),
         ("ELASTIC6_URI", "elasticsearch6:9200"),
         ("OSF_DB_HOST", "postgres"),
         ("OSF_DB_PORT", "5432"),
         ("OSF_DB_NAME", "osf"),
         ("OSF_DB_USER", "postgres"),
         ("DB_HOST", "postgres"),
-        # addons.wiki.share_db(): TLS to mongo, verified against the certificate mongo copies into mongo_tls
-        ("SHAREJS_DB_URL", "mongodb://mongo:27017/sharejs?ssl=true"),
-        ("SHAREJS_DB_CA_FILE", "/mongo-tls/mongodb.crt"),
+        # osf.io calls DELETE /<room> here when a file version is replaced (RDM-osf.io-dev2027 PR #12); the
+        # browser reaches the same server on its published loopback port (osf/wiki_local.py)
+        ("Y_WEBSOCKET_INTERNAL_URL", "http://y_websocket:1234"),
+        # RDM-osf.io-dev2027 PR #8: authentication is required unless this is true (SPEC-02 §3); the image
+        # default is false, and the value is the same for web, api, admin, worker and osf_init
+        ("ENABLE_PUBLIC_ACCESS", public_access),
         ("WATERBUTLER_URL", _ext(host_ports, "wb")),
         ("WATERBUTLER_INTERNAL_URL", "http://wb:7777"),
         ("CAS_SERVER_URL", _ext(host_ports, "fakecas")),
@@ -910,6 +923,11 @@ def render_wb_env(host_ports: dict[str, int]) -> str:
         ("SERVER_CONFIG_DOMAIN", _ext(host_ports, "wb")),
         ("OSF_AUTH_CONFIG_API_URL", "http://web:5000/api/v1/files/auth/"),
         ("OSF_URL", "http://web:5000"),
+        # The file page (web) and the ember UI call WaterButler from the browser with the session, so the exact origins
+        # of those two are allowed together with credentials; the 3.13 WaterButler sends no CORS header at all for an
+        # empty list (RDM-waterbutler-dev2027 PR #3), which left the file page's content and revision requests blocked
+        # (acceptance C7: "Could not GET file contents"). Nothing else, and no wildcard.
+        ("SERVER_CONFIG_CORS_ALLOW_ORIGIN", ",".join(_ext(host_ports, svc) for svc in ("web", "ember_osf_web"))),
     ])
 
 
@@ -929,16 +947,6 @@ def render_mfr_env(host_ports: dict[str, int]) -> str:
         ("EXTENSION_CONFIG_LOCAL_DEVELOPMENT", "1"),
         ("EXTENSION_CONFIG_DOCKER_LOCAL_HOST", "wb"),
         ("EXTENSION_CONFIG_LOCAL_HOST", LOOPBACK),
-    ])
-
-
-def render_sharejs_env(host_ports: dict[str, int]) -> str:
-    return _env_text([
-        ("SHAREJS_SERVER_HOST", "0.0.0.0"),
-        ("SHAREJS_SERVER_PORT", "7007"),
-        ("SHAREJS_DB_NAME", "sharejs"),
-        ("SHAREJS_DB_URL", "mongodb://mongo:27017/sharejs?ssl=true"),
-        ("SHAREJS_CORS_ALLOW_ORIGIN", _ext(host_ports, "web")),
     ])
 
 
@@ -1029,17 +1037,16 @@ def render_cas_service(host_ports: dict[str, int]) -> str:
     return json.dumps(service, indent=2, ensure_ascii=False) + "\n"
 
 
-def config_files(host_ports: dict[str, int], published: dict[str, int]) -> dict[str, str]:
+def config_files(host_ports: dict[str, int], published: dict[str, int], public_access: str = "false") -> dict[str, str]:
     """Relative path under runtime/config -> content."""
     return {
         "osf/local.py": render_website_local_py(host_ports),
         "osf/wiki_local.py": render_wiki_local_py(published),
         "osf/api_local.py": render_api_local_py(host_ports),
         "osf/admin_local.py": render_admin_local_py(),
-        "osf.env": render_osf_env(host_ports),
+        "osf.env": render_osf_env(host_ports, public_access),
         "wb.env": render_wb_env(host_ports),
         "mfr.env": render_mfr_env(host_ports),
-        "sharejs.env": render_sharejs_env(host_ports),
         "postgres-init/10-cas.sql": render_postgres_init(),
         "cas/cas.properties": render_cas_properties(host_ports),
         "cas/services/grdm-web.json": render_cas_service(host_ports),
@@ -1323,7 +1330,7 @@ def run(
     env = read_dotenv(dotenv)
     missing = [k for k in REQUIRED_SECRETS if not env.get(k)]
     if missing:
-        return report.error(ctx, exit_codes.USAGE, f"runtime/.env lacks {', '.join(missing)}; run `grdm-dev secrets init --force` or `secrets rotate`")
+        return report.error(ctx, exit_codes.USAGE, f"runtime/.env lacks {', '.join(missing)}; run `grdm-dev secrets init --missing` (adds only the absent keys, changes nothing else), or `secrets rotate`")
     bad_lengths = _cas_key_problems(env)
     if bad_lengths:
         return report.error(ctx, exit_codes.USAGE, f"runtime/.env has an unusable value (length, alphabet or a published default) for {', '.join(bad_lengths)} (SPEC-02 §3); run `grdm-dev secrets rotate`")
@@ -1355,6 +1362,10 @@ def run(
         egress = parse_egress(raw_egress if raw_egress is not None else env.get(EGRESS_ENV_KEY), service_names)
     except ValueError as exc:
         return report.error(ctx, exit_codes.USAGE, str(exc))
+
+    public_access = (getattr(args, "public_access", None) or env.get(PUBLIC_ACCESS_ENV_KEY) or "false").strip().lower()
+    if public_access not in PUBLIC_ACCESS_CHOICES:
+        return report.error(ctx, exit_codes.USAGE, f"{PUBLIC_ACCESS_ENV_KEY} must be true or false, not {public_access!r}")
 
     if runner is None:
         from . import health
@@ -1414,7 +1425,7 @@ def run(
     except ValueError as exc:  # two owners for one volume (a template error)
         return report.error(ctx, exit_codes.MANIFEST_INVALID, str(exc))
     compose_text = json.dumps(compose, indent=2, ensure_ascii=False) + "\n"
-    configs = config_files(host_ports, published)
+    configs = config_files(host_ports, published, public_access)
     for text in [compose_text, *configs.values()]:
         if FORBIDDEN_ADDRESS in text:  # defence in depth: ADR-02 forbids the alias anywhere
             return report.error(ctx, exit_codes.MANIFEST_INVALID, f"generated output contains {FORBIDDEN_ADDRESS}")
@@ -1428,10 +1439,10 @@ def run(
             written.append(f"{CONFIG_DIR}/{rel}")
     for name in compose["volumes"]:
         _ensure_volume_dir(ctx.runtime / VOLUMES_DIR / name)
-    env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress)}
+    env_updates = {PROFILE_ENV_KEY: profile, EGRESS_ENV_KEY: ",".join(egress), PUBLIC_ACCESS_ENV_KEY: public_access}
     env_updates.update({port_key(name): str(port) for name, port in published.items()})
     if update_dotenv(dotenv, env_updates):
-        written.append(f".env (GRDM_PROFILE, GRDM_PORT_*, {EGRESS_ENV_KEY})")
+        written.append(f".env (GRDM_PROFILE, GRDM_PORT_*, {EGRESS_ENV_KEY}, {PUBLIC_ACCESS_ENV_KEY})")
 
     data = {
         "profile": profile,
@@ -1441,6 +1452,7 @@ def run(
         "network": NETWORK,
         "networks": {NETWORK: "internal (no egress)", EDGE_NETWORK: "bridge; publishing services" + (" + --egress" if egress else "")},
         "egress_services": egress,
+        "public_access": public_access,
         "memory_gib": round(float(memory_gib), 1),
         "cpus": float(cpus),
         "services": [

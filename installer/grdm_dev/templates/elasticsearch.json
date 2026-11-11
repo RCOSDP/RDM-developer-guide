@@ -1,24 +1,5 @@
 {
   "service": "elasticsearch",
-  "component": "elasticsearch2",
-  "expose": [
-    9200
-  ],
-  "environment": {
-    "ES_HEAP_SIZE": "512m"
-  },
-  "volumes": [
-    {
-      "volume": "elasticsearch_data",
-      "target": "/usr/share/elasticsearch/data"
-    }
-  ],
-  "tmpfs": [
-    "/tmp",
-    "/usr/share/elasticsearch/logs"
-  ],
-  "weight": 3,
-  "mem_min_mb": 1024,
-  "pids_limit": 1024,
-  "note": "grdm-dev/elasticsearch2 (ADR-07): Elasticsearch 2.4.6 built natively in installer/images/elasticsearch2 on Temurin 8, running as uid 1000 (the hardening default) with a read-only root: logs on tmpfs, data on the named volume elasticsearch_data, handed to uid 1000 first by the one-shot volume_owner_init (a bind directory under runtime/volumes/ belongs to the host user, or to uid 101 after PR #33; PR #34 review r1 R1-01). Replaces the emulated elasticsearch:2 image that needed 38 minutes to start on Apple Silicon (real install run 19) and its owner-init one-shot."
+  "retired": true,
+  "note": "Retired: Elasticsearch 2 is replaced by templates/elasticsearch8.json (ADR-14; ADR-13 retires ES 2). No manifest component lists this service, so it is never rendered. Kept as a pointer because review records link to this path and review records stay verbatim (SPEC-06 \u00a78)."
 }

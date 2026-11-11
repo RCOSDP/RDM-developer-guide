@@ -3,10 +3,10 @@
   "component": "osf.io",
   "profile": "minimum",
   "command": [
-    "invoke",
-    "apiserver",
-    "-h",
-    "0.0.0.0"
+    "python3",
+    "manage.py",
+    "runserver",
+    "0.0.0.0:8000"
   ],
   "environment": {
     "DJANGO_SETTINGS_MODULE": "api.base.settings",
@@ -22,10 +22,11 @@
     "WATERBUTLER_JWT_SECRET": "${WATERBUTLER_JWT_SECRET}",
     "WATERBUTLER_HMAC_SECRET": "${WATERBUTLER_HMAC_SECRET}",
     "MFR_SERVER_SECRET": "${MFR_SERVER_SECRET}",
-    "SHAREJS_SECRET": "${SHAREJS_SECRET}",
     "Y_WEBSOCKET_JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
-    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}"
+    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
+    "ELASTIC_USERNAME": "grdm_osf",
+    "ELASTIC_PASSWORD": "${ELASTIC8_OSF_PASSWORD}"
   },
   "env_files": [
     "osf.env"
@@ -47,8 +48,8 @@
       "ro": true
     },
     {
-      "volume": "mongo_tls",
-      "target": "/mongo-tls",
+      "volume": "elasticsearch8_ca",
+      "target": "/es-ca",
       "ro": true
     }
   ],
@@ -61,7 +62,10 @@
   "depends_on": [
     "postgres",
     "rabbitmq",
-    "elasticsearch",
+    {
+      "service": "elasticsearch8_setup",
+      "condition": "service_completed_successfully"
+    },
     {
       "service": "wiki_assets",
       "condition": "service_completed_successfully"
@@ -77,5 +81,5 @@
   "container_port": 8000,
   "host_port": 8000,
   "stdin_open": true,
-  "note": "stdin_open: invoke's stdin-forwarding thread needs an open stdin or the process dies with `Not a tty` (real install run 9; upstream compose sets the same). tmpfs /code/website/static/built: init_app rewrites built/nodeCategories.json at every start (the image keeps only .gitkeep and that file there), which a read-only root refused in real install run 10. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root)."
+  "note": "Runs `manage.py runserver` (threaded), not `invoke apiserver`, whose `--nothreading` stalls under Django 2.2 (RDM-osf.io-dev2027 PR #13): since 2.2 the development server keeps a connection open for the next request, a single-threaded server then waits on it, and a browser that opens an idle second connection blocked every other client for 30 s until the socket timed out (measured in the first run on the integration candidate: Playwright's API calls timed out at 30 s while the ember app was open). DEBUG_MODE stays True (api_local.py), so api/base/wsgi.py does not monkey-patch gevent and each thread opens its own database connection. stdin_open: invoke's stdin-forwarding thread needs an open stdin or the process dies with `Not a tty` (real install run 9; upstream compose sets the same). tmpfs /code/website/static/built: init_app rewrites built/nodeCategories.json at every start (the image keeps only .gitkeep and that file there), which a read-only root refused in real install run 10. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root)."
 }
