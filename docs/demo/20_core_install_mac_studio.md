@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
+- Version / 版: 0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
+  0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
   0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
   0.13 — 2026-11-10. **Learned:** a security fix is proven only by a rejection case that runs against the image containing it, so the full acceptance run is repeated after every pin change. ／ セキュリティ修正は、その修正を含むイメージに対して拒否ケースを実行して初めて証明される。固定版を変えるたびに受入を全件やり直す。
   0.12 — 2026-11-10. **Learned:** a stack that starts and passes health can still have a broken trust link: osf.io kept its upstream default HMAC key while WaterButler signed with a generated one, and only a real upload exposed it. ／ 起動してヘルス検査に通る環境でも、信頼の連携が壊れていることがある。osf.io は上流の既定の HMAC 鍵のまま、WaterButler は生成した鍵で署名しており、実際のアップロードで初めて露見した。
@@ -532,6 +533,26 @@ trivy_critical_high:
 
 The allow-list now holds 58 entries (one per image and CVE, scoped with the new `image` field of [SPEC-03 §5.1](../spec/03_security_gate.md#english), review date 2026-12-31). The milestone is M1 (report-only), so the count is reported; the ceiling in `manifest/allowlist.baseline.json` is the owner's decision at the milestone exit.
 
+### Acceptance run — 2026-11-11, MFR fix for previews, 12 of 12
+
+Same host, branch and pins as the run above, except MFR: the main checkout's manifest was pointed, locally and uncommitted, at `2c4a88a6`, the head of RDM-modular-file-renderer-dev2027 PR #7. That commit stops rewriting osf.io's `/<guid>/?direct&mode=render&action=download` to `/download/<guid>/` and requests the URL as osf.io built it, so osf.io's `/<guid>/` route answers the internal WaterButler URL (`_internal=True` for `mode=render`). The credential pair stays `http://web:5000` → `http://wb:7777`. Its tests also show that the browser-facing `127.0.0.1:7777`, `localhost`, lookalike hosts and other ports are refused before any request or get no credentials. The committed pin stays `f9da1db3` until PR #7 merges. Its merge commit is then pinned.
+
+The Docker disk had been enlarged to 400 GiB (193 GB free before the run).
+
+| Step | Exit | Result |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR built natively at `2c4a88a663ca`; the other components from cache, elasticsearch2 rebuilt |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 24 services healthy; `mfr` runs `grdm-dev/modular-file-renderer:2c4a88a663ca` |
+| `accept --seed --only core` | 0 | Run `acc-20261111T122608Z-2d3599`: **12 of 12 pass**. The evidence directory stays local and is not committed in this PR. C5 success answers 200, and C5 rejection still answers 401. web's log shows MFR requesting `GET /<guid>/?direct&mode=render&action=download` (302), and MFR's log has no `ClientConnectorError`. |
+| `scan` | 0 | All five parts complete: baseline pass, and Trivy, Semgrep, gitleaks and ZAP ok. ZAP produced reports again for its three targets. Gate: report-only, pass |
+| `report` | 0 | |
+
+Scan totals (`scan_20261111T123133Z`): 10,983 findings, of which 726 CRITICAL, 3,782 HIGH, 4,147 MEDIUM, 2,322 LOW and 6 INFO; 177 more are allow-listed by the 58 entries. Trivy CRITICAL/HIGH open: 726/3,769, unchanged from the run above. The MFR change is code only and adds no package. Semgrep: 12 HIGH. gitleaks: 0. ZAP: 1 HIGH, 8 MEDIUM, 12 LOW, 6 INFO.
+
+Before this, C5 was reproduced on the unfixed MFR `f9da1db3` (run `acc-20261111T121734Z-7329b7`, C5 only: success 400, rejection 401), with the same log lines as the run above.
+
 ---
 
 <a id="japanese"></a>
@@ -1039,6 +1060,26 @@ trivy_critical_high:
 ```
 
 許容リストは 58 項目になった（イメージと CVE ごとに 1 項目。[SPEC-03 §5.1](../spec/03_security_gate.md#japanese) の新しい `image` 欄で範囲を限定し、見直し日は 2026-12-31）。節目は M1（報告のみ）なので件数は報告にとどまる。`manifest/allowlist.baseline.json` の上限は節目の終了時に所有者が決める。
+
+### 受入の実行 — 2026-11-11、プレビューを直した MFR、12 件中 12 件
+
+ホスト・ブランチ・固定版は上の実行と同じだが、MFR だけが違う。本体のチェックアウトの manifest を、手元で未コミットのまま `2c4a88a6` に向けた。これは RDM-modular-file-renderer-dev2027 PR #7 の先頭のコミットで、osf.io の `/<guid>/?direct&mode=render&action=download` を `/download/<guid>/` に書き換えるのをやめ、osf.io が組み立てたとおりの URL を要求する。そのため osf.io の `/<guid>/` の経路が内部向けの WaterButler の URL を返す（`mode=render` では `_internal=True`）。資格情報の組は `http://web:5000` → `http://wb:7777` のまま変わらない。PR #7 の試験は、ブラウザ向けの `127.0.0.1:7777`、`localhost`、似た名前のホスト、別ポートが、要求の前に拒否されるか、資格情報を受け取らないことも示す。コミット済みの固定版は PR #7 のマージまで `f9da1db3` のままにし、マージ後にそのマージコミットを固定する。
+
+Docker のディスクは 400 GiB に拡張済みだった（実行前の空きは 193 GB）。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR を `2c4a88a663ca` でネイティブに組んだ。他の部品はキャッシュ、elasticsearch2 は組み直し |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 24 サービスが正常。`mfr` は `grdm-dev/modular-file-renderer:2c4a88a663ca` で動く |
+| `accept --seed --only core` | 0 | 実行 `acc-20261111T122608Z-2d3599`: **12 件中 12 件合格**。証跡のディレクトリは手元に残し、この PR ではコミットしない。C5 の成功ケースは 200 を返し、拒否ケースは 401 のまま。web のログには MFR からの `GET /<guid>/?direct&mode=render&action=download`（302）が残り、MFR のログに `ClientConnectorError` は無い。 |
+| `scan` | 0 | 5 つの部分すべてが完了した。基本対策は合格、Trivy・Semgrep・gitleaks・ZAP は ok。ZAP は 3 つの対象すべてで再び報告を出した。門は報告のみで合格 |
+| `report` | 0 | |
+
+検査の件数（`scan_20261111T123133Z`）: 10,983 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,147、LOW 2,322、INFO 6。これとは別に 58 項目の許容リストで 177 件を許容した。Trivy の未許容の CRITICAL/HIGH は 726/3,769 で、上の実行と変わらない。MFR の変更はコードだけで、パッケージは増えていない。Semgrep: HIGH 12。gitleaks: 0。ZAP: HIGH 1、MEDIUM 8、LOW 12、INFO 6。
+
+これに先立ち、直す前の MFR `f9da1db3` で C5 を再現した（実行 `acc-20261111T121734Z-7329b7`、C5 のみ。成功ケース 400、拒否ケース 401）。ログの内容は上の実行と同じだった。
 
 ---
 

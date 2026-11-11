@@ -324,7 +324,7 @@
       "integration_branch": "develop",
       "integration_sha": "f9da1db3c253c27c2dbc1a728390cbb0e373c94c",
       "integration_repo": "RDM-modular-file-renderer-dev2027",
-      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision, 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1).",
+      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision, 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1). At this pin previews fail (acceptance C5): the COS rewrite of /<guid>/ to /download/<guid>/ makes osf.io answer the browser-facing WaterButler URL, which the container cannot reach. RDM-modular-file-renderer-dev2027 PR #7 (head 2c4a88a6) restores the /<guid>/ request without widening credential forwarding; it passed acceptance 12 of 12 locally (DEMO-20), and this pin moves to its merge commit once it merges.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
