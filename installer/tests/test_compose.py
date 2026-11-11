@@ -165,6 +165,26 @@ class ComposeRenderTests(unittest.TestCase):
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertEqual(doc["services"]["postgres"]["environment"]["POSTGRES_PASSWORD"], "${POSTGRES_PASSWORD}")
 
+    def test_mfr_credentials_go_only_from_internal_osf_to_internal_waterbutler(self):
+        # MFR must reach WaterButler on the internal network through the URL that osf.io's
+        # /<guid>/ route returns for mode=render (C5, RDM-modular-file-renderer-dev2027 PR #7).
+        # The fix must not be to name the browser-facing WaterButler: credentials stay on the
+        # one internal OSF→WaterButler pair, and the allow-list keeps only these four origins.
+        root = make_root("GRDM_PORT_WB=7790\n" + fake_secrets())
+        rc, _, _, _ = render(root)
+        self.assertEqual(rc, 0)
+        mfr_env = plan.read_dotenv(root / "runtime" / "config" / "mfr.env")
+        self.assertEqual(mfr_env["OSF_PROVIDER_CONFIG_CREDENTIAL_SOURCE_ORIGINS"], "http://web:5000")
+        self.assertEqual(mfr_env["OSF_PROVIDER_CONFIG_CREDENTIAL_TARGET_ORIGINS"], "http://wb:7777")
+        allowed = mfr_env["SERVER_CONFIG_ALLOWED_PROVIDER_DOMAINS"].strip("'").split()
+        self.assertEqual(sorted(allowed), sorted([
+            "http://web:5000/", "http://wb:7777/", "http://127.0.0.1:5000/", "http://127.0.0.1:7790/",
+        ]))
+        for value in (mfr_env["OSF_PROVIDER_CONFIG_CREDENTIAL_SOURCE_ORIGINS"],
+                      mfr_env["OSF_PROVIDER_CONFIG_CREDENTIAL_TARGET_ORIGINS"]):
+            self.assertNotIn("127.0.0.1", value)
+            self.assertNotIn("localhost", value)
+
     def test_config_files_rewrite_upstream_settings(self):
         root = make_root("GRDM_PORT_WEB=5050\n" + fake_secrets())
         rc, _, _, _ = render(root)

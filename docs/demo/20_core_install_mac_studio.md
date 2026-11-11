@@ -5,7 +5,11 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
+- Version / 版: 0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
+  0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same Trivy totals at MFR `9771b8cf` show that the merge changed nothing (the whole scan has one more ZAP MEDIUM, 10,983 → 10,984). ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ Trivy の件数になったことで、マージで何も変わっていないと分かる（検査全体では ZAP の MEDIUM が 1 件増え、10,983 → 10,984）。
+  0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
+  0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
+  0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
   0.13 — 2026-11-10. **Learned:** a security fix is proven only by a rejection case that runs against the image containing it, so the full acceptance run is repeated after every pin change. ／ セキュリティ修正は、その修正を含むイメージに対して拒否ケースを実行して初めて証明される。固定版を変えるたびに受入を全件やり直す。
   0.12 — 2026-11-10. **Learned:** a stack that starts and passes health can still have a broken trust link: osf.io kept its upstream default HMAC key while WaterButler signed with a generated one, and only a real upload exposed it. ／ 起動してヘルス検査に通る環境でも、信頼の連携が壊れていることがある。osf.io は上流の既定の HMAC 鍵のまま、WaterButler は生成した鍵で署名しており、実際のアップロードで初めて露見した。
   0.11 — 2026-11-06. **Learned:** the cold start passes once the one emulated service that could not start natively is built natively (ADR-07): 31 minutes from empty volumes to a scanned, reported environment, bounded by the ember build and the migrations. ／ ネイティブで起動できなかった唯一のエミュレーションのサービスをネイティブで組む（ADR-07）と、コールドスタートは通る。空のボリュームから検査・報告済みの環境まで 31 分で、上限は ember のビルドと migration。
@@ -481,6 +485,94 @@ Run [`acc-20261110T015520Z-ab4cc7`](runs/acc-20261110T015520Z-ab4cc7/results.too
 
 One run before this one failed on C5 and C6 although the fixes were merged: `compose render` had run before `build`, and it takes image tags from the last build record, so the old images kept running. Rendering again after the build fixed it.
 
+### Acceptance run — 2026-11-11, Python 3.13 WaterButler and MFR on PostgreSQL 18, 11 of 12
+
+Started from the main checkout on `feat/pin-py313-wb-mfr`. Pins: WaterButler `3319c106` and MFR `f9da1db3` (both on `python:3.13-slim@sha256:e48f59cd…ed90`, Python 3.13.18, Debian 13), osf.io `8fc45de4`, wiki-frontend `5985d18b` (built on the osf.io base `8fc45de4`, image tag `8fc45de461fd-5985d18b75da`), y-websocket `d4d1cfae`, cas-overlay `22610b76`, PostgreSQL 18.6. MFR is now built natively for arm64 (`build_platform` removed) and without freecad, so CAD previews (.step/.stp) are removed by owner decision.
+
+| Step | Exit | Result |
+|---|---|---|
+| `db upgrade` | 0 | PostgreSQL 9.6 → 18 by dump and restore (4.8 MB dump, 531 objects compared equal); the old directory is kept as `postgres_data.pg9.6-20261111T111040Z` |
+| `build` | 30 | First try: WaterButler's `apt-get upgrade` failed with "not enough free space": the Docker disk shared with other work on this host was full. Superseded `grdm-dev/*` tags of earlier pins were removed (no build cache was pruned). Second try built osf.io, WaterButler, MFR, cas-overlay, wiki-frontend and y-websocket; elasticsearch2 then failed in `apt-get update` ("not signed", the same full disk). Its existing image, built on 2026-11-10 from inputs unchanged since 2026-11-06, was used. |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 24 services healthy; `wb` and `wb_worker` run as uid 1000 (user `waterbutler`), `mfr` as uid 1000; the Celery 5.6.3 worker is ready. No new secret was needed, and the templates and `wb.env`/`mfr.env` are unchanged. |
+| `accept --seed --only core` | 60 | Run [`acc-20261111T115949Z-ab529c`](runs/acc-20261111T115949Z-ab529c/results.toon): **11 of 12 pass**; C5 success fails (below) |
+| `scan` | 51 | Trivy, Semgrep and gitleaks complete; baseline pass; ZAP produced no report (rc 3) for all three targets while the Docker disk had 0 bytes free |
+| `report` | 0 | |
+
+**C5 success (preview) fails in the integration repositories, not in the installer.** MFR answered 400 for the render request. MFR's log shows `ClientConnectorError: Cannot connect to host 127.0.0.1:7777`, and web's log shows the request MFR now makes: `GET /download/<guid>/?direct&mode=render&action=download` from the MFR container, answered 302. MFR `f9da1db3` (taken from upstream #9) rewrites an OSF URL of the form `/<guid>/` to `/download/<guid>/`. In osf.io `8fc45de4`, the route `/<guid>/` builds the WaterButler URL with `_internal=(mode == 'render')`, so MFR received `http://wb:7777`. The route `/download/<guid>/` (`persistent_file_download`) builds it without `_internal`, so MFR receives the browser's `WATERBUTLER_URL` (`http://127.0.0.1:7777`), which is unreachable inside the container and is also not a credential target. The fix belongs to MFR (do not rewrite render URLs for GRDM) or to osf.io (`persistent_file_download` honours `mode=render` like the other route). C5 rejection (401) still passes.
+
+Trivy CRITICAL/HIGH per target (`critical/high`):
+
+```toon
+trivy_critical_high:
+  db: "2026-11-10 19:01 UTC (before: scan_20261110T022540Z, DB 2026-11-10 01:02 UTC)"
+  targets[23]{target,before,after,note}:
+    waterbutler,13/178,0/47,"45e97a51 → 3319c106; all 47 Debian 13 without a fix, allow-listed"
+    modular-file-renderer,53/410,3/127,"749e58d3 → f9da1db3; all 130 Debian 13 without a fix, allow-listed"
+    osf.io,118/566,118/566,"fe90e5c3 → 8fc45de4"
+    wiki-frontend,65/332,65/332,""
+    rdm-ember-osf-web,407/1911,407/1911,prebuilt
+    cas-overlay,43/105,43/105,""
+    postgres,11/117,2/147,"9.6 → 18.6 (Debian 13)"
+    unoconv,1/100,1/156,"same image, newer DB"
+    redis,1/37,1/37,""
+    elasticsearch2,5/18,5/18,""
+    elasticsearch6,2/50,2/50,""
+    rabbitmq,0/7,0/7,""
+    mongo,0/2,0/2,""
+    fakecas,0/2,0/2,""
+    sharejs,0/0,0/0,""
+    y-websocket,0/0,0/0,""
+    src/RDM-waterbutler-dev2027,2/32,0/0,lockfiles
+    src/RDM-modular-file-renderer-dev2027,14/79,0/0,lockfiles
+    src/RDM-osf.io-dev2027,55/279,55/279,lockfiles
+    src/RDM-wiki-frontend-dev2027,21/107,21/107,lockfiles
+    src/RDM-cas-overlay-dev2027,6/20,6/20,lockfiles
+    src/RDM-y-websocket-dev2027,0/0,0/0,lockfiles
+    repo,0/30,0/30,""
+  total: "817/4382 → 729/3943 (open 726/3769, allow-listed 3/174 by 58 entries)"
+```
+
+The allow-list now holds 58 entries (one per image and CVE, scoped with the new `image` field of [SPEC-03 §5.1](../spec/03_security_gate.md#english), review date 2026-12-31). The milestone is M1 (report-only), so the count is reported; the ceiling in `manifest/allowlist.baseline.json` is the owner's decision at the milestone exit.
+
+### Acceptance run — 2026-11-11, MFR fix for previews, 12 of 12
+
+Same host, branch and pins as the run above, except MFR: the main checkout's manifest was pointed, locally and uncommitted, at `2c4a88a6`, the head of RDM-modular-file-renderer-dev2027 PR #7. That commit stops rewriting osf.io's `/<guid>/?direct&mode=render&action=download` to `/download/<guid>/` and requests the URL as osf.io built it, so osf.io's `/<guid>/` route answers the internal WaterButler URL (`_internal=True` for `mode=render`). The credential pair stays `http://web:5000` → `http://wb:7777`. Its tests also show that the browser-facing `127.0.0.1:7777`, `localhost`, lookalike hosts and other ports are refused before any request or get no credentials. The committed pin stays `f9da1db3` until PR #7 merges. Its merge commit is then pinned.
+
+The Docker disk had been enlarged to 400 GiB (193 GB free before the run).
+
+| Step | Exit | Result |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR built natively at `2c4a88a663ca`; the other components from cache, elasticsearch2 rebuilt |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 24 services healthy; `mfr` runs `grdm-dev/modular-file-renderer:2c4a88a663ca` |
+| `accept --seed --only core` | 0 | Run `acc-20261111T122608Z-2d3599`: **12 of 12 pass**. The evidence directory stays local and is not committed in this PR. C5 success answers 200, and C5 rejection still answers 401. web's log shows MFR requesting `GET /<guid>/?direct&mode=render&action=download` (302), and MFR's log has no `ClientConnectorError`. |
+| `scan` | 0 | All five parts complete: baseline pass, and Trivy, Semgrep, gitleaks and ZAP ok. ZAP produced reports again for its three targets. Gate: report-only, pass |
+| `report` | 0 | |
+
+Scan totals (`scan_20261111T123133Z`): 10,983 findings, of which 726 CRITICAL, 3,782 HIGH, 4,147 MEDIUM, 2,322 LOW and 6 INFO; 177 more are allow-listed by the 58 entries. Trivy CRITICAL/HIGH open: 726/3,769, unchanged from the run above. The MFR change is code only and adds no package. Semgrep: 12 HIGH. gitleaks: 0. ZAP: 1 HIGH, 8 MEDIUM, 12 LOW, 6 INFO.
+
+Before this, C5 was reproduced on the unfixed MFR `f9da1db3` (run `acc-20261111T121734Z-7329b7`, C5 only: success 400, rejection 401), with the same log lines as the run above.
+
+### Acceptance run — 2026-11-11, MFR pinned at the merge of PR #7, 12 of 12
+
+RDM-modular-file-renderer-dev2027 PR #7 merged as `9771b8cf`. Its tree is identical to the head `2c4a88a6` used above. The manifest now pins MFR at `9771b8cf`, and the note no longer says the fix is unmerged. The other pins are unchanged.
+
+| Step | Exit | Result |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR built natively at `9771b8cfb352` |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 24 services healthy; `mfr` runs `grdm-dev/modular-file-renderer:9771b8cfb352` |
+| `accept --seed --only core` | 0 | Run [`acc-20261111T132104Z-530071`](runs/acc-20261111T132104Z-530071/results.toon): **12 of 12 pass**. C5 success returns 200 and C5 rejection 401. gitleaks found nothing in the run folder, so it is committed. |
+| `scan` | 0 | `scan_20261111T132607Z`: baseline pass; Trivy (23 targets), Semgrep, gitleaks and ZAP (3 targets) ok; gate report-only, pass |
+| `report` | 0 | |
+
+Scan totals: 10,984 findings, of which 726 CRITICAL, 3,782 HIGH, 4,148 MEDIUM, 2,322 LOW and 6 INFO. A further 177 are allow-listed by the 58 entries. By tool: Trivy 726/3,769/4,139/2,310 (CRITICAL/HIGH/MEDIUM/LOW), Semgrep 12 HIGH, gitleaks 0, ZAP 1 HIGH, 9 MEDIUM, 12 LOW and 6 INFO. These are the same as the run above, except for one more ZAP MEDIUM.
+
+**After PR #45 review r1 (same stack, 2026-11-11 14:18 UTC).** The allow-list matcher was changed (R1-01). Each of the 58 entries now names the exact `name@version` packages of its image, taken from the raw Trivy reports. A Trivy finding is accepted only while its `FixedVersion` is empty and its `Status` is a no-fix status, and only for the OS packages of that image. `scan` and `report` were run again, and both exited 0. `scan_20261111T141804Z` has the same totals as above: 10,984 open findings and 177 allow-listed, matched by all 58 entries. Replaying the stored reports `20261111T132241Z` through the new matcher gives the same 177. The new unit tests show that the old matcher accepted a fixed version, an unrelated package and a name prefix.
+
 ---
 
 <a id="japanese"></a>
@@ -938,6 +1030,94 @@ run21:
 | C6 管理画面 | 合格 | 合格（403） | 管理画面の資産をローカルで配信し CDN へ出ない。所属機関の管理者には、一覧でも明示の検索でも、自機関の利用者が見え、無所属の利用者と別機関の利用者は見えない |
 
 この直前の実行は、修正をマージ済みなのに C5 と C6 で失敗した。`compose render` を `build` より先に実行しており、render は直前のビルド記録からイメージのタグを取るため、古いイメージのまま動いていた。ビルドのあとに render し直して解決した。
+
+### 受入の実行 — 2026-11-11、PostgreSQL 18 上の Python 3.13 の WaterButler と MFR、12 件中 11 件
+
+ブランチ `feat/pin-py313-wb-mfr`、本体のチェックアウトから実行。固定版: WaterButler `3319c106` と MFR `f9da1db3`（どちらも `python:3.13-slim@sha256:e48f59cd…ed90`、Python 3.13.18、Debian 13）、osf.io `8fc45de4`、wiki-frontend `5985d18b`（osf.io の基底 `8fc45de4` の上に組み、イメージのタグは `8fc45de461fd-5985d18b75da`）、y-websocket `d4d1cfae`、cas-overlay `22610b76`、PostgreSQL 18.6。MFR は arm64 向けにネイティブで組むようになり（`build_platform` を削除）、freecad を含まないため、所有者の判断で CAD のプレビュー（.step/.stp）は廃止した。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `db upgrade` | 0 | PostgreSQL 9.6 → 18 をダンプと復元で移行（ダンプ 4.8 MB、531 個のオブジェクトが一致）。旧ディレクトリは `postgres_data.pg9.6-20261111T111040Z` として残る |
+| `build` | 30 | 1 回目: WaterButler の `apt-get upgrade` が「空き容量不足」で失敗。このホストの他の作業と共有する Docker のディスクが満杯だった。以前の固定版の `grdm-dev/*` のタグのうち不要になったものを削除した（ビルドキャッシュは削除していない）。2 回目は osf.io・WaterButler・MFR・cas-overlay・wiki-frontend・y-websocket を組めたが、elasticsearch2 が `apt-get update` で失敗（「not signed」。同じくディスク満杯）。2026-11-06 以降入力が変わっていない、2026-11-10 に組んだ既存のイメージを使った。 |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 24 サービスが正常。`wb` と `wb_worker` は uid 1000（利用者 `waterbutler`）、`mfr` は uid 1000 で動き、Celery 5.6.3 のワーカーは準備完了。新しい秘密は不要で、テンプレートと `wb.env`/`mfr.env` は変えていない。 |
+| `accept --seed --only core` | 60 | 実行 [`acc-20261111T115949Z-ab529c`](runs/acc-20261111T115949Z-ab529c/results.toon): **12 件中 11 件合格**。C5 の成功ケースが失敗（下記） |
+| `scan` | 51 | Trivy・Semgrep・gitleaks は完了し、基本対策は合格。ZAP は Docker のディスクの空きが 0 バイトの間、3 つの対象すべてで報告を出さなかった（rc 3） |
+| `report` | 0 | |
+
+**C5 の成功ケース（プレビュー）の失敗はインストーラーでなく統合リポジトリ側にある。** MFR は描画要求に 400 を返した。MFR のログは `ClientConnectorError: Cannot connect to host 127.0.0.1:7777`、web のログは MFR が新たに送る要求 `GET /download/<guid>/?direct&mode=render&action=download`（MFR のコンテナから、応答 302）を示す。MFR `f9da1db3`（上流 #9 から取り込み）は `/<guid>/` の形の OSF の URL を `/download/<guid>/` に書き換える。osf.io `8fc45de4` では、`/<guid>/` の経路は WaterButler の URL を `_internal=(mode == 'render')` で作るので、MFR は `http://wb:7777` を受け取っていた。`/download/<guid>/` の経路（`persistent_file_download`）は `_internal` なしで作るので、MFR はブラウザ向けの `WATERBUTLER_URL`（`http://127.0.0.1:7777`）を受け取る。これはコンテナ内からは届かず、資格情報の送り先でもない。直すのは MFR（GRDM では描画の URL を書き換えない）か osf.io（`persistent_file_download` がもう一方の経路と同じく `mode=render` に従う）である。C5 の拒否ケース（401）は合格のまま。
+
+Trivy の CRITICAL/HIGH（対象ごと、`critical/high`）:
+
+```toon
+trivy_critical_high:
+  db: "2026-11-10 19:01 UTC（前: scan_20261110T022540Z、DB 2026-11-10 01:02 UTC）"
+  targets[23]{target,before,after,note}:
+    waterbutler,13/178,0/47,"45e97a51 → 3319c106; 47 件すべて修正版の無い Debian 13、許容リスト"
+    modular-file-renderer,53/410,3/127,"749e58d3 → f9da1db3; 130 件すべて修正版の無い Debian 13、許容リスト"
+    osf.io,118/566,118/566,"fe90e5c3 → 8fc45de4"
+    wiki-frontend,65/332,65/332,""
+    rdm-ember-osf-web,407/1911,407/1911,prebuilt
+    cas-overlay,43/105,43/105,""
+    postgres,11/117,2/147,"9.6 → 18.6 (Debian 13)"
+    unoconv,1/100,1/156,"同じイメージ、新しい DB"
+    redis,1/37,1/37,""
+    elasticsearch2,5/18,5/18,""
+    elasticsearch6,2/50,2/50,""
+    rabbitmq,0/7,0/7,""
+    mongo,0/2,0/2,""
+    fakecas,0/2,0/2,""
+    sharejs,0/0,0/0,""
+    y-websocket,0/0,0/0,""
+    src/RDM-waterbutler-dev2027,2/32,0/0,lockfiles
+    src/RDM-modular-file-renderer-dev2027,14/79,0/0,lockfiles
+    src/RDM-osf.io-dev2027,55/279,55/279,lockfiles
+    src/RDM-wiki-frontend-dev2027,21/107,21/107,lockfiles
+    src/RDM-cas-overlay-dev2027,6/20,6/20,lockfiles
+    src/RDM-y-websocket-dev2027,0/0,0/0,lockfiles
+    repo,0/30,0/30,""
+  total: "817/4382 → 729/3943（未許容 726/3769、58 項目で許容 3/174）"
+```
+
+許容リストは 58 項目になった（イメージと CVE ごとに 1 項目。[SPEC-03 §5.1](../spec/03_security_gate.md#japanese) の新しい `image` 欄で範囲を限定し、見直し日は 2026-12-31）。節目は M1（報告のみ）なので件数は報告にとどまる。`manifest/allowlist.baseline.json` の上限は節目の終了時に所有者が決める。
+
+### 受入の実行 — 2026-11-11、プレビューを直した MFR、12 件中 12 件
+
+ホスト・ブランチ・固定版は上の実行と同じだが、MFR だけが違う。本体のチェックアウトの manifest を、手元で未コミットのまま `2c4a88a6` に向けた。これは RDM-modular-file-renderer-dev2027 PR #7 の先頭のコミットで、osf.io の `/<guid>/?direct&mode=render&action=download` を `/download/<guid>/` に書き換えるのをやめ、osf.io が組み立てたとおりの URL を要求する。そのため osf.io の `/<guid>/` の経路が内部向けの WaterButler の URL を返す（`mode=render` では `_internal=True`）。資格情報の組は `http://web:5000` → `http://wb:7777` のまま変わらない。PR #7 の試験は、ブラウザ向けの `127.0.0.1:7777`、`localhost`、似た名前のホスト、別ポートが、要求の前に拒否されるか、資格情報を受け取らないことも示す。コミット済みの固定版は PR #7 のマージまで `f9da1db3` のままにし、マージ後にそのマージコミットを固定する。
+
+Docker のディスクは 400 GiB に拡張済みだった（実行前の空きは 193 GB）。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR を `2c4a88a663ca` でネイティブに組んだ。他の部品はキャッシュ、elasticsearch2 は組み直し |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 24 サービスが正常。`mfr` は `grdm-dev/modular-file-renderer:2c4a88a663ca` で動く |
+| `accept --seed --only core` | 0 | 実行 `acc-20261111T122608Z-2d3599`: **12 件中 12 件合格**。証跡のディレクトリは手元に残し、この PR ではコミットしない。C5 の成功ケースは 200 を返し、拒否ケースは 401 のまま。web のログには MFR からの `GET /<guid>/?direct&mode=render&action=download`（302）が残り、MFR のログに `ClientConnectorError` は無い。 |
+| `scan` | 0 | 5 つの部分すべてが完了した。基本対策は合格、Trivy・Semgrep・gitleaks・ZAP は ok。ZAP は 3 つの対象すべてで再び報告を出した。門は報告のみで合格 |
+| `report` | 0 | |
+
+検査の件数（`scan_20261111T123133Z`）: 10,983 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,147、LOW 2,322、INFO 6。これとは別に 58 項目の許容リストで 177 件を許容した。Trivy の未許容の CRITICAL/HIGH は 726/3,769 で、上の実行と変わらない。MFR の変更はコードだけで、パッケージは増えていない。Semgrep: HIGH 12。gitleaks: 0。ZAP: HIGH 1、MEDIUM 8、LOW 12、INFO 6。
+
+これに先立ち、直す前の MFR `f9da1db3` で C5 を再現した（実行 `acc-20261111T121734Z-7329b7`、C5 のみ。成功ケース 400、拒否ケース 401）。ログの内容は上の実行と同じだった。
+
+### 受入の実行 — 2026-11-11、PR #7 のマージで MFR を固定、12 件中 12 件
+
+RDM-modular-file-renderer-dev2027 PR #7 は `9771b8cf` としてマージされた。その中身は上で使った先頭 `2c4a88a6` と同じである。manifest は MFR を `9771b8cf` に固定し、注記から未マージの記述を除いた。他の固定版は変えていない。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR を `9771b8cfb352` でネイティブに組んだ |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 24 サービスが正常。`mfr` は `grdm-dev/modular-file-renderer:9771b8cfb352` で動く |
+| `accept --seed --only core` | 0 | 実行 [`acc-20261111T132104Z-530071`](runs/acc-20261111T132104Z-530071/results.toon): **12 件中 12 件合格**。C5 の成功ケースは 200、拒否ケースは 401。実行フォルダを gitleaks で検査して何も見つからなかったので、コミットした。 |
+| `scan` | 0 | `scan_20261111T132607Z`: 基本対策は合格。Trivy（23 対象）・Semgrep・gitleaks・ZAP（3 対象）は ok。門は報告のみで合格 |
+| `report` | 0 | |
+
+検査の件数: 10,984 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,148、LOW 2,322、INFO 6。これとは別に、58 項目の許容リストで 177 件を許容した。道具ごとの内訳: Trivy 726/3,769/4,139/2,310（CRITICAL/HIGH/MEDIUM/LOW）、Semgrep は HIGH 12、gitleaks は 0、ZAP は HIGH 1・MEDIUM 9・LOW 12・INFO 6。ZAP の MEDIUM が 1 件多いことを除けば、上の実行と同じである。
+
+**PR #45 レビュー r1 の後（同じスタック、2026-11-11 14:18 UTC）。** 許容リストの照合を変えた（R1-01）。58 項目はそれぞれ、自分のイメージの正確な `name@version` のパッケージを名指しする。一覧は Trivy の生の報告から取った。Trivy の検出を許容するのは、`FixedVersion` が空で `Status` が修正版なしの状態の間だけで、対象はそのイメージの OS パッケージだけである。`scan` と `report` をやり直し、どちらも終了 0 だった。`scan_20261111T141804Z` の件数は上と同じで、未許容が 10,984 件、許容が 177 件。177 件は 58 項目すべてが当てはまった結果である。保存した報告 `20261111T132241Z` を新しい照合に通しても同じ 177 件になる。新しい単体試験では、古い照合が修正版のある検出、名指していないパッケージ、名前の前方一致を許容していたことが示された。
 
 ---
 

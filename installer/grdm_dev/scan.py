@@ -53,6 +53,10 @@ Runner = Callable[[list[str]], tuple[int, str]]
 
 SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 ALLOWLIST_FIELDS = ("cve", "component", "reason", "owner", "expires", "added_at")
+# Trivy statuses that mean "no fixed version will come for this installed package" (SPEC-03 §5.1 rule 1).
+# Anything else, a non-empty FixedVersion, or a missing status keeps the finding open.
+NO_FIX_STATUSES = frozenset({"affected", "will_not_fix", "fix_deferred", "end_of_life"})
+_WILDCARD_COMPONENTS = frozenset({"", "*"})
 MILESTONES = ("M1", "M2", "M3", "M4", "M5")
 # Milestone -> gate rule name (SPEC-03 §5.2 / ADR-03 §3). manifest/milestone.json may carry the
 # same word in its "gate" field; the milestone number decides when the two disagree.
@@ -87,8 +91,10 @@ FORBIDDEN_DEFAULTS = frozenset({"postgres", "changeme", "guest", "password", "se
 
 DEFAULT_ALLOWLIST: dict[str, Any] = {
     "schema_version": 1,
-    "note": "Accepted findings (SPEC-03 §5.1). Every entry needs cve, component, reason, owner, "
-            "expires, added_at; optional severity. Only the owner approves additions.",
+    "note": "Accepted findings (SPEC-03 §5.1). Every entry needs cve, component (an exact package, "
+            "never a wildcard), reason, owner, expires, added_at; optional severity, and image with "
+            "packages (exact name@version list; limits the entry to that image's OS packages). An entry "
+            "matches a Trivy finding only while no fixed version exists. Only the owner approves additions.",
     "fields": list(ALLOWLIST_FIELDS),
     "entries": [],
 }
@@ -184,6 +190,21 @@ def validate_allowlist(entries: Any, today: _dt.date) -> tuple[list[dict], list[
             findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", str(e.get("component", "")), loc,
                                      f"missing or empty field(s): {', '.join(missing)}"))
             continue
+        if e["component"].strip() in _WILDCARD_COMPONENTS:
+            findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
+                                     "component must name an exact package, never a wildcard"))
+            continue
+        if "image" in e and (not isinstance(e["image"], str) or not e["image"].strip()):
+            findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
+                                     "image, when present, must be a non-empty image name"))
+            continue
+        packages = e.get("packages")
+        if packages is not None or "image" in e:
+            if not _valid_packages(packages):
+                findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
+                                         "an entry with image needs packages: a non-empty list of exact "
+                                         "name@version strings"))
+                continue
         if str(e["owner"]).strip().lower() == "team":
             findings.append(_finding("allowlist", "ALLOWLIST-MALFORMED", "HIGH", e["component"], loc,
                                      "owner must be a person or a role, never 'team'"))
@@ -202,14 +223,72 @@ def validate_allowlist(entries: Any, today: _dt.date) -> tuple[list[dict], list[
     return active, findings
 
 
+def _split_package(spec: str) -> tuple[str, str | None]:
+    """`name@version` -> (name, version); `name` -> (name, None). A leading `@` (npm scope) is part of the name."""
+    at = spec.find("@", 1)
+    return (spec, None) if at < 0 else (spec[:at], spec[at + 1:])
+
+
+def _valid_packages(packages: Any) -> bool:
+    if not isinstance(packages, list) or not packages:
+        return False
+    for spec in packages:
+        if not isinstance(spec, str) or spec != spec.strip():
+            return False
+        name, version = _split_package(spec)
+        if name in _WILDCARD_COMPONENTS or not version or "*" in spec:
+            return False
+    return True
+
+
 def _entry_matches(entry: dict, finding: dict) -> bool:
+    """Whether an active allow-list entry accepts a finding (SPEC-03 §5.1 rule 1). All of:
+
+    * the same id (CVE);
+    * for a Trivy vulnerability: its fix status is known to be "no fix" (NO_FIX_STATUSES) and it has no
+      FixedVersion. A finding whose fix appears later, or whose status is unknown, stays open. A Trivy
+      finding without the recorded status (not produced by normalize_trivy) is unknown and stays open;
+    * an entry with `image` (a name without tag, e.g. grdm-dev/waterbutler) only matches OS packages
+      (Trivy class os-pkgs) of exactly that image, whose target is `<image>:<tag> (<os>)` or
+      `<image>@<digest>`; a sibling image name or a language package never matches;
+    * the package is exactly one the entry names: each of `packages` (`name@version`), else
+      `component` (`name` or `name@version`). Names are compared whole, never as a prefix, and a
+      version in the entry must equal the installed version."""
     if entry["cve"] != finding["id"]:
         return False
-    comp = entry.get("component", "*")
-    if comp in ("", "*"):
-        return True
-    fcomp = finding.get("component", "") or ""
-    return fcomp == comp or fcomp.startswith(comp.split("@")[0])
+    meta = finding.get("_trivy")
+    if finding.get("tool") == "trivy":
+        if not isinstance(meta, dict):
+            return False
+        if meta.get("kind") == "vulnerability":
+            if meta.get("fixed") or meta.get("status") not in NO_FIX_STATUSES:
+                return False
+    image = entry.get("image")
+    if image:
+        if not isinstance(meta, dict) or meta.get("kind") != "vulnerability" or meta.get("class") != "os-pkgs":
+            return False
+        loc = finding.get("location", "") or ""
+        if not (loc.startswith(image + ":") or loc.startswith(image + "@")):
+            return False
+    if isinstance(meta, dict) and meta.get("kind") == "vulnerability":
+        name, version = meta.get("pkg", ""), meta.get("version", "")
+    else:
+        name, version = finding.get("component", "") or "", None
+        if version is None and "@" in name[1:]:
+            name, version = _split_package(name)
+    specs = entry.get("packages") or [entry.get("component", "")]
+    for spec in specs:
+        want_name, want_version = _split_package(str(spec))
+        if want_name in _WILDCARD_COMPONENTS or want_name != name:
+            continue
+        if want_version is None or want_version == version:
+            return True
+    return False
+
+
+def public_finding(finding: dict) -> dict:
+    """The reported shape of a finding: internal keys (leading underscore) are dropped."""
+    return {k: v for k, v in finding.items() if not k.startswith("_")}
 
 
 # --------------------------------------------------------------------------- findings
@@ -239,9 +318,18 @@ def normalize_trivy(data: Any, target: str) -> list[dict]:
         loc = res.get("Target") or target
         for v in res.get("Vulnerabilities") or []:
             comp = f"{v.get('PkgName', '')}@{v.get('InstalledVersion', '')}".rstrip("@")
-            out.append(_finding("trivy", v.get("VulnerabilityID", ""), v.get("Severity", ""), comp, loc, v.get("Title", "")))
+            f = _finding("trivy", v.get("VulnerabilityID", ""), v.get("Severity", ""), comp, loc, v.get("Title", ""))
+            # Kept for allow-list matching only (stripped from reports): exact package identity, fix
+            # status and package class, so an entry stops matching once a fixed version exists.
+            f["_trivy"] = {"kind": "vulnerability", "pkg": str(v.get("PkgName") or ""),
+                           "version": str(v.get("InstalledVersion") or ""),
+                           "fixed": str(v.get("FixedVersion") or ""), "status": str(v.get("Status") or ""),
+                           "class": str(res.get("Class") or ""), "type": str(res.get("Type") or "")}
+            out.append(f)
         for m in res.get("Misconfigurations") or []:
-            out.append(_finding("trivy", m.get("ID", ""), m.get("Severity", ""), loc, loc, m.get("Title", "")))
+            f = _finding("trivy", m.get("ID", ""), m.get("Severity", ""), loc, loc, m.get("Title", ""))
+            f["_trivy"] = {"kind": "misconfiguration"}
+            out.append(f)
     return out
 
 
@@ -1166,7 +1254,7 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
         "gate": "pass" if gate["pass"] else "fail",
         "gate_reasons": gate["reasons"],
         "notes": notes,
-        "findings": open_findings,
+        "findings": [public_finding(f) for f in open_findings],
         "exit_code": code,
     }
     data = mask_secrets(data, secrets)

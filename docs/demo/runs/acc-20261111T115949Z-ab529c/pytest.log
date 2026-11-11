@@ -1,0 +1,69 @@
+.......F....                                                             [100%]
+=================================== FAILURES ===================================
+____________________ test_c5_file_preview_success[chromium] ____________________
+
+logged_in_page = <Page url='http://127.0.0.1:5000/fwk3d/'>, project = 'q4j2x'
+base_url = 'http://127.0.0.1:5000'
+service_url = <function service_url.<locals>._url at 0x10b6e1220>
+tmp_pdf = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
+run_id = 'acc-20261111T115949Z-ab529c'
+record_property = <function record_property.<locals>.append_property at 0x10bdc8510>
+
+    @pytest.mark.case("success")
+    def test_c5_file_preview_success(logged_in_page, project, base_url, service_url, tmp_pdf, run_id, record_property):
+        """An uploaded PDF renders inside the mfr iframe (mfr answers 200 for the render request)."""
+        page = logged_in_page
+        entity = upload(page.context, service_url("wb"), project, f"c5-{run_id}.pdf", tmp_pdf)
+        mfr = service_url("mfr")
+        with page.expect_response(lambda r: same_origin(r.url, mfr) and "/render" in r.url, timeout=90_000) as render:
+            page.goto(_file_page_url(base_url, project, entity["attributes"]["path"]), wait_until="domcontentloaded")
+            page.wait_for_selector(sel.WEB["file_preview_iframe"], timeout=60_000)
+        record_property("http_status", render.value.status)
+>       assert render.value.status == 200, f"mfr render returned {render.value.status}"
+E       AssertionError: mfr render returned 400
+E       assert 400 == 200
+E        +  where 400 = <Response url='http://127.0.0.1:7778/render?url=http://web:5000/fwk3d/?direct%26mode=render%26action=download%26public...Title=OSF%20%7C%20c5-acc-20261111T115949Z-ab529c.pdf&parentUrl=http%3A%2F%2F127.0.0.1%3A5000%2Ffwk3d%2F' method='GET'>>.status
+E        +    where <Response url='http://127.0.0.1:7778/render?url=http://web:5000/fwk3d/?direct%26mode=render%26action=download%26public...Title=OSF%20%7C%20c5-acc-20261111T115949Z-ab529c.pdf&parentUrl=http%3A%2F%2F127.0.0.1%3A5000%2Ffwk3d%2F' method='GET'>> = <playwright._impl._sync_base.EventInfo object at 0x10b7670e0>.value
+
+installer/acceptance/test_c5_file_preview.py:26: AssertionError
+=============================== warnings summary ===============================
+test_c1_login.py::test_c1_login_success[chromium]
+  test_c1_login.py:10: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_success[chromium]
+  test_c2_create_project.py:11: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_rejection[chromium]
+  test_c2_create_project.py:39: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+  test_c3_file_upload.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+  test_c3_file_upload.py:43: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:85: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+  test_c5_file_preview.py:16: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]
+  test_c5_file_preview.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_success[chromium]
+  test_c6_admin.py:28: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_rejection[chromium]
+  test_c6_admin.py:48: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c1_login.py::test_c1_login_rejection
+  test_c1_login.py:20: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED installer/acceptance/test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+1 failed, 11 passed, 10 deselected, 12 warnings in 76.22s (0:01:16)
