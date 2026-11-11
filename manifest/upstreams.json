@@ -324,7 +324,7 @@
       "integration_branch": "develop",
       "integration_sha": "9771b8cfb352f6c9907a6733a4205f9e62f4142d",
       "integration_repo": "RDM-modular-file-renderer-dev2027",
-      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision, 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1). Previews request osf.io's /<guid>/ URL unchanged, so osf.io answers the internal WaterButler URL (RDM-modular-file-renderer-dev2027 PR #7; the COS rewrite to /download/<guid>/ is not used).",
+      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision 2026-11-10, applied 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1). Previews request osf.io's /<guid>/ URL unchanged, so osf.io answers the internal WaterButler URL (RDM-modular-file-renderer-dev2027 PR #7; the COS rewrite to /download/<guid>/ is not used).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"

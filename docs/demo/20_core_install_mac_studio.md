@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same scan totals at MFR `9771b8cf` show that the merge changed nothing. ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ検査の件数になったことで、マージで何も変わっていないと分かる。
+- Version / 版: 0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
+  0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same Trivy totals at MFR `9771b8cf` show that the merge changed nothing (the whole scan has one more ZAP MEDIUM, 10,983 → 10,984). ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ Trivy の件数になったことで、マージで何も変わっていないと分かる（検査全体では ZAP の MEDIUM が 1 件増え、10,983 → 10,984）。
   0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
   0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
   0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
@@ -486,7 +487,7 @@ One run before this one failed on C5 and C6 although the fixes were merged: `com
 
 ### Acceptance run — 2026-11-11, Python 3.13 WaterButler and MFR on PostgreSQL 18, 11 of 12
 
-Started from the main checkout on `feat/pin-py313-wb-mfr`. Pins: WaterButler `3319c106` and MFR `f9da1db3` (both on `python:3.13-slim@sha256:e48f59cd…ed90`, Python 3.13.18, Debian 13), osf.io and wiki-frontend `8fc45de4`, y-websocket `d4d1cfae`, cas-overlay `22610b76`, PostgreSQL 18.6. MFR is now built natively for arm64 (`build_platform` removed) and without freecad, so CAD previews (.step/.stp) are removed by owner decision.
+Started from the main checkout on `feat/pin-py313-wb-mfr`. Pins: WaterButler `3319c106` and MFR `f9da1db3` (both on `python:3.13-slim@sha256:e48f59cd…ed90`, Python 3.13.18, Debian 13), osf.io `8fc45de4`, wiki-frontend `5985d18b` (built on the osf.io base `8fc45de4`, image tag `8fc45de461fd-5985d18b75da`), y-websocket `d4d1cfae`, cas-overlay `22610b76`, PostgreSQL 18.6. MFR is now built natively for arm64 (`build_platform` removed) and without freecad, so CAD previews (.step/.stp) are removed by owner decision.
 
 | Step | Exit | Result |
 |---|---|---|
@@ -569,6 +570,8 @@ RDM-modular-file-renderer-dev2027 PR #7 merged as `9771b8cf`. Its tree is identi
 | `report` | 0 | |
 
 Scan totals: 10,984 findings, of which 726 CRITICAL, 3,782 HIGH, 4,148 MEDIUM, 2,322 LOW and 6 INFO. A further 177 are allow-listed by the 58 entries. By tool: Trivy 726/3,769/4,139/2,310 (CRITICAL/HIGH/MEDIUM/LOW), Semgrep 12 HIGH, gitleaks 0, ZAP 1 HIGH, 9 MEDIUM, 12 LOW and 6 INFO. These are the same as the run above, except for one more ZAP MEDIUM.
+
+**After PR #45 review r1 (same stack, 2026-11-11 14:18 UTC).** The allow-list matcher was changed (R1-01). Each of the 58 entries now names the exact `name@version` packages of its image, taken from the raw Trivy reports. A Trivy finding is accepted only while its `FixedVersion` is empty and its `Status` is a no-fix status, and only for the OS packages of that image. `scan` and `report` were run again, and both exited 0. `scan_20261111T141804Z` has the same totals as above: 10,984 open findings and 177 allow-listed, matched by all 58 entries. Replaying the stored reports `20261111T132241Z` through the new matcher gives the same 177. The new unit tests show that the old matcher accepted a fixed version, an unrelated package and a name prefix.
 
 ---
 
@@ -1030,7 +1033,7 @@ run21:
 
 ### 受入の実行 — 2026-11-11、PostgreSQL 18 上の Python 3.13 の WaterButler と MFR、12 件中 11 件
 
-ブランチ `feat/pin-py313-wb-mfr`、本体のチェックアウトから実行。固定版: WaterButler `3319c106` と MFR `f9da1db3`（どちらも `python:3.13-slim@sha256:e48f59cd…ed90`、Python 3.13.18、Debian 13）、osf.io と wiki-frontend `8fc45de4`、y-websocket `d4d1cfae`、cas-overlay `22610b76`、PostgreSQL 18.6。MFR は arm64 向けにネイティブで組むようになり（`build_platform` を削除）、freecad を含まないため、所有者の判断で CAD のプレビュー（.step/.stp）は廃止した。
+ブランチ `feat/pin-py313-wb-mfr`、本体のチェックアウトから実行。固定版: WaterButler `3319c106` と MFR `f9da1db3`（どちらも `python:3.13-slim@sha256:e48f59cd…ed90`、Python 3.13.18、Debian 13）、osf.io `8fc45de4`、wiki-frontend `5985d18b`（osf.io の基底 `8fc45de4` の上に組み、イメージのタグは `8fc45de461fd-5985d18b75da`）、y-websocket `d4d1cfae`、cas-overlay `22610b76`、PostgreSQL 18.6。MFR は arm64 向けにネイティブで組むようになり（`build_platform` を削除）、freecad を含まないため、所有者の判断で CAD のプレビュー（.step/.stp）は廃止した。
 
 | 手順 | 終了 | 結果 |
 |---|---|---|
@@ -1113,6 +1116,8 @@ RDM-modular-file-renderer-dev2027 PR #7 は `9771b8cf` としてマージされ�
 | `report` | 0 | |
 
 検査の件数: 10,984 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,148、LOW 2,322、INFO 6。これとは別に、58 項目の許容リストで 177 件を許容した。道具ごとの内訳: Trivy 726/3,769/4,139/2,310（CRITICAL/HIGH/MEDIUM/LOW）、Semgrep は HIGH 12、gitleaks は 0、ZAP は HIGH 1・MEDIUM 9・LOW 12・INFO 6。ZAP の MEDIUM が 1 件多いことを除けば、上の実行と同じである。
+
+**PR #45 レビュー r1 の後（同じスタック、2026-11-11 14:18 UTC）。** 許容リストの照合を変えた（R1-01）。58 項目はそれぞれ、自分のイメージの正確な `name@version` のパッケージを名指しする。一覧は Trivy の生の報告から取った。Trivy の検出を許容するのは、`FixedVersion` が空で `Status` が修正版なしの状態の間だけで、対象はそのイメージの OS パッケージだけである。`scan` と `report` をやり直し、どちらも終了 0 だった。`scan_20261111T141804Z` の件数は上と同じで、未許容が 10,984 件、許容が 177 件。177 件は 58 項目すべてが当てはまった結果である。保存した報告 `20261111T132241Z` を新しい照合に通しても同じ 177 件になる。新しい単体試験では、古い照合が修正版のある検出、名指していないパッケージ、名前の前方一致を許容していたことが示された。
 
 ---
 

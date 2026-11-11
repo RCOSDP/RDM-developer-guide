@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 TRIVY_HIGH = json.dumps({"Results": [{"Target": "grdm-dev/web:dev", "Vulnerabilities": [
     {"VulnerabilityID": "CVE-2021-3177", "Severity": "HIGH", "PkgName": "python", "InstalledVersion": "3.6.15",
-     "Title": "ctypes buffer overflow"},
+     "Status": "affected", "Title": "ctypes buffer overflow"},
     {"VulnerabilityID": "CVE-2020-0001", "Severity": "LOW", "PkgName": "zlib", "InstalledVersion": "1.2", "Title": "low"},
 ]}]})
 TRIVY_CRITICAL = json.dumps({"Results": [{"Target": ".", "Vulnerabilities": [
@@ -505,37 +505,125 @@ class AllowlistTests(ScanTestBase):
         self.assertEqual(findings[0]["id"], "ALLOWLIST-MALFORMED")
 
     # An entry scoped to one image (Debian 13 packages without a fix in the Python 3.13 WaterButler and
-    # MFR images) must not hide the same CVE in another image, where a fixed version may exist.
-    SCOPED = {"cve": "CVE-2025-0001", "component": "util-linux", "image": "grdm-dev/waterbutler",
+    # MFR images) must not hide the same CVE in another image, where a fixed version may exist, nor a
+    # package the entry does not name, nor the same package once a fixed version appears (PR #45 r1 R1-01).
+    SCOPED = {"cve": "CVE-2025-0001", "component": "util-linux@2.41-5", "image": "grdm-dev/waterbutler",
+              "packages": ["util-linux@2.41-5", "libmount1@2.41-5"],
               "reason": "no fixed version in Debian 13", "owner": "AID", "expires": "2027-01-01",
               "added_at": "2026-11-11"}
 
-    def test_image_scoped_entry_matches_only_that_image(self):
-        def finding(location):
-            return scan._finding("trivy", "CVE-2025-0001", "HIGH", "util-linux@2.41-5", location, "t")
-        self.assertTrue(scan._entry_matches(self.SCOPED, finding("grdm-dev/waterbutler:3319c1067916 (debian 13.2)")))
-        self.assertFalse(scan._entry_matches(self.SCOPED, finding("postgres:9.6 (debian 9.13)")))
-        self.assertFalse(scan._entry_matches(self.SCOPED, finding("grdm-dev/waterbutler-extra:1 (debian 13.2)")))
-        # a language package's location is a path inside the image, so a scoped entry never matches it
-        self.assertFalse(scan._entry_matches(self.SCOPED, finding("usr/local/lib/python3.13/site-packages")))
-        unscoped = {k: v for k, v in self.SCOPED.items() if k != "image"}
-        self.assertTrue(scan._entry_matches(unscoped, finding("postgres:9.6 (debian 9.13)")))
+    @staticmethod
+    def trivy_finding(target="grdm-dev/waterbutler:3319c1067916 (debian 13.2)", pkg="util-linux",
+                      version="2.41-5", status="affected", fixed="", cls="os-pkgs", cve="CVE-2025-0001"):
+        vuln = {"VulnerabilityID": cve, "Severity": "HIGH", "PkgName": pkg, "InstalledVersion": version, "Title": "t"}
+        if status is not None:
+            vuln["Status"] = status
+        if fixed:
+            vuln["FixedVersion"] = fixed
+        result = {"Target": target, "Vulnerabilities": [vuln]}
+        if cls is not None:
+            result["Class"] = cls
+            result["Type"] = "debian" if cls == "os-pkgs" else "pip"
+        return scan.normalize_trivy({"Results": [result]}, target)[0]
+
+    def test_image_scoped_entry_matches_its_no_fix_packages(self):
+        for pkg in ("util-linux", "libmount1"):
+            self.assertTrue(scan._entry_matches(self.SCOPED, self.trivy_finding(pkg=pkg)), pkg)
+        for status in ("will_not_fix", "fix_deferred", "end_of_life"):
+            self.assertTrue(scan._entry_matches(self.SCOPED, self.trivy_finding(status=status)), status)
+        self.assertTrue(scan._entry_matches(self.SCOPED, self.trivy_finding(target="grdm-dev/waterbutler@sha256:ab (debian 13.2)")))
+
+    def test_image_scoped_entry_rejects_other_images(self):
+        for target in ("postgres:9.6 (debian 9.13)", "grdm-dev/waterbutler-extra:1 (debian 13.2)",
+                       "grdm-dev/waterbutlerx:1 (debian 13.2)", "grdm-dev/waterbutler (debian 13.2)"):
+            self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(target=target)), target)
+
+    def test_image_scoped_entry_rejects_unrelated_and_prefix_packages(self):
+        for pkg in ("unrelated-package", "util-linux-extra", "util", "libmount1-dev", "libmount"):
+            self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(pkg=pkg)), pkg)
+        # the installed version is part of the identity: another build of the package is a new finding
+        self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(version="2.41-6")))
+
+    def test_entry_stops_matching_once_a_fixed_version_exists(self):
+        # the reviewer's reproduction: same image, same named package, a fix published later
+        self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(status="fixed", fixed="2.41-6")))
+        self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(status="affected", fixed="2.41-6")))
+        self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(status="fixed")))
+        unscoped = {k: v for k, v in self.SCOPED.items() if k not in ("image", "packages")}
+        self.assertTrue(scan._entry_matches(unscoped, self.trivy_finding()))
+        self.assertFalse(scan._entry_matches(unscoped, self.trivy_finding(status="fixed", fixed="2.41-6")))
+
+    def test_unknown_fix_status_or_class_stays_open(self):
+        for status in (None, "", "unknown", "under_investigation"):
+            self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(status=status)), status)
+        self.assertFalse(scan._entry_matches(self.SCOPED, self.trivy_finding(cls=None)))
+        # a Trivy finding built without its recorded status (not from normalize_trivy) is unknown too
+        bare = scan._finding("trivy", "CVE-2025-0001", "HIGH", "util-linux@2.41-5",
+                             "grdm-dev/waterbutler:3319c1067916 (debian 13.2)", "t")
+        self.assertFalse(scan._entry_matches(self.SCOPED, bare))
+
+    def test_image_scoped_entry_never_matches_a_language_package(self):
+        f = self.trivy_finding(target="usr/local/lib/python3.13/site-packages", cls="lang-pkgs")
+        self.assertFalse(scan._entry_matches(self.SCOPED, f))
+        f = self.trivy_finding(cls="lang-pkgs")  # even inside the named image's target
+        self.assertFalse(scan._entry_matches(self.SCOPED, f))
+
+    def test_unscoped_entry_compares_whole_package_names(self):
+        entry = {"cve": "CVE-2025-0001", "component": "util-linux", "reason": "r", "owner": "AID",
+                 "expires": "2027-01-01", "added_at": "2026-11-11"}
+        self.assertTrue(scan._entry_matches(entry, self.trivy_finding(target="postgres:9.6 (debian 9.13)")))
+        self.assertFalse(scan._entry_matches(entry, self.trivy_finding(pkg="util-linux-extra")))
+        pinned = dict(entry, component="util-linux@2.41-5")
+        self.assertTrue(scan._entry_matches(pinned, self.trivy_finding()))
+        self.assertFalse(scan._entry_matches(pinned, self.trivy_finding(version="2.41-6")))
+
+    def test_wildcard_component_and_image_without_packages_are_malformed(self):
+        cases = [dict(self.SCOPED, component="*"), dict(self.SCOPED, component=""),
+                 {k: v for k, v in self.SCOPED.items() if k != "packages"},
+                 dict(self.SCOPED, packages=[]), dict(self.SCOPED, packages=["util-linux"]),
+                 dict(self.SCOPED, packages=["util-linux@*"]), dict(self.SCOPED, packages=["*@1"]),
+                 dict(self.SCOPED, packages="util-linux@2.41-5")]
+        for bad in cases:
+            active, findings = scan.validate_allowlist([bad], TODAY)
+            self.assertEqual(active, [], bad)
+            self.assertEqual(findings[0]["id"], "ALLOWLIST-MALFORMED", bad)
+
+    def test_real_allowlist_has_no_wildcards_and_is_valid(self):
+        data = json.loads((REPO_ROOT / "manifest" / "allowlist.json").read_text(encoding="utf-8"))
+        active, findings = scan.validate_allowlist(data["entries"], _dt.date(2026, 11, 11))
+        self.assertEqual(findings, [])
+        self.assertEqual(len(active), len(data["entries"]))
+        for e in data["entries"]:
+            self.assertNotIn(e["component"], ("", "*"))
+            if "image" in e:
+                self.assertIn(e["component"], e["packages"])
 
     def test_image_scoped_entry_in_a_full_scan(self):
         trivy = json.dumps({"Results": [
-            {"Target": "grdm-dev/waterbutler:3319c1067916 (debian 13.2)", "Vulnerabilities": [
+            {"Target": "grdm-dev/waterbutler:3319c1067916 (debian 13.2)", "Class": "os-pkgs", "Type": "debian",
+             "Vulnerabilities": [
                 {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "util-linux",
-                 "InstalledVersion": "2.41-5", "Title": "t"}]},
-            {"Target": "postgres:9.6 (debian 9.13)", "Vulnerabilities": [
+                 "InstalledVersion": "2.41-5", "Status": "affected", "Title": "t"},
+                {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "libmount1",
+                 "InstalledVersion": "2.41-5", "Status": "fixed", "FixedVersion": "2.41-6", "Title": "fixable"},
+                {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "unrelated-package",
+                 "InstalledVersion": "1", "Status": "affected", "Title": "unnamed"}]},
+            {"Target": "postgres:9.6 (debian 9.13)", "Class": "os-pkgs", "Type": "debian", "Vulnerabilities": [
                 {"VulnerabilityID": "CVE-2025-0001", "Severity": "HIGH", "PkgName": "util-linux",
-                 "InstalledVersion": "2.29.2-1", "Title": "t"}]}]})
+                 "InstalledVersion": "2.29.2-1", "Status": "affected", "Title": "t"}]}]})
         self.write_manifest("allowlist.json", {"entries": [self.SCOPED]})
         code, data, _ = self.run_scan(fake_runner(trivy_json=trivy))
         self.assertEqual(code, exit_codes.OK)
-        allowed = [f for f in data["findings"] if f["id"] == "CVE-2025-0001"]
-        self.assertTrue(allowed)  # the postgres one stays open in every target the fake runner answers for
-        self.assertTrue(all(f["location"].startswith("postgres:") for f in allowed))
+        open_ = [f for f in data["findings"] if f["id"] == "CVE-2025-0001"]
         self.assertGreater(data["allowlisted"], 0)
+        self.assertTrue(any(f["component"] == "libmount1@2.41-5" for f in open_))  # fixable stays open
+        self.assertTrue(any(f["component"] == "unrelated-package@1" for f in open_))
+        self.assertTrue(any(f["location"].startswith("postgres:") for f in open_))
+        self.assertFalse(any(f["component"] == "util-linux@2.41-5" and f["location"].startswith("grdm-dev/")
+                             for f in open_))
+        # internal matching data never reaches the report
+        self.assertTrue(all(set(f) == {"tool", "id", "severity", "component", "location", "title"}
+                            for f in data["findings"]))
 
     def test_empty_image_is_malformed(self):
         for bad in ("", "  ", 3):
@@ -877,7 +965,8 @@ class NormalizerTests(unittest.TestCase):
     def test_trivy_unknown_severity_maps_low_and_shape(self):
         f = scan.normalize_trivy({"Results": [{"Target": "t", "Vulnerabilities": [
             {"VulnerabilityID": "CVE-X", "Severity": "UNKNOWN", "PkgName": "p", "InstalledVersion": "1"}]}]}, "t")[0]
-        self.assertEqual(set(f), {"tool", "id", "severity", "component", "location", "title"})
+        self.assertEqual(set(scan.public_finding(f)), {"tool", "id", "severity", "component", "location", "title"})
+        self.assertEqual(f["_trivy"]["pkg"], "p")
         self.assertEqual(f["severity"], "LOW")
         self.assertEqual(f["component"], "p@1")
 
