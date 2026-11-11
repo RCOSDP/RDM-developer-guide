@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
+- Version / 版: 0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same scan totals at MFR `9771b8cf` show that the merge changed nothing. ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ検査の件数になったことで、マージで何も変わっていないと分かる。
+  0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
   0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
   0.14 — 2026-11-10. **Learned:** "only its institution's users" is proven only when a user of another institution exists and is absent, so the cited run now seeds one and is a fresh 12-of-12 run (PR #40 review r1 R1-01). ／ 「自機関の利用者だけ」は、別機関の利用者が存在してかつ表示されないときに初めて示せる。そのため引用する実行を、それを種データに含む新しい 12 件中 12 件の実行に替えた（PR #40 レビュー r1 R1-01）。
   0.13 — 2026-11-10. **Learned:** a security fix is proven only by a rejection case that runs against the image containing it, so the full acceptance run is repeated after every pin change. ／ セキュリティ修正は、その修正を含むイメージに対して拒否ケースを実行して初めて証明される。固定版を変えるたびに受入を全件やり直す。
@@ -553,6 +554,22 @@ Scan totals (`scan_20261111T123133Z`): 10,983 findings, of which 726 CRITICAL, 3
 
 Before this, C5 was reproduced on the unfixed MFR `f9da1db3` (run `acc-20261111T121734Z-7329b7`, C5 only: success 400, rejection 401), with the same log lines as the run above.
 
+### Acceptance run — 2026-11-11, MFR pinned at the merge of PR #7, 12 of 12
+
+RDM-modular-file-renderer-dev2027 PR #7 merged as `9771b8cf`. Its tree is identical to the head `2c4a88a6` used above. The manifest now pins MFR at `9771b8cf`, and the note no longer says the fix is unmerged. The other pins are unchanged.
+
+| Step | Exit | Result |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR built natively at `9771b8cfb352` |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 24 services healthy; `mfr` runs `grdm-dev/modular-file-renderer:9771b8cfb352` |
+| `accept --seed --only core` | 0 | Run [`acc-20261111T132104Z-530071`](runs/acc-20261111T132104Z-530071/results.toon): **12 of 12 pass**. C5 success returns 200 and C5 rejection 401. gitleaks found nothing in the run folder, so it is committed. |
+| `scan` | 0 | `scan_20261111T132607Z`: baseline pass; Trivy (23 targets), Semgrep, gitleaks and ZAP (3 targets) ok; gate report-only, pass |
+| `report` | 0 | |
+
+Scan totals: 10,984 findings, of which 726 CRITICAL, 3,782 HIGH, 4,148 MEDIUM, 2,322 LOW and 6 INFO. A further 177 are allow-listed by the 58 entries. By tool: Trivy 726/3,769/4,139/2,310 (CRITICAL/HIGH/MEDIUM/LOW), Semgrep 12 HIGH, gitleaks 0, ZAP 1 HIGH, 9 MEDIUM, 12 LOW and 6 INFO. These are the same as the run above, except for one more ZAP MEDIUM.
+
 ---
 
 <a id="japanese"></a>
@@ -1080,6 +1097,22 @@ Docker のディスクは 400 GiB に拡張済みだった（実行前の空き�
 検査の件数（`scan_20261111T123133Z`）: 10,983 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,147、LOW 2,322、INFO 6。これとは別に 58 項目の許容リストで 177 件を許容した。Trivy の未許容の CRITICAL/HIGH は 726/3,769 で、上の実行と変わらない。MFR の変更はコードだけで、パッケージは増えていない。Semgrep: HIGH 12。gitleaks: 0。ZAP: HIGH 1、MEDIUM 8、LOW 12、INFO 6。
 
 これに先立ち、直す前の MFR `f9da1db3` で C5 を再現した（実行 `acc-20261111T121734Z-7329b7`、C5 のみ。成功ケース 400、拒否ケース 401）。ログの内容は上の実行と同じだった。
+
+### 受入の実行 — 2026-11-11、PR #7 のマージで MFR を固定、12 件中 12 件
+
+RDM-modular-file-renderer-dev2027 PR #7 は `9771b8cf` としてマージされた。その中身は上で使った先頭 `2c4a88a6` と同じである。manifest は MFR を `9771b8cf` に固定し、注記から未マージの記述を除いた。他の固定版は変えていない。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `compose render` | 0 | |
+| `build` | 0 | MFR を `9771b8cfb352` でネイティブに組んだ |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 24 サービスが正常。`mfr` は `grdm-dev/modular-file-renderer:9771b8cfb352` で動く |
+| `accept --seed --only core` | 0 | 実行 [`acc-20261111T132104Z-530071`](runs/acc-20261111T132104Z-530071/results.toon): **12 件中 12 件合格**。C5 の成功ケースは 200、拒否ケースは 401。実行フォルダを gitleaks で検査して何も見つからなかったので、コミットした。 |
+| `scan` | 0 | `scan_20261111T132607Z`: 基本対策は合格。Trivy（23 対象）・Semgrep・gitleaks・ZAP（3 対象）は ok。門は報告のみで合格 |
+| `report` | 0 | |
+
+検査の件数: 10,984 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,148、LOW 2,322、INFO 6。これとは別に、58 項目の許容リストで 177 件を許容した。道具ごとの内訳: Trivy 726/3,769/4,139/2,310（CRITICAL/HIGH/MEDIUM/LOW）、Semgrep は HIGH 12、gitleaks は 0、ZAP は HIGH 1・MEDIUM 9・LOW 12・INFO 6。ZAP の MEDIUM が 1 件多いことを除けば、上の実行と同じである。
 
 ---
 
