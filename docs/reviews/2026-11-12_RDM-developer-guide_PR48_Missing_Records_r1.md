@@ -5,9 +5,11 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-12. **Learned:** REV changed only link destinations for publication, replacing scratch-path links with repository-relative links; the original review text and verdict are preserved verbatim. ／ REV（担当レビュワ）は公開用にリンク先だけを scratch パスからリポジトリ相対パスへ変更し、元のレビュー本文と判定は逐語的に保持した。
+- Provenance / 出典: Original review file / 元のレビュー記録: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-12_RDM-developer-guide_PR48_Missing_Records_r1.md`.
 - Version / 版: 0.1 — 2026-11-12. **Learned:** passing automated documentation checks does not prove compliance with the data-format rule, which requires manual review. ／ 文書の自動検査に合格しても、データ形式の規則への適合は証明されず、人による確認が必要と分かった。
 - Applies to: [RDM-developer-guide PR #48](https://github.com/RCOSDP/RDM-developer-guide/pull/48), head `01709926bcba997fb8eb1ccb502bfdcaf670f872`, base `f4199fb3c6cc49fd93816c4896d8a56380cf57d8`.
-- Related: [Review index](../pr48-rev-r1/docs/reviews/README.md) · [SPEC-06](../pr48-rev-r1/docs/spec/06_documentation_conventions.md) · [ADR-04](../pr48-rev-r1/docs/decisions/ADR-04_AI_Autonomy_and_Roles.md).
+- Related: [Review index](README.md) · [SPEC-06](../spec/06_documentation_conventions.md) · [ADR-04](../decisions/ADR-04_AI_Autonomy_and_Roles.md).
 - Used by: [PR #48](https://github.com/RCOSDP/RDM-developer-guide/pull/48).
 
 ---

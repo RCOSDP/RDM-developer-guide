@@ -5,9 +5,11 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.2 — 2026-11-12. **Learned:** REV changed only link destinations for publication, replacing scratch-path links with repository-relative links; the original review text and verdict are preserved verbatim. ／ REV（担当レビュワ）は公開用にリンク先だけを scratch パスからリポジトリ相対パスへ変更し、元のレビュー本文と判定は逐語的に保持した。
+- Provenance / 出典: Original review file / 元のレビュー記録: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-12_RDM-developer-guide_PR48_Missing_Records_r2.md`.
 - Version / 版: 0.1 — 2026-11-12. **Learned:** changing the data format must preserve the scope of limited passes as well as identifiers and dates; parsing and source-comment checks confirm both. ／ データ形式の変更では ID や日時だけでなく、限定付き合格の対象範囲も保つ必要があり、構文の解析と元コメントの照合で両方を確認できると分かった。
 - Applies to: [RDM-developer-guide PR #48](https://github.com/RCOSDP/RDM-developer-guide/pull/48), head `730e4858d831eba823b96b663e1b85845159f868`, base `f4199fb3c6cc49fd93816c4896d8a56380cf57d8`.
-- Related: [Review index](../pr48-rev-r2/docs/reviews/README.md) · [SPEC-06](../pr48-rev-r2/docs/spec/06_documentation_conventions.md) · [r1](2026-11-12_RDM-developer-guide_PR48_Missing_Records_r1.md).
+- Related: [Review index](README.md) · [SPEC-06](../spec/06_documentation_conventions.md) · [r1](2026-11-12_RDM-developer-guide_PR48_Missing_Records_r1.md).
 - Used by: [PR #48](https://github.com/RCOSDP/RDM-developer-guide/pull/48).
 
 ---
