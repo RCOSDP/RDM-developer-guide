@@ -33,6 +33,9 @@ _VERSION = r"[0-9]+\.[0-9]+\.[0-9]+"
 KNOWN_EXTERNAL_ASSETS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/es6-shim/{_VERSION}/es6-shim\.min\.js"), "script"),
     ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/mathjax/{_VERSION}/MathJax\.js"), "script"),
+    # ember-osf-web's index.html (production build of RDM-ember-osf-web-dev2027 PR #2) names it although the build also ships
+    # the same file as /zxcvbn.js; one version, one file, the password-strength library only
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/zxcvbn/{_VERSION}/zxcvbn\.js"), "script"),
     # /css: base.mako and ember's index.html; /css2: addons/wiki/templates/edit.mako. Exact endpoints.
     ("fonts.googleapis.com", re.compile(r"/css2?"), "stylesheet"),
     # A gravatar is the MD5 of the address (website/filters); "placeholder" is the comment pane's default image.

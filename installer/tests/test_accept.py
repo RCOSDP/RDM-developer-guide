@@ -60,6 +60,32 @@ def unhealthy(ctx):
     return [{"service": "web", "ok": False}], False, "web (exited, n/a, connection refused)"
 
 
+class TotpTests(unittest.TestCase):
+    """RFC 6238 appendix B (HMAC-SHA1, secret "12345678901234567890"): the 8-digit vectors end in the 6-digit codes."""
+    SECRET = b"12345678901234567890".hex()  # the RFC 6238 test key, written as ASCII so no scanner reads it as a leaked secret
+
+    def test_rfc_6238_vectors(self):
+        from acceptance import totp
+        for when, expected in ((59, "287082"), (1111111109, "081804"), (1111111111, "050471"), (1234567890, "005924"), (2000000000, "279037")):
+            self.assertEqual(totp.code_at(self.SECRET, when), expected, when)
+
+    def test_a_step_is_never_used_twice(self):
+        """PR #10 accepts a code once per 30 s step: next_code waits for the next step instead of repeating."""
+        from acceptance import totp
+        totp._last_step.clear()
+        now = [1111111109.0]
+        slept = []
+        def sleep(seconds):
+            slept.append(seconds); now[0] += seconds
+        first = totp.next_code(self.SECRET, clock=lambda: now[0], sleep=sleep)
+        second = totp.next_code(self.SECRET, clock=lambda: now[0], sleep=sleep)
+        self.assertEqual(first, "081804")
+        self.assertEqual(second, totp.code_at(self.SECRET, 1111111109.0 + 30))
+        self.assertNotEqual(first, second)
+        self.assertEqual(len(slept), 1)
+        self.assertLessEqual(slept[0], 31)
+
+
 class FakeRunner:
     """Records argv; writes junit.xml (and optionally collector.json) when asked to run pytest."""
 
@@ -244,7 +270,7 @@ class AcceptTests(unittest.TestCase):
         rc, err, _ = self.run_accept(self.args(), runner)
         self.assertEqual(rc, exit_codes.OK, err)
         results = json.loads((self.run_dir() / "results.json").read_text())
-        self.assertEqual(results["summary"]["total"], 22)  # collector wins over junit.xml
+        self.assertEqual(results["summary"]["total"], 24)  # collector wins over junit.xml
         self.assertEqual(results["tests"][0]["id"], "C1")
         self.assertEqual(results["base_url"], "http://127.0.0.1:5000")  # default: no runtime/.env -> port 5000
         self.assertEqual(results["incomplete_scenarios"], [])
@@ -270,7 +296,7 @@ class AcceptTests(unittest.TestCase):
         rc, err, _ = self.run_accept(self.args(only="C1"), FakeRunner(junit=junit_all_green(ids=["C1"])))
         self.assertEqual(rc, exit_codes.OK, err)
         self.assertEqual(accept.expected_scenarios(*accept.select_tests("C1")), ["C1"])
-        self.assertEqual(accept.expected_scenarios(*accept.select_tests("core")), ["C1", "C2", "C3", "C4", "C5", "C6"])
+        self.assertEqual(accept.expected_scenarios(*accept.select_tests("core")), ["C1", "C2", "C3", "C4", "C5", "C6", "C7"])
         self.assertEqual(accept.expected_scenarios(*accept.select_tests("subsystem")), ["S1", "S2", "S3", "S4", "S5"])
         self.assertEqual(accept.expected_scenarios(*accept.select_tests(None)), sorted(accept.SCENARIOS))
         rows = [{"id": "C1", "case": "success"}, {"id": "C2", "case": "success"}, {"id": "C2", "case": "rejection"}]
@@ -337,12 +363,23 @@ class AcceptTests(unittest.TestCase):
     def _run_c6_against(self, listing):
         """Run C6 success on a fake admin app whose institution list is `listing(query)` -> e-mails."""
         users = {k: {"email": f"{k}@acceptance.test", "password": "x"} for k in ("admin", "a", "member", "other")}
+        users["admin"]["totp_secret"] = b"12345678901234567890".hex()  # the RFC 6238 test key
+        filled = []
 
         class Resp:
             status = 200
 
         class Page:
             query = ""
+            url = ""
+            step = 0  # the fake admin app: password -> two-factor page -> signed in
+
+            def click(self, sel):
+                self.step += 1
+                self.url = "http://127.0.0.1:8001/account/login/two-factor/" if self.step == 1 else "http://127.0.0.1:8001/"
+
+            def fill(self, sel, value):
+                filled.append((sel, value))
 
             def goto(self, url, **_):
                 self.query = url.split("?", 1)[1] if "?" in url else ""
@@ -356,6 +393,9 @@ class AcceptTests(unittest.TestCase):
 
         self._c6_success()(Page(), lambda s: "http://127.0.0.1:8001", users["admin"], users["a"], users["member"],
                            users["other"], lambda *a: None)
+        code = [v for sel, v in filled if "code" in sel]
+        self.assertEqual(len(code), 1)  # the second factor was typed once, as a 6-digit code
+        self.assertRegex(code[0], r"^\d{6}$")
 
     def test_c6_fails_when_the_institution_filter_is_removed(self):
         everyone_affiliated = ["member@acceptance.test", "other@acceptance.test"]
@@ -555,6 +595,33 @@ class AcceptTests(unittest.TestCase):
         self.assertNotIn(email, err)
         self.assertNotIn(osf_password, err)
 
+    def test_only_the_admin_is_enrolled_for_two_factor_and_its_secret_is_a_masked_run_secret(self):
+        """RDM-osf.io-dev2027 PR #10: the admin app asks for TOTP after the password; the seeded administrator is
+        confirmed beforehand with a random secret, and nobody else gets one."""
+        users = accept.seed_users("acc-1")
+        for key, user in users.items():
+            self.assertEqual("totp_secret" in user, key == "admin_user", key)
+        secret = users["admin_user"]["totp_secret"]
+        self.assertRegex(secret, r"^[0-9a-f]{40}$")
+        self.assertNotEqual(secret, accept.seed_users("acc-1")["admin_user"]["totp_secret"])
+        self.assertIn(secret, accept.seed_secret_values(users))
+        enrol = accept.SEED_SNIPPET.format(email="a@b.test", osf_password="pw", fullname="n", admin=True, institutions="0:1",
+                                           two_factor=accept.TWO_FACTOR_SNIPPET.format(totp_secret=secret))
+        self.assertIn("a.is_confirmed = True", enrol)
+        self.assertIn(f"a.totp_secret = '{secret}'", enrol)
+        plain = accept.SEED_SNIPPET.format(email="a@b.test", osf_password="pw", fullname="n", admin=False, institutions="0:0", two_factor="")
+        self.assertNotIn("twofactor", plain)
+        compile(enrol, "<seed>", "exec")  # it is a valid one-line Python program for `manage.py shell -c`
+
+    def test_the_admin_secret_reaches_pytest_only_through_the_environment(self):
+        runner = FakeRunner(pytest_rc=0, junit=junit_all_green())
+        self.run_accept(self.args(seed=True), runner)
+        env = [e for a, e in runner.calls if "pytest" in a][-1]
+        self.assertRegex(env["GRDM_ACCEPT_ADMIN_TOTP_SECRET"], r"^[0-9a-f]{40}$")
+        seed = [a for a, _ in runner.calls if "manage.py" in a]
+        # the secret is also in the seed snippet of the administrator only (the run's other users have none)
+        self.assertEqual(sum(env["GRDM_ACCEPT_ADMIN_TOTP_SECRET"] in " ".join(a) for a in seed), 1)
+
     def test_osf_password_is_random_not_derived_from_the_identity(self):
         first, second = accept.seed_users("acc-1"), accept.seed_users("acc-1")
         self.assertNotEqual(first["user_a"]["osf_password"], second["user_a"]["osf_password"])
@@ -646,6 +713,10 @@ class NetGuardTests(unittest.TestCase):
         known = netguard.known_external_asset_host
         self.assertEqual(known("https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.0/es6-shim.min.js", "script"), "cdnjs.cloudflare.com")
         self.assertEqual(known("http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=x", "script"), "cdnjs.cloudflare.com")
+        self.assertEqual(known("https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js", "script"), "cdnjs.cloudflare.com")  # ember's index.html
+        for url, kind in (("https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js", "fetch"), ("https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/latest/zxcvbn.js", "script"),
+                          ("https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/other.js", "script")):
+            self.assertIsNone(known(url, kind), url)
         self.assertEqual(known("https://fonts.googleapis.com/css?family=Open+Sans:400", "stylesheet"), "fonts.googleapis.com")
         self.assertEqual(known("https://secure.gravatar.com/avatar/0123456789abcdef0123456789abcdef?d=identicon", "image"), "secure.gravatar.com")
         self.assertEqual(known("https://secure.gravatar.com/avatar/placeholder?d=identicon&s=20", "image"), "secure.gravatar.com")
