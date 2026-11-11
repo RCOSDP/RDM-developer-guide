@@ -45,7 +45,7 @@ GITLEAKS_EMPTY = "[]"
 
 def fake_runner(trivy_json=TRIVY_CLEAN, semgrep_json=SEMGREP_EMPTY, gitleaks_json=GITLEAKS_EMPTY,
                 images="", compose_ps=None, zap_json=None, calls=None, semgrep_rc=0, gitleaks_rc=0,
-                sbom_rc=0, trivy_fail_target=None, zap_rc=0):
+                sbom_rc=0, trivy_fail_target=None, zap_rc=0, zap_out=None):
     """Return a runner that answers canned output per tool and records argv in `calls`."""
     def _run(argv):
         if calls is not None:
@@ -78,6 +78,8 @@ def fake_runner(trivy_json=TRIVY_CLEAN, semgrep_json=SEMGREP_EMPTY, gitleaks_jso
                 return 0, images
             if argv[1] == "compose":
                 return (0, compose_ps) if compose_ps is not None else (1, "")
+            if argv[1] == "run" and zap_out is not None:  # zap-baseline.py ended without writing a report
+                return zap_rc, zap_out
             if argv[1] == "run":
                 Path(argv[argv.index("-v") + 1].split(":")[0]).joinpath(argv[argv.index("-J") + 1]).write_text(zap_json or '{"site":[]}')
                 return zap_rc, ""
@@ -251,7 +253,7 @@ class BaselineValidatorTests(ScanTestBase):
                 by_service.setdefault(a["service"], set()).add(a["control"])
             # every root-running service of the core profile is covered by a recorded `user` exception
             # (elasticsearch left this list in real install run 8; cas left it with the native image, ADR-07)
-            for svc in ("postgres", "mongo", "rabbitmq"):
+            for svc in ("postgres", "rabbitmq"):  # mongo left with ADR-13
                 self.assertIn("user", by_service[svc], svc)
             self.assertNotIn("cas", by_service)
             # and the full scan reports them under baseline_exceptions
@@ -728,7 +730,7 @@ class ScannerRobustnessTests(ScanTestBase):
             "api": hardened("grdm-dev/api:abc123"),
             "postgres": hardened("postgres:9.6"),
             "redis": hardened("redis:7-alpine"),
-            "elasticsearch": hardened("elasticsearch:2"),
+            "elasticsearch": hardened("elasticsearch:8"),
             "rabbitmq": hardened("rabbitmq:3-management"),
             "mongo": hardened("mongo:3.4"),
             "unoconv": hardened("centerforopenscience/unoconv"),
@@ -742,7 +744,7 @@ class ScannerRobustnessTests(ScanTestBase):
         self.assertEqual(code, exit_codes.OK)
         image_scans = [c[-1] for c in calls if c[:2] == ["trivy", "image"] and "json" in c]
         self.assertEqual(image_scans, ["grdm-dev/web:abc123", "grdm-dev/api:abc123", "postgres:9.6", "redis:7-alpine",
-                                       "elasticsearch:2", "rabbitmq:3-management", "mongo:3.4",
+                                       "elasticsearch:8", "rabbitmq:3-management", "mongo:3.4",
                                        "centerforopenscience/unoconv", "grdm-dev/fakecas:abc123"])
         fs_scans = [c[-1] for c in calls if c[:2] == ["trivy", "fs"] and "json" in c]
         self.assertEqual(fs_scans, [str(self.root / "runtime" / "src" / "osf.io"), str(self.root / "runtime" / "src" / "waterbutler"), "."])
@@ -794,6 +796,27 @@ class ScannerRobustnessTests(ScanTestBase):
         code, data, _ = self.run_scan(fake_runner(compose_ps=ps, zap_rc=3), dynamic=True)
         self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
         self.assertIn("exited 3", data["tools"][0]["result"])
+
+    def test_zap_skips_a_service_that_only_redirects_to_an_address_it_cannot_reach(self):
+        """Mandatory sign-in (RDM-osf.io-dev2027 PR #8): web answers every anonymous request with a 302 to the browser-facing
+        sign-in URL, and zap-baseline.py ends with "failed to access URL" and no report. That is a note, not an incomplete scan."""
+        self.write_compose()
+        ps = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+        out = "Automation plan failures:\n\tJob spider failed to access URL http://web:5000 : Connect to http://127.0.0.1:8081 failed: Connection refused\n"
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, zap_rc=3, zap_out=out), dynamic=True)
+        self.assertEqual(code, exit_codes.OK)
+        self.assertEqual(data["tools"][0]["result"], "ok")
+        self.assertTrue(any("ZAP skipped web" in n and "127.0.0.1:8081" in n for n in data["notes"]), data["notes"])
+
+    def test_zap_still_fails_when_the_target_itself_cannot_be_reached(self):
+        self.write_compose()
+        ps = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+        out = "Automation plan failures:\n\tJob spider failed to access URL http://web:5000 : Connect to http://web:5000 failed: Connection refused\n"
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, zap_rc=3, zap_out=out), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("no ZAP report for http://web:5000", data["tools"][0]["result"])
+        self.assertIsNone(scan.zap_behind_sign_in("", "http://web:5000"))
+        self.assertIsNone(scan.zap_behind_sign_in("something else", "http://web:5000"))
 
     def test_semgrep_warning_maps_to_medium(self):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING))

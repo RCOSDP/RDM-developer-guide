@@ -45,6 +45,7 @@ import tempfile
 import sys
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from . import exit_codes, report
 from .context import Context
@@ -1046,6 +1047,24 @@ def _read_zap_report(path: Path) -> tuple[Any, str | None]:
         return _json_or_empty(fh.read()), None
 
 
+# zap-baseline.py (Automation Framework) ends with "Job spider failed to access URL <seed> : Connect to <host:port> failed"
+# and writes no report when the seed answers only a redirect to an address that the ZAP container cannot reach. That is what
+# a service behind mandatory sign-in does: with `ENABLE_PUBLIC_ACCESS=false` (RDM-osf.io-dev2027 PR #8, the default of
+# `compose render`) every anonymous request to web is a 302 to the sign-in page at the browser-facing loopback URL of
+# fakecas or the Shibboleth SP, which only the host's browser can open. It is told apart from a service that is down by the
+# host in the message: the target's own host means unreachable, any other host means "redirected to sign-in".
+ZAP_UNREACHABLE = re.compile(r"failed to access URL \S+\s*:\s*Connect to (?:https?://)?(?P<host>[^\s/]+) failed", re.S)
+
+
+def zap_behind_sign_in(output: str, url: str) -> str | None:
+    """The unreachable redirect address when `output` says ZAP's seed `url` only redirects somewhere ZAP cannot go."""
+    m = ZAP_UNREACHABLE.search(output or "")
+    if not m:
+        return None
+    target = urlsplit(url).netloc.lower()
+    return None if m.group("host").lower() == target else m.group("host")
+
+
 def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
             secrets: list[str] | None = None) -> tuple[list[dict], dict, list[str]]:
     _require(which, "docker")
@@ -1087,6 +1106,11 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
         finally:
             shutil.rmtree(wrk, ignore_errors=True)
         if data is None:
+            behind = zap_behind_sign_in(out, url)
+            if behind:
+                notes.append(f"ZAP skipped {svc}: it only redirects anonymous requests to {behind}, which the scanner cannot reach "
+                             f"(mandatory sign-in, ENABLE_PUBLIC_ACCESS=false); {svc} is covered by acceptance, Trivy and Semgrep, not by ZAP")
+                continue
             problems.append(f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull or the scan may have failed")
             continue
         if rc not in ZAP_OK_CODES:
