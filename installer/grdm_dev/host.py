@@ -143,6 +143,7 @@ class HostInfo:
     platform_string: str = ""           # linux/arm64 | linux/amd64 (empty when arch is other)
     prerequisite_problems: list[str] = field(default_factory=list)  # exit 13: git, repository access, emulation, checkout path
     scanner_problems: list[str] = field(default_factory=list)       # exit 51: `scan` could not run
+    amd64_emulation: str = ""           # "not needed (host is amd64)" | "ready" | "" (not checked: macOS, or no amd64 service)
 
 
 # --- raw readers -------------------------------------------------------------------------------
@@ -388,7 +389,11 @@ def check_repo_path(probe: Probe, info: HostInfo) -> None:
 
 
 def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> None:
-    """Linux arm64 only: `services` run as linux/amd64 and need a binfmt handler (QEMU). Docker Desktop brings its own."""
+    """Linux arm64 only: `services` run as linux/amd64 and need a binfmt handler (QEMU). Docker Desktop brings its own.
+    On an amd64 host nothing is emulated; saying so in the report (DEMO-22) lets a reader tell "not needed" from "not checked"."""
+    if info.arch == "amd64" and services:
+        info.amd64_emulation = "not needed (host is amd64)"
+        return
     if info.arch != "arm64" or info.os_name not in ("ubuntu", "linux-other") or not services or probe.tools is None:
         return
     names = ", ".join(services)
@@ -409,6 +414,8 @@ def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> 
             f"登録されている amd64 エミュレーターは {bad}（{probe.binfmt_amd64_qemu}）で、{names} のビルド中に `QEMU internal SIGSEGV` で落ちます。"
             f"次で置き換えてください（qemu-user-static が入っている間は再起動のたびに必要）: {REPLACE_AMD64_EMULATION}"
         )
+    else:
+        info.amd64_emulation = "ready (a binfmt handler is registered)"
 
 
 # --- entry points ------------------------------------------------------------------------------
