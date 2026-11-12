@@ -143,7 +143,7 @@ class HostInfo:
     platform_string: str = ""           # linux/arm64 | linux/amd64 (empty when arch is other)
     prerequisite_problems: list[str] = field(default_factory=list)  # exit 13: git, repository access, emulation, checkout path
     scanner_problems: list[str] = field(default_factory=list)       # exit 51: `scan` could not run
-    amd64_emulation: str = ""           # "not needed (host is amd64)" | "ready" | "" (not checked: macOS, or no amd64 service)
+    amd64_emulation: str = ""           # "not needed (host is amd64)" | "ready (...)" | "" (not applicable: macOS, or no amd64 service; as_report then omits the key)
 
 
 # --- raw readers -------------------------------------------------------------------------------
@@ -391,6 +391,8 @@ def check_repo_path(probe: Probe, info: HostInfo) -> None:
 def check_amd64_emulation(probe: Probe, info: HostInfo, services: list[str]) -> None:
     """Linux arm64 only: `services` run as linux/amd64 and need a binfmt handler (QEMU). Docker Desktop brings its own.
     On an amd64 host nothing is emulated; saying so in the report (DEMO-22) lets a reader tell "not needed" from "not checked"."""
+    if info.os_name == "macos":
+        return  # Docker Desktop brings its own emulation (Rosetta) or none is needed; the report carries no amd64_emulation key
     if info.arch == "amd64" and services:
         info.amd64_emulation = "not needed (host is amd64)"
         return
@@ -493,4 +495,6 @@ def as_report(info: HostInfo) -> dict:
     d["memory_gib"] = None if info.memory_bytes is None else round(info.memory_bytes / GIB, 1)
     d["disk_free_gib"] = None if info.disk_free_bytes is None else round(info.disk_free_bytes / GIB, 1)
     d["official"] = (info.os_name, info.arch) in OFFICIAL
+    if not d.get("amd64_emulation"):
+        d.pop("amd64_emulation", None)  # absent, not empty, where it does not apply (macOS, or no amd64 service)
     return d

@@ -47,7 +47,7 @@ def plan_steps(ctx: Context, *, platform: str | None, no_open: bool, memory_gib:
     steps.append(("compose render", ["compose", "render"] + memory))
     build = ["build"] + (["--platform", platform] if platform else [])
     steps.append(("build", build))
-    steps.append(("up", ["up"] + (["--no-open"] if no_open else []) + (["--timeout", f"{timeout:g}"] if timeout else [])))
+    steps.append(("up", ["up"] + (["--no-open"] if no_open else []) + (["--timeout", f"{timeout:g}"] if timeout is not None else [])))
     steps.append(("health --network", ["health", "--network"]))
     steps.append(("scan", ["scan"]))
     steps.append(("report", ["report"]))
