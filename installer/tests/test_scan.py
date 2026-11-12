@@ -857,6 +857,20 @@ class ScannerRobustnessTests(ScanTestBase):
             code, data, _ = self.zap_web(probe=probe)
             self.assertZapUnverified(code, data)
 
+    def test_zap_malformed_evidence_is_no_evidence_and_the_scan_still_reports_incomplete(self):
+        """REV r2 R2-01: a Location or address that cannot be parsed, or an osf.env that cannot be decoded, must end in
+        exit 51 with a written report (an incomplete ZAP result, no skipped target), never an uncaught exception."""
+        self.write_osf_env()
+        for probe in ((0, "302 http://[broken\n"), (0, "302 http://[::1\n")):
+            code, data, _ = self.zap_web(probe=probe)
+            self.assertZapUnverified(code, data)
+        out = self.SIGN_IN_OUT.replace("http://127.0.0.1:8081", "http://[broken")
+        self.assertZapUnverified(*self.zap_web(out=out)[:2])
+        self.write_osf_env(cas="http://[broken")  # a configured destination that cannot be parsed
+        self.assertZapUnverified(*self.zap_web()[:2])
+        (self.root / "runtime" / "config" / "osf.env").write_bytes(b"ENABLE_PUBLIC_ACCESS=false\nCAS_SERVER_URL=\xff\xfe\n")
+        self.assertZapUnverified(*self.zap_web()[:2])
+
     def test_zap_still_fails_for_another_representation_of_the_sign_in_address_or_a_different_seed(self):
         self.write_osf_env()
         for out in (self.SIGN_IN_OUT.replace("127.0.0.1:8081", "localhost:8081"),

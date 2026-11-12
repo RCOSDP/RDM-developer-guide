@@ -1087,7 +1087,18 @@ def zap_sign_in_destination(ctx: Context) -> str | None:
 
 
 def zap_behind_sign_in(ctx: Context, runner: Runner, network: str, svc: str, url: str, output: str) -> str | None:
-    """The sign-in address when `output` and a probe of `url` both show that web only redirects to the configured CAS server."""
+    """The sign-in address when `output` and a probe of `url` both show that web only redirects to the configured CAS server.
+
+    Evidence that cannot be parsed or read (a malformed Location such as `http://[broken`, an undecodable osf.env) is no
+    evidence: the result is None, so the ordinary missing-report path ends in exit 51 and the report is still written.
+    """
+    try:
+        return _zap_behind_sign_in(ctx, runner, network, svc, url, output)
+    except (ValueError, OSError):  # UnicodeDecodeError is a ValueError
+        return None
+
+
+def _zap_behind_sign_in(ctx: Context, runner: Runner, network: str, svc: str, url: str, output: str) -> str | None:
     if svc != ZAP_SIGN_IN_SERVICE:
         return None
     m = ZAP_UNREACHABLE.search(output or "")
