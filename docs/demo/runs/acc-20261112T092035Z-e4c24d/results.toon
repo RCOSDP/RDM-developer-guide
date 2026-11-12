@@ -1,0 +1,27 @@
+accept:
+  run_id: acc-20261112T092035Z-e4c24d
+  base_url: "http://127.0.0.1:5000"
+  started: "2026-11-12T09:20:35Z"
+  duration_ms: 157263
+  only: C4
+  seeded: false
+  precheck:
+    healthy: true
+    services: 24
+  pytest_returncode: 1
+  evidence_dir: docs/demo/runs/acc-20261112T092035Z-e4c24d
+  tracing: off
+  trace_quarantine: null
+  expected_scenarios[1]:
+    - C4
+  incomplete_scenarios[0]:
+  summary:
+    passed: 0
+    failed: 1
+    error: 1
+    skipped: 0
+    total: 2
+    known_external_blocked: 0
+  tests[2]{id,name,case,test,status,duration_ms,http_status,evidence,known_external_blocked}:
+    C4,Wiki collaborative edit,success,"test_c4_wiki_collab_success[chromium]",failed,76464,null,null,0
+    C4,Wiki collaborative edit,rejection,"test_c4_wiki_collab_rejection[chromium]",error,68628,null,null,0

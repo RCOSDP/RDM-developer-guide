@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-12. **Learned:** a virtual machine that emulates a whole amd64 computer on Apple Silicon is a good test of the Ubuntu amd64 prerequisites and of every image that builds from binary packages, but not of an image that compiles scientific Python from source: osf.io's numpy, pandas and scipy take about ten times as long as under Rosetta, so the one command cannot finish in a working day, and `install` could not even be told to wait longer. ／ Apple Silicon 上で amd64 のコンピュータ全体をエミュレーションする仮想マシンは、Ubuntu amd64 の前提条件と、バイナリのパッケージから組むイメージの試験には向く。しかし科学計算の Python をソースから組むイメージには向かない。osf.io の numpy・pandas・scipy は Rosetta の約 10 倍かかり、一つのコマンドは 1 営業日で終わらず、`install` に待ち時間を延ばすよう伝える手段すらなかった。
+- Version / 版: 0.2 — 2026-11-12. **Learned:** once the images exist, nothing behind `build` is specific to amd64: `up` was healthy and `health --network` exited 0 with all 24 services on `127.0.0.1`, and the core acceptance suite passed 11 of 12 on a machine where every browser page takes about ten times longer; the one failure is a 30-second page-load timeout, which cannot be told from a real wiki fault on emulation alone, so only real amd64 hardware can settle it. And the acceptance runner needs `--seed` and its own browser folder, which a reader who follows an older record by memory forgets. ／ イメージさえあれば、`build` より後ろに amd64 に固有のことは無かった。`up` は健康になり、`health --network` は 24 サービスすべてが `127.0.0.1` で終了 0、コアの受入試験は、ブラウザの表示が約 10 倍遅い機械で 12 件中 11 件合格した。失敗の 1 件は 30 秒のページ読み込みのタイムアウトで、エミュレーションだけでは本物の wiki の不具合と区別できず、決着できるのは実際の amd64 の機械だけである。また受入試験の実行には `--seed` と専用のブラウザ置き場が要り、古い記録を記憶で追う読者は忘れる。
+  0.1 — 2026-11-12. **Learned:** a virtual machine that emulates a whole amd64 computer on Apple Silicon is a good test of the Ubuntu amd64 prerequisites and of every image that builds from binary packages, but not of an image that compiles scientific Python from source: osf.io's numpy, pandas and scipy take about ten times as long as under Rosetta, so the one command cannot finish in a working day, and `install` could not even be told to wait longer. ／ Apple Silicon 上で amd64 のコンピュータ全体をエミュレーションする仮想マシンは、Ubuntu amd64 の前提条件と、バイナリのパッケージから組むイメージの試験には向く。しかし科学計算の Python をソースから組むイメージには向かない。osf.io の numpy・pandas・scipy は Rosetta の約 10 倍かかり、一つのコマンドは 1 営業日で終わらず、`install` に待ち時間を延ばすよう伝える手段すらなかった。
 - Normative source: [SPEC-02 Installer CLI](../spec/02_installer_cli.md) · [SPEC-04 Acceptance Tests](../spec/04_acceptance_tests.md)
 - Related: [DEMO-21 Core install on Ubuntu arm64](21_core_install_ubuntu_arm64_lima.md) · [DEMO-20 Core install on Mac Studio](20_core_install_mac_studio.md) · [ADR-08 Per-OS installer entry points](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) · [docs/demo/README.md](README.md)
 
@@ -126,7 +127,32 @@ ember_first_build:
   duration: "1 h 44 min 42 s to the build, 1 h 46 min to the port (QEMU system emulation, one core busy); 44 min 15 s under user-mode QEMU on arm64 (DEMO-21)"
 ```
 
-All the other services started from the loaded and the natively built images: `grdm-dev up` (run with `--timeout 7200`) created the containers of the profile and reached `osf_init`, whose Django migrations (497 of them in the `osf` app alone) ran at about 3 per minute under emulation (osf.0106 at 06:29Z). Their end and everything after it (`up` health, `health --network`, `scan`, `report`, `accept`) are recorded in the next entry of this page; this version of the page was written while `osf_init` was still running, and says nothing about them.
+```toon
+run2:
+  command: "grdm-dev --yes --profile core up --no-open --timeout 7200, then health --network, then accept"
+  up:
+    started: 2026-11-12T06:03:36Z
+    finished: 2026-11-12T08:23:03Z
+    result: "exit 0 after 2 h 19 min 27 s, healthy: true (the wait was 7200 s)"
+    osf_init: "about 2 h 15 min: 650 migration files and the registration-schema data migrations, one core busy; osf_init: done at 08:18:49Z"
+  health_network: "exit 0, loopback_only: true, 9 project ports (1234, 4200, 5000, 7007, 7777, 7778, 8000, 8001, 8080) on 127.0.0.1, 24 services"
+  not_run: "scan and report (see What remains)"
+```
+
+`up` takes 2 h 19 min here (it was 296 s on an already migrated arm64 stack in [DEMO-21](21_core_install_ubuntu_arm64_lima.md) run 5); nearly all of it is `osf_init`'s Django migrations. The default wait (1800 s) would have stopped it with exit 40, which is the case fix 2 is for. The checkout's volumes were created by uid 2002 and the containers' uids, with no ownership error (`volume_owner_init` and both `volume_access_check` services exited 0).
+
+### Acceptance — three attempts, one mistake of mine
+
+```toon
+accept[3]{run_id,scope,seeded,passed,failed,error,skipped,note}:
+  acc-20261112T083417Z-f2b524,"all, core C1-C6 and S1-S5",no,1,3,8,10,"the test users did not exist: fakecas printed 'User ... not found'; my omission, grdm-dev accept needs --seed on a fresh stack"
+  acc-20261112T085656Z-c69ad2,"all",yes,11,1,0,10,"core C1-C6: 11 of 12 passed; the 10 skipped are the S1-S5 services outside the core profile"
+  acc-20261112T092701Z-876a61,"C4 only",yes,1,1,0,0,"C4 rejection passed again, C4 success failed again"
+```
+
+Evidence: [`acc-20261112T083417Z-f2b524`](runs/acc-20261112T083417Z-f2b524/results.toon) (no seed), [`acc-20261112T085656Z-c69ad2`](runs/acc-20261112T085656Z-c69ad2/results.toon) (core 11 of 12 in 21 min 29 s), [`acc-20261112T092035Z-e4c24d`](runs/acc-20261112T092035Z-e4c24d/results.toon) (C4 only, no seed) and [`acc-20261112T092701Z-876a61`](runs/acc-20261112T092701Z-876a61/results.toon) (C4 only, seeded). Chromium was installed with the command `grdm-dev accept` prints: `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium` (my first install used Playwright's default folder, and `accept` refused with exit 2 until the command above was run).
+
+The one failure, C4 success, is `Page.goto: Timeout 30000ms exceeded` while opening `/<node>/wiki/home/?edit&view&menu` with `domcontentloaded`, twice in the same place. Every other C-scenario takes 30–119 s here; a Mac run takes seconds, so the suite's hard-coded waits (30 s for a page, 60 s for the login, 120 s for a test, SPEC-04 §3.3) are tight on this machine. I could not tell whether the wiki page needs more than 30 s only because of emulation or because of a fault, and the budget ended before a run with longer waits. **This is not claimed as an emulation-only limit; it is open.** The C4 rejection case, which uses the same page, passed in both runs.
 
 **Fix 2** (`fix(installer)`): `grdm-dev install` accepts `--timeout SECONDS` and passes it to `up`, so a slow host can use the one command (`./installer/install-ubuntu.sh --yes --profile core --timeout 14400`). Before, `install` had no way to extend the 1800 s wait of `up`, and an install that was merely slow ended with exit 40 and had to be continued by hand. The default is unchanged: 1800 s on macOS and amd64, 5400 s on Linux arm64 with amd64 services, because real amd64 hardware does not need more.
 
@@ -135,6 +161,8 @@ All the other services started from the loaded and the natively built images: `g
 ### What remains
 
 - **One uninterrupted run of the one command on Ubuntu amd64:** not done. It needs real amd64 hardware (a cloud virtual machine or a PC), where the compile takes minutes, or about 9 hours here. Everything else that is specific to amd64 is now checked: prerequisites, `doctor`, `git` access through mirrors, uid 2002, and all images except osf.io and wiki-frontend building natively.
+- **`scan` and `report`:** not run on this stack; `scan` (Trivy, Semgrep, gitleaks, ZAP) runs the same commands as in DEMO-21 and was left out when the budget ended. The ZAP report directory path (failure 4a of DEMO-21) is therefore not yet shown on an amd64 host.
+- **C4 success:** open (see above); rerun it on real amd64 hardware or with longer page waits.
 - **WSL2:** not run ([DEMO-21](21_core_install_ubuntu_arm64_lima.md) lists why).
 - **Pins:** these runs used develop b81628f; osf.io's pin will change when the other coordinator's merge lands.
 
@@ -255,7 +283,32 @@ ember_first_build:
   duration: "ビルドまで 1 時間 44 分 42 秒、ポートまで 1 時間 46 分（QEMU の機械全体のエミュレーション、使うのは 1 コア）。arm64 のユーザーモード QEMU では 44 分 15 秒（DEMO-21）"
 ```
 
-ほかのサービスは、読み込んだイメージとネイティブに組んだイメージから起動した。`grdm-dev up`（`--timeout 7200` で実行）がプロファイルのコンテナを作り、`osf_init` まで進んだ。その Django の migration は `osf` アプリだけで 497 件あり、エミュレーション下で 1 分に約 3 件の速さで進んだ（osf.0106 が 06:29Z）。その終わりと、以後のすべて（`up` の health、`health --network`、`scan`、`report`、`accept`）はこのページの次の記録に書く。この版は `osf_init` が動いている間に書いたので、それらについては何も言わない。
+```toon
+run2:
+  command: "grdm-dev --yes --profile core up --no-open --timeout 7200、続いて health --network、続いて accept"
+  up:
+    started: 2026-11-12T06:03:36Z
+    finished: 2026-11-12T08:23:03Z
+    result: "2 時間 19 分 27 秒後に終了 0、healthy: true（待ちは 7200 秒）"
+    osf_init: "約 2 時間 15 分: migration ファイル 650 個と登録スキーマのデータ migration、使うのは 1 コア。osf_init: done は 08:18:49Z"
+  health_network: "終了 0、loopback_only: true、プロジェクトのポート 9 個（1234、4200、5000、7007、7777、7778、8000、8001、8080）が 127.0.0.1、24 サービス"
+  not_run: "scan と report（残っていること を参照）"
+```
+
+ここでは `up` に 2 時間 19 分かかった（[DEMO-21](21_core_install_ubuntu_arm64_lima.md) の第 5 回の、移行済みの arm64 の stack では 296 秒）。ほとんどが `osf_init` の Django の migration である。既定の待ち（1800 秒）なら終了 40 で止まっていた。修正 2 はこの場合のためにある。ボリュームは uid 2002 とコンテナの uid が作り、所有者のエラーは無かった（`volume_owner_init` と二つの `volume_access_check` が終了 0）。
+
+### 受入試験 — 3 回、うち私の誤りが 1 回
+
+```toon
+accept[3]{run_id,scope,seeded,passed,failed,error,skipped,note}:
+  acc-20261112T083417Z-f2b524,"全部、コア C1-C6 と S1-S5",なし,1,3,8,10,"試験用の利用者が無く、fakecas が 'User ... not found' と出した。私の漏れ。新しい stack の grdm-dev accept には --seed が要る"
+  acc-20261112T085656Z-c69ad2,"全部",あり,11,1,0,10,"コア C1-C6: 12 件中 11 件合格。skipped の 10 件はコアのプロファイルに無い S1-S5 のサービス"
+  acc-20261112T092701Z-876a61,"C4 のみ",あり,1,1,0,0,"C4 の rejection はまた合格、C4 の success はまた失敗"
+```
+
+証跡: [`acc-20261112T083417Z-f2b524`](runs/acc-20261112T083417Z-f2b524/results.toon)（seed なし）、[`acc-20261112T085656Z-c69ad2`](runs/acc-20261112T085656Z-c69ad2/results.toon)（コア 12 件中 11 件、21 分 29 秒）、[`acc-20261112T092035Z-e4c24d`](runs/acc-20261112T092035Z-e4c24d/results.toon)（C4 のみ、seed なし）、[`acc-20261112T092701Z-876a61`](runs/acc-20261112T092701Z-876a61/results.toon)（C4 のみ、seed あり）。Chromium は `grdm-dev accept` が表示するコマンド `PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium` で入れた（最初は Playwright の既定の置き場に入れたため、このコマンドを実行するまで `accept` は終了 2 で拒んだ）。
+
+失敗した 1 件、C4 の success は、`/<node>/wiki/home/?edit&view&menu` を `domcontentloaded` まで開くときの `Page.goto: Timeout 30000ms exceeded` で、同じ場所で 2 回とも起きた。ほかの C のシナリオはここで 30〜119 秒かかる。Mac なら数秒である。試験の固定の待ち（ページ 30 秒、ログイン 60 秒、1 件 120 秒、SPEC-04 §3.3）はこの機械では短い。wiki のページが 30 秒を超えるのがエミュレーションのためだけか、不具合のためかは区別できず、待ちを延ばした実行をする前に予算が尽きた。**エミュレーションだけの限界とは主張しない。未解決である。** 同じページを使う C4 の rejection は 2 回とも合格した。
 
 **修正 2**（`fix(installer)`）: `grdm-dev install` が `--timeout 秒` を受け取って `up` に渡す。遅い機械でも一つのコマンドが使える（`./installer/install-ubuntu.sh --yes --profile core --timeout 14400`）。以前の `install` には `up` の 1800 秒の待ちを延ばす手段が無く、単に遅いだけの導入が終了 40 で終わり、手で続けるしかなかった。既定は変えない: macOS と amd64 は 1800 秒、amd64 のサービスがある Linux arm64 は 5400 秒。実際の amd64 の機械はそれ以上を要しないからである。
 
@@ -264,5 +317,7 @@ ember_first_build:
 ### 残っていること
 
 - **Ubuntu amd64 で中断しない一つのコマンドの実行:** 未実施。コンパイルが数分で済む実際の amd64 の機械（クラウドの仮想マシンや PC）が要る。ここでは約 9 時間かかる。amd64 に固有のほかのことは確かめた: 前提条件、`doctor`、ミラー経由の `git` の読み取り、uid 2002、osf.io と wiki-frontend 以外のすべてのイメージのネイティブビルド。
+- **`scan` と `report`:** この stack では未実施。`scan`（Trivy、Semgrep、gitleaks、ZAP）は DEMO-21 と同じコマンドで、予算が尽きたため省いた。ZAP の報告ディレクトリ（DEMO-21 の失敗 4a）の経路は、amd64 のホストではまだ示せていない。
+- **C4 の success:** 未解決（上記）。実際の amd64 の機械か、ページの待ちを延ばして再実行する。
 - **WSL2:** 未実施（理由は [DEMO-21](21_core_install_ubuntu_arm64_lima.md)）。
 - **pin:** この実行は develop b81628f のもの。別の担当の統合が入ると osf.io の pin は変わる。
