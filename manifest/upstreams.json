@@ -128,7 +128,7 @@
       ],
       "id": "osf.io",
       "integration_branch": "develop",
-      "integration_sha": "9e1fb9c8597deac9b21ff197f10b3e22da642e8a",
+      "integration_sha": "90b10661c8dcf039c18fdd214aef98191f97497c",
       "integration_repo": "RDM-osf.io-dev2027",
       "note": null,
       "platforms": [
