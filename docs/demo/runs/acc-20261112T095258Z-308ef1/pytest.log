@@ -1,0 +1,10 @@
+..                                                                       [100%]
+=============================== warnings summary ===============================
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:85: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 2 warnings in 290.86s (0:04:50)

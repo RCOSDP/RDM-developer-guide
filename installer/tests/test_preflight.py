@@ -220,6 +220,30 @@ class MemoryFloorTests(PreflightBase):
         self.assertEqual(steps["doctor"], ["doctor", "--memory-gib", "16"])
         self.assertEqual(steps["compose render"], ["compose", "render", "--memory-gib", "16"])
 
+    def test_install_forwards_timeout_to_up_only(self):
+        # DEMO-22: a fully emulated VM needs more than 1800 s for ember's first build; `install` could not say so before.
+        ctx = Context(root=self.root, yes=True, stdin_is_tty=False)
+        steps = dict(install.plan_steps(ctx, platform=None, no_open=True, timeout=7200.0))
+        self.assertEqual(steps["up"], ["up", "--no-open", "--timeout", "7200"])
+        self.assertEqual(steps["health --network"], ["health", "--network"])
+        self.assertEqual(dict(install.plan_steps(ctx, platform=None, no_open=True))["up"], ["up", "--no-open"])
+
+    def test_install_forwards_an_explicit_zero_timeout(self):
+        # R5 of the PR #50 review: 0 is a value (`up --timeout 0` checks health once), not the same as no flag.
+        from grdm_dev import cli
+        ctx = Context(root=self.root, yes=True, stdin_is_tty=False)
+        args = cli.build_parser().parse_args(["install", "--timeout", "0"])
+        self.assertEqual(args.timeout, 0.0)
+        steps = dict(install.plan_steps(ctx, platform=None, no_open=True, timeout=args.timeout))
+        self.assertEqual(steps["up"], ["up", "--no-open", "--timeout", "0"])
+        omitted = cli.build_parser().parse_args(["install"])
+        self.assertIsNone(omitted.timeout)
+
+    def test_install_parser_accepts_timeout(self):
+        from grdm_dev import cli
+        args = cli.build_parser().parse_args(["install", "--timeout", "7200"])
+        self.assertEqual(args.timeout, 7200.0)
+
     def test_install_without_memory_gib_is_unchanged(self):
         ctx = Context(root=self.root, yes=True, stdin_is_tty=False)
         steps = dict(install.plan_steps(ctx, platform=None, no_open=True))
@@ -286,6 +310,30 @@ class ArmEmulationTests(PreflightBase):
         code, out, _ = self.doctor(self.arm(binfmt_amd64=None), preflight_runner())
         self.assertEqual(code, exit_codes.OK)
         self.assertIn("cannot read binfmt_misc", out)
+
+    def test_ready_emulation_is_reported(self):
+        _, out, _ = self.doctor(self.arm(binfmt_amd64=True), preflight_runner())
+        self.assertIn("amd64_emulation: ready", out)
+
+    def test_amd64_host_says_no_emulation_is_needed(self):
+        # DEMO-22: on a real Ubuntu amd64 host the report must say "not needed", not stay silent as it does for "not checked".
+        code, out, _ = self.doctor(self.ubuntu(binfmt_amd64=False), preflight_runner())
+        self.assertEqual(code, exit_codes.OK)
+        self.assertIn("amd64_emulation: not needed (host is amd64)", out)
+
+    def test_macos_report_has_no_amd64_emulation_key(self):
+        # R6 of the PR #50 review: absent, not empty, and not "not needed", on both Mac architectures.
+        for machine in ("arm64", "x86_64"):
+            with self.subTest(machine=machine):
+                info = host.detect(runner=docker_runner(), probe=macos_probe(machine=machine))
+                host.check_amd64_emulation(macos_probe(machine=machine), info, ["ember_osf_web"])
+                self.assertNotIn("amd64_emulation", host.as_report(info))
+                self.assertEqual(info.amd64_emulation, "")
+
+    def test_report_omits_the_key_when_no_service_needs_amd64(self):
+        info = host.detect(runner=docker_runner(), probe=ubuntu_probe())
+        host.check_amd64_emulation(ubuntu_probe(), info, [])
+        self.assertNotIn("amd64_emulation", host.as_report(info))
 
     def test_not_probed_on_amd64_or_macos(self):
         self.assertEqual(self.doctor(self.ubuntu(binfmt_amd64=False), preflight_runner())[0], exit_codes.OK)

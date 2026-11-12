@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="1" skipped="0" tests="2" time="152.250" timestamp="2026-11-12T18:20:39.931762+09:00" hostname="lima-grdm-ubuntu2404-amd64"><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="76.465"><properties><property name="known_external_blocked" value="0" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================">two_contexts = (&lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;, &lt;Page url='about:blank'&gt;)
+login = &lt;function login.&lt;locals&gt;._login at 0x7ea9fe034040&gt;
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = &lt;function api_write.&lt;locals&gt;._write at 0x7ea9fe0340e0&gt;
+add_contributor = &lt;function add_contributor.&lt;locals&gt;._add at 0x7ea9fe035620&gt;
+run_id = 'acc-20261112T092035Z-e4c24d'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0x7ea9fe0358a0&gt;
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+&gt;       login(page_a, user_a)
+
+installer/acceptance/test_c4_wiki_collab.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/conftest.py:338: in _login
+    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21479: in wait_for_url
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:713: in wait_for_url
+    return await self._main_frame.wait_for_url(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:356: in wait_for_url
+    await self.wait_for_navigation(url=url, wait_until=wait_until, timeout=timeout)
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: in run_async
+    return await func()
+           ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:285: in rest
+    navigated_event: "channels.FrameNavigatedEvent" = await wait
+                                                      ^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:201: in wait_for_promise
+    raise rewrite_error_message(
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:184: in wait_for_promise
+    result = await race([promise, *self._failures])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+
+    async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
+        """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
+        that settles. When several have settled, the first in the list wins.
+    
+        The coroutines in the list run as tasks, which are cancelled when the race ends.
+        A future or a task in the list runs on, as in JS. The errors of the losers are
+        marked as handled, as Promise.race() handles them.
+        """
+        futures: List["asyncio.Future[Any]"] = []
+        owned: List["asyncio.Future[Any]"] = []
+        for awaitable in awaitables:
+            if asyncio.isfuture(awaitable):
+                futures.append(awaitable)
+            else:
+                task: "asyncio.Future[Any]" = asyncio.ensure_future(awaitable)
+                futures.append(task)
+                owned.append(task)
+        for future in futures:
+            future.add_done_callback(_handled)
+        try:
+            await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            winner = next((f for f in futures if f.done()), None)
+            for task in owned:
+                if task is not winner:
+                    task.cancel()
+        assert winner is not None
+&gt;       return winner.result()
+               ^^^^^^^^^^^^^^^
+E       playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.
+E       =========================== logs ===========================
+E       waiting for navigation until "load"
+E       ============================================================
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError</failure></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_rejection[chromium]" time="68.628"><properties><property name="known_external_blocked" value="0" /></properties><error message="failed on setup with &quot;playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================&quot;">page = &lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;
+login = &lt;function login.&lt;locals&gt;._login at 0x7ea9fdf0dc60&gt;
+user_a = {'email': '***', 'password': '***'}
+
+    @pytest.fixture
+    def logged_in_page(page, login, user_a):
+&gt;       login(page, user_a)
+
+installer/acceptance/conftest.py:344: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/conftest.py:338: in _login
+    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21479: in wait_for_url
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:713: in wait_for_url
+    return await self._main_frame.wait_for_url(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:356: in wait_for_url
+    await self.wait_for_navigation(url=url, wait_until=wait_until, timeout=timeout)
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: in run_async
+    return await func()
+           ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:285: in rest
+    navigated_event: "channels.FrameNavigatedEvent" = await wait
+                                                      ^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:201: in wait_for_promise
+    raise rewrite_error_message(
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:184: in wait_for_promise
+    result = await race([promise, *self._failures])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+
+    async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
+        """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
+        that settles. When several have settled, the first in the list wins.
+    
+        The coroutines in the list run as tasks, which are cancelled when the race ends.
+        A future or a task in the list runs on, as in JS. The errors of the losers are
+        marked as handled, as Promise.race() handles them.
+        """
+        futures: List["asyncio.Future[Any]"] = []
+        owned: List["asyncio.Future[Any]"] = []
+        for awaitable in awaitables:
+            if asyncio.isfuture(awaitable):
+                futures.append(awaitable)
+            else:
+                task: "asyncio.Future[Any]" = asyncio.ensure_future(awaitable)
+                futures.append(task)
+                owned.append(task)
+        for future in futures:
+            future.add_done_callback(_handled)
+        try:
+            await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            winner = next((f for f in futures if f.done()), None)
+            for task in owned:
+                if task is not winner:
+                    task.cancel()
+        assert winner is not None
+&gt;       return winner.result()
+               ^^^^^^^^^^^^^^^
+E       playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.
+E       =========================== logs ===========================
+E       waiting for navigation until "load"
+E       ============================================================
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError</error></testcase></testsuite></testsuites>

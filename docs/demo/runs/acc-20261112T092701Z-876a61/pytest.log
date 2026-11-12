@@ -1,0 +1,80 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+____________________ test_c4_wiki_collab_success[chromium] _____________________
+
+two_contexts = (<Page url='http://127.0.0.1:5000/hxuw9/wiki/home/?edit&view&menu'>, <Page url='http://127.0.0.1:5000/dashboard'>)
+login = <function login.<locals>._login at 0x74d130058220>
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = <function api_write.<locals>._write at 0x74d1300582c0>
+add_contributor = <function add_contributor.<locals>._add at 0x74d130059800>
+run_id = 'acc-20261112T092701Z-876a61'
+record_property = <function record_property.<locals>.append_property at 0x74d130059a80>
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+        login(page_a, user_a)
+        login(page_b, user_b)
+    
+        created = api_write(page_a.context, "POST", api_url + sel.API["nodes"], {
+            "data": {"type": "nodes", "attributes": {"title": "acceptance C4", "category": "project", "public": False}}
+        })
+        assert created.status == 201, created.text()[:200]
+        node_id = created.json()["data"]["id"]
+        try:
+            add_contributor(page_a.context, node_id, user_id_of(page_b.context, api_url), "write")
+    
+>           resp_a = _open_editor(page_a, base_url, node_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c4_wiki_collab.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:32: in _open_editor
+    resp = page.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:18561: in goto
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:600: in goto
+    return await self._main_frame.goto(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:217: in goto
+    await self._channel.goto(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:398: in _mapped
+    return mapper(await awaitable)
+                  ^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl.utils.zones.Zone object at 0x74d12ffd3320>
+func = <function ChannelOwner._wrap_api_call.<locals>.finish.<locals>.<lambda> at 0x74d12fea1e40>
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -> R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+>           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.
+E           Call log:
+E             - navigating to "http://127.0.0.1:5000/hxuw9/wiki/home/?edit&view&menu", waiting until "domcontentloaded"
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError
+=============================== warnings summary ===============================
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:85: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED installer/acceptance/test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+1 failed, 1 passed, 2 warnings in 224.09s (0:03:44)

@@ -1,0 +1,282 @@
+{
+  "run_id": "acc-20261112T083417Z-f2b524",
+  "base_url": "http://127.0.0.1:5000",
+  "started": "2026-11-12T08:34:17Z",
+  "duration_ms": 732089,
+  "only": null,
+  "seeded": false,
+  "precheck": {
+    "healthy": true,
+    "services": 24
+  },
+  "pytest_returncode": 1,
+  "evidence_dir": "docs/demo/runs/acc-20261112T083417Z-f2b524",
+  "tracing": "off",
+  "trace_quarantine": null,
+  "expected_scenarios": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5"
+  ],
+  "incomplete_scenarios": [],
+  "summary": {
+    "passed": 1,
+    "failed": 3,
+    "error": 8,
+    "skipped": 10,
+    "total": 22,
+    "known_external_blocked": 3
+  },
+  "tests": [
+    {
+      "id": "C1",
+      "name": "Login via fakecas",
+      "case": "success",
+      "test": "test_c1_login_success[chromium]",
+      "status": "failed",
+      "duration_ms": 77375,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C2",
+      "name": "Create project",
+      "case": "success",
+      "test": "test_c2_create_project_success[chromium]",
+      "status": "error",
+      "duration_ms": 66031,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C2",
+      "name": "Create project",
+      "case": "rejection",
+      "test": "test_c2_create_project_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 66035,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C3",
+      "name": "Upload and download file",
+      "case": "success",
+      "test": "test_c3_file_upload_success[chromium]",
+      "status": "error",
+      "duration_ms": 66374,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C3",
+      "name": "Upload and download file",
+      "case": "rejection",
+      "test": "test_c3_file_upload_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 66140,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "success",
+      "test": "test_c4_wiki_collab_success[chromium]",
+      "status": "failed",
+      "duration_ms": 66970,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "rejection",
+      "test": "test_c4_wiki_collab_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 68000,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C5",
+      "name": "File preview",
+      "case": "success",
+      "test": "test_c5_file_preview_success[chromium]",
+      "status": "error",
+      "duration_ms": 65581,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C5",
+      "name": "File preview",
+      "case": "rejection",
+      "test": "test_c5_file_preview_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 66033,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C6",
+      "name": "Institution admin screen",
+      "case": "success",
+      "test": "test_c6_admin_success[chromium]",
+      "status": "failed",
+      "duration_ms": 17119,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 3
+    },
+    {
+      "id": "C6",
+      "name": "Institution admin screen",
+      "case": "rejection",
+      "test": "test_c6_admin_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 65757,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S1",
+      "name": "y-websocket",
+      "case": "success",
+      "test": "test_s1_y_websocket_success[chromium]",
+      "status": "skipped",
+      "duration_ms": 3,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S1",
+      "name": "y-websocket",
+      "case": "rejection",
+      "test": "test_s1_y_websocket_rejection[chromium]",
+      "status": "skipped",
+      "duration_ms": 2,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S2",
+      "name": "rdmcp (MCP endpoint)",
+      "case": "success",
+      "test": "test_s2_rdmcp_success[chromium]",
+      "status": "skipped",
+      "duration_ms": 1,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S2",
+      "name": "rdmcp (MCP endpoint)",
+      "case": "rejection",
+      "test": "test_s2_rdmcp_rejection[chromium]",
+      "status": "skipped",
+      "duration_ms": 1,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S3",
+      "name": "aipf_mcp_data_grdm",
+      "case": "success",
+      "test": "test_s3_aipf_success[chromium]",
+      "status": "skipped",
+      "duration_ms": 1,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S3",
+      "name": "aipf_mcp_data_grdm",
+      "case": "rejection",
+      "test": "test_s3_aipf_rejection[chromium]",
+      "status": "skipped",
+      "duration_ms": 0,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S4",
+      "name": "OASys",
+      "case": "success",
+      "test": "test_s4_oasys_success[chromium]",
+      "status": "skipped",
+      "duration_ms": 0,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S5",
+      "name": "Shibboleth-SP via test IdP",
+      "case": "success",
+      "test": "test_s5_shibboleth_success[chromium]",
+      "status": "skipped",
+      "duration_ms": 2,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S5",
+      "name": "Shibboleth-SP via test IdP",
+      "case": "rejection",
+      "test": "test_s5_shibboleth_rejection[chromium]",
+      "status": "skipped",
+      "duration_ms": 2,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C1",
+      "name": "Login via fakecas",
+      "case": "rejection",
+      "test": "test_c1_login_rejection",
+      "status": "passed",
+      "duration_ms": 869,
+      "http_status": 401,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "S4",
+      "name": "OASys",
+      "case": "rejection",
+      "test": "test_s4_oasys_rejection",
+      "status": "skipped",
+      "duration_ms": 429,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    }
+  ]
+}
