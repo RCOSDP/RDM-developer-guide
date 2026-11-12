@@ -1,0 +1,24 @@
+[
+  {
+    "nodeid": "test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]",
+    "id": "C4",
+    "name": "Wiki collaborative edit",
+    "case": "success",
+    "status": "failed",
+    "duration_ms": 114799,
+    "http_status": null,
+    "evidence": null,
+    "known_external_blocked": 13
+  },
+  {
+    "nodeid": "test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]",
+    "id": "C4",
+    "name": "Wiki collaborative edit",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 105280,
+    "http_status": 4401,
+    "evidence": null,
+    "known_external_blocked": 12
+  }
+]

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="10" tests="22" time="830.091" timestamp="2026-11-12T18:03:17.709762+09:00" hostname="lima-grdm-ubuntu2404-amd64"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="66.569"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="7" /></properties></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_success[chromium]" time="118.947"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="15" /></properties></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_rejection[chromium]" time="77.983"><properties><property name="http_status" value="403" /><property name="known_external_blocked" value="7" /></properties></testcase><testcase classname="test_c3_file_upload" name="test_c3_file_upload_success[chromium]" time="49.870"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="4" /></properties></testcase><testcase classname="test_c3_file_upload" name="test_c3_file_upload_rejection[chromium]" time="81.460"><properties><property name="http_status" value="403" /><property name="known_external_blocked" value="8" /></properties></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="108.171"><properties><property name="known_external_blocked" value="13" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.&#10;Call log:&#10;  - navigating to &quot;http://127.0.0.1:5000/2up7e/wiki/home/?edit&amp;view&amp;menu&quot;, waiting until &quot;domcontentloaded&quot;">two_contexts = (&lt;Page url='http://127.0.0.1:5000/2up7e/wiki/home/?edit&amp;view&amp;menu'&gt;, &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;)
+login = &lt;function login.&lt;locals&gt;._login at 0x79c1ab0cfa60&gt;
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = &lt;function api_write.&lt;locals&gt;._write at 0x79c1ab0cdf80&gt;
+add_contributor = &lt;function add_contributor.&lt;locals&gt;._add at 0x79c1ab0cc2c0&gt;
+run_id = 'acc-20261112T085656Z-c69ad2'
+record_property = &lt;function record_property.&lt;locals&gt;.append_property at 0x79c1ab0cc220&gt;
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+        login(page_a, user_a)
+        login(page_b, user_b)
+    
+        created = api_write(page_a.context, "POST", api_url + sel.API["nodes"], {
+            "data": {"type": "nodes", "attributes": {"title": "acceptance C4", "category": "project", "public": False}}
+        })
+        assert created.status == 201, created.text()[:200]
+        node_id = created.json()["data"]["id"]
+        try:
+            add_contributor(page_a.context, node_id, user_id_of(page_b.context, api_url), "write")
+    
+&gt;           resp_a = _open_editor(page_a, base_url, node_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+installer/acceptance/test_c4_wiki_collab.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/test_c4_wiki_collab.py:32: in _open_editor
+    resp = page.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:18561: in goto
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:600: in goto
+    return await self._main_frame.goto(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:217: in goto
+    await self._channel.goto(
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:398: in _mapped
+    return mapper(await awaitable)
+                  ^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl.utils.zones.Zone object at 0x79c1ab03fa10&gt;
+func = &lt;function ChannelOwner._wrap_api_call.&lt;locals&gt;.finish.&lt;locals&gt;.&lt;lambda&gt; at 0x79c1aae46480&gt;
+
+    async def run_async(self, func: Callable[[], Awaitable[R]]) -&gt; R:
+        # Python: run() of an async function. The coroutine runs when it is awaited,
+        # so the zone must be current while it is awaited, not while it is created.
+        token = ***
+        try:
+&gt;           return await func()
+                   ^^^^^^^^^^^^
+E           playwright._impl._errors.TimeoutError: Page.goto: Timeout 30000ms exceeded.
+E           Call log:
+E             - navigating to "http://127.0.0.1:5000/2up7e/wiki/home/?edit&amp;view&amp;menu", waiting until "domcontentloaded"
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: TimeoutError</failure></testcase><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_rejection[chromium]" time="105.774"><properties><property name="http_status" value="4401" /><property name="known_external_blocked" value="12" /></properties></testcase><testcase classname="test_c5_file_preview" name="test_c5_file_preview_success[chromium]" time="82.009"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="9" /></properties></testcase><testcase classname="test_c5_file_preview" name="test_c5_file_preview_rejection[chromium]" time="72.415"><properties><property name="http_status" value="401" /><property name="known_external_blocked" value="9" /></properties></testcase><testcase classname="test_c6_admin" name="test_c6_admin_success[chromium]" time="31.358"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="5" /></properties></testcase><testcase classname="test_c6_admin" name="test_c6_admin_rejection[chromium]" time="29.495"><properties><property name="http_status" value="403" /><property name="known_external_blocked" value="3" /></properties></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_success[chromium]" time="0.008"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s1_y_websocket.py:65: M3</skipped></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_rejection[chromium]" time="0.003"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s1_y_websocket.py:91: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s2_rdmcp.py:80: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_rejection[chromium]" time="0.003"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s2_rdmcp.py:99: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s3_aipf.py:78: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s3_aipf.py:96: M3</skipped></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s4_oasys.py:45: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_success[chromium]" time="0.003"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s5_shibboleth.py:97: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s5_shibboleth.py:121: M3</skipped></testcase><testcase classname="test_c1_login" name="test_c1_login_rejection" time="0.345"><properties><property name="http_status" value="401" /><property name="known_external_blocked" value="0" /></properties></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_rejection" time="0.721"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s4_oasys.py:65: M3</skipped></testcase></testsuite></testsuites>

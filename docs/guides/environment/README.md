@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 1.5 — 2026-11-10. **Learned:** a safety check should say what it does not cover: the shared-folder check looks for four names directly under each shared mount point, decoded as the kernel escapes them, not for every credential anywhere ([PR #44 review r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1). ／ 安全のための検査は、何を見ないかも言うべきである。共有フォルダの検査は、カーネルのエスケープを復号した各共有 mount 先の直下にある四つの名前だけを探し、どこにある資格情報でも見つけるわけではない（[PR #44 レビュー r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1）。
+- Version / 版: 1.7 — 2026-11-12. **Learned:** the guide must not promise what an option cannot do: `--timeout` lengthens only the wait of `up`, never the build ([PR #50 review r1](../../reviews/README.md) R2). ／ 手引きは、オプションにできないことを約束してはならない。`--timeout` が延ばすのは `up` の待ちだけで、ビルドではない（[PR #50 レビュー r1](../../reviews/README.md) R2）。
+  1.6 — 2026-11-12. **Learned:** an amd64 test machine on Apple Silicon is a fully emulated computer, so it needs two more host tools and a long first start, and it compiled osf.io's scientific Python about ten times slower than Rosetta did (a full build there was not finished after 5 h 12 min); the guide now says so and says how to give `up` a longer wait through the one command, which does not shorten the build ([DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)). ／ Apple Silicon 上の amd64 の試験機は全体をエミュレーションする計算機なので、ホストの道具が二つ多く要り、最初の起動も長く、osf.io の科学計算の Python のコンパイルは Rosetta の約 10 倍遅かった（そこでのビルド全体が 5 時間 12 分後も未完）。手引きはそれを書き、一つのコマンドで `up` の待ちを延ばす方法も示す（ビルドは短くならない）（[DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)）。
+  1.5 — 2026-11-10. **Learned:** a safety check should say what it does not cover: the shared-folder check looks for four names directly under each shared mount point, decoded as the kernel escapes them, not for every credential anywhere ([PR #44 review r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1). ／ 安全のための検査は、何を見ないかも言うべきである。共有フォルダの検査は、カーネルのエスケープを復号した各共有 mount 先の直下にある四つの名前だけを探し、どこにある資格情報でも見つけるわけではない（[PR #44 レビュー r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1）。
   1.4 — 2026-11-10. **Learned:** a test VM is only isolated if nothing of the host is shared by default: Lima's Ubuntu template mounted the host home and showed `~/.config/gh` inside the VM, so the Lima steps below share only read-only mirrors and `install-ubuntu.sh` stops when credentials are visible ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ テスト用の VM は、既定でホストの何も共有しないときだけ隔離されている。Lima の Ubuntu テンプレートはホームを mount し `~/.config/gh` を VM から見せたので、下の Lima の手順は読み取り専用のミラーだけを共有し、`install-ubuntu.sh` は資格情報が見えると止まる（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
   1.3 — 2026-11-10. **Learned:** on a Linux server image the acceptance browser needs two more steps than on a Mac, a library for Playwright's driver and Chromium's system libraries, so §3.9 lists them ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ Linux のサーバーイメージでは受入試験のブラウザに Mac より二つ多い手順、Playwright のドライバー用のライブラリと Chromium のシステムライブラリが要るので、§3.9 に載せた（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
 - Version / 版: 1.2 — 2026-11-10. **Learned:** telling a reader that the installer checks each prerequisite is not the same as helping them get one, so the guide now starts from a script for each OS ([ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)). ／ 「インストーラーが前提条件を確認する」と伝えることは、それを揃える手助けにはならない。そこで手引きは OS ごとのスクリプトから始める（[ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md)）。
@@ -77,7 +79,11 @@ limactl start grdm-ubuntu2404
 limactl shell grdm-ubuntu2404 -- mount | grep -E 'virtiofs|9p|sshfs'
 ```
 
-Expected result: only the folders you chose are listed; no line ends in your home directory. To give the VM the private repositories without a token, share read-only bare mirrors (`git clone --mirror` on the Mac) and point git at them inside the VM with `git config --global url."file:///<mirror>.git".insteadOf https://github.com/RCOSDP/<repo>.git`.
+Expected result: only the folders you chose are listed; no line ends in your home directory.
+
+To test **Ubuntu amd64** on an Apple Silicon Mac, set `vmType: qemu` and `arch: x86_64` in `my-vm.yaml` and run `brew install qemu lima-additional-guestagents` first (Lima needs QEMU and the amd64 guest agent for this). The whole virtual machine is then emulated, so expect everything to be many times slower than on real hardware, and give the first start a long `--timeout`. To make the user a non-root user whose uid is not 1000, add `user: {name: grdm, uid: 2002, home: /home/grdm}` ([DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)).
+
+To give the VM the private repositories without a token, share read-only bare mirrors (`git clone --mirror` on the Mac) and point git at them inside the VM with `git config --global url."file:///<mirror>.git".insteadOf https://github.com/RCOSDP/<repo>.git`.
 
 > **Note:** Docker Desktop is never installed by these scripts, because its licence depends on your organisation. Homebrew is not installed either; `install-macos.sh` tells you where to get its signed package. See [ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) for the reasons.
 
@@ -483,7 +489,11 @@ limactl start grdm-ubuntu2404
 limactl shell grdm-ubuntu2404 -- mount | grep -E 'virtiofs|9p|sshfs'
 ```
 
-期待する結果: 自分で選んだフォルダだけが表示され、ホームディレクトリで終わる行はありません。トークン無しで VM に非公開リポジトリを渡すには、読み取り専用の bare ミラー（Mac で `git clone --mirror`）を共有し、VM の中で `git config --global url."file:///<ミラー>.git".insteadOf https://github.com/RCOSDP/<リポジトリ>.git` として git をそこへ向けます。
+期待する結果: 自分で選んだフォルダだけが表示され、ホームディレクトリで終わる行はありません。
+
+Apple Silicon の Mac で **Ubuntu amd64** を試すには、`my-vm.yaml` に `vmType: qemu` と `arch: x86_64` を書き、先に `brew install qemu lima-additional-guestagents` を実行します（Lima はこのために QEMU と amd64 のゲストエージェントを使います）。仮想マシン全体をエミュレーションするので、実機よりずっと遅く、最初の起動の `--timeout` は長くします。uid が 1000 でない一般利用者にするには `user: {name: grdm, uid: 2002, home: /home/grdm}` を足します（[DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)）。
+
+トークン無しで VM に非公開リポジトリを渡すには、読み取り専用の bare ミラー（Mac で `git clone --mirror`）を共有し、VM の中で `git config --global url."file:///<ミラー>.git".insteadOf https://github.com/RCOSDP/<リポジトリ>.git` として git をそこへ向けます。
 
 > **Note:** これらのスクリプトは Docker Desktop を入れません。ライセンスが所属組織によるからです。Homebrew も入れません。`install-macos.sh` が署名付きパッケージの入手先を案内します。理由は [ADR-08](../../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) にあります。
 

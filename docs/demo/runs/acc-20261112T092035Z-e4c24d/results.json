@@ -1,0 +1,52 @@
+{
+  "run_id": "acc-20261112T092035Z-e4c24d",
+  "base_url": "http://127.0.0.1:5000",
+  "started": "2026-11-12T09:20:35Z",
+  "duration_ms": 157263,
+  "only": "C4",
+  "seeded": false,
+  "precheck": {
+    "healthy": true,
+    "services": 24
+  },
+  "pytest_returncode": 1,
+  "evidence_dir": "docs/demo/runs/acc-20261112T092035Z-e4c24d",
+  "tracing": "off",
+  "trace_quarantine": null,
+  "expected_scenarios": [
+    "C4"
+  ],
+  "incomplete_scenarios": [],
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "error": 1,
+    "skipped": 0,
+    "total": 2,
+    "known_external_blocked": 0
+  },
+  "tests": [
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "success",
+      "test": "test_c4_wiki_collab_success[chromium]",
+      "status": "failed",
+      "duration_ms": 76464,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    },
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "rejection",
+      "test": "test_c4_wiki_collab_rejection[chromium]",
+      "status": "error",
+      "duration_ms": 68628,
+      "http_status": null,
+      "evidence": null,
+      "known_external_blocked": 0
+    }
+  ]
+}
