@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.4 — 2026-11-12. **Learned:** the security gate is the part of the install that is hardest on an emulated machine and still the part that must be shown: `scan` ran to its end in 1 h 13 min 30 s and exited 51 (a scanner was incomplete), because Trivy's fixed 5-minute limit stopped on the 7 GB ember image, which was scanned in DEMO-21 on a machine without full-system emulation; the gate itself said pass at M1 because it is report-only, so an exit 51 and a "pass" can both be true and a reader must read both. ／ セキュリティゲートは、エミュレーションの機械で最も重い工程だが、それでも示さなければならない工程である。`scan` は 1 時間 13 分 30 秒で最後まで走り、終了 51（スキャナーの一部が未完）で終わった。Trivy の固定の 5 分の制限が 7 GB の ember イメージで切れたためで、DEMO-21 では機械全体のエミュレーションでない機械で走査できた。ゲート自体は M1 の report-only なので pass と言った。つまり終了 51 と「pass」は両立し、読者は両方を読まなければならない。
+- Version / 版: 0.5 — 2026-11-12. **Learned:** a result must carry its provenance and its limits: the run-3 numbers are the author's transcription of VM-local output, not committed raw evidence; an exit 51 and an M1 report-only "pass" are both true and say different things; and a repeatable Trivy deadline on one image is an observation whose cause (emulation, load, image size) is still being investigated, not a finding about the installer. ／ 結果は、出所と限界を添えなければならない。第 3 回の数値は VM 内の出力を著者が書き写したもので、コミットした生の証跡ではない。終了 51 と M1 の report-only の「pass」はどちらも真で、言うことが違う。また 1 つのイメージでの Trivy の期限切れが再現したのは観察であり、その原因（エミュレーション、負荷、イメージの大きさ）は調査中で、インストーラーについての所見ではない。
+  0.4 — 2026-11-12. **Learned:** the security gate is the part of the install that is hardest on an emulated machine and still the part that must be shown: `scan` ran to its end in 1 h 13 min 30 s and exited 51 (a scanner was incomplete), because Trivy's fixed 5-minute limit stopped on the 7 GB ember image, which was scanned in DEMO-21 on a machine without full-system emulation; the gate itself said pass at M1 because it is report-only, so an exit 51 and a "pass" can both be true and a reader must read both. ／ セキュリティゲートは、エミュレーションの機械で最も重い工程だが、それでも示さなければならない工程である。`scan` は 1 時間 13 分 30 秒で最後まで走り、終了 51（スキャナーの一部が未完）で終わった。Trivy の固定の 5 分の制限が 7 GB の ember イメージで切れたためで、DEMO-21 では機械全体のエミュレーションでない機械で走査できた。ゲート自体は M1 の report-only なので pass と言った。つまり終了 51 と「pass」は両立し、読者は両方を読まなければならない。
   0.3 — 2026-11-12. **Learned:** a record must say what each statement is: the compile times are observations, "a working day" and "about nine hours" are extrapolations, the explanation of the DNS stall is a hypothesis, and the stages that were not run (`scan`, `report`) must never sit in a list of stages that were; the wiki page's 30-second `goto` is the only acceptance failure, and a rerun with waits about ten times longer passed, in a patched copy only. ／ 記録は、各文が何かを言わなければならない。コンパイル時間は観察、「1 営業日」と「約 9 時間」は外挿、DNS の停止の説明は仮説であり、実行していない工程（`scan`・`report`）を実行した工程の一覧に入れてはならない。wiki ページの 30 秒の `goto` が受入の唯一の失敗で、待ちを約 10 倍にした再実行は（パッチを当てたコピーだけで）合格した。
   0.2 — 2026-11-12. **Learned:** once the images exist, the stages that were run behind `build` (`up`, `health --network`, acceptance) showed nothing specific to amd64: `up` was healthy and `health --network` exited 0 with all 24 services on `127.0.0.1`, and the core acceptance suite passed 11 of 12 on a machine where every browser page takes about ten times longer; the one failure is a 30-second page-load timeout, which cannot be told from a real wiki fault on emulation alone, so only real amd64 hardware can settle it. And the acceptance runner needs `--seed` and its own browser folder, which a reader who follows an older record by memory forgets. ／ イメージさえあれば、`build` より後ろで実行した工程（`up`、`health --network`、受入）に amd64 に固有のことは見えなかった。`up` は健康になり、`health --network` は 24 サービスすべてが `127.0.0.1` で終了 0、コアの受入試験は、ブラウザの表示が約 10 倍遅い機械で 12 件中 11 件合格した。失敗の 1 件は 30 秒のページ読み込みのタイムアウトで、エミュレーションだけでは本物の wiki の不具合と区別できず、決着できるのは実際の amd64 の機械だけである。また受入試験の実行には `--seed` と専用のブラウザ置き場が要り、古い記録を記憶で追う読者は忘れる。
   0.1 — 2026-11-12. **Learned:** a virtual machine that emulates a whole amd64 computer on Apple Silicon is a good test of the Ubuntu amd64 prerequisites and of every image that builds from binary packages, but not of an image that compiles scientific Python from source: osf.io's numpy, pandas and scipy took about ten times as long as under Rosetta (an extrapolation of that ratio puts the one command at about nine hours, not measured to the end), and `install` could not even be told to wait longer in `up`. ／ Apple Silicon 上で amd64 のコンピュータ全体をエミュレーションする仮想マシンは、Ubuntu amd64 の前提条件と、バイナリのパッケージから組むイメージの試験には向く。しかし科学計算の Python をソースから組むイメージには向かない。osf.io の numpy・pandas・scipy は Rosetta の約 10 倍かかり（この比の外挿では一つのコマンドは約 9 時間。最後までは測っていない）、`install` に `up` の待ちを延ばすよう伝える手段すらなかった。
@@ -166,7 +167,9 @@ The one failure that is about the product, C4 success, is `Page.goto: Timeout 30
 
 ### Run 3 — `scan` and `report` on the stack of run 2
 
-The stack of run 2 was still healthy (19 containers) after PR #50 was merged (develop 32e2344); the VM's checkout is the branch of PR #50 (7ac6e5c), whose `installer/grdm_dev/scan.py` is identical to develop's. Both commands were run as the ordinary user (uid 2002), with the scanners installed by `install-ubuntu.sh` (Trivy 0.75.0, gitleaks 8.21.2, Semgrep 1.185.0 from the venv, ZAP `ghcr.io/zaproxy/zaproxy:stable` in Docker).
+> **Note on provenance:** every number in this section (start time, elapsed times, exit codes, image size, installed tool versions, tool completion and target counts, findings, the 177 allow-list matches, the baseline exceptions, the ZAP write success and the manual reruns) is an observation the author transcribed from output in the VM. It was not verified independently from raw evidence in this repository: the scan reports, SBOMs and timing logs stayed in the VM's `runtime/reports/` and are not committed, so a reviewer who has only this repository can check the arithmetic and the code paths in `installer/grdm_dev/scan.py`, but not the measurements themselves.
+
+The stack of run 2 was still healthy (19 containers) after PR #50 was merged (develop 32e2344). The VM's checkout is at b81628f (the `commit` field of the scan report), whose `installer/grdm_dev/scan.py` is identical to develop's at 32e2344. Both commands were run as the ordinary user (uid 2002), with the scanners installed by `install-ubuntu.sh` (Trivy 0.75.0, gitleaks 8.21.2, Semgrep 1.185.0 from the venv, ZAP `ghcr.io/zaproxy/zaproxy:stable` in Docker).
 
 ```toon
 run3:
@@ -178,35 +181,40 @@ run3:
     parts[5]: baseline, trivy, semgrep, gitleaks, zap
   report: "exit 0 after 5 s"
   durations[5]{tool,duration,note}:
-    "trivy images (22 of 23 targets)","about 38 min","two 5-minute limits were hit, see below"
+    "trivy, the image part","about 38 min","the image targets ran first; two calls on the ember-osf-web image and one on cas-overlay exited 1"
     "trivy fs + semgrep","about 5 min","Semgrep 2 min 41 s, 4 packs"
     gitleaks,"1 min 47 s","ok"
-    zap,"30 min 53 s","web 24 min, admin 3 min 47 s, ember_osf_web 3 min 8 s; reports written by uid 1000 into the uid-2002 checkout (DEMO-21 failure 4a does not recur)"
+    zap,"30 min 53 s","web 24 min, admin 3 min 47 s, ember_osf_web 3 min 8 s; the reports were written by uid 1000 into the uid-2002 checkout (DEMO-21 failure 4a does not recur)"
     "baseline controls",seconds,"pass with 10 accepted exceptions (postgres, volume_owner_init, mongo, rabbitmq)"
   tools[4]{tool,version,result}:
     trivy,0.75.0,"incomplete: sbom and scan of the ember-osf-web image, and the sbom of cas-overlay, exited 1"
     semgrep,1.185.0,"ok, 1 rule timeout on installer/tests/test_compose.py (a coverage warning at M1)"
     gitleaks,8.21.2,ok
     zap,stable,"ok, 3 targets (web, admin, ember_osf_web)"
-  findings_total: 5959
+  trivy_targets: "22 in all: 16 images, 5 integration source checkouts, 1 repository (scan.py counts all three kinds)"
+  trivy_outputs: "21 vulnerability-scan outputs (all but the ember image) and 20 SBOMs (all but the ember image and cas-overlay)"
+  findings_total: "5959, an incomplete total (see below)"
   findings_by_severity: "critical 298, high 1726, medium 2560, low 1369, info 6"
   by_tool: "trivy 5931 (critical 298, high 1725, medium 2551, low 1357); zap 28 (high 1, medium 9, low 12, info 6); semgrep 0; gitleaks 0"
-  allowlist: "58 entries in manifest/allowlist.json; 177 findings matched (allowlisted: 177); allowlist_baseline 0; over_threshold 2024"
+  allowlist: "58 entries in manifest/allowlist.json; 177 findings matched (author-reported); M1 entry-count baseline 0 (allowlist_baseline); over_threshold 2024"
   gate_rule: report-only
 ```
 
-What this shows:
+How to read it:
 
-- **Exit 51 is real and is an emulation-only limit, not an installer fault.** Trivy has a fixed default limit of 5 minutes per run. The ember-osf-web image (7.2 GB, prebuilt) did not finish its SBOM or its vulnerability scan inside it, so those two calls exited 1 (re-run by hand with the error shown: `FATAL ... context deadline exceeded` after 5 min 3 s). The same image was scanned in [DEMO-21](21_core_install_ubuntu_arm64_lima.md) on a machine without full-system emulation (23 targets). The SBOM of cas-overlay also exited 1 in the run; run alone afterwards it took 3.6 s and exited 0, and `scan` hides Trivy's message (`--quiet`), so I did not capture why it failed then. My hypothesis is the same 5-minute limit under load, **unconfirmed**. The 22 targets that finished are in the totals; the ember image's findings are **not**, so the totals are lower than a complete scan would give.
-- **Semgrep, gitleaks and ZAP completed** on the amd64 VM; Semgrep and gitleaks found nothing, ZAP found 28 alerts on three targets.
-- **The gate said pass** because the milestone is M1 and the rule is report-only ([ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)): 2024 critical and high findings are over the threshold and are counted, not blocking. The allow-list is read as in the other runs: 58 entries, 177 findings matched, none from the baseline allow-list.
-- The report bundle `report` exited 0 and covers `doctor`, `plan`, `health`, `scan` and `accept` of this stack. The reports and SBOMs stay in the VM's `runtime/reports/` (not committed: they name no secret, but they are large and are not evidence the page needs).
-- Not changed here, but worth a decision: `scan` could pass a longer `--timeout` to Trivy (or read one from the environment) so that a slow host does not turn a healthy stack into exit 51.
+- **Exit 51 is an observed, repeatable result for one image.** Trivy has a fixed default limit of 5 minutes per call (`scan.py` passes no `--timeout`). The ember-osf-web image (about 7 GB, prebuilt) did not finish its SBOM or its vulnerability scan inside it, and a manual rerun of the SBOM ended with `FATAL ... context deadline exceeded` after 5 min 3 s. What I observed ends there. That this is caused by emulation, by load or by the image's size is an explanation I am investigating, **not established**: the same image was scanned in [DEMO-21](21_core_install_ubuntu_arm64_lima.md) on a machine without full-system emulation (23 targets there, a different set, so the 22 here is not a count of missing ones). I have not shown it to be an installer fault either.
+- **The cas-overlay SBOM** also exited 1 during the run; its vulnerability scan did not fail. Run alone afterwards, the same SBOM took 3.6 s and exited 0. `scan` hides Trivy's message (`--quiet`), so I did not capture why it failed during the run. Its cause is **unresolved** and stays in the remaining work.
+- **What is covered and what is not.** Of 22 Trivy targets, 21 have a vulnerability-scan result; the ember image has none, so its vulnerabilities are missing. 20 have an SBOM; the ember image and cas-overlay do not. Complete SBOM-plus-scan coverage is therefore 20 of 22.
+- **The totals are an incomplete total.** The 5959 findings (and the Trivy 5931) are findings left after allow-list matching (the 177 matched findings are counted separately), over 21 of 22 targets, plus **three** HIGH diagnostic findings that `scan` adds for the failed calls (`SCAN-FAILED` for ember, `SBOM-FAILED` for ember and for cas-overlay, `scan.py` lines 850–858). The ember image's vulnerabilities are not in the totals; the diagnostics are. The true total for a complete scan is not known and is not "larger by a known amount".
+- **Semgrep, gitleaks and ZAP completed** on the amd64 VM; Semgrep and gitleaks reported nothing, ZAP reported 28 alerts on three targets.
+- **The gate said pass** because the milestone is M1 and the rule is report-only ([ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)): 2024 critical and high findings are over the threshold and are counted, not blocking. `scan` still exits 51 when a scanner is incomplete, whatever the gate says. The allow-list has 58 entries and 177 findings matched (one entry can match several findings); `allowlist_baseline` is not a count of matches but the entry-count baseline recorded for M1 in `manifest/allowlist.baseline.json`, which is 0.
+- `report` exited 0 and bundles the `doctor`, `plan`, `health`, `scan` and `accept` reports of this stack. They stay in the VM and are not committed, which is the limit described at the top of this section.
+- A decision to consider, not changed here: passing a configurable Trivy `--timeout` from `scan` may reduce the deadline-limited runs; it needs a rerun to show that, and it guarantees neither an exit 0 nor any security conclusion.
 
 ### What remains
 
 - **One uninterrupted run of the one command on Ubuntu amd64:** not done. It needs real amd64 hardware (a cloud virtual machine or a PC); on this machine it is estimated at about 9 hours (an extrapolation of the 10x ratio, not measured to the end), and the time on real hardware is not measured. Checked on amd64 so far: prerequisites, `doctor`, `git` access through mirrors, uid 2002, and nine images built natively. Not built on amd64 here: osf.io and wiki-frontend (imported from the Rosetta VM).
-- **`scan` and `report`:** run in run 3 (exit 51 and 0, see above). Still open from it: the ember-osf-web image's Trivy scan and the cas-overlay SBOM, which need a longer Trivy limit or a host without full-system emulation. The ZAP report directory of DEMO-21 failure 4a is now shown on an amd64 host (the ZAP reports were written).
+- **`scan` and `report`:** run in run 3 (exit 51 and 0, see above; the numbers are the author's transcription, not committed evidence). Still open from it: the ember-osf-web image's Trivy SBOM and vulnerability scan, which reproducibly passed the 5-minute limit here and whose cause is not established (a longer limit, a host without full-system emulation or something else); and the cas-overlay SBOM, whose failure in the run is **unexplained**. The ZAP report directory of DEMO-21 failure 4a is shown on an amd64 host (the ZAP reports were written).
 - **C4 success:** failed twice at the suite's 30 s wait and passed once with waits about ten times longer (patched copy, not committed); a clean run of the committed suite on real amd64 hardware, or a decision to make the waits configurable, is still open.
 - **WSL2:** not run ([DEMO-21](21_core_install_ubuntu_arm64_lima.md) lists why).
 - **Pins:** these runs used develop b81628f; osf.io's pin will change when the other coordinator's merge lands.
@@ -365,7 +373,9 @@ accept[5]{run_id,scope,seeded,passed,failed,error,skipped,note}:
 
 ### 第 3 回 — 第 2 回の stack での `scan` と `report`
 
-PR #50 のマージ後（develop 32e2344）も、第 2 回の stack はまだ健康だった（コンテナ 19 個）。VM の checkout は PR #50 のブランチ（7ac6e5c）で、`installer/grdm_dev/scan.py` はマージ後の develop（32e2344）と同一である。どちらのコマンドも一般利用者（uid 2002）で実行し、スキャナーは `install-ubuntu.sh` が入れたもの（Trivy 0.75.0、gitleaks 8.21.2、venv の Semgrep 1.185.0、Docker の ZAP `ghcr.io/zaproxy/zaproxy:stable`）。
+> **出所についての注記:** この節のすべての数値（開始時刻、所要時間、終了コード、イメージの大きさ、導入したツールの版、ツールの完了と対象数、指摘、許容リストの 177 件の一致、baseline の例外、ZAP の書き込みの成功、手動の再実行）は、著者が VM の中の出力から書き写した観察である。このリポジトリの生の証跡からは独立に検証していない。`scan` の報告、SBOM、時間のログは VM の `runtime/reports/` に残してコミットしていないので、このリポジトリだけを持つレビュワに確かめられるのは、算術と `installer/grdm_dev/scan.py` のコードの経路で、測定そのものではない。
+
+PR #50 のマージ後（develop 32e2344）も、第 2 回の stack はまだ健康だった（コンテナ 19 個）。VM の checkout は b81628f（`scan` の報告の `commit` 欄）で、その `installer/grdm_dev/scan.py` は 32e2344 の develop と同一である。どちらのコマンドも一般利用者（uid 2002）で実行し、スキャナーは `install-ubuntu.sh` が入れたもの（Trivy 0.75.0、gitleaks 8.21.2、venv の Semgrep 1.185.0、Docker の ZAP `ghcr.io/zaproxy/zaproxy:stable`）。
 
 ```toon
 run3:
@@ -377,7 +387,7 @@ run3:
     parts[5]: baseline, trivy, semgrep, gitleaks, zap
   report: "終了 0、5 秒"
   durations[5]{tool,duration,note}:
-    "trivy image（23 対象のうち 22）","約 38 分","5 分の制限に 2 回当たった。下を参照"
+    "trivy の image の部分","約 38 分","image の対象が先に走った。ember-osf-web イメージの 2 回と cas-overlay の 1 回の呼び出しが終了 1"
     "trivy fs と semgrep","約 5 分","Semgrep は 2 分 41 秒、4 パック"
     gitleaks,"1 分 47 秒","ok"
     zap,"30 分 53 秒","web 24 分、admin 3 分 47 秒、ember_osf_web 3 分 8 秒。uid 1000 が uid 2002 の checkout に報告を書けた（DEMO-21 の失敗 4a は再発しない）"
@@ -387,25 +397,30 @@ run3:
     semgrep,1.185.0,"ok、installer/tests/test_compose.py でルールのタイムアウト 1 件（M1 では網羅の警告）"
     gitleaks,8.21.2,ok
     zap,stable,"ok、3 対象（web、admin、ember_osf_web）"
-  findings_total: 5959
+  trivy_targets: "全部で 22: image 16、統合ソースの checkout 5、リポジトリ 1（scan.py は 3 種類すべてを数える）"
+  trivy_outputs: "脆弱性走査の出力 21（ember イメージ以外すべて）、SBOM 20（ember イメージと cas-overlay 以外すべて）"
+  findings_total: "5959。不完全な合計（下を参照）"
   findings_by_severity: "critical 298、high 1726、medium 2560、low 1369、info 6"
   by_tool: "trivy 5931（critical 298、high 1725、medium 2551、low 1357）、zap 28（high 1、medium 9、low 12、info 6）、semgrep 0、gitleaks 0"
-  allowlist: "manifest/allowlist.json に 58 件、177 件の指摘が一致（allowlisted: 177）、allowlist_baseline 0、over_threshold 2024"
+  allowlist: "manifest/allowlist.json に 58 項目、177 件の指摘が一致（著者報告）、M1 の項目数基準 0（allowlist_baseline）、over_threshold 2024"
   gate_rule: report-only
 ```
 
-分かったこと:
+読み方:
 
-- **終了 51 は本物であり、インストーラーの不具合ではなく、エミュレーションだけの限界である。** Trivy には 1 回の実行につき既定で 5 分の固定の制限がある。ember-osf-web のイメージ（7.2 GB、ビルド済み）は、その中で SBOM も脆弱性の走査も終わらず、その 2 回の呼び出しが終了 1 になった（手で再実行すると `FATAL ... context deadline exceeded` が 5 分 3 秒後に出た）。同じイメージは、機械全体のエミュレーションでない [DEMO-21](21_core_install_ubuntu_arm64_lima.md) では走査できた（23 対象）。cas-overlay の SBOM も実行中は終了 1 だったが、後で単独で実行すると 3.6 秒で終了 0 だった。`scan` は Trivy のメッセージを隠す（`--quiet`）ので、そのときなぜ失敗したかは記録していない。仮説は負荷のもとでの同じ 5 分の制限だが、**未確認**である。終わった 22 対象は合計に入っているが、ember のイメージの指摘は入って**いない**ので、合計は完全な走査より小さい。
-- **Semgrep、gitleaks、ZAP は amd64 VM で完走した。** Semgrep と gitleaks は指摘なし、ZAP は 3 対象で 28 件の警告を出した。
-- **ゲートは pass と言った。** 節目が M1 で規則が report-only だからである（[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)）。重大と高の 2024 件はしきい値を超えて数えられるが、止めはしない。許容リストはほかの回と同じ読み方で、58 件、177 件の指摘が一致、baseline の許容リスト由来は 0。
-- `report` は終了 0 で、この stack の `doctor`・`plan`・`health`・`scan`・`accept` をまとめた。報告と SBOM は VM の `runtime/reports/` に残し、コミットしていない（秘密は含まないが大きく、このページに要る証跡でもない）。
-- ここでは変えないが、判断する価値がある: `scan` が Trivy に長い `--timeout` を渡す（または環境から読む）と、遅い機械で健康な stack が終了 51 になるのを避けられる。
+- **終了 51 は、1 つのイメージで観察された再現する結果である。** Trivy には 1 回の呼び出しにつき既定で 5 分の固定の制限がある（`scan.py` は `--timeout` を渡さない）。ember-osf-web のイメージ（約 7 GB、ビルド済み）は、その中で SBOM も脆弱性の走査も終わらず、SBOM の手動の再実行は 5 分 3 秒後に `FATAL ... context deadline exceeded` で終わった。観察はここまでである。原因がエミュレーションか、負荷か、イメージの大きさかは、私が調べている説明であり、**確立していない**。同じイメージは、機械全体のエミュレーションでない機械の [DEMO-21](21_core_install_ubuntu_arm64_lima.md) では走査できた（そこは 23 対象で、集合が違うので、ここの 22 は欠けた数ではない）。インストーラーの不具合だとも示していない。
+- **cas-overlay の SBOM** も実行中は終了 1 だった。脆弱性の走査は失敗していない。後で単独で実行すると、同じ SBOM は 3.6 秒で終了 0 だった。`scan` は Trivy のメッセージを隠す（`--quiet`）ので、実行中になぜ失敗したかは記録していない。原因は**未解決**で、残りの作業に残る。
+- **何が対象で何がそうでないか。** Trivy の 22 対象のうち、21 に脆弱性の走査結果があり、ember イメージには無いので、その脆弱性は欠けている。SBOM があるのは 20 で、ember イメージと cas-overlay には無い。SBOM と走査の両方が揃うのは 22 のうち 20 である。
+- **合計は不完全な合計である。** 5959 件（と Trivy の 5931 件）は、許容リストとの照合の後に残った指摘（一致した 177 件は別に数える）で、22 対象のうち 21 のもの、に、失敗した呼び出しのために `scan` が足す **3 件**の HIGH の診断（ember の `SCAN-FAILED`、ember と cas-overlay の `SBOM-FAILED`。`scan.py` の 850〜858 行）を加えたものである。ember イメージの脆弱性は合計に入っておらず、診断は入っている。完全な走査での真の合計は分からず、「既知の量だけ多い」とも言えない。
+- **Semgrep、gitleaks、ZAP は amd64 VM で完走した。** Semgrep と gitleaks は何も報告せず、ZAP は 3 対象で 28 件の警告を出した。
+- **ゲートは pass と言った。** 節目が M1 で規則が report-only だからである（[ADR-03](../decisions/ADR-03_Staged_Security_Gate.md)）。重大と高の 2024 件はしきい値を超えて数えられるが、止めはしない。ゲートが何と言っても、スキャナーが未完なら `scan` は終了 51 で終わる。許容リストは 58 項目で 177 件の指摘が一致した（1 項目が複数の指摘に一致しうる）。`allowlist_baseline` は一致の数ではなく、`manifest/allowlist.baseline.json` に M1 について記録された項目数の基準で、0 である。
+- `report` は終了 0 で、この stack の `doctor`・`plan`・`health`・`scan`・`accept` の報告をまとめた。それらは VM に残してコミットしていない。これがこの節の冒頭に書いた限界である。
+- 検討する価値があるが、ここでは変えない判断: `scan` が設定可能な Trivy の `--timeout` を渡すと、期限で切れる実行が減る可能性がある。それを示すには再実行が要り、終了 0 も、安全性の結論も保証しない。
 
 ### 残っていること
 
 - **Ubuntu amd64 で中断しない一つのコマンドの実行:** 未実施。実際の amd64 の機械（クラウドの仮想マシンや PC）が要る。この機械では約 9 時間と見積もる（10 倍の比の外挿で、最後までは測っていない）。実機での時間は測っていない。amd64 でこれまでに確かめたこと: 前提条件、`doctor`、ミラー経由の `git` の読み取り、uid 2002、9 つのイメージのネイティブビルド。ここで amd64 では組んでいないもの: osf.io と wiki-frontend（Rosetta の VM から輸入）。
-- **`scan` と `report`:** 第 3 回で実施した（終了 51 と 0。上記）。残っているのは、ember-osf-web イメージの Trivy の走査と cas-overlay の SBOM で、Trivy の制限を延ばすか、機械全体のエミュレーションでないホストが要る。DEMO-21 の失敗 4a の ZAP の報告ディレクトリは、amd64 のホストでも示せた（ZAP の報告が書かれた）。
+- **`scan` と `report`:** 第 3 回で実施した（終了 51 と 0。上記。数値は著者の書き写しで、コミットした証跡ではない）。残っているのは、ここで 5 分の制限を再現して超えた ember-osf-web イメージの Trivy の SBOM と脆弱性の走査（原因は確立していない。長い制限か、機械全体のエミュレーションでないホストか、別の理由か）と、実行中に失敗した原因が**不明**の cas-overlay の SBOM である。DEMO-21 の失敗 4a の ZAP の報告ディレクトリは、amd64 のホストでも示せた（ZAP の報告が書かれた）。
 - **C4 の success:** 試験の 30 秒の待ちで 2 回失敗し、待ちを約 10 倍にして 1 回合格した（パッチを当てたコピー、未コミット）。コミットした試験を実際の amd64 の機械で素のまま実行すること、または待ちを設定可能にする判断は、まだ残っている。
 - **WSL2:** 未実施（理由は [DEMO-21](21_core_install_ubuntu_arm64_lima.md)）。
 - **pin:** この実行は develop b81628f のもの。別の担当の統合が入ると osf.io の pin は変わる。
