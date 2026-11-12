@@ -54,16 +54,10 @@ jobs:
             docker buildx build --platform linux/amd64 --load -t "grdm-dev/$cid:$tag" "$ctx"
             docker image inspect "grdm-dev/$cid:$tag" --format '{{index .Config.Labels "org.opencontainers.image.base.digest"}}' | grep -q sha256: || { echo "missing base digest label"; exit 1; }
             case "$cid" in
-              elasticsearch8)
-                # the entrypoint makes the TLS material and the config tmpfs content itself; a named volume copies
-                # the owner (uid 1000) of the image's data and /es-ca directories on first use
-                pw=$(openssl rand -hex 16)  # a throwaway password for this one container, never written anywhere
-                docker run -d --name smoke --read-only --tmpfs /tmp --tmpfs /usr/share/elasticsearch/logs:mode=1777 --tmpfs /usr/share/elasticsearch/config:mode=1777 -v smoke:/usr/share/elasticsearch/data -v smokeca:/es-ca -e ES_JAVA_OPTS="-Xms512m -Xmx512m" -e ELASTIC_PASSWORD="$pw" --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:19200:9200 "grdm-dev/$cid:$tag"
-                for i in $(seq 1 36); do sleep 5; [ "$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:19200/)" = 401 ] && break; done
-                # TLS answers and refuses an anonymous request; the superuser sees the node and both plugins
-                curl -sk --user "elastic:$pw" https://127.0.0.1:19200/ | grep -q cluster_name
-                curl -sk --user "elastic:$pw" https://127.0.0.1:19200/_cat/plugins | grep -q analysis-kuromoji
-                curl -sk --user "elastic:$pw" https://127.0.0.1:19200/_cat/plugins | grep -q analysis-icu
-                docker rm -f smoke >/dev/null; docker volume rm smoke smokeca >/dev/null ;;
+              elasticsearch2)
+                docker run -d --name smoke --read-only --tmpfs /tmp --tmpfs /usr/share/elasticsearch/logs:mode=1777 -v smoke:/usr/share/elasticsearch/data --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:19200:9200 "grdm-dev/$cid:$tag"
+                for i in $(seq 1 24); do sleep 5; curl -sf http://127.0.0.1:19200/ >/dev/null && break; done
+                curl -sf http://127.0.0.1:19200/ | grep -q cluster_name
+                docker rm -f smoke >/dev/null; docker volume rm smoke >/dev/null ;;
             esac
           done < recipes.txt
