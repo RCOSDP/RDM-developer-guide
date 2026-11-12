@@ -404,7 +404,7 @@
       ],
       "id": "ember-osf-web",
       "integration_branch": "develop",
-      "integration_sha": "4180cb58bb36855dfc40e0b7262450d08f51d1d6",
+      "integration_sha": "4d505f000f8dfb8648955054c76d7a6374204b93",
       "integration_repo": "RDM-ember-osf-web-dev2027",
       "note": "Built from the integration repository at develop after its PR #2 (static build, Node 24 LTS) and PR #3 (the file preview takes the API's render link, so MFR reaches the file from inside the network). Its multi-stage Dockerfile runs the ember-cli production build in a digest-pinned Node 24 stage on the build host's own platform (the output is platform-independent HTML, JS and CSS, so no architecture emulates the build; the build stage needs several GiB of engine memory at build time only) and the final stage is nginx-unprivileged (base_image, digest-pinned): uid 101, port 4200, read-only root with a /tmp tmpfs, no Node at run time. The entrypoint checks every value it writes (the backend URLs, OSF_COOKIE_DOMAIN, the CSP settings) as a whole against a strict per-field pattern, writes them URI-encoded into index.html, refuses to start on an invalid value or a Google Analytics adapter left in the page, and sets the CSP; GET /healthz answers ok. This replaces the prebuilt fallback (the distribution image ran ember serve and rebuilt the bundle under amd64 emulation with an 8 GiB floor) and removes prebuilt_image and build_platform (PR #2 review r1 R1-03).",
       "platforms": [

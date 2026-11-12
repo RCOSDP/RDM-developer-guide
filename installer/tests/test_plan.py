@@ -133,7 +133,7 @@ class PlanTests(unittest.TestCase):
         data = json.loads(out)
         ember = {r["service"]: r for r in data["services"]}["ember_osf_web"]
         self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
-        self.assertEqual(ember["build_from"], "RDM-ember-osf-web-dev2027@4180cb58bb36")
+        self.assertEqual(ember["build_from"], "RDM-ember-osf-web-dev2027@4d505f000f8d")
         self.assertEqual(ember["origin"], "built")
         self.assertEqual(data["prebuilt_images"], [])
 

@@ -207,7 +207,7 @@ class ServicesForProfileTests(unittest.TestCase):
 
 
 PREBUILT_REF = "registry.example.invalid/rdm-ember-osf-web@sha256:" + "e" * 64
-EMBER_PR2_HEAD = "4180cb58bb36855dfc40e0b7262450d08f51d1d6"  # RDM-ember-osf-web-dev2027 develop after PR #2 and PR #3 (merge commits); name kept from the PR-head pin
+EMBER_PR2_HEAD = "4d505f000f8dfb8648955054c76d7a6374204b93"  # RDM-ember-osf-web-dev2027 develop after PR #2, #3 and #4 (merge commits); name kept from the PR-head pin
 
 
 def with_prebuilt_ember(data):
