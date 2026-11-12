@@ -49,6 +49,7 @@ from urllib.parse import urlsplit
 
 from . import exit_codes, report
 from .context import Context
+from .plan import read_dotenv
 
 Runner = Callable[[list[str]], tuple[int, str]]
 
@@ -1049,20 +1050,60 @@ def _read_zap_report(path: Path) -> tuple[Any, str | None]:
 
 # zap-baseline.py (Automation Framework) ends with "Job spider failed to access URL <seed> : Connect to <host:port> failed"
 # and writes no report when the seed answers only a redirect to an address that the ZAP container cannot reach. That is what
-# a service behind mandatory sign-in does: with `ENABLE_PUBLIC_ACCESS=false` (RDM-osf.io-dev2027 PR #8, the default of
+# web does behind mandatory sign-in: with `ENABLE_PUBLIC_ACCESS=false` (RDM-osf.io-dev2027 PR #8, the default of
 # `compose render`) every anonymous request to web is a 302 to the sign-in page at the browser-facing loopback URL of
-# fakecas or the Shibboleth SP, which only the host's browser can open. It is told apart from a service that is down by the
-# host in the message: the target's own host means unreachable, any other host means "redirected to sign-in".
-ZAP_UNREACHABLE = re.compile(r"failed to access URL \S+\s*:\s*Connect to (?:https?://)?(?P<host>[^\s/]+) failed", re.S)
+# fakecas (CAS_SERVER_URL), which only the host's browser can open.
+#
+# A connection failure alone proves nothing (REV r1 R1-01: a broken redirect to an unrelated host, or any other cause that
+# prints "Connect to ... failed", must stay a failed scan, exit 51). The exception therefore needs positive evidence of all of:
+#   1. the service is web, the only target that has an anonymous sign-in redirect;
+#   2. runtime/config/osf.env, the rendered authority, says ENABLE_PUBLIC_ACCESS=false (and runtime/.env does not override);
+#   3. ZAP's message names this very seed and the configured CAS_SERVER_URL address, in that representation;
+#   4. a request that this scan makes itself to the seed, from the scan network, is answered with a 3xx whose Location
+#      has exactly the CAS_SERVER_URL address.
+# Anything else (other host, other service, public access, no osf.env, no or different redirect) is `None`: no exception.
+ZAP_UNREACHABLE = re.compile(r"failed to access URL (?P<seed>\S+)\s*:\s*Connect to (?:https?://)?(?P<host>[^\s/]+) failed", re.S)
+ZAP_SIGN_IN_SERVICE = "web"
+# Runs inside the ZAP image (python3 is what zap-baseline.py needs): one GET, redirects not followed.
+ZAP_REDIRECT_PROBE = ("import sys,http.client,urllib.parse as u;p=u.urlsplit(sys.argv[1]);"
+                      "c=http.client.HTTPConnection(p.netloc,timeout=20);c.request('GET','/');r=c.getresponse();"
+                      "print(r.status,r.getheader('Location',''))")
 
 
-def zap_behind_sign_in(output: str, url: str) -> str | None:
-    """The unreachable redirect address when `output` says ZAP's seed `url` only redirects somewhere ZAP cannot go."""
+def _netloc(address: str) -> str:
+    """Lower-case host:port of an http(s) URL or bare host:port; '' when it has none. No default-port guessing."""
+    text = (address or "").strip()
+    return urlsplit(text if "//" in text else f"//{text}").netloc.lower()
+
+
+def zap_sign_in_destination(ctx: Context) -> str | None:
+    """The configured sign-in address (osf.env CAS_SERVER_URL host:port) when the rendered stack requires sign-in, else None."""
+    osf_env = read_dotenv(ctx.runtime / "config" / "osf.env")
+    if osf_env.get("ENABLE_PUBLIC_ACCESS", "").strip().lower() != "false":
+        return None  # absent (never rendered), true, or anything else: public access, not a sign-in wall
+    if read_dotenv(ctx.runtime / ".env").get("GRDM_ENABLE_PUBLIC_ACCESS", "false").strip().lower() != "false":
+        return None
+    return _netloc(osf_env.get("CAS_SERVER_URL", "")) or None
+
+
+def zap_behind_sign_in(ctx: Context, runner: Runner, network: str, svc: str, url: str, output: str) -> str | None:
+    """The sign-in address when `output` and a probe of `url` both show that web only redirects to the configured CAS server."""
+    if svc != ZAP_SIGN_IN_SERVICE:
+        return None
     m = ZAP_UNREACHABLE.search(output or "")
     if not m:
         return None
-    target = urlsplit(url).netloc.lower()
-    return None if m.group("host").lower() == target else m.group("host")
+    destination = zap_sign_in_destination(ctx)
+    if not destination or _netloc(m.group("host")) != destination or m.group("seed").rstrip("/") != url.rstrip("/"):
+        return None
+    rc, probe = runner(["docker", "run", "--rm", "--network", network, ZAP_IMAGE, "python3", "-c", ZAP_REDIRECT_PROBE, url])
+    parts = (probe or "").strip().split(None, 1)
+    if rc != 0 or len(parts) != 2 or parts[0] not in ("301", "302", "303", "307", "308"):
+        return None
+    location = urlsplit(parts[1].strip())
+    if location.scheme not in ("http", "https") or location.netloc.lower() != destination:
+        return None
+    return destination
 
 
 def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
@@ -1077,6 +1118,7 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
     ctx.reports_dir.mkdir(parents=True, exist_ok=True)
     findings: list[dict] = []
     problems: list[str] = []
+    skipped: list[str] = []
     unsafe = private_reports_problem(ctx)
     if unsafe:  # fail closed: no world-writable directory, no ZAP run, the dynamic part is incomplete (exit 51)
         problems.append(f"ZAP not run: {unsafe}; its work directories must sit below a private runtime/")
@@ -1106,10 +1148,12 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
         finally:
             shutil.rmtree(wrk, ignore_errors=True)
         if data is None:
-            behind = zap_behind_sign_in(out, url)
+            behind = zap_behind_sign_in(ctx, runner, network, svc, url, out)
             if behind:
-                notes.append(f"ZAP skipped {svc}: it only redirects anonymous requests to {behind}, which the scanner cannot reach "
-                             f"(mandatory sign-in, ENABLE_PUBLIC_ACCESS=false); {svc} is covered by acceptance, Trivy and Semgrep, not by ZAP")
+                skipped.append(url)  # not scanned: skipped coverage, never counted as a scanned target
+                notes.append(f"ZAP NOT RUN on {svc} ({url}): an anonymous request is redirected (verified by a probe) to the configured "
+                             f"sign-in address {behind} (ENABLE_PUBLIC_ACCESS=false), which the scanner cannot reach, so no page behind "
+                             f"sign-in was scanned; {svc} is covered by acceptance, Trivy and Semgrep, not by ZAP")
                 continue
             problems.append(f"no ZAP report for {url} (rc {rc}); image {ZAP_IMAGE} pull or the scan may have failed")
             continue
@@ -1121,7 +1165,12 @@ def run_zap(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
             problems.append(f"ZAP report {out_name} could not be saved in reports/ ({exc.strerror}); only a regular file is written")
             continue
         findings.extend(normalize_zap(data, url))
-    return findings, _tool("zap", "stable", len(targets), problems), notes
+    tool = _tool("zap", "stable", len(targets) - len(skipped), problems)
+    if skipped:  # an incomplete result keeps its own text; a clean one says what was not scanned
+        tool["skipped_targets"] = skipped
+        if not problems:
+            tool["result"] = f"ok ({tool['targets']} scanned, {len(skipped)} skipped behind sign-in: {', '.join(skipped)})"
+    return findings, tool, notes
 
 
 # --------------------------------------------------------------------------- gate

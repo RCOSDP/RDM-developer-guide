@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 1.9 — 2026-11-12. **Learned:** an upgrade guide has to be an order of commands, because each step needs the one before: the new secrets must exist before `compose render`, `compose render` before `build` (tags) and again after it, and the search index rebuild only after `up`; `secrets rotate` is not that first step, since it needs a healthy old stack and rolled back here when the former ember image took more than 300 seconds to start. ／ アップグレードの手引きはコマンドの順序でなければならない。どの段も前の段を要するからである。新しい秘密は `compose render` の前に、`compose render` は `build`（タグ）の前と後に、検索の索引の再構築は `up` の後に要る。`secrets rotate` はその最初の段ではない。健康な旧スタックを要し、ここでは以前の ember のイメージの起動が 300 秒を超えて巻き戻った。
+- Version / 版: 1.10 — 2026-11-13. **Learned:** a scan line that reads `ok` has to say what it did not scan: with mandatory sign-in ZAP cannot enter `web`, and the report now lists that target as skipped (`skipped_targets`), not as scanned (PR #56 review r1 R1-01). ／ `ok` と読める検査の行は、検査しなかったものを言わなければならない。必須サインインでは ZAP は `web` に入れず、報告はその対象を検査済みでなく対象外（`skipped_targets`）として載せる（PR #56 レビュー r1 R1-01）。
+  1.9 — 2026-11-12. **Learned:** an upgrade guide has to be an order of commands, because each step needs the one before: the new secrets must exist before `compose render`, `compose render` before `build` (tags) and again after it, and the search index rebuild only after `up`; `secrets rotate` is not that first step, since it needs a healthy old stack and rolled back here when the former ember image took more than 300 seconds to start. ／ アップグレードの手引きはコマンドの順序でなければならない。どの段も前の段を要するからである。新しい秘密は `compose render` の前に、`compose render` は `build`（タグ）の前と後に、検索の索引の再構築は `up` の後に要る。`secrets rotate` はその最初の段ではない。健康な旧スタックを要し、ここでは以前の ember のイメージの起動が 300 秒を超えて巻き戻った。
   1.8 — 2026-11-11. **Learned:** a troubleshooting entry that names a workaround goes stale the day the workaround ends: ember-osf-web is built from source again as a static image, so the DEMO-20 cases now say that the prebuilt image was the past state and what `build` does now (RDM-ember-osf-web-dev2027 PR #2 review r1 R1-03). ／ 回避策を名指しする障害対応の項は、その回避策が終わった日に古くなる。ember-osf-web は再びソースから静的なイメージとして組まれるので、DEMO-20 の事例は事前ビルド済みのイメージが過去の状態だったことと、いまの `build` の動きを書くようにした（RDM-ember-osf-web-dev2027 PR #2 レビュー r1 R1-03）。
   1.7 — 2026-11-12. **Learned:** the guide must not promise what an option cannot do: `--timeout` lengthens only the wait of `up`, never the build ([PR #50 review r1](../../reviews/README.md) R2). ／ 手引きは、オプションにできないことを約束してはならない。`--timeout` が延ばすのは `up` の待ちだけで、ビルドではない（[PR #50 レビュー r1](../../reviews/README.md) R2）。
   1.6 — 2026-11-12. **Learned:** an amd64 test machine on Apple Silicon is a fully emulated computer, so it needs two more host tools and a long first start, and it compiled osf.io's scientific Python about ten times slower than Rosetta did (a full build there was not finished after 5 h 12 min); the guide now says so and says how to give `up` a longer wait through the one command, which does not shorten the build ([DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)). ／ Apple Silicon 上の amd64 の試験機は全体をエミュレーションする計算機なので、ホストの道具が二つ多く要り、最初の起動も長く、osf.io の科学計算の Python のコンパイルは Rosetta の約 10 倍遅かった（そこでのビルド全体が 5 時間 12 分後も未完）。手引きはそれを書き、一つのコマンドで `up` の待ちを延ばす方法も示す（ビルドは短くならない）（[DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)）。
@@ -263,6 +264,8 @@ Without flags, `scan` runs every part: baseline controls, the Trivy (a scanner t
 **Success:** Exit `0`; the report under `runtime/reports/scan_<date>.json` (plus TOON) shows the baseline controls passed and the findings for the current milestone.
 
 **Failure exit codes:** `50` — gate failed for the current milestone (see rule above); `51` — a scanner could not run (Trivy, gitleaks, or Semgrep missing, or its vulnerability database could not be downloaded); `52` — `--dynamic` was requested while services are unhealthy.
+
+**Limit of the dynamic part:** with mandatory sign-in (`ENABLE_PUBLIC_ACCESS=false`, the default) `web` answers an anonymous request only with a redirect to the sign-in page, which ZAP cannot open. When the scan itself confirms that redirect and that it goes to the configured sign-in address, `web` is listed under `skipped_targets` with a note "ZAP NOT RUN on web" and the run can still exit `0`; the pages behind sign-in were then **not** scanned by ZAP. Any other failure to reach a target, such as a redirect elsewhere, stays exit `51`.
 
 #### 3.9 `grdm-dev accept` (manual, separate step)
 
@@ -676,6 +679,8 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 **成功:** 終了 `0`。`runtime/reports/scan_<日付>.json`（と TOON）の報告に、基本対策の合格と現在の節目での指摘が示されます。
 
 **失敗終了コード:** `50` — 現在の節目で門に落ちた（上の規則）。`51` — スキャナーが動かせない（Trivy・gitleaks・Semgrep が無い、または脆弱性データベースを取得できない）。`52` — サービスが健康でないのに `--dynamic` を求めた。
+
+**動的部分の限界:** 必須サインイン（`ENABLE_PUBLIC_ACCESS=false`、既定）では、`web` は匿名の要求にサインインのページへの転送しか返さず、ZAP はそれを開けません。スキャン自身がその転送を確かめ、転送先が設定済みのサインインのアドレスであるときだけ、`web` は注「ZAP NOT RUN on web」つきで `skipped_targets` に載り、終了 `0` になりえます。このときサインインの向こうのページは ZAP では**検査されていません**。転送先が別の場所であるなど、対象に届かないほかの失敗は終了 `51` のままです。
 
 #### 3.9 `grdm-dev accept`（手動・別手順）
 

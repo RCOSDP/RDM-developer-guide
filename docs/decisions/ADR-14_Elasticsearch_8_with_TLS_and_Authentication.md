@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.1 — 2026-11-12. **Learned:** a "read-only root" claim for a service is only true when its entrypoint has been run that way: Elasticsearch 8's official entrypoint writes a keystore into `config/` and its security layer reads TLS files only from `config/`, so both the tmpfs and the copy of the certificate into it had to be found by starting the image under the real hardening, not by reading its documentation. ／ サービスが「読み取り専用のルート」で動くという主張は、その entrypoint を実際にその条件で動かして初めて本当になる。Elasticsearch 8 の公式 entrypoint は `config/` にキーストアを書き、セキュリティ層は TLS のファイルを `config/` からしか読まないので、tmpfs と証明書の複写の両方は、文書を読むのでなく、実際の堅牢化の下でイメージを起動して初めて分かった。
+- Version / 版: 0.2 — 2026-11-13. **Learned:** an upgrade instruction has to be checked against the order the installer actually enforces, not against what each command does alone: `secrets rotate` changes every credential, drops a retired key and recreates containers from the Compose file as it was last rendered, so putting it before `compose render` is an unnecessary credential change that can fail or roll back before the new configuration exists; the upgrade that keeps the existing values is `secrets init --missing`, then render, build, render, up (PR #56 review r1 R1-02). ／ 更新の手順は、各コマンド単体の働きでなく、インストーラーが実際に求める順序に照らして確かめなければならない。`secrets rotate` はすべての資格情報を替え、廃止したキーを捨て、最後に生成した Compose ファイルのままコンテナを再作成するので、`compose render` の前に置くのは不要な資格情報の変更で、新しい設定ができる前に失敗や巻き戻しを起こしうる。既存の値を保つ更新は `secrets init --missing`、そのあと render、build、render、up である（PR #56 レビュー r1 R1-02）。
+  0.1 — 2026-11-12. **Learned:** a "read-only root" claim for a service is only true when its entrypoint has been run that way: Elasticsearch 8's official entrypoint writes a keystore into `config/` and its security layer reads TLS files only from `config/`, so both the tmpfs and the copy of the certificate into it had to be found by starting the image under the real hardening, not by reading its documentation. ／ サービスが「読み取り専用のルート」で動くという主張は、その entrypoint を実際にその条件で動かして初めて本当になる。Elasticsearch 8 の公式 entrypoint は `config/` にキーストアを書き、セキュリティ層は TLS のファイルを `config/` からしか読まないので、tmpfs と証明書の複写の両方は、文書を読むのでなく、実際の堅牢化の下でイメージを起動して初めて分かった。
 - Status: Proposed (2026-11-12, M5); the owner approves. Review date: when django-elasticsearch-metrics supports Elasticsearch 8 (then `elasticsearch6` goes), or at the next Elasticsearch 8 minor.
 - Records a decision for: `manifest/upstreams.json` (`elasticsearch8` replaces `elasticsearch2`) · `installer/images/elasticsearch8/` · `installer/grdm_dev/templates/elasticsearch8.json`, `elasticsearch8_setup.json` and the osf.io templates · [SPEC-02](../spec/02_installer_cli.md#english) (services, secrets, volumes) · [SPEC-01](../spec/01_manifest.md#english)
 - Related: [ADR-13 Retiring Elasticsearch 2 and MongoDB](ADR-13_Retiring_Elasticsearch_2_and_MongoDB.md) (path C of its §2 is this record's change) · [ADR-07 Native builds of EOL middleware](ADR-07_Native_Builds_of_EOL_Middleware.md) · [ADR-02 Network model](ADR-02_Network_Model.md) · [Status board](../status/README.md#english)
@@ -47,10 +48,10 @@ options[4]{option,reason_for_not_choosing}:
 
 ### 4. Consequences
 
-- A new secret pair, `ELASTIC8_PASSWORD` and `ELASTIC8_OSF_PASSWORD`; `SHAREJS_SECRET` is retired (ADR-13). An installation whose `runtime/.env` predates them runs `grdm-dev secrets rotate` (it re-keys PostgreSQL and RabbitMQ and writes the new keys) before `compose render`.
+- A new secret pair, `ELASTIC8_PASSWORD` and `ELASTIC8_OSF_PASSWORD`; `SHAREJS_SECRET` is retired (ADR-13). An installation whose `runtime/.env` predates them runs `grdm-dev secrets init --missing` (it adds only the absent keys, keeps every existing value including the PostgreSQL and RabbitMQ passwords, drops `SHAREJS_SECRET` and needs no running stack), then `compose render`, `build`, `compose render` again and `up`, and once `invoke migrate_search`; the canonical order is in [the environment guide §8](../guides/environment/README.md#english). `secrets rotate` is not part of this upgrade: it changes every credential and recreates containers from the Compose file as it was last rendered, which at that point still names the retired key and services (SPEC-02 §3: render before any rotate).
 - Three images change at once for an existing installation (osf.io, y-websocket, ember-osf-web), and the volumes `elasticsearch8_data`, `elasticsearch8_ca` and `y_websocket_data` appear.
 - The ES 2 image recipe (`installer/images/elasticsearch2/`) is kept only as a pointer file, because review records link to it (SPEC-06 §8).
-- Open: the scan allow-list for the new image's Ubuntu packages is not yet reviewed (SPEC-03 §5.1); the first `grdm-dev scan` after this change records them.
+- Open: the scan allow-list for the new image's Ubuntu packages is not yet reviewed (SPEC-03 §5.1). The scans after this change have recorded the image's findings (2 HIGH and 30 MEDIUM from Trivy, listed per package and not allow-listed; [DEMO-20](../demo/20_core_install_mac_studio.md#english)); no entry has been proposed or reviewed yet.
 
 ---
 
@@ -89,10 +90,10 @@ options[4]{option,reason_for_not_choosing}:
 
 ### 4. 結果
 
-- 秘密が二つ増える（`ELASTIC8_PASSWORD`、`ELASTIC8_OSF_PASSWORD`）。`SHAREJS_SECRET` は退役する（ADR-13）。これらより前に作られた `runtime/.env` の導入は、`compose render` の前に `grdm-dev secrets rotate`（PostgreSQL と RabbitMQ の鍵を替え、新しい鍵を書く）を実行する。
+- 秘密が二つ増える（`ELASTIC8_PASSWORD`、`ELASTIC8_OSF_PASSWORD`）。`SHAREJS_SECRET` は退役する（ADR-13）。これらより前に作られた `runtime/.env` の導入は、`grdm-dev secrets init --missing`（足りないキーだけを足し、PostgreSQL と RabbitMQ のパスワードを含む既存の値はすべて保ち、`SHAREJS_SECRET` を捨てる。稼働中のスタックは要らない）を実行し、続けて `compose render`、`build`、もう一度 `compose render`、`up`、そして一度だけ `invoke migrate_search` を実行する。正本の順序は[環境ガイド §8](../guides/environment/README.md#japanese)にある。`secrets rotate` はこの更新に含めない。すべての資格情報を替え、最後に生成した Compose ファイルのままコンテナを再作成するが、その時点のファイルはまだ廃止したキーとサービスを名指ししている（SPEC-02 §3: rotate の前に render）。
 - 既存の導入では三つのイメージ（osf.io、y-websocket、ember-osf-web）が同時に変わり、ボリューム `elasticsearch8_data`・`elasticsearch8_ca`・`y_websocket_data` が現れる。
 - ES 2 のイメージのレシピ（`installer/images/elasticsearch2/`）は、レビュー記録がそれにリンクするため、指し示すだけのファイルとして残す（SPEC-06 §8）。
-- 未了: 新しいイメージの Ubuntu パッケージに対する検査の許容リストはまだ見直していない（SPEC-03 §5.1）。この変更のあとの最初の `grdm-dev scan` が記録する。
+- 未了: 新しいイメージの Ubuntu パッケージに対する検査の許容リストはまだ見直していない（SPEC-03 §5.1）。この変更のあとの検査はイメージの検出を記録済み（Trivy の HIGH 2 件と MEDIUM 30 件。パッケージごとに列挙し、許容はしていない。[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）で、項目の提案も見直しもまだ行っていない。
 
 ---
 
