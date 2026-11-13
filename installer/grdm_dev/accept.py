@@ -215,7 +215,15 @@ ACCEPTANCE_DIR = resolve_acceptance_dir()
 # --- helpers -------------------------------------------------------------------------------------
 
 def default_runner(argv: list[str], env: dict[str, str] | None = None, cwd: str | Path | None = None,
-                   timeout: int = 1900) -> tuple[int, str]:
+                   timeout: int | None = None) -> tuple[int, str]:
+    if timeout is None:
+        # The parent's limit (the suite's 30 minutes plus slack) follows the scale the child was given, or it would
+        # kill a stretched run before the suite's own, equally stretched, limit.
+        try:
+            scale = float((env or {}).get("GRDM_ACCEPT_WAIT_SCALE", "1"))
+        except ValueError:
+            scale = 1.0
+        timeout = int(1900 * (scale if 1.0 <= scale <= WAIT_SCALE_MAX else 1.0))
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, env=env, cwd=cwd, timeout=timeout)
     except FileNotFoundError as exc:
@@ -685,6 +693,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     secret_values = sorted(set(secret_values) | set(seed_secret_values(users)), key=len, reverse=True)
 
     env = dict(ctx.env)
+    env.pop("GRDM_ACCEPT_WAIT_SCALE", None)  # only --wait-scale sets it; a stray value in the environment must not stretch (or mislabel) a run
     env.update({
         "PLAYWRIGHT_BROWSERS_PATH": str(browsers),
         "GRDM_BASE_URL": base_url,

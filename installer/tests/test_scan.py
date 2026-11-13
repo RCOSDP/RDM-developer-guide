@@ -182,9 +182,9 @@ class TrivyTimeoutTests(ScanTestBase):
             self.assertEqual(c[c.index("--timeout") + 1], "45m")
 
     def test_only_a_bounded_whole_duration_is_accepted(self):
-        for ok in ("30s", "30m", "1h", "24h", " 2h "):
+        for ok in ("30s", "30m", "1h", "24h", " 2h ", "1440m", "10000s", "86400s"):
             self.assertEqual(scan.trivy_duration(ok), ok.strip())
-        for bad in ("", "0m", "-5m", "1.5h", "25h", "86401s", "30", "m", "30min", "1d", "9999h", "5m; rm"):
+        for bad in ("", "0m", "-5m", "1.5h", "25h", "86401s", "1441m", "999999s", "1000000s", "30", "m", "30min", "1d", "9999h", "5m; rm"):
             with self.assertRaises(argparse.ArgumentTypeError, msg=bad):
                 scan.trivy_duration(bad)
 

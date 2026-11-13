@@ -820,7 +820,7 @@ def integration_checkouts(ctx: Context) -> tuple[list[Path], list[str]]:
     return out, notes
 
 
-_TRIVY_DURATION = re.compile(r"^([1-9][0-9]{0,3})(s|m|h)$")
+_TRIVY_DURATION = re.compile(r"^([1-9][0-9]{0,5})(s|m|h)$")  # 86400s is 24h; the cap below, not the digit count, is the limit
 
 
 def trivy_duration(text: str) -> str:

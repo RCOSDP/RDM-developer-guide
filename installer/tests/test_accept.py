@@ -256,6 +256,30 @@ class AcceptTests(unittest.TestCase):
                 if "CONVERGE" in line and "=" in line.split("CONVERGE", 1)[1][:12]:
                     self.assertNotIn("scaled(", line, f"{f.name}:{n} scales the SPEC-04 convergence budget")
 
+    def test_a_stray_scale_in_the_environment_neither_stretches_nor_mislabels_a_run(self):
+        self.ctx.env = {"GRDM_ACCEPT_WAIT_SCALE": "20"}
+        runner = FakeRunner(junit=JUNIT_ONE_FAILURE)
+        self.run_accept(self.args(base_url="http://127.0.0.1:5000"), runner)
+        env = [e for a, e in runner.calls if "pytest" in a][-1]
+        self.assertNotIn("GRDM_ACCEPT_WAIT_SCALE", env)
+        self.assertEqual(json.loads((self.run_dir() / "results.json").read_text())["wait_scale"], 1.0)
+
+    def test_the_parent_limit_follows_the_scale_the_child_was_given(self):
+        seen = []
+
+        def fake_run(argv, **kw):
+            seen.append(kw.get("timeout"))
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(accept.subprocess, "run", fake_run):
+            accept.default_runner(["x"], env={})
+            accept.default_runner(["x"], env={"GRDM_ACCEPT_WAIT_SCALE": "20"})
+            accept.default_runner(["x"], env={"GRDM_ACCEPT_WAIT_SCALE": "21"})   # out of range counts as 1, like the suite
+            accept.default_runner(["x"], env={"GRDM_ACCEPT_WAIT_SCALE": "bad"})
+            accept.default_runner(["x"], env={}, timeout=5)
+        self.assertEqual(seen, [1900, 38000, 1900, 1900, 5])
+        self.assertGreater(38000, 30 * 60 * 20 + 1)  # the suite's stretched 36,000 s fits inside the parent's limit
+
     # --- results, exit 60 -------------------------------------------------------------------------
 
     def test_pytest_failure_maps_to_60_and_writes_results(self):
