@@ -582,6 +582,13 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
             self.assertEqual(es["healthcheck"]["test"][0], "CMD-SHELL")
             self.assertIn("--cacert /es-ca/ca.crt", es["healthcheck"]["test"][1])
+            # an emulated amd64 host needed 8 min 10 s to start Elasticsearch 8 (DEMO-22 0.7): the window must
+            # outlast that, yet stay inside the default `up` wait (1800 s), or the check never fails in time
+            hc = es["healthcheck"]
+            budget = 30 + int(hc["interval"].rstrip("s")) * hc["retries"]
+            self.assertEqual(hc["start_period"], "30s")
+            self.assertGreaterEqual(budget, 15 * 60)
+            self.assertLess(budget, 1800)
             self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
             setup = doc["services"]["elasticsearch8_setup"]
             self.assertEqual(setup["restart"], "no")
