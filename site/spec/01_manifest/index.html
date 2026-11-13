@@ -1,0 +1,3348 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../00_overview/">
+      
+      
+        <link rel="next" href="../02_installer_cli/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.37">
+    
+    
+      
+        <title>SPEC-01 Upstream Manifest / 上流マニフェスト - GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8c3ca2c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#spec-01-upstream-manifest--上流マニフェスト" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-header__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SPEC-01 Upstream Manifest / 上流マニフェスト
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system theme"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system theme" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Documentation Index / 文書索引
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../assets/" class="md-tabs__link">
+          
+  
+  Assets
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../decisions/" class="md-tabs__link">
+          
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../demo/" class="md-tabs__link">
+          
+  
+  Demo
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../handoff/" class="md-tabs__link">
+          
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../policy/" class="md-tabs__link">
+          
+  
+  Policy
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reviews/" class="md-tabs__link">
+          
+  
+  Reviews
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Spec
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../status/" class="md-tabs__link">
+          
+  
+  Status
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-nav__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Index / 文書索引
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Assets
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Assets
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../assets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Site Assets / サイト用の部品
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Decisions
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Decision Records / 決定の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-01_Integration_Repository_Placement/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-01 Integration Repository Placement / 統合リポジトリの置き場
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-02_Network_Model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-02 Network Model / ネットワーク方式
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-03_Staged_Security_Gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-03 Staged Security Gate / セキュリティの門の段階化
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-04_AI_Autonomy_and_Roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-04 AI Autonomy and Roles / AI の自律度と役割
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Demo
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Demonstration Records / 実証記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/20_core_install_mac_studio/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DEMO-20 Core Install on Mac Studio / Mac Studio でのコア導入記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Runs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            Runs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../demo/runs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Acceptance Run Records / 受入実行の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guides / ガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Admin addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            Admin addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/admin-addon/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Addon Guide / 管理者アドオンガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/admin-addon/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    アドオンの機関管理機能の利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Api
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            Api
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Guide / API ユーガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/Decorators/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    View処理で使えるPythonデコレータ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIの利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ec2
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Ec2
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ec2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EC2 Development Environment / EC2 での開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ec2/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OSF evaluation on AWS EC2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Environment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            Environment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/environment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment / 環境設定と開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/environment/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    開発環境の準備
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Screen expansion
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            Screen expansion
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/screen-expansion/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Screen Expansion Addon / 画面拡張アドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/screen-expansion/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    画面拡張アドオンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Skeleton
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
+            <span class="md-nav__icon md-icon"></span>
+            Skeleton
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/skeleton/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Skeleton Addon / スケルトンアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/skeleton/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    スケルトンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Storage addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            Storage addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/storage-addon/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage Addon / ストレージアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/storage-addon/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ストレージアドオンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Handoff
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Handoff
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../handoff/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hand-off Records / 引継ぎ記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Policy
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Policy
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Policy / 方針
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../policy/POL-01_Developer_Environment_2027_Position/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    POL-01 Position on the Developer Environment 2027 / 開発環境 2027 版の位置づけ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reference / 参考
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REF-01_Glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REF-01 Glossary / 用語集
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reviews
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Reviews
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Review Records / レビュー記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r2 / M1 文書骨格 PR 再レビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r3 / REV（担当レビュワ）M1 文書骨格 PR 再レビュー r3
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r1 / インストーラーレビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r1 / 公開 develop 統合レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r2 / 公開 develop 統合再レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Spec
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Spec
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specifications / 仕様
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-00 Overview and Architecture / 全体像と構成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    SPEC-01 Upstream Manifest / 上流マニフェスト
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-01 Upstream Manifest / 上流マニフェスト
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#english" class="md-nav__link">
+    <span class="md-ellipsis">
+      English
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="English">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-what-the-manifest-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. What the manifest is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Schema
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Rules
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-validation-grdm-dev-manifest-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Validation: grdm-dev manifest check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-who-changes-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Who changes it
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#日本語" class="md-nav__link">
+    <span class="md-ellipsis">
+      日本語
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="日本語">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-マニフェストとは" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. マニフェストとは
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-ファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. ファイル
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-形スキーマ" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. 形（スキーマ）
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-規則" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. 規則
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-検査-grdm-dev-manifest-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. 検査: grdm-dev manifest check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-誰が変えるか" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. 誰が変えるか
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#glossary--用語" class="md-nav__link">
+    <span class="md-ellipsis">
+      Glossary / 用語
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02_installer_cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-02 Installer CLI / インストーラー CLI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_security_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-03 Security Gate / セキュリティの門
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04_acceptance_tests/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-04 Acceptance Tests / 受入試験
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05_upstream_tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-05 Upstream Tracking / 上流追従
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../06_documentation_conventions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-06 Documentation Conventions / 文書規約
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Status
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Status
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../status/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Status Board / 進捗ボード
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_11_2" id="__nav_11_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upstream
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11_2">
+            <span class="md-nav__icon md-icon"></span>
+            Upstream
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../status/upstream/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upstream Tracking Status / 上流追従状況
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#english" class="md-nav__link">
+    <span class="md-ellipsis">
+      English
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="English">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-what-the-manifest-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. What the manifest is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Schema
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Rules
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-validation-grdm-dev-manifest-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Validation: grdm-dev manifest check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-who-changes-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Who changes it
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#日本語" class="md-nav__link">
+    <span class="md-ellipsis">
+      日本語
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="日本語">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-マニフェストとは" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. マニフェストとは
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-ファイル" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. ファイル
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-形スキーマ" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. 形（スキーマ）
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-規則" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. 規則
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-検査-grdm-dev-manifest-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. 検査: grdm-dev manifest check
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-誰が変えるか" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. 誰が変えるか
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#glossary--用語" class="md-nav__link">
+    <span class="md-ellipsis">
+      Glossary / 用語
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="spec-01-upstream-manifest--上流マニフェスト">SPEC-01 Upstream Manifest / 上流マニフェスト<a class="headerlink" href="#spec-01-upstream-manifest--上流マニフェスト" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Summary:</strong> The manifest is the single source of truth for what the installer builds: every component, its upstream repositories pinned to exact commits, the pull requests we adopt, the base and target images, and the profiles and platforms. This page defines its schema, its rules, and the checks that <code>grdm-dev manifest check</code> runs.
+<strong>概要:</strong> マニフェストは「インストーラーが何を組むか」の唯一の正本です。全部品、固定したコミットの上流、採用する PR、現行と目標のイメージ、プロファイルと対応アーキテクチャを持ちます。この文書はその形、規則、<code>grdm-dev manifest check</code> の検査項目を定めます。</p>
+</blockquote>
+<p><strong>Jump:</strong> <a href="#english">English</a> · <a href="#japanese">日本語</a></p>
+<ul>
+<li>Version / 版: 0.5 — 2026-11-05. <strong>Learned:</strong> the second real install on Apple Silicon showed that a Dockerfile whose base image is a schema-1 manifest cannot be built by current Docker at all, so a digest-pinned <code>prebuilt_image</code> fallback is needed per component, with a note and an M4 removal date, because it bypasses the build-from-pinned-source guarantee. ／ Apple Silicon での二度目の実導入で、ベースイメージが schema 1 のマニフェストである Dockerfile は現行 Docker ではまったく組めないと分かった。だから「固定した元から組む」保証を外す代わりに、理由と M4 での撤去を書いた <code>note</code> を伴うダイジェスト固定の <code>prebuilt_image</code> が部品ごとに要る。
+  0.4 — 2026-11-05. <strong>Learned:</strong> the first real build on Apple Silicon showed that an EOL Python 3.5 base cannot install pandas 0.25.1 for arm64, so a per-component <code>build_platform</code> is needed until M4 modernizes those images. ／ Apple Silicon での最初の実ビルドで、EOL の Python 3.5 ベースは arm64 向け pandas 0.25.1 を入れられないと分かった。M4 で近代化するまで部品ごとの <code>build_platform</code> が要る。
+  0.3 — 2026-11-05. <strong>Learned:</strong> building from "the tip of develop" is not reproducible unless the manifest pins that tip, so each component needs an <code>integration_sha</code> (nullable until the first strict merge). ／ 「develop の先端」から組むのでは再現できないため、各部品に <code>integration_sha</code>（最初の厳密マージまでは null 可）が要ると分かった。
+  0.2 — 2026-11-05. <strong>Learned:</strong> a TOON block that is only an example must say so, or readers and the checker treat it as data that has to stay in step with the JSON. ／ 例にすぎない TOON ブロックはそう明記しないと、読者も検査も JSON と一致させるべきデータとして扱ってしまうと分かった。</li>
+<li>Version / 版: 0.1 — 2026-11-05. <strong>Learned:</strong> the public osf.io <code>develop</code> (2026-11-05) is already newer than its <code>-private</code> twin (2026-11-02), so "the latest" is not one answer; only a file that pins each upstream to a SHA can say what "consistent" means. ／ 公開 osf.io の <code>develop</code>（2026-11-05）は <code>-private</code>（2026-11-02）より既に新しく、「最新」は一つに決まらない。各上流を SHA で固定したファイルがあってこそ「矛盾なく」を定義できると分かった。</li>
+<li>Normative for: <code>manifest/upstreams.json</code> (canonical), <code>manifest/upstreams.toon</code> (excerpt), <code>manifest/README.md</code>, the <code>manifest</code> subcommand of <code>grdm-dev</code> (<a href="../02_installer_cli/">SPEC-02</a>), and every document that quotes the manifest.</li>
+<li>Related: <a href="../00_overview/">SPEC-00 Overview</a> · <a href="../05_upstream_tracking/">SPEC-05 Upstream tracking</a> · <a href="../06_documentation_conventions/">SPEC-06 Documentation conventions</a> · <a href="../../policy/POL-01_Developer_Environment_2027_Position/">POL-01 Position</a> · <a href="../../decisions/ADR-01_Integration_Repository_Placement/">ADR-01 Integration repository placement</a> · <a href="../../decisions/ADR-03_Staged_Security_Gate/">ADR-03 Staged security gate</a> · <a href="../../">docs/README.md</a></li>
+</ul>
+<hr />
+<p><a id="english"></a></p>
+<h2 id="english">English<a class="headerlink" href="#english" title="Permanent link">&para;</a></h2>
+<p><a href="#japanese">→ 日本語版へ</a></p>
+<h3 id="1-what-the-manifest-is">1. What the manifest is<a class="headerlink" href="#1-what-the-manifest-is" title="Permanent link">&para;</a></h3>
+<p>A <em>manifest</em> is a packing list: it says exactly what goes into the box. Ours says, for every component of the environment (<a href="../00_overview/#2-component-map">SPEC-00 §2</a>), which <em>upstream</em> repositories (the original places we copy code from) are combined, at which <em>SHA</em> (the 40-character fingerprint of one commit), and which pull requests (<em>PRs</em>, proposed changes waiting to be merged) we add on top.</p>
+<p>The installer reads the manifest and nothing else to decide what to build. If a fact is not in the manifest, the installer does not know it.</p>
+<h3 id="2-files">2. Files<a class="headerlink" href="#2-files" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest/upstreams.json</code></td>
+<td><strong>Canonical.</strong> The only file machines trust. JSON, UTF-8, two-space indent, keys sorted.</td>
+</tr>
+<tr>
+<td><code>manifest/upstreams.toon</code></td>
+<td><strong>Excerpt</strong> in TOON (a compact text form of JSON that people read easily; <a href="../06_documentation_conventions/#4-diagrams-and-data">SPEC-06 §4</a>). Generated from the JSON by <code>grdm-dev manifest toon</code>. Must always equal the JSON.</td>
+</tr>
+<tr>
+<td><code>manifest/README.md</code></td>
+<td>Explains the two files for readers, bilingual.</td>
+</tr>
+</tbody>
+</table>
+<p>The excerpt contains the top-level fields and, for every component, <code>id</code>, <code>role</code>, <code>integration_repo</code>, <code>profile</code>, every field of <code>upstreams[]</code>, and <code>adopted_prs[]</code> reduced to <code>repo</code>, <code>number</code>, <code>status</code>. It omits <code>candidate_prs</code>, images, services, and platforms. Other files under <code>manifest/</code> (<code>allowlist.json</code>, <code>allowlist.baseline.json</code>, <code>milestone.json</code>, <code>hardening.json</code>, <code>redteam-targets.json</code>) are defined by <a href="../03_security_gate/">SPEC-03</a>; their file list is in <a href="../02_installer_cli/#english">SPEC-02 §9</a>.</p>
+<blockquote>
+<p><strong>Warning:</strong> This repository is public. The manifest contains <strong>repository names and SHAs only</strong>. It never contains URLs to private repositories, access tokens, or code fragments from <code>-private</code> repositories. The CI secret scan fails the PR if it finds any.</p>
+</blockquote>
+<h3 id="3-schema">3. Schema<a class="headerlink" href="#3-schema" title="Permanent link">&para;</a></h3>
+<p>The top level has <code>schema_version</code> (integer, currently <code>1</code>), <code>generated_at</code> (ISO date), an optional <code>note</code> (free text), and <code>components[]</code>. Infrastructure images (databases, queues, <code>fakecas</code>) are components with <code>role: infra</code>. Each component has:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>Short name, same as in <a href="../00_overview/#2-component-map">SPEC-00 §2</a>. Unique.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td><code>core</code> | <code>infra</code> | <code>subsystem</code></td>
+<td>What kind of component. COS repositories are not components; they appear as <code>upstreams[]</code> entries with <code>kind: cos</code>.</td>
+</tr>
+<tr>
+<td><code>services[]</code></td>
+<td>list</td>
+<td>The Compose service names the component provides, as used in <a href="../02_installer_cli/#english">SPEC-02 §4</a> (for example <code>web</code>, <code>api</code>, <code>admin</code>, <code>worker</code> for <code>osf.io</code>). Never empty.</td>
+</tr>
+<tr>
+<td><code>integration_repo</code></td>
+<td>string or <code>null</code></td>
+<td>Name of the private integration repository, <code>RDM-&lt;name&gt;-dev2027</code>. Name only, never a URL. <code>null</code> for <code>infra</code>.</td>
+</tr>
+<tr>
+<td><code>integration_branch</code></td>
+<td>string or <code>null</code></td>
+<td>Always <code>develop</code>; <code>null</code> for <code>infra</code>.</td>
+</tr>
+<tr>
+<td><code>integration_sha</code></td>
+<td>string (40 hex) or null</td>
+<td>The commit at the tip of the integration branch <code>develop</code> that this manifest pins. <code>grdm-dev build</code> and <code>compose render</code> use it for image tags. May be <code>null</code> until the strict reconstruction PRs are merged; required for M2 acceptance.</td>
+</tr>
+<tr>
+<td><code>build_platform</code></td>
+<td>string or absent</td>
+<td>Platform used to build and run this component's image, for example <code>linux/amd64</code>. Absent means the host platform. <code>grdm-dev build --platform</code> overrides it. Components whose EOL base has no arm64 wheels (modular-file-renderer, ember-osf-web, cas-overlay until M4) set <code>linux/amd64</code>; Compose then runs them under emulation. Must be <code>null</code> or absent for <code>infra</code>.</td>
+</tr>
+<tr>
+<td><code>prebuilt_image</code></td>
+<td>string or absent</td>
+<td>A registry image reference pinned by digest (<code>name@sha256:&lt;64 hex&gt;</code>, for example <code>niicloudoperation/rdm-ember-osf-web@sha256:…</code>) that is run <strong>instead of</strong> building from the integration repository. Allowed only together with a <code>note</code> that says why the build is impossible and until which milestone the fallback stays; never a URL or a private-repository reference; not allowed for <code>infra</code>. <code>grdm-dev build</code> records the component as <code>prebuilt</code>, pulls the reference and does not clone or build; <code>compose render</code> writes it as <code>image:</code> (with <code>platform:</code> from <code>build_platform</code>); <code>scan</code> treats it like any other compose image. <strong>A prebuilt image bypasses the "build from pinned source" guarantee of this specification: nobody can show which commits are inside it.</strong> It is a temporary measure for M2 and must be removed by M4. Current use: <code>ember-osf-web</code>, whose Dockerfile base <code>quay.io/centerforopenscience/ember-base</code> is a Docker image manifest v2 schema 1 image that current Docker refuses to pull.</td>
+</tr>
+<tr>
+<td><code>upstreams[]</code></td>
+<td>list</td>
+<td>Each: <code>repo</code> (name), <code>branch</code>, <code>kind</code> (<code>public</code> | <code>private</code> | <code>cos</code>), <code>tracking_branch</code> (named by rule 7), <code>status</code> (<code>merged</code> | <code>reference</code> | <code>candidate</code>), <code>sha</code> (40 lowercase hex), <code>fetched_at</code> (ISO date). Empty for <code>infra</code>.</td>
+</tr>
+<tr>
+<td><code>adopted_prs[]</code></td>
+<td>list</td>
+<td>Each: <code>repo</code>, <code>number</code>, <code>title</code>, <code>reason</code>, <code>status</code> (<code>adopted</code>). PRs applied on top of the merged upstreams.</td>
+</tr>
+<tr>
+<td><code>candidate_prs[]</code></td>
+<td>list</td>
+<td>Same shape; <code>status</code> is <code>candidate</code> or <code>rejected</code>. Not built.</td>
+</tr>
+<tr>
+<td><code>base_image</code></td>
+<td>string</td>
+<td>The image the component builds from today (for example <code>python:3.6-slim</code>). For <code>infra</code>, the image that is run.</td>
+</tr>
+<tr>
+<td><code>base_image_digest</code></td>
+<td>string or <code>null</code></td>
+<td>The <code>sha256:</code> digest of <code>base_image</code> once pinned (<a href="../03_security_gate/#english">SPEC-03 §3.4</a>); <code>null</code> until then.</td>
+</tr>
+<tr>
+<td><code>target_image</code></td>
+<td>object</td>
+<td>Keys <code>M4</code> and <code>M5</code>, each the image planned at that milestone (a <em>milestone</em> is a checkpoint; <a href="../00_overview/#5-milestone-ladder">SPEC-00 §5</a>), or <code>null</code> when nothing changes at that milestone.</td>
+</tr>
+<tr>
+<td><code>profile</code></td>
+<td><code>minimum</code> | <code>core</code> | <code>full</code></td>
+<td>The smallest installer profile that includes the component (<a href="../02_installer_cli/#english">SPEC-02 §4</a>).</td>
+</tr>
+<tr>
+<td><code>platforms[]</code></td>
+<td>list</td>
+<td>Subset of <code>linux/arm64</code>, <code>linux/amd64</code>.</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>string or <code>null</code></td>
+<td>Optional free text (for example "mutually exclusive with fakecas").</td>
+</tr>
+</tbody>
+</table>
+<p>Example for one component, in TOON:</p>
+<pre class="toon"><code>schema_version: 1
+generated_at: 2026-11-05
+note: "Names and SHAs only."
+components[1]:
+  - id: waterbutler
+    role: core
+    services[2]: wb,wb_worker
+    integration_repo: RDM-waterbutler-dev2027
+    integration_branch: develop
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-waterbutler,develop,public,upstream/public-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      RDM-waterbutler-develop-private,develop,private,upstream/private-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      CenterForOpenScience/waterbutler,develop,cos,upstream/cos-develop,reference,0000000000000000000000000000000000000000,2026-11-05
+    adopted_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,101,"Python 3.13, dependency update, multi-stage image (WIP)","vulnerability remediation (M4)",adopted
+    candidate_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,93,"S3 SigV4",feature,candidate
+    base_image: python:3.6-slim-buster
+    base_image_digest: null
+    target_image:
+      M4: "python:3.13-slim multi-stage, non-root"
+      M5: null
+    profile: core
+    platforms[2]: linux/arm64,linux/amd64
+    note: null</code></pre>
+<p>The all-zero SHAs above are placeholders for the example only; a real manifest never contains them. The block is an illustrative example, not a mirror of <code>manifest/upstreams.json</code>, so it carries no <code>&lt;!-- canonical: ... --&gt;</code> declaration (<a href="../06_documentation_conventions/#4-diagrams-and-data">SPEC-06 §4</a>); blocks that do mirror the manifest (for example in <a href="../00_overview/#english">SPEC-00 §2</a>) declare it.</p>
+<h3 id="4-rules">4. Rules<a class="headerlink" href="#4-rules" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>SHAs are pinned.</strong> Every <code>upstreams[].sha</code> is a real 40-character commit that exists on the named branch at <code>fetched_at</code>. Branch names alone are never enough.</li>
+<li><strong>A change to the manifest is a PR.</strong> Nobody edits <code>upstreams.json</code> on <code>develop</code> directly. The weekly integration PR (<a href="../05_upstream_tracking/#3-weekly-integration-pr">SPEC-05 §3</a>) is the normal way SHAs move. Adopting or rejecting a PR is also a manifest PR, with the <code>reason</code> filled in.</li>
+<li><strong>Integration order is fixed:</strong> merge the <code>public</code> upstream with <code>status: merged</code>, then the <code>private</code> one, then apply <code>adopted_prs</code> in list order. A component that has no <code>public</code> upstream (the private subsystems) starts from its <code>private</code> upstream. The <code>cos</code> upstream (<code>status: reference</code>) is never merged; it is compared.</li>
+<li><strong>"Consistent" (矛盾なく) means all of the following:</strong></li>
+<li>No two components reference two different SHAs of the same upstream repository and branch.</li>
+<li>Every <code>adopted_prs[]</code> entry applies cleanly (no conflict) on the integration branch built from the pinned upstreams.</li>
+<li><code>upstreams.toon</code> is byte-for-byte what <code>grdm-dev manifest toon</code> produces from <code>upstreams.json</code>.</li>
+<li>Every <code>integration_repo</code> named exists and has the branch <code>develop</code> plus one tracking branch per <code>upstreams[]</code> entry, named exactly as its <code>tracking_branch</code>.</li>
+<li><strong>Names only.</strong> <code>repo</code> and <code>integration_repo</code> are bare names (<code>RDM-osf.io-dev2027</code>). A value starting with <code>http</code>, <code>git@</code>, or containing <code>github.com</code> is invalid.</li>
+<li><strong>Undecided upstreams are listed with <code>status: candidate</code>.</strong> They are mirrored to their tracking branch but not merged. Example: <code>RDM-osf.io-private</code> (branch <code>fix/sec-test</code>, tracking branch <code>upstream/private-sec-test-fix-sec-test</code>) is a candidate until the owner decides (plan §7).</li>
+<li><strong>Tracking branches are named by one rule:</strong> <code>upstream/&lt;kind&gt;-&lt;branch&gt;</code>, where <code>&lt;branch&gt;</code> is the upstream branch name with every <code>/</code> replaced by <code>-</code>. When one component lists two upstreams of the same <code>kind</code>, the second inserts a short tag after the kind: <code>upstream/&lt;kind&gt;-&lt;tag&gt;-&lt;branch&gt;</code>. Examples: <code>RDM-ember-osf-web</code> (<code>master</code>) → <code>upstream/public-master</code>; <code>RDM-ember-osf-web-master-private</code> → <code>upstream/private-master</code>; <code>RDM-OASys-main-private</code> → <code>upstream/private-main</code>; <code>CenterForOpenScience/osf.io</code> → <code>upstream/cos-develop</code>; <code>RDM-osf.io-private</code> (<code>fix/sec-test</code>) → <code>upstream/private-sec-test-fix-sec-test</code>. The same rule is stated in <a href="../05_upstream_tracking/#english">SPEC-05 §1</a> and <a href="../../decisions/ADR-01_Integration_Repository_Placement/#english">ADR-01 §3</a>.</li>
+</ol>
+<h3 id="5-validation-grdm-dev-manifest-check">5. Validation: <code>grdm-dev manifest check</code><a class="headerlink" href="#5-validation-grdm-dev-manifest-check" title="Permanent link">&para;</a></h3>
+<p>Run from the repository root. Exit code <code>0</code> means pass; any failure prints one line per finding and exits <code>20</code> (manifest invalid, <a href="../02_installer_cli/#english">SPEC-02 §6</a>).</p>
+<div class="highlight"><pre><span></span><code>grdm-dev<span class="w"> </span>manifest<span class="w"> </span>check
+</code></pre></div>
+<p>Checks, in order:</p>
+<pre class="toon"><code>checks[13]{id,rule,severity}:
+  MC-01,"upstreams.json parses as JSON and matches schema_version 1",error
+  MC-02,"every component id is unique and matches ^[A-Za-z0-9_.-]+$",error
+  MC-03,"role is one of core|infra|subsystem; services is a non-empty list",error
+  MC-04,"integration_repo matches ^RDM-[A-Za-z0-9_.-]+-dev2027$ or is null for infra",error
+  MC-05,"integration_branch is develop, or null for infra",error
+  MC-06,"every sha matches ^[0-9a-f]{40}$; base_image_digest is null or sha256:&lt;64 hex&gt;; fetched_at is an ISO date not in the future; prebuilt_image, when present, is name@sha256:&lt;64 hex&gt;, has a non-empty note, is not a URL or private-repository reference, and is not on infra",error
+  MC-07,"no value anywhere contains http, git@, github.com, or a token-like string",error
+  MC-08,"the same (repo, branch) pair has one sha across all components",error
+  MC-09,"adopted_prs status is adopted; candidate_prs status is candidate|rejected; upstreams status is merged|reference|candidate and cos upstreams are reference; number is a positive integer",error
+  MC-10,"profile and platforms use only the allowed values; core components list both platforms",error
+  MC-11,"upstreams.toon equals the output of grdm-dev manifest toon",error
+  MC-12,"with --remote: each integration_repo has develop plus every tracking_branch listed, and each sha is reachable from its tracking_branch",error
+  MC-13,"every tracking_branch follows rule 7 (upstream/&lt;kind&gt;[-&lt;tag&gt;]-&lt;branch with / replaced by -&gt;)",error</code></pre>
+<p><code>--remote</code> needs network and credentials and is run in the private <code>-dev2027</code> CI, not in this public repository's CI. The documentation check in <a href="../06_documentation_conventions/#8-checks">SPEC-06 §8</a> reuses MC-11 for TOON blocks quoted in documents.</p>
+<h3 id="6-who-changes-it">6. Who changes it<a class="headerlink" href="#6-who-changes-it" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Opened by</th>
+<th>Reviewed by</th>
+<th>Merged by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Weekly SHA advance</td>
+<td>AID agent (weekly job, <a href="../05_upstream_tracking/">SPEC-05</a>)</td>
+<td>REV (Codex Astra), check by QAE (Claude Code Fable)</td>
+<td>Owner</td>
+</tr>
+<tr>
+<td>Adopt / reject a PR</td>
+<td>AID or QAE, with <code>reason</code></td>
+<td>REV</td>
+<td>Owner</td>
+</tr>
+<tr>
+<td>Change <code>target_image</code></td>
+<td>QAE, referencing the milestone plan</td>
+<td>REV</td>
+<td>Owner</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><a id="japanese"></a></p>
+<h2 id="日本語">日本語<a class="headerlink" href="#日本語" title="Permanent link">&para;</a></h2>
+<p><a href="#english">→ To English</a></p>
+<h3 id="1-マニフェストとは">1. マニフェストとは<a class="headerlink" href="#1-マニフェストとは" title="Permanent link">&para;</a></h3>
+<p>「マニフェスト」は荷物の明細書です。箱に何が入るかを正確に書きます。私たちのマニフェストは、環境の全部品（<a href="../00_overview/#2-部品の地図">SPEC-00 §2</a>）について、どの上流（コードを写してくる元のリポジトリ）を、どの SHA（一つのコミットを指す 40 文字の指紋）で重ね、どの PR（プルリクエスト。マージを待っている変更の提案）をその上に足すかを書きます。</p>
+<p>インストーラーは何を組むかをマニフェストだけから決めます。マニフェストに無いことは、インストーラーは知りません。</p>
+<h3 id="2-ファイル">2. ファイル<a class="headerlink" href="#2-ファイル" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ファイル</th>
+<th>役割</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>manifest/upstreams.json</code></td>
+<td><strong>正本。</strong> 機械が信じる唯一のファイル。JSON、UTF-8、字下げ 2 つ、キーは並べ替え済み。</td>
+</tr>
+<tr>
+<td><code>manifest/upstreams.toon</code></td>
+<td>TOON（JSON を人が読みやすい短い文字形式にしたもの。<a href="../06_documentation_conventions/#4-図とデータ">SPEC-06 §4</a>）の <strong>抄録</strong>。<code>grdm-dev manifest toon</code> が JSON から生成する。常に JSON と一致していなければならない。</td>
+</tr>
+<tr>
+<td><code>manifest/README.md</code></td>
+<td>二つのファイルを読者向けに二言語で説明する。</td>
+</tr>
+</tbody>
+</table>
+<p>抄録には、最上位の項目と、各部品の <code>id</code>・<code>role</code>・<code>integration_repo</code>・<code>profile</code>、<code>upstreams[]</code> の全項目、そして <code>repo</code>・<code>number</code>・<code>status</code> に絞った <code>adopted_prs[]</code> を載せます。<code>candidate_prs</code>、イメージ、サービス、platform は載せません。<code>manifest/</code> の下のほかのファイル（<code>allowlist.json</code>、<code>allowlist.baseline.json</code>、<code>milestone.json</code>、<code>hardening.json</code>、<code>redteam-targets.json</code>）は <a href="../03_security_gate/">SPEC-03</a> が定め、一覧は <a href="../02_installer_cli/#japanese">SPEC-02 §9</a> にあります。</p>
+<blockquote>
+<p><strong>Warning:</strong> このリポジトリは公開です。マニフェストには <strong>リポジトリ名と SHA だけ</strong> を書きます。非公開リポジトリの URL、アクセストークン、<code>-private</code> 由来のコード断片は決して書きません。CI の秘密スキャンが見つけたら PR は不合格です。</p>
+</blockquote>
+<h3 id="3-形スキーマ">3. 形（スキーマ）<a class="headerlink" href="#3-形スキーマ" title="Permanent link">&para;</a></h3>
+<p>最上位は <code>schema_version</code>（整数。今は <code>1</code>）、<code>generated_at</code>（ISO 日付）、任意の <code>note</code>（自由記述）、<code>components[]</code> です。基盤のイメージ（データベース、キュー、<code>fakecas</code>）も <code>role: infra</code> の部品として載せます。各部品は次を持ちます。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>型</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>文字列</td>
+<td>短い名前。<a href="../00_overview/#2-部品の地図">SPEC-00 §2</a> と同じ。重複しない。</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td><code>core</code> | <code>infra</code> | <code>subsystem</code></td>
+<td>部品の種類。COS のリポジトリは部品ではなく、<code>kind: cos</code> の <code>upstreams[]</code> 要素として現れる。</td>
+</tr>
+<tr>
+<td><code>services[]</code></td>
+<td>配列</td>
+<td>その部品が提供する Compose のサービス名。<a href="../02_installer_cli/#japanese">SPEC-02 §4</a> と同じ名前（例: <code>osf.io</code> は <code>web</code>、<code>api</code>、<code>admin</code>、<code>worker</code>）。空にしない。</td>
+</tr>
+<tr>
+<td><code>integration_repo</code></td>
+<td>文字列または <code>null</code></td>
+<td>非公開の統合リポジトリの名前 <code>RDM-&lt;name&gt;-dev2027</code>。名前だけで URL は書かない。<code>infra</code> は <code>null</code>。</td>
+</tr>
+<tr>
+<td><code>integration_branch</code></td>
+<td>文字列または <code>null</code></td>
+<td>常に <code>develop</code>。<code>infra</code> は <code>null</code>。</td>
+</tr>
+<tr>
+<td><code>integration_sha</code></td>
+<td>文字列（40 桁の 16 進）または <code>null</code></td>
+<td>このマニフェストが固定する統合ブランチ <code>develop</code> の先端のコミット。<code>grdm-dev build</code> と <code>compose render</code> はこの値をイメージのタグに使う。厳密再構築 PR のマージ前は <code>null</code> でよいが、M2 の受入では必須。</td>
+</tr>
+<tr>
+<td><code>build_platform</code></td>
+<td>文字列または省略</td>
+<td>この部品のイメージを組んで動かすプラットフォーム。例: <code>linux/amd64</code>。省略時はホストと同じ。<code>grdm-dev build --platform</code> が優先する。EOL ベースで arm64 の wheel がない部品（M4 までの modular-file-renderer・ember-osf-web・cas-overlay）は <code>linux/amd64</code> を指定し、Compose はエミュレーションで動かす。<code>infra</code> では <code>null</code> か省略。</td>
+</tr>
+<tr>
+<td><code>prebuilt_image</code></td>
+<td>文字列または省略</td>
+<td>統合リポジトリから組む <strong>代わりに</strong> 動かす、ダイジェストで固定したレジストリのイメージ参照（<code>name@sha256:&lt;16 進 64 文字&gt;</code>。例: <code>niicloudoperation/rdm-ember-osf-web@sha256:…</code>）。なぜ組めないか、どの節目までこの代替を続けるかを書いた <code>note</code> と一緒にしか書けない。URL や非公開リポジトリの参照は不可。<code>infra</code> には使えない。<code>grdm-dev build</code> はその部品を <code>prebuilt</code> として記録し、参照を pull するだけで clone も build もしない。<code>compose render</code> はそれを <code>image:</code> に書き（<code>platform:</code> は <code>build_platform</code> から）、<code>scan</code> はほかの Compose イメージと同じに扱う。<strong>事前ビルド済みイメージは、この仕様の「固定した元から組む」保証を外す。中にどのコミットが入っているかを誰も示せない。</strong> M2 のための一時措置であり、M4 までに必ず外す。現在の使用: <code>ember-osf-web</code>。その Dockerfile のベース <code>quay.io/centerforopenscience/ember-base</code> は Docker image manifest v2 schema 1 のイメージで、現行の Docker は pull を拒否する。</td>
+</tr>
+<tr>
+<td><code>upstreams[]</code></td>
+<td>配列</td>
+<td>各要素: <code>repo</code>（名前）、<code>branch</code>、<code>kind</code>（<code>public</code> | <code>private</code> | <code>cos</code>）、<code>tracking_branch</code>（規則 7 で命名）、<code>status</code>（<code>merged</code> | <code>reference</code> | <code>candidate</code>）、<code>sha</code>（小文字 16 進 40 文字）、<code>fetched_at</code>（ISO 日付）。<code>infra</code> は空。</td>
+</tr>
+<tr>
+<td><code>adopted_prs[]</code></td>
+<td>配列</td>
+<td>各要素: <code>repo</code>、<code>number</code>、<code>title</code>、<code>reason</code>、<code>status</code>（<code>adopted</code>）。上流をマージした上に適用する PR。</td>
+</tr>
+<tr>
+<td><code>candidate_prs[]</code></td>
+<td>配列</td>
+<td>同じ形。<code>status</code> は <code>candidate</code> か <code>rejected</code>。組まない。</td>
+</tr>
+<tr>
+<td><code>base_image</code></td>
+<td>文字列</td>
+<td>その部品が今日組む元のイメージ（例 <code>python:3.6-slim</code>）。<code>infra</code> では実行するイメージ。</td>
+</tr>
+<tr>
+<td><code>base_image_digest</code></td>
+<td>文字列または <code>null</code></td>
+<td><code>base_image</code> を固定したときの <code>sha256:</code> ダイジェスト（<a href="../03_security_gate/#japanese">SPEC-03 §3.4</a>）。固定するまでは <code>null</code>。</td>
+</tr>
+<tr>
+<td><code>target_image</code></td>
+<td>オブジェクト</td>
+<td>キー <code>M4</code> と <code>M5</code>。各節目（合否の試験がある関門。<a href="../00_overview/#5-節目のはしご">SPEC-00 §5</a>）で予定するイメージ。その節目で変えないなら <code>null</code>。</td>
+</tr>
+<tr>
+<td><code>profile</code></td>
+<td><code>minimum</code> | <code>core</code> | <code>full</code></td>
+<td>その部品を含む最小のインストーラープロファイル（<a href="../02_installer_cli/#japanese">SPEC-02 §4</a>）。</td>
+</tr>
+<tr>
+<td><code>platforms[]</code></td>
+<td>配列</td>
+<td><code>linux/arm64</code>、<code>linux/amd64</code> の部分集合。</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>文字列または <code>null</code></td>
+<td>任意の自由記述（例:「fakecas と排他」）。</td>
+</tr>
+</tbody>
+</table>
+<p>一部品の例を TOON で示します。</p>
+<pre class="toon"><code>schema_version: 1
+generated_at: 2026-11-05
+note: "Names and SHAs only."
+components[1]:
+  - id: waterbutler
+    role: core
+    services[2]: wb,wb_worker
+    integration_repo: RDM-waterbutler-dev2027
+    integration_branch: develop
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-waterbutler,develop,public,upstream/public-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      RDM-waterbutler-develop-private,develop,private,upstream/private-develop,merged,0000000000000000000000000000000000000000,2026-11-05
+      CenterForOpenScience/waterbutler,develop,cos,upstream/cos-develop,reference,0000000000000000000000000000000000000000,2026-11-05
+    adopted_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,101,"Python 3.13, dependency update, multi-stage image (WIP)","vulnerability remediation (M4)",adopted
+    candidate_prs[1]{repo,number,title,reason,status}:
+      RDM-waterbutler,93,"S3 SigV4",feature,candidate
+    base_image: python:3.6-slim-buster
+    base_image_digest: null
+    target_image:
+      M4: "python:3.13-slim multi-stage, non-root"
+      M5: null
+    profile: core
+    platforms[2]: linux/arm64,linux/amd64
+    note: null</code></pre>
+<p>上の全部ゼロの SHA は例のための仮の値です。本物のマニフェストには現れません。このブロックは説明のための例であって <code>manifest/upstreams.json</code> の写しではないので、<code>&lt;!-- canonical: ... --&gt;</code> の宣言は付けません（<a href="../06_documentation_conventions/#4-図とデータ">SPEC-06 §4</a>）。マニフェストを写すブロック（たとえば <a href="../00_overview/#japanese">SPEC-00 §2</a>）には宣言を付けます。</p>
+<h3 id="4-規則">4. 規則<a class="headerlink" href="#4-規則" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>SHA を固定する。</strong> すべての <code>upstreams[].sha</code> は、<code>fetched_at</code> の時点でそのブランチに実在する 40 文字のコミットです。ブランチ名だけでは足りません。</li>
+<li><strong>マニフェストの変更は PR で行う。</strong> <code>develop</code> 上の <code>upstreams.json</code> を直接編集する人はいません。SHA が進む通常の経路は週次の統合 PR（<a href="../05_upstream_tracking/#3-週次の統合-pr">SPEC-05 §3</a>）です。PR の採用・却下もマニフェストの PR で、<code>reason</code> を書きます。</li>
+<li><strong>統合の順番は固定:</strong> <code>status: merged</code> の <code>public</code> の上流をマージ、次に <code>private</code> の上流をマージ、最後に <code>adopted_prs</code> を並び順に適用。<code>public</code> の上流がない部品（非公開サブシステム）は <code>private</code> の上流から始めます。<code>cos</code> の上流（<code>status: reference</code>）はマージせず、比較だけに使います。</li>
+<li><strong>「矛盾なく」とは次のすべてを満たすこと:</strong></li>
+<li>同じ上流リポジトリの同じブランチについて、二つの部品が異なる SHA を参照していない。</li>
+<li>すべての <code>adopted_prs[]</code> が、固定した上流から組んだ統合ブランチにきれいに（衝突なく）当たる。</li>
+<li><code>upstreams.toon</code> が、<code>grdm-dev manifest toon</code> が <code>upstreams.json</code> から出す結果と 1 バイトも違わない。</li>
+<li>名前を書いた <code>integration_repo</code> がすべて存在し、<code>develop</code> と、<code>upstreams[]</code> の各要素につき一本の追跡ブランチ（名前はその <code>tracking_branch</code> と完全に同じ）を持つ。</li>
+<li><strong>名前だけを書く。</strong> <code>repo</code> と <code>integration_repo</code> は裸の名前（<code>RDM-osf.io-dev2027</code>）です。<code>http</code> や <code>git@</code> で始まる値、<code>github.com</code> を含む値は不正です。</li>
+<li><strong>決まっていない上流は <code>status: candidate</code> で載せる。</strong> 追跡ブランチにはミラーするが、マージはしない。例: <code>RDM-osf.io-private</code>（ブランチ <code>fix/sec-test</code>、追跡ブランチ <code>upstream/private-sec-test-fix-sec-test</code>）は所有者が決めるまで候補です（計画書 §7）。</li>
+<li><strong>追跡ブランチの名前は一つの規則で決める:</strong> <code>upstream/&lt;kind&gt;-&lt;branch&gt;</code>。<code>&lt;branch&gt;</code> は上流のブランチ名の <code>/</code> をすべて <code>-</code> に置き換えたもの。一つの部品に同じ <code>kind</code> の上流が二つあるときは、二つ目は kind の後ろに短いタグを挟む: <code>upstream/&lt;kind&gt;-&lt;tag&gt;-&lt;branch&gt;</code>。例: <code>RDM-ember-osf-web</code>（<code>master</code>）→ <code>upstream/public-master</code>、<code>RDM-ember-osf-web-master-private</code> → <code>upstream/private-master</code>、<code>RDM-OASys-main-private</code> → <code>upstream/private-main</code>、<code>CenterForOpenScience/osf.io</code> → <code>upstream/cos-develop</code>、<code>RDM-osf.io-private</code>（<code>fix/sec-test</code>）→ <code>upstream/private-sec-test-fix-sec-test</code>。同じ規則を <a href="../05_upstream_tracking/#japanese">SPEC-05 §1</a> と <a href="../../decisions/ADR-01_Integration_Repository_Placement/#japanese">ADR-01 §3</a> にも書いています。</li>
+</ol>
+<h3 id="5-検査-grdm-dev-manifest-check">5. 検査: <code>grdm-dev manifest check</code><a class="headerlink" href="#5-検査-grdm-dev-manifest-check" title="Permanent link">&para;</a></h3>
+<p>リポジトリのルートで実行します。終了コード <code>0</code> が合格。不合格なら指摘ごとに一行出して <code>20</code>（manifest が不正。<a href="../02_installer_cli/#japanese">SPEC-02 §6</a>）で終わります。</p>
+<div class="highlight"><pre><span></span><code>grdm-dev<span class="w"> </span>manifest<span class="w"> </span>check
+</code></pre></div>
+<p>検査は次の順で行います。</p>
+<pre class="toon"><code>checks[13]{id,rule,severity}:
+  MC-01,"upstreams.json が JSON として読め、schema_version 1 の形に合う",error
+  MC-02,"部品の id が重複せず ^[A-Za-z0-9_.-]+$ に合う",error
+  MC-03,"role が core|infra|subsystem のいずれか。services が空でない配列",error
+  MC-04,"integration_repo が ^RDM-[A-Za-z0-9_.-]+-dev2027$ に合う。infra は null",error
+  MC-05,"integration_branch が develop。infra は null",error
+  MC-06,"sha が ^[0-9a-f]{40}$ に合う。base_image_digest は null か sha256:&lt;16 進 64 文字&gt;。fetched_at が未来でない ISO 日付。prebuilt_image があるときは name@sha256:&lt;16 進 64 文字&gt; で、空でない note を伴い、URL や非公開リポジトリの参照でなく、infra に無い",error
+  MC-07,"どの値にも http、git@、github.com、トークンらしい文字列が含まれない",error
+  MC-08,"同じ (repo, branch) の組は全部品で一つの sha",error
+  MC-09,"adopted_prs の status は adopted。candidate_prs は candidate|rejected。upstreams の status は merged|reference|candidate で cos は reference。number は正の整数",error
+  MC-10,"profile と platforms が許された値だけ。core の部品は両 platform を持つ",error
+  MC-11,"upstreams.toon が grdm-dev manifest toon の出力と一致",error
+  MC-12,"--remote 付き: 各 integration_repo が develop と列挙した全 tracking_branch を持ち、各 sha がその tracking_branch から到達できる",error
+  MC-13,"すべての tracking_branch が規則 7（upstream/&lt;kind&gt;[-&lt;tag&gt;]-&lt;branch の / を - に置換&gt;）に合う",error</code></pre>
+<p><code>--remote</code> はネットワークと認証情報が要るので、公開であるこのリポジトリの CI ではなく、非公開の <code>-dev2027</code> 側の CI で実行します。<a href="../06_documentation_conventions/#8-検査">SPEC-06 §8</a> の文書検査は、文書内に引用した TOON ブロックに MC-11 を使い回します。</p>
+<h3 id="6-誰が変えるか">6. 誰が変えるか<a class="headerlink" href="#6-誰が変えるか" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>変更</th>
+<th>起票</th>
+<th>レビュー</th>
+<th>マージ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>週次の SHA 前進</td>
+<td>AID エージェント（週次ジョブ。<a href="../05_upstream_tracking/">SPEC-05</a>）</td>
+<td>REV（Codex Astra）。検査は QAE（Claude Code Fable）</td>
+<td>所有者</td>
+</tr>
+<tr>
+<td>PR の採用・却下</td>
+<td>AID または QAE。<code>reason</code> 付き</td>
+<td>REV</td>
+<td>所有者</td>
+</tr>
+<tr>
+<td><code>target_image</code> の変更</td>
+<td>QAE。節目の計画を参照</td>
+<td>REV</td>
+<td>所有者</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="glossary--用語">Glossary / 用語<a class="headerlink" href="#glossary--用語" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>English note</th>
+<th>日本語注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manifest</td>
+<td>A packing list that says exactly what goes into the build.</td>
+<td>ビルドに何が入るかを正確に書いた明細書。</td>
+</tr>
+<tr>
+<td>Upstream</td>
+<td>The original repository we copy code from.</td>
+<td>コードを写してくる元のリポジトリ。</td>
+</tr>
+<tr>
+<td>SHA</td>
+<td>The 40-character fingerprint that names one commit.</td>
+<td>一つのコミットを指す 40 文字の指紋。</td>
+</tr>
+<tr>
+<td>Pull request (PR)</td>
+<td>A proposed change waiting to be reviewed and merged.</td>
+<td>レビューとマージを待つ変更の提案。</td>
+</tr>
+<tr>
+<td>Schema</td>
+<td>The agreed shape of a data file: which fields, which types.</td>
+<td>データファイルの決まった形。どの項目がどの型か。</td>
+</tr>
+<tr>
+<td>Profile</td>
+<td>A named set of components the installer starts together.</td>
+<td>インストーラーがまとめて起動する部品の組に付けた名前。</td>
+</tr>
+<tr>
+<td>Token</td>
+<td>A secret string that proves who you are to a computer.</td>
+<td>コンピュータに「自分は誰か」を示す秘密の文字列。</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.scrollspy", "content.code.copy"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d6f25eb3.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,887 @@
+{
+  "schema_version": 1,
+  "note": "Accepted findings (SPEC-03 §5.1). Every entry needs cve, component (an exact package, never a wildcard), reason, owner, expires, added_at; optional severity, and image with packages (the exact name@version list of that image's OS packages; component is then the first of them). An entry matches a Trivy finding only while it has no fixed version and a no-fix status. Only the owner approves additions; the count must never grow between milestones (ADR-03).",
+  "fields": [
+    "cve",
+    "component",
+    "reason",
+    "owner",
+    "expires",
+    "added_at"
+  ],
+  "entries": [
+    {
+      "cve": "CVE-2025-69720",
+      "component": "libncursesw6@6.5+20250216-2",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libncursesw6@6.5+20250216-2",
+        "libtinfo6@6.5+20250216-2",
+        "ncurses-base@6.5+20250216-2",
+        "ncurses-bin@6.5+20250216-2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libncursesw6, libtinfo6, ncurses-base, ncurses-bin; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119373",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119374",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119379",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-16742",
+      "component": "libsystemd0@257.13-1~deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libsystemd0@257.13-1~deb13u1",
+        "libudev1@257.13-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsystemd0, libudev1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-54369",
+      "component": "libacl1@2.3.2-2+b1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "libacl1@2.3.2-2+b1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libacl1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-76642",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78408",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78409",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78410",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-9538",
+      "component": "perl-base@5.40.1-6+deb13u1",
+      "image": "grdm-dev/waterbutler",
+      "packages": [
+        "perl-base@5.40.1-6+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status fix_deferred); packages perl-base; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 WaterButler image (owner decision 2026-11-10; entry added 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2025-47814",
+      "component": "pspp@2.0.1-1+b1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "pspp@2.0.1-1+b1"
+      ],
+      "severity": "CRITICAL",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages pspp; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2025-47815",
+      "component": "pspp@2.0.1-1+b1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "pspp@2.0.1-1+b1"
+      ],
+      "severity": "CRITICAL",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages pspp; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2025-69720",
+      "component": "libncursesw6@6.5+20250216-2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libncursesw6@6.5+20250216-2",
+        "libtinfo6@6.5+20250216-2",
+        "ncurses-base@6.5+20250216-2",
+        "ncurses-bin@6.5+20250216-2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libncursesw6, libtinfo6, ncurses-base, ncurses-bin; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-107364",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-109089",
+      "component": "libxi6@2:1.8.2-1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxi6@2:1.8.2-1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxi6; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-109090",
+      "component": "libxi6@2:1.8.2-1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxi6@2:1.8.2-1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxi6; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112315",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112316",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112317",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112318",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112319",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112320",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112321",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112322",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-112323",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-113351",
+      "component": "libexpat1@2.9.0-1~deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libexpat1@2.9.0-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libexpat1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-115506",
+      "component": "libexpat1@2.9.0-1~deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libexpat1@2.9.0-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libexpat1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-117610",
+      "component": "libexpat1@2.9.0-1~deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libexpat1@2.9.0-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libexpat1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-118370",
+      "component": "libexpat1@2.9.0-1~deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libexpat1@2.9.0-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libexpat1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-118380",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119079",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119373",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119374",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-119379",
+      "component": "libsqlite3-0@3.46.1-7+deb13u2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libsqlite3-0@3.46.1-7+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libsqlite3-0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-16742",
+      "component": "libpam-systemd@257.13-1~deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libpam-systemd@257.13-1~deb13u1",
+        "libsystemd-shared@257.13-1~deb13u1",
+        "libsystemd0@257.13-1~deb13u1",
+        "libudev1@257.13-1~deb13u1",
+        "systemd-sysv@257.13-1~deb13u1",
+        "systemd@257.13-1~deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libpam-systemd, libsystemd-shared, libsystemd0, libudev1, systemd, systemd-sysv; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-34980",
+      "component": "libcups2t64@2.4.10-3+deb13u2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libcups2t64@2.4.10-3+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libcups2t64; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-36849",
+      "component": "libtiff6@4.7.0-3+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libtiff6@4.7.0-3+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status will_not_fix); packages libtiff6; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-52490",
+      "component": "libtiff6@4.7.0-3+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libtiff6@4.7.0-3+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libtiff6; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-54369",
+      "component": "libacl1@2.3.2-2+b1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libacl1@2.3.2-2+b1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libacl1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-55453",
+      "component": "libcups2t64@2.4.10-3+deb13u2",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libcups2t64@2.4.10-3+deb13u2"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libcups2t64; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-6653",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "CRITICAL",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-71199",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-71200",
+      "component": "libgssapi-krb5-2@1.21.3-5+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libgssapi-krb5-2@1.21.3-5+deb13u1",
+        "libk5crypto3@1.21.3-5+deb13u1",
+        "libkrb5-3@1.21.3-5+deb13u1",
+        "libkrb5support0@1.21.3-5+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libgssapi-krb5-2, libk5crypto3, libkrb5-3, libkrb5support0; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-74860",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-76642",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78408",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78409",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-78410",
+      "component": "bsdutils@1:2.41.5-0+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "bsdutils@1:2.41.5-0+deb13u1",
+        "libblkid1@2.41.5-0+deb13u1",
+        "liblastlog2-2@2.41.5-0+deb13u1",
+        "libmount1@2.41.5-0+deb13u1",
+        "libsmartcols1@2.41.5-0+deb13u1",
+        "libuuid1@2.41.5-0+deb13u1",
+        "login@1:4.16.0-2+really2.41.5-0+deb13u1",
+        "mount@2.41.5-0+deb13u1",
+        "util-linux@2.41.5-0+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages bsdutils, libblkid1, liblastlog2-2, libmount1, libsmartcols1, libuuid1, login, mount, util-linux; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86138",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86139",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86140",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86142",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86143",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-86144",
+      "component": "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxml2@2.12.7+dfsg+really2.9.14-2.1+deb13u3"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxml2; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-88806",
+      "component": "libx11-6@2:1.8.12-1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libx11-6@2:1.8.12-1",
+        "libx11-data@2:1.8.12-1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libx11-6, libx11-data; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-88807",
+      "component": "libxrender1@1:0.9.12-1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "libxrender1@1:0.9.12-1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status affected); packages libxrender1; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    },
+    {
+      "cve": "CVE-2026-9538",
+      "component": "perl-base@5.40.1-6+deb13u1",
+      "image": "grdm-dev/modular-file-renderer",
+      "packages": [
+        "perl-base@5.40.1-6+deb13u1"
+      ],
+      "severity": "HIGH",
+      "reason": "Debian 13 package without a fixed version (Trivy status fix_deferred); packages perl-base; the runtime stage runs apt-get upgrade, so a fix is taken at the next build. Python 3.13 MFR image without freecad (CAD previews removed, owner decision 2026-11-11).",
+      "owner": "AID",
+      "expires": "2026-12-31",
+      "added_at": "2026-11-11"
+    }
+  ]
+}

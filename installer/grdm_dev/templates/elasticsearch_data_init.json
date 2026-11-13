@@ -1,0 +1,5 @@
+{
+  "service": "elasticsearch_data_init",
+  "retired": true,
+  "note": "Retired: replaced by templates/volume_owner_init.json (PR #36). No manifest component lists this service, so it is never rendered. Kept as a pointer because the review record docs/reviews/2026-11-06_RDM-developer-guide_PR34_Native_ES2_r2.md links to this path and review records stay verbatim (SPEC-06 §8)."
+}

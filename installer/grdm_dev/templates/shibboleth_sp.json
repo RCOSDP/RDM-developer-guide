@@ -1,0 +1,59 @@
+{
+  "service": "shibboleth_sp",
+  "component": "Shibboleth-SP",
+  "container_port": 80,
+  "host_port": 8082,
+  "environment": {
+    "OSF_INTERNAL_URL": "http://web:5000/",
+    "OSF_EXTERNAL_URL": "http://127.0.0.1:{{HOST_PORT:web}}/",
+    "SP_ENTITY_ID": "http://127.0.0.1:{{HOST_PORT:shibboleth_sp}}/shibboleth",
+    "SP_EXTERNAL_URL": "http://127.0.0.1:{{HOST_PORT:shibboleth_sp}}/",
+    "SP_HANDLER_SSL": "false",
+    "SP_COOKIE_PROPS": "; path=/; HttpOnly; SameSite=Lax",
+    "SP_REQUIRED_AFFILIATION": "member",
+    "IDP_ENTITY_ID": "http://127.0.0.1:{{HOST_PORT:test_idp}}/simplesaml/saml2/idp/metadata.php",
+    "IDP_SSO_URL": "http://127.0.0.1:{{HOST_PORT:test_idp}}/simplesaml/saml2/idp/SSOService.php",
+    "IDP_METADATA_FILE": "/etc/shibboleth/idp-metadata.xml"
+  },
+  "volumes": [
+    {
+      "config": "shibboleth_sp/shibboleth2.xml",
+      "target": "/etc/shibboleth/shibboleth2.xml",
+      "ro": true
+    },
+    {
+      "config": "shibboleth_sp/attribute-map.xml",
+      "target": "/etc/shibboleth/attribute-map.xml",
+      "ro": true
+    },
+    {
+      "config": "shibboleth_sp/idp-metadata.xml",
+      "target": "/etc/shibboleth/idp-metadata.xml",
+      "ro": true
+    },
+    {
+      "config": "idp/cert/sp.crt",
+      "target": "/etc/shibboleth/sp-cert.pem",
+      "ro": true
+    },
+    {
+      "config": "idp/cert/sp.key",
+      "target": "/etc/shibboleth/sp-key.pem",
+      "ro": true
+    }
+  ],
+  "tmpfs": [
+    "/tmp",
+    "/run",
+    "/var/run",
+    "/var/cache/shibboleth"
+  ],
+  "depends_on": [
+    "web",
+    "test_idp"
+  ],
+  "weight": 1,
+  "mem_min_mb": 256,
+  "pids_limit": 512,
+  "note": "Apache httpd + shibd (RDM-Shibboleth-SP-main-private, CentOS base) in front of web; replaces fakecas with --auth shibboleth. Published on 127.0.0.1 (GRDM_PORT_SHIBBOLETH_SP, default 8082) over plain HTTP: the browser must reach /Shibboleth.sso/Login and POST the SAML Response to /Shibboleth.sso/SAML2/POST, and the acceptance guard allows only http://127.0.0.1 (SPEC-04 section 3.4); TLS adds nothing on loopback, so handlerSSL=false and the session cookie is HttpOnly + SameSite=Lax without Secure (SP_COOKIE_PROPS). The SP entityID points at this service, the trusted IdP is the bundled test_idp (IDP_* values; SPEC-04 S5). Access control: the RequestMap of shibboleth2.xml requires eduPersonAffiliation to contain SP_REQUIRED_AFFILIATION (`member`, the GakuNin common value); a user without it gets the SP 403 error page and no GRDM session (S5 rejection). Config files come from templates/idp/sp-*.tmpl rendered into runtime/config/shibboleth_sp/ (follow-up F-1), the key pair from `secrets init` (follow-up F-2), see templates/idp/README.md. Whether the real RDM flow goes web -> cas-overlay -> SP or web -> SP directly must be confirmed against RDM-Shibboleth-SP-dev2027 at M3 (TODO(M3) in test_s5_shibboleth.py). Root and the listed capabilities stay as recorded in manifest/hardening.json until M4."
+}

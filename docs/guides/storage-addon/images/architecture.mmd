@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph PLUGIN["nextcloud_plugin（単一の Python パッケージ）"]
+        direction TB
+        A["addon<br/>(osf.io アドオン)"]
+        I["addon_imp<br/>(GravyValet Addon Imp)"]
+        P["provider<br/>(WaterButler Provider)"]
+    end
+    FE["angular-osf<br/>(フロントエンド)"] --> OSF[("osf.io")]
+    FE --> GV[("GravyValet")]
+    FE --> WB[("WaterButler")]
+    A -. "pip install" .-> OSF
+    I -. "poetry install" .-> GV
+    P -. "poetry install" .-> WB

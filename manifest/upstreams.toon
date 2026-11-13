@@ -1,0 +1,145 @@
+schema_version: 1
+generated_at: 2026-11-05
+note: "Names and SHAs only. This repository is public: no URLs to private repositories, no credentials."
+components[18]:
+  - id: osf.io
+    role: core
+    integration_repo: RDM-osf.io-dev2027
+    profile: minimum
+    upstreams[4]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-osf.io,develop,public,upstream/public-develop,merged,bacfe64fdc002f09df47145fc17f57630772ac82,2026-11-05
+      RDM-osf.io-develop-private,develop,private,upstream/private-develop,merged,3f4c9cd32e2e118f42a6b5aacbe2a5ff066a8a38,2026-11-05
+      CenterForOpenScience/osf.io,develop,cos,upstream/cos-develop,reference,d7dd98ec6ca7ed6b779cfc35f6aa004ddbef49a2,2026-11-05
+      RDM-osf.io-private,fix/sec-test,private,upstream/private-sec-test-fix-sec-test,candidate,1c7b6bd908b578255f8ffb325f29f39e77797bc7,2026-11-05
+    adopted_prs[4]{repo,number,status}:
+      RDM-osf.io,796,adopted
+      RDM-osf.io,797,adopted
+      RDM-osf.io,798,adopted
+      RDM-osf.io-develop-private,35,adopted
+  - id: waterbutler
+    role: core
+    integration_repo: RDM-waterbutler-dev2027
+    profile: core
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-waterbutler,develop,public,upstream/public-develop,merged,004f407fefb071f1dc924d09f99916b1d5ea3561,2026-11-05
+      RDM-waterbutler-develop-private,develop,private,upstream/private-develop,merged,722557612d3432fbbcd2b952f70660588dd7b4f4,2026-11-05
+      CenterForOpenScience/waterbutler,develop,cos,upstream/cos-develop,reference,84e3d21b7c074c4054f24d8998d352be61634cbd,2026-11-05
+    adopted_prs[1]{repo,number,status}:
+      RDM-waterbutler,101,adopted
+  - id: modular-file-renderer
+    role: core
+    integration_repo: RDM-modular-file-renderer-dev2027
+    profile: core
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-modular-file-renderer,develop,public,upstream/public-develop,merged,8990b184e04ec8c9b83d25123187a7a2cfb32909,2026-11-05
+      RDM-modular-file-renderer-develop-private,develop,private,upstream/private-develop,merged,571b74fa17ea421f72d46f6e2136936c68bd8d73,2026-11-05
+      CenterForOpenScience/modular-file-renderer,develop,cos,upstream/cos-develop,reference,1b2acfdde1a98bcd584950c05eb4a7fd9ab63bca,2026-11-05
+    adopted_prs[2]{repo,number,status}:
+      RDM-modular-file-renderer,9,adopted
+      RDM-modular-file-renderer,8,adopted
+  - id: ember-osf-web
+    role: core
+    integration_repo: RDM-ember-osf-web-dev2027
+    profile: core
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-ember-osf-web,master,public,upstream/public-master,merged,13dab2e19ea4e083c91e87c1cb793cb206b8a119,2026-11-05
+      RDM-ember-osf-web-master-private,master,private,upstream/private-master,merged,79f4c2719e340ceb438bfbae1bfd356008fb6e91,2026-11-05
+      CenterForOpenScience/ember-osf-web,develop,cos,upstream/cos-develop,reference,2d188e1ba4769f8064fbea2ace03b34ba6f310cc,2026-11-05
+    adopted_prs[0]:
+  - id: cas-overlay
+    role: core
+    integration_repo: RDM-cas-overlay-dev2027
+    profile: core
+    upstreams[3]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-cas-overlay,develop,public,upstream/public-develop,merged,ba95f6f87ddeb84bd990690199cd1d72d7e0c2a0,2026-11-05
+      RDM-cas-overlay-develop-private,develop,private,upstream/private-develop,merged,84d14baa130309e1a2b9447e75dba5e0c0fa0212,2026-11-05
+      CenterForOpenScience/cas-overlay,develop,cos,upstream/cos-develop,reference,787e34a62a14c851686f139407d8784be367111a,2026-11-05
+    adopted_prs[0]:
+  - id: wiki-frontend
+    role: core
+    integration_repo: RDM-wiki-frontend-dev2027
+    profile: core
+    upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-wiki-frontend,develop,public,upstream/public-develop,merged,203d32fab60aad8d78e9b743987519252f99b817,2026-11-05
+      RDM-wiki-frontend-develop-private,develop,private,upstream/private-develop,merged,203d32fab60aad8d78e9b743987519252f99b817,2026-11-05
+    adopted_prs[1]{repo,number,status}:
+      RDM-wiki-frontend,15,adopted
+  - id: y-websocket
+    role: subsystem
+    integration_repo: RDM-y-websocket-dev2027
+    profile: core
+    upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-y-websocket,master,public,upstream/public-master,merged,51eb21d35bd37b197514e6cc67409b7c8a2dc130,2026-11-05
+      RDM-y-webocket-develop-private,master,private,upstream/private-master,merged,e16d995eb362fcc8c53e545ba39a835e5af853b9,2026-11-05
+    adopted_prs[0]:
+  - id: OASys
+    role: subsystem
+    integration_repo: RDM-OASys-dev2027
+    profile: full
+    upstreams[1]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-OASys-main-private,main,private,upstream/private-main,merged,b3860fda51722bbd0faffbe1d49684125e381af3,2026-11-05
+    adopted_prs[0]:
+  - id: Shibboleth-SP
+    role: subsystem
+    integration_repo: RDM-Shibboleth-SP-dev2027
+    profile: full
+    upstreams[2]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-Shibboleth-SP,main,public,upstream/public-main,merged,7f1125bb2f5bccdce1b1fc55d1dcff602bc7d38a,2026-11-05
+      RDM-Shibboleth-SP-main-private,main,private,upstream/private-main,merged,218b07f4143834278e5289a2c95ee8fe6ff01cf1,2026-11-05
+    adopted_prs[0]:
+  - id: rdmcp
+    role: subsystem
+    integration_repo: RDM-rdmcp-dev2027
+    profile: full
+    upstreams[1]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-rdmcp-private,main,private,upstream/private-main,merged,7eed0db7d3726df7a4029b1b6ee024815d4f0646,2026-11-05
+    adopted_prs[0]:
+  - id: aipf_mcp_data_grdm
+    role: subsystem
+    integration_repo: RDM-aipf_mcp_data_grdm-dev2027
+    profile: full
+    upstreams[1]{repo,branch,kind,tracking_branch,status,sha,fetched_at}:
+      RDM-aipf_mcp_data_grdm-private,main,private,upstream/private-main,merged,94e277da694462516c7a8f12024e3aa0ad67dda7,2026-11-05
+    adopted_prs[0]:
+  - id: postgres
+    role: infra
+    integration_repo: null
+    profile: minimum
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: elasticsearch8
+    role: infra
+    integration_repo: null
+    profile: minimum
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: elasticsearch6
+    role: infra
+    integration_repo: null
+    profile: core
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: rabbitmq
+    role: infra
+    integration_repo: null
+    profile: minimum
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: redis
+    role: infra
+    integration_repo: null
+    profile: core
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: unoconv
+    role: infra
+    integration_repo: null
+    profile: core
+    upstreams[0]:
+    adopted_prs[0]:
+  - id: fakecas
+    role: infra
+    integration_repo: null
+    profile: minimum
+    upstreams[0]:
+    adopted_prs[0]:

@@ -1,0 +1,24 @@
+[
+  {
+    "nodeid": "test_c3_file_upload.py::test_c3_file_upload_success[chromium]",
+    "id": "C3",
+    "name": "Upload and download file",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 14680,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 4
+  },
+  {
+    "nodeid": "test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]",
+    "id": "C3",
+    "name": "Upload and download file",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 6095,
+    "http_status": 403,
+    "evidence": null,
+    "known_external_blocked": 8
+  }
+]

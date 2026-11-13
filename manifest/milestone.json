@@ -1,0 +1,5 @@
+{
+  "milestone": "M3",
+  "gate": "count-not-growing",
+  "note": "Current milestone, owner-maintained (SPEC-03 §5.2, ADR-03). M3 since the owner closed M2 on 2026-11-13 (docs/status/README.md). gate: report-only (M1), count-not-growing (M2, M3), fail-high (M4), zero-critical-high (M5)."
+}

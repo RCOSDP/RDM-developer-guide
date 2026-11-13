@@ -1,0 +1,9 @@
+# Elasticsearch 6.8 OSS for the GakuNin RDM developer environment (grdm-dev/elasticsearch6).
+# A single node reachable by service name inside the Compose network only (ADR-02). These settings
+# live here because the tarball, unlike the official Docker image, does not read dotted environment
+# variables such as discovery.type.
+cluster.name: grdm-dev
+network.host: 0.0.0.0
+discovery.type: single-node
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs

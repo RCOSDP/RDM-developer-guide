@@ -1,0 +1,156 @@
+[
+  {
+    "nodeid": "test_c1_login.py::test_c1_login_success[chromium]",
+    "id": "C1",
+    "name": "Login via fakecas",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 1539,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 9
+  },
+  {
+    "nodeid": "test_c2_create_project.py::test_c2_create_project_success[chromium]",
+    "id": "C2",
+    "name": "Create project",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 3778,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 16
+  },
+  {
+    "nodeid": "test_c2_create_project.py::test_c2_create_project_rejection[chromium]",
+    "id": "C2",
+    "name": "Create project",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 3660,
+    "http_status": 403,
+    "evidence": null,
+    "known_external_blocked": 10
+  },
+  {
+    "nodeid": "test_c3_file_upload.py::test_c3_file_upload_success[chromium]",
+    "id": "C3",
+    "name": "Upload and download file",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 2669,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 5
+  },
+  {
+    "nodeid": "test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]",
+    "id": "C3",
+    "name": "Upload and download file",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 3852,
+    "http_status": 403,
+    "evidence": null,
+    "known_external_blocked": 10
+  },
+  {
+    "nodeid": "test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]",
+    "id": "C4",
+    "name": "Wiki collaborative edit",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 6925,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 20
+  },
+  {
+    "nodeid": "test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]",
+    "id": "C4",
+    "name": "Wiki collaborative edit",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 3884,
+    "http_status": 4401,
+    "evidence": null,
+    "known_external_blocked": 15
+  },
+  {
+    "nodeid": "test_c5_file_preview.py::test_c5_file_preview_success[chromium]",
+    "id": "C5",
+    "name": "File preview",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 5099,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 10
+  },
+  {
+    "nodeid": "test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]",
+    "id": "C5",
+    "name": "File preview",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 3946,
+    "http_status": 401,
+    "evidence": null,
+    "known_external_blocked": 10
+  },
+  {
+    "nodeid": "test_c6_admin.py::test_c6_admin_success[chromium]",
+    "id": "C6",
+    "name": "Institution admin screen",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 1659,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 6
+  },
+  {
+    "nodeid": "test_c6_admin.py::test_c6_admin_rejection[chromium]",
+    "id": "C6",
+    "name": "Institution admin screen",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 653,
+    "http_status": 403,
+    "evidence": null,
+    "known_external_blocked": 4
+  },
+  {
+    "nodeid": "test_c7_file_editor.py::test_c7_file_editor_success[chromium]",
+    "id": "C7",
+    "name": "File page collaborative edit",
+    "case": "success",
+    "status": "passed",
+    "duration_ms": 7720,
+    "http_status": 200,
+    "evidence": null,
+    "known_external_blocked": 22
+  },
+  {
+    "nodeid": "test_c7_file_editor.py::test_c7_file_editor_rejection[chromium]",
+    "id": "C7",
+    "name": "File page collaborative edit",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 6172,
+    "http_status": 4401,
+    "evidence": null,
+    "known_external_blocked": 20
+  },
+  {
+    "nodeid": "test_c1_login.py::test_c1_login_rejection",
+    "id": "C1",
+    "name": "Login via fakecas",
+    "case": "rejection",
+    "status": "passed",
+    "duration_ms": 69,
+    "http_status": 401,
+    "evidence": null,
+    "known_external_blocked": 0
+  }
+]

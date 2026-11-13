@@ -1,0 +1,27 @@
+accept:
+  run_id: acc-20261109T170208Z-9ebf01
+  base_url: "http://127.0.0.1:5000"
+  started: "2026-11-09T17:02:08Z"
+  duration_ms: 34074
+  only: C3
+  seeded: true
+  precheck:
+    healthy: true
+    services: 23
+  pytest_returncode: 0
+  evidence_dir: docs/demo/runs/acc-20261109T170208Z-9ebf01
+  tracing: off
+  trace_quarantine: null
+  expected_scenarios[1]:
+    - C3
+  incomplete_scenarios[0]:
+  summary:
+    passed: 2
+    failed: 0
+    error: 0
+    skipped: 0
+    total: 2
+    known_external_blocked: 12
+  tests[2]{id,name,case,test,status,duration_ms,http_status,evidence,known_external_blocked}:
+    C3,Upload and download file,success,"test_c3_file_upload_success[chromium]",passed,14680,200,null,4
+    C3,Upload and download file,rejection,"test_c3_file_upload_rejection[chromium]",passed,6095,403,null,8

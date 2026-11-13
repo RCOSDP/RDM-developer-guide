@@ -1,0 +1,3215 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../../../handoff/">
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.37">
+    
+    
+      
+        <title>ストレージアドオンの作成 - GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.8c3ca2c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ストレージアドオンの作成" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-header__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ストレージアドオンの作成
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system theme"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system theme" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+    
+  
+  Documentation Index / 文書索引
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../assets/" class="md-tabs__link">
+          
+  
+  Assets
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../decisions/" class="md-tabs__link">
+          
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../demo/" class="md-tabs__link">
+          
+  
+  Demo
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../handoff/" class="md-tabs__link">
+          
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../policy/" class="md-tabs__link">
+          
+  
+  Policy
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../reviews/" class="md-tabs__link">
+          
+  
+  Reviews
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../spec/" class="md-tabs__link">
+          
+  
+  Spec
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../status/" class="md-tabs__link">
+          
+  
+  Status
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" class="md-nav__button md-logo" aria-label="GakuNin RDM Developer Environment 2027 / 開発環境 2027 版" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GakuNin RDM Developer Environment 2027 / 開発環境 2027 版
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/rcosdp/RDM-developer-guide" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Index / 文書索引
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Assets
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Assets
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../assets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Site Assets / サイト用の部品
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Decisions
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Decisions
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Decision Records / 決定の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-01_Integration_Repository_Placement/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-01 Integration Repository Placement / 統合リポジトリの置き場
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-02_Network_Model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-02 Network Model / ネットワーク方式
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-03_Staged_Security_Gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-03 Staged Security Gate / セキュリティの門の段階化
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-04_AI_Autonomy_and_Roles/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ADR-04 AI Autonomy and Roles / AI の自律度と役割
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Demo
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../demo/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Demonstration Records / 実証記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../demo/20_core_install_mac_studio/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DEMO-20 Core Install on Mac Studio / Mac Studio でのコア導入記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Runs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            Runs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../demo/runs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Acceptance Run Records / 受入実行の記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Guides / ガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Admin addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            Admin addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-addon/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Admin Addon Guide / 管理者アドオンガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../admin-addon/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    アドオンの機関管理機能の利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Api
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            Api
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Guide / API ユーガイド
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Decorators/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    View処理で使えるPythonデコレータ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    APIの利用
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Ec2
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Ec2
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ec2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EC2 Development Environment / EC2 での開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ec2/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    OSF evaluation on AWS EC2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Environment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            Environment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Environment / 環境設定と開発環境
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    開発環境の準備
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Screen expansion
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            Screen expansion
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../screen-expansion/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Screen Expansion Addon / 画面拡張アドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../screen-expansion/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    画面拡張アドオンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Skeleton
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
+            <span class="md-nav__icon md-icon"></span>
+            Skeleton
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skeleton/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Skeleton Addon / スケルトンアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../skeleton/README.legacy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    スケルトンの作成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Storage addon
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_8">
+            <span class="md-nav__icon md-icon"></span>
+            Storage addon
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage Addon / ストレージアドオン
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    ストレージアドオンの作成
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    ストレージアドオンの作成
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#前提条件" class="md-nav__link">
+    <span class="md-ellipsis">
+      前提条件
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Handoff
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Handoff
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../handoff/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hand-off Records / 引継ぎ記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Policy
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Policy
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Policy / 方針
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../policy/POL-01_Developer_Environment_2027_Position/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    POL-01 Position on the Developer Environment 2027 / 開発環境 2027 版の位置づけ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Reference / 参考
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/REF-01_Glossary/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REF-01 Glossary / 用語集
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reviews
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Reviews
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Review Records / レビュー記録
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r1 / M1 文書骨格 PR レビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r2 / M1 文書骨格 PR 再レビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-developer-guide_M1_Skeleton_PR_r3/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV M1 Skeleton PR Review r3 / REV（担当レビュワ）M1 文書骨格 PR 再レビュー r3
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r1 / インストーラーレビュー r1
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-developer-guide_PR21_Installer_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    REV PR21 Installer review r2 / インストーラーレビュー r2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r1/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r1 / 公開 develop 統合レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reviews/2026-11-05_RDM-osf.io-dev2027_PR1_Public_Develop_Merge_r2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PR #1 public develop merge — REV review r2 / 公開 develop 統合再レビュー
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Spec
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Spec
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specifications / 仕様
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/00_overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-00 Overview and Architecture / 全体像と構成
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/01_manifest/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-01 Upstream Manifest / 上流マニフェスト
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/02_installer_cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-02 Installer CLI / インストーラー CLI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/03_security_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-03 Security Gate / セキュリティの門
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/04_acceptance_tests/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-04 Acceptance Tests / 受入試験
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/05_upstream_tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-05 Upstream Tracking / 上流追従
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spec/06_documentation_conventions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SPEC-06 Documentation Conventions / 文書規約
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Status
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Status
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../status/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Status Board / 進捗ボード
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_11_2" id="__nav_11_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upstream
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11_2">
+            <span class="md-nav__icon md-icon"></span>
+            Upstream
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../status/upstream/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upstream Tracking Status / 上流追従状況
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#前提条件" class="md-nav__link">
+    <span class="md-ellipsis">
+      前提条件
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="ストレージアドオンの作成">ストレージアドオンの作成<a class="headerlink" href="#ストレージアドオンの作成" title="Permanent link">&para;</a></h1>
+<p>具体的なストレージアドオンの例として、AWS S3互換の<a href="https://min.io/">MinIO</a>と接続するストレージアドオンを実装します。このアドオンは特定のMinIOサーバーと接続するものとし、 My MinIOアドオンと名付けることとします。</p>
+<p>基本的なアドオンの概要は<a href="../Skelton/README.md">スケルトンの作成</a>を参照してください。</p>
+<h2 id="前提条件">前提条件<a class="headerlink" href="#前提条件" title="Permanent link">&para;</a></h2>
+<p><a href="../Environment.md#開発環境でRDMを起動する">開発環境の準備</a>のガイドに従い、開発環境にてRDMを起動しているものとします。</p>
+<h1 id="ストレージアドオンの設計">ストレージアドオンの設計<a class="headerlink" href="#ストレージアドオンの設計" title="Permanent link">&para;</a></h1>
+<h2 id="サービスの構成">サービスの構成<a class="headerlink" href="#サービスの構成" title="Permanent link">&para;</a></h2>
+<p>ストレージアドオンは以下の2つの要素から構成されます。</p>
+<ul>
+<li>OSF.ioサービスで動作するAddon: ユーザ・プロジェクト設定の管理</li>
+<li>WaterButlerサービスで動作するProvider: ストレージへのアクセスの仲介</li>
+</ul>
+<p>Addonによりユーザからの認証情報の受領や各種設定を行い、Providerはこの認証情報・設定情報をAddonから譲渡してもらい、実際のストレージへのアクセスを行います。</p>
+<h2 id="ファイルの構成">ファイルの構成<a class="headerlink" href="#ファイルの構成" title="Permanent link">&para;</a></h2>
+<p>典型的なクラス構成とファイル配置は以下のようになります。</p>
+<h3 id="osfio-addonのクラス構成とファイル構成">OSF.io Addonのクラス構成とファイル構成<a class="headerlink" href="#osfio-addonのクラス構成とファイル構成" title="Permanent link">&para;</a></h3>
+<p><img alt="OSF.io Addon クラス構成" src="../images/osf_class.png" /></p>
+<p><code>(*)</code>が付いているファイルはスケルトン アドオンには存在しないファイルです。</p>
+<div class="highlight"><pre><span></span><code>/addons/アドオン名/
+├── __init__.py ... モジュールの定義
+├── apps.py ... アプリケーションの定義
+├── models.py ... モデルの定義
+├── provider.py ... (*) 認証プロバイダの定義
+├── requirements.txt ... 利用するPythonモジュールの定義
+├── routes.py ... View(Routes)の定義
+├── serializer.py ... (*) モデル-ビュー(JavaScript)間の情報交換用シリアライザの定義
+├── settings ... 設定を定義するモジュール
+│   ├── defaults.py ... デフォルト設定の定義
+│   ├── __init__.py ... 設定の定義
+│   └── local-dist.py ... (*) local.pyのサンプルファイル
+├── static ... Webブラウザから読み込むことを想定した静的ファイル
+│   ├── comicon.png ... アドオンのアイコン
+│   ├── myminioAnonymousLogActionList.json ... (*) 変更履歴メッセージ定義
+│   ├── myminioLogActionList.json ... (*) 変更履歴メッセージ定義
+│   ├── myminioNodeConfig.js ... (*) Node設定の定義
+│   ├── myminioUserConfig.js ... (*) User設定の定義
+│   ├── node-cfg.js ... Node設定のエントリとなるJavaScriptファイル
+│   └── user-cfg.js ... (*) User設定のエントリとなるJavaScriptファイル
+├── templates ... テンプレートディレクトリ
+│   ├── credentials_modal.mako ... (*) 認証情報の設定用ダイアログ
+│   ├── node_settings.mako ... Node設定パネル
+│   └── user_settings.mako ... (*) User設定パネル
+├── tests ... テストコード
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── factories.py
+│   ├── test_model.py
+│   ├── test_serializer.py ... (*)
+│   ├── test_view.py
+│   └── utils.py
+├── utils.py ... (*) ユーティリティ関数の定義
+└── views.py ... View(Views)の定義
+</code></pre></div>
+<h3 id="waterbutler-providerのクラス構成とファイル構成">WaterButler Providerのクラス構成とファイル構成<a class="headerlink" href="#waterbutler-providerのクラス構成とファイル構成" title="Permanent link">&para;</a></h3>
+<p><img alt="WaterButler Addon クラス構成" src="../images/wb_class.png" /></p>
+<div class="highlight"><pre><span></span><code>waterbutler/providers/アドオン名/
+├── __init__.py ... Providerクラスの参照
+├── metadata.py ... Metadataの定義
+├── provider.py ... Providerの定義
+└── settings.py ... デフォルト設定の定義
+
+tests/providers/アドオン名/
+├── __init__.py
+└── provider.py ... Providerのテストコード
+</code></pre></div>
+<h2 id="osfio-addonのモジュール構成">OSF.io Addonのモジュール構成<a class="headerlink" href="#osfio-addonのモジュール構成" title="Permanent link">&para;</a></h2>
+<p>スケルトン アドオンとの違いを中心に説明していきます。</p>
+<h3 id="modelの構成">Modelの構成<a class="headerlink" href="#modelの構成" title="Permanent link">&para;</a></h3>
+<p><code>models.py</code> に、以下のModelを定義します。</p>
+<ul>
+<li><code>UserSettings</code>: ユーザーに関する情報(認証情報等)</li>
+<li><code>NodeSettings</code>: プロジェクトに関する情報</li>
+<li><code>アドオン名FileNode</code>: ファイル・フォルダオブジェクトの親定義</li>
+<li><code>アドオン名File</code>: ファイルオブジェクトの定義</li>
+<li><code>アドオン名Folder</code>: ファイルオブジェクトの定義</li>
+</ul>
+<p><code>provider.py</code> に <code>アドオン名Provider</code> を、 <code>serializer.py</code> に <code>アドオン名Serializer</code> を定義します。OAuthを用いる場合は <code>osf.models.external.ExternalProvider</code> を継承し、必要なメンバを定義します。実装は <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/github/models.py#L49">GitHubの例</a> などを参考にしてください(GitHubアドオンは <code>アドオン名Provider</code> を <code>models.py</code> に定義しています)。
+<code>アドオン名Serializer</code> にはビュー(JavaScript)にURLリストや接続先フォルダなどを渡すための関数を定義します。</p>
+<p>OAuth認証をしない場合であっても、ストレージアドオンの <code>UserSettings</code> と <code>NodeSettings</code> は、 <code>BaseOAuthUserSettings</code> と <code>BaseOAuthNodeSettings</code> をそれぞれ継承して定義し、 <code>oauth_provider</code> に<code>アドオン名Provider</code> を指定します。こうすることで、統一的な構造で簡単に認証の仕組みを実装することができます。</p>
+<p>My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/models.py">models.py</a></li>
+<li><a href="../osf.io/addon/provider.py">provider.py</a></li>
+<li><a href="../osf.io/addon/serializer.py">serializer.py</a></li>
+</ul>
+<h3 id="viewの構成">Viewの構成<a class="headerlink" href="#viewの構成" title="Permanent link">&para;</a></h3>
+<p><code>views.py</code>には、おおよそ以下の関数を定義します。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">関数名</th>
+<th style="text-align: left;">処理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">set_config</td>
+<td style="text-align: left;">プロジェクトの設定を保存する。デフォルトでは接続先のフォルダとクライアント用のAPIのURLリストのみ。</td>
+</tr>
+<tr>
+<td style="text-align: left;">get_config</td>
+<td style="text-align: left;">プロジェクトの設定を取得する。</td>
+</tr>
+<tr>
+<td style="text-align: left;">import_auth</td>
+<td style="text-align: left;">ログイン中のユーザの認証情報をプロジェクトにインポートする。</td>
+</tr>
+<tr>
+<td style="text-align: left;">deauthorize_node</td>
+<td style="text-align: left;">プロジェクトの認証情報を取り消す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">add_user_account</td>
+<td style="text-align: left;">ユーザの認証情報を追加する。</td>
+</tr>
+<tr>
+<td style="text-align: left;">account_list</td>
+<td style="text-align: left;">ユーザの認証情報リストを取得する。</td>
+</tr>
+<tr>
+<td style="text-align: left;">create_folder</td>
+<td style="text-align: left;">ストレージサービスにフォルダを追加する。プロジェクトのアドオン設定ページでフォルダを作る機能を提供しない場合は不要。</td>
+</tr>
+<tr>
+<td style="text-align: left;">folder_list</td>
+<td style="text-align: left;">ストレージサービスのフォルダリストを取得する。</td>
+</tr>
+</tbody>
+</table>
+<p>シリアライザ(<code>serializer.py</code>)を定義し、 <code>addons.base.generic_views</code> を利用することで、以下のように一部のView処理を簡単に定義することができます。</p>
+<div class="highlight"><pre><span></span><code>import_auth = addons.base.generic_views.import_auth(
+    SHORT_NAME,
+    Serializer
+)
+</code></pre></div>
+<p><code>generic_views</code> で提供していないView処理を追加したい場合や、View処理をカスタマイズしたい場合は、以下のように <code>views.py</code> に個別の関数を定義します。</p>
+<div class="highlight"><pre><span></span><code>@must_have_addon(SHORT_NAME, 'node')
+@must_be_addon_authorizer(SHORT_NAME)
+def folder_list(node_addon, **kwargs):
+    return node_addon.get_folders()
+</code></pre></div>
+<p>フォルダの作成やフォルダリストの取得をするために、Addonでもストレージサービスへ接続する必要があります。</p>
+<p>My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/routes.py">routes.py</a></li>
+<li><a href="../osf.io/addon/views.py">views.py</a></li>
+</ul>
+<h3 id="フレームワークによって提供されるview">フレームワークによって提供されるView<a class="headerlink" href="#フレームワークによって提供されるview" title="Permanent link">&para;</a></h3>
+<p>アドオンが持つ利用者用設定画面(<code>user_settings.mako</code>)とプロジェクト用設定画面(<code>node_settings.mako</code>)のテンプレートをそれぞれ定義します。認証情報の設定用ダイアログ(<code>credentials_modal.mako</code>)はどちらの画面でも利用するので、別のファイルで定義し、それぞれから参照します。<br />
+My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/templates/user_settings.mako">user_settings.mako</a></li>
+<li><a href="../osf.io/addon/templates/node_settings.mako">node_settings.mako</a></li>
+<li><a href="../osf.io/addon/templates/credentials_modal.mako">credentials_modal.mako</a></li>
+</ul>
+<p>利用者用設定画面のJavaScriptファイル(<code>user-cfg.js</code>, <code>myminioUserConfig.js</code>)と、プロジェクト用設定画面のJavaScriptファイル(<code>node-cfg.js</code>, <code>myminioNodeConfig.js</code>)をそれぞれ定義します。今回は、エントリとなるJavaScriptファイル(<code>*-cfg.js</code>)と定義ファイル(<code>myminio*Config.js</code>)を分けましたが、スケルトン アドオンのように <code>*-cfg.js</code> に定義を書いても構いません。<br />
+My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/static/user-cfg.js">user-cfg.js</a></li>
+<li><a href="../osf.io/addon/static/node-cfg.js">node-cfg.js</a></li>
+<li><a href="../osf.io/addon/static/myminioUserConfig.js">myminioUserConfig.js</a></li>
+<li><a href="../osf.io/addon/static/myminioNodeConfig.js">myminioNodeConfig.js</a></li>
+</ul>
+<p>また、変更履歴メッセージの定義ファイルも追加します。<br />
+My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/static/myminioAnonymousLogActionList.json">myminioAnonymousLogActionList.json</a></li>
+<li><a href="../osf.io/addon/static/myminioLogActionList.json">myminioLogActionList.json</a></li>
+</ul>
+<p>ストレージ操作UIであるFileViewerは<a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/js/fangorn.js">Fangorn</a>を使って実装されています。アイテム選択時に表示するボタンをカスタマイズしたい場合は、 <code>Fangorn.config.アドオン名</code> を定義し、 <code>files.js</code> ファイルで読み込みます。
+My MinIOアドオンではカスタマイズせずデフォルト動作を使用しています。カスタマイズ例は、<a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/github/static/githubFangornConfig.js">GitHubアドオン</a>や<a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/static/iqbrimsFangornConfig.js">IQB-RIMSアドオン</a>を参照してください。</p>
+<h3 id="設定モジュール">設定モジュール<a class="headerlink" href="#設定モジュール" title="Permanent link">&para;</a></h3>
+<p>環境ごとの設定ファイル <code>local.py</code> の雛形として <code>local-dist.py</code> ファイルを定義します。サービス管理者は <code>local-dist.py</code> を <code>local.py</code> にコピーして、適宜設定値を書き換えます。</p>
+<p>My MinIOアドオンの場合は、以下のように定義します。接続するMinIOサービスのホスト名を <code>HOST</code> プロパティに設定します。</p>
+<ul>
+<li><a href="../osf.io/addon/settings/local-dist.py">local-dist.py</a></li>
+</ul>
+<h3 id="テストコード">テストコード<a class="headerlink" href="#テストコード" title="Permanent link">&para;</a></h3>
+<p>シリアライザのテスト(<code>test_serializer.py</code>)を定義します。<br />
+My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../osf.io/addon/tests/test_serializer.py">test_serializer.py</a></li>
+</ul>
+<h2 id="waterbutler-providerのモジュール構成">WaterButler Providerのモジュール構成<a class="headerlink" href="#waterbutler-providerのモジュール構成" title="Permanent link">&para;</a></h2>
+<p>WaterButler Providerは、WaterButlerプロジェクトの中でPythonモジュールとして実装されます。</p>
+<p><code>metadata.py</code> には、フォルダやファイルのメタデータと、リビジョンを持つクラスを定義します。<br />
+My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../waterbutler/provider/metadata.py">metadata.py</a></li>
+</ul>
+<p><code>provider.py</code>には、ストレージサービスと接続しCRUD操作などを行うProviderクラスを定義します。</p>
+<p>Providerが提供するメソッドには以下のようなものがあります。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">関数名</th>
+<th style="text-align: left;">引数</th>
+<th style="text-align: left;">戻り値</th>
+<th style="text-align: left;">処理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">validate_v1_path</td>
+<td style="text-align: left;">path, **kwargs</td>
+<td style="text-align: left;">WaterButlerPath</td>
+<td style="text-align: left;">文字列で与えられたパス情報(<code>path</code>)を検証し、属性付きのWaterButlerPathオブジェクトを返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">validate_path</td>
+<td style="text-align: left;">path, **kwargs</td>
+<td style="text-align: left;">WaterButlerPath</td>
+<td style="text-align: left;">同上(廃止予定のv0仕様との互換性維持のため、2つのメソッドに分かれている)。</td>
+</tr>
+<tr>
+<td style="text-align: left;">download</td>
+<td style="text-align: left;">path, accept_url=False, version=None, range=None, **kwargs</td>
+<td style="text-align: left;">Stream</td>
+<td style="text-align: left;">指定されたパス(<code>path</code>)のデータをダウンロードする。戻り値にはデータアクセス用のStreamを返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">upload</td>
+<td style="text-align: left;">stream, path, conflict='replace', **kwargs</td>
+<td style="text-align: left;">Metadata</td>
+<td style="text-align: left;">指定されたパス(<code>path</code>)に指定されたデータ(<code>stream</code>)をアップロードする。戻り値にはアップロードしたファイルを示すMetadataを返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">delete</td>
+<td style="text-align: left;">path, confirm_delete=0, **kwargs</td>
+<td style="text-align: left;">なし</td>
+<td style="text-align: left;">指定されたパス(<code>path</code>)のファイル・フォルダを削除する。</td>
+</tr>
+<tr>
+<td style="text-align: left;">revisions</td>
+<td style="text-align: left;">path, **kwargs</td>
+<td style="text-align: left;">List(Revision)</td>
+<td style="text-align: left;">指定されたパス(<code>path</code>)のリビジョン情報を取得する。</td>
+</tr>
+<tr>
+<td style="text-align: left;">metadata</td>
+<td style="text-align: left;">path, revision=None, **kwargs</td>
+<td style="text-align: left;">Metadata or List(Metadata)</td>
+<td style="text-align: left;">指定されたパス(<code>path</code>)のメタデータを取得する。<code>path</code> がfileの場合 <code>Metadata</code> , directoryの場合 <code>List(Metadata)</code> を返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">create_folder</td>
+<td style="text-align: left;">path, folder_precheck=True, **kwargs</td>
+<td style="text-align: left;">Metadata</td>
+<td style="text-align: left;">指定されたパスにフォルダを作成する。戻り値には作成したフォルダを示すMetadataを返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">can_intra_copy</td>
+<td style="text-align: left;">dest_provider, path=None</td>
+<td style="text-align: left;">Bool</td>
+<td style="text-align: left;">指定された送信先Provider(<code>dest_provider</code>), パス(<code>path</code>)に対してintra_copy(内部コピー: ストレージサービス上でのコピー)が可能かどうかを判定する。これがFalseの場合、いったん一時ディレクトリにdownloadして、destにuploadするという操作となる。</td>
+</tr>
+<tr>
+<td style="text-align: left;">can_intra_move</td>
+<td style="text-align: left;">dest_provider, path=None</td>
+<td style="text-align: left;">Bool</td>
+<td style="text-align: left;">指定された送信先Provider(<code>dest_provider</code>), パス(<code>path</code>)に対してintra_move(内部移動: ストレージサービス中での移動)が可能かどうかを判定する。これがFalseの場合、いったん一時ディレクトリにdownloadして、destにupload、コピー元ファイルをdeleteするという操作となる。</td>
+</tr>
+<tr>
+<td style="text-align: left;">intra_copy</td>
+<td style="text-align: left;">dest_provider, src_path, dest_path</td>
+<td style="text-align: left;">Bool</td>
+<td style="text-align: left;">内部コピーを実施する。成功すればTrueを返す。</td>
+</tr>
+<tr>
+<td style="text-align: left;">intra_move</td>
+<td style="text-align: left;">dest_provider, src_path, dest_path</td>
+<td style="text-align: left;">Bool</td>
+<td style="text-align: left;">内部移動を実施する。成功すればTrueを返す。</td>
+</tr>
+</tbody>
+</table>
+<p>My MinIOアドオンの場合は、以下のように定義します。</p>
+<ul>
+<li><a href="../waterbutler/provider/provider.py">provider.py</a></li>
+</ul>
+<h2 id="osfio-addonとwaterbutler-providerの認証情報の委譲">OSF.io AddonとWaterButler Providerの認証情報の委譲<a class="headerlink" href="#osfio-addonとwaterbutler-providerの認証情報の委譲" title="Permanent link">&para;</a></h2>
+<p>OSF.io Addonは、WaterButler Providerが必要なサービスに接続できるよう、認証情報を委譲します。この認証情報の形式はAddonにより異なるため、AddonとProviderのバージョンを合わせるなど依存関係に配慮する必要があります。</p>
+<p><img alt="認証情報などの委譲" src="../images/crud.png" /></p>
+<p>Addonにおける委譲設定は、 <code>addons.アドオン名.models.NodeSettings.serialize_waterbutler_credentials()</code> 関数で設定します。接続先のフォルダなどの情報は、同クラスの <code>serialize_waterbutler_settings()</code> 関数で設定します。例えば <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/iqbrims/models.py#L226">IQB-RIMSアドオンの <code>serialize_waterbutler_settings()</code> 関数</a> では、フォルダごとの権限設定を渡します。</p>
+<p>My MinIOアドオンの場合は、以下のように定義します。認証情報として、アクセス先のホスト名、アクセスキー、シークレットキーを渡します。設定情報として、接続先のバケットIDを渡します。</p>
+<div class="highlight"><pre><span></span><code>def serialize_waterbutler_credentials(self):
+    if not self.has_auth:
+        raise exceptions.AddonError('Cannot serialize credentials for {} addon'.format(FULL_NAME))
+    return {
+        'host': settings.HOST,
+        'access_key': self.external_account.oauth_key,
+        'secret_key': self.external_account.oauth_secret,
+    }
+
+def serialize_waterbutler_settings(self):
+    if not self.folder_id:
+        raise exceptions.AddonError('Cannot serialize settings for {} addon'.format(FULL_NAME))
+    return {
+        'bucket': self.folder_id
+    }
+</code></pre></div>
+<p>Provider側では、認証情報と設定情報を <code>waterbutler.providers.アドオン名.アドオン名Provider</code> クラスのコンストラクタ(<code>__init__()</code>)の引数 <code>credentials</code> と <code>settings</code> にDictionary型でそれぞれ受け取ります。</p>
+<p>My MinIOアドオンの場合は、以下のように定義します。認証情報を使ってMy MinIOサービスとの接続を確立し、設定情報を使って接続先バケットを取得します。</p>
+<div class="highlight"><pre><span></span><code>class MyMinIOProvider(provider.BaseProvider):
+    def __init__(self, auth, credentials, settings):
+        super().__init__(auth, credentials, settings)
+
+        host = credentials['host']
+        port = 443
+        m = re.match(r'^(.+)\:([0-9]+)$', host)
+        if m is not None:
+            host = m.group(1)
+            port = int(m.group(2))
+        self.connection = MyMinIOConnection(credentials['access_key'],
+                                            credentials['secret_key'],
+                                            calling_format=OrdinaryCallingFormat(),
+                                            host=host,
+                                            port=port,
+                                            is_secure=port == 443)
+        self.bucket = self.connection.get_bucket(settings['bucket'], validate=False)
+</code></pre></div>
+<h2 id="recent-activityの記録表示">Recent Activityの記録・表示<a class="headerlink" href="#recent-activityの記録表示" title="Permanent link">&para;</a></h2>
+<p>何らかのユーザ操作を契機としてアドオンに対して行われた操作は、Recent Activityという形で記録することができます。</p>
+<h3 id="nodelogモデルの追加">NodeLogモデルの追加<a class="headerlink" href="#nodelogモデルの追加" title="Permanent link">&para;</a></h3>
+<p>Recent Activityは<a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/nodelog.py">NodeLogモデル</a>により表現されます。
+ログの追加はNode(プロジェクトに対応するモデル)の <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/osf/models/mixins.py#L84">add_logメソッド</a> により行うことができます。</p>
+<p><a href="../osf.io/addon/models.py#L127-L143">models.py</a>
+<div class="highlight"><pre><span></span><code>self.owner.add_log(
+    '{0}_{1}'.format(SHORT_NAME, action),
+    auth=auth,
+    params={
+        'project': self.owner.parent_id,
+        'node': self.owner._id,
+        'path': metadata['materialized'],
+        'bucket': self.folder_id,
+        'urls': {
+            'view': url,
+            'download': url + '?action=download'
+        }
+    },
+)
+</code></pre></div></p>
+<p>この例では、NodeSettingsモデルのowner(Node)に対してログの追加を指示しています。
+パラメータには以下の値を指定することができます。</p>
+<ul>
+<li><code>action</code> ... ログのアクション種別を示す名前。<code>アドオン名_アクション名</code>となる。本サンプルにより記録される<code>アクション名</code>には以下のものがある。</li>
+<li><code>node_authorized</code>, <code>node_deauthorized</code>, <code>node_deauthorized_no_user</code> ... プロジェクトに本アドオンが設定あるいは解除された場合に記録されるログ</li>
+<li><code>bucket_linked</code>, <code>bucket_unlinked</code> ... プロジェクト設定画面により、バケットが設定あるいは解除された場合に記録されるログ</li>
+<li><code>file_added</code>, <code>file_removed</code>, <code>file_updated</code>, <code>folder_created</code> ... WaterButlerによるファイル操作が行われた場合に記録されるログ</li>
+<li><code>params</code> ... ログのパラメータ。任意のdictオブジェクトを指定することができる</li>
+<li><code>auth</code> ... 操作を実施したユーザの情報。<a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/auth/core.py#L170">framework.auth.Authクラス</a>のインスタンスを与えることができる</li>
+</ul>
+<h3 id="nodelogモデルの表示">NodeLogモデルの表示<a class="headerlink" href="#nodelogモデルの表示" title="Permanent link">&para;</a></h3>
+<p>記録されたログをどのように表示するかは、以下のJSONファイルにより定義します。</p>
+<p><a href="../osf.io/addon/static/myminioLogActionList.json#L2">myminioLogActionList.json</a>
+<div class="highlight"><pre><span></span><code>"myminio_bucket_linked" : "${user} linked the My MinIO bucket ${bucket} to ${node}",
+</code></pre></div></p>
+<p><a href="../osf.io/addon/static/myminioAnonymousLogActionList.json#L2">myminioAnonymousLogActionList.json</a>
+<div class="highlight"><pre><span></span><code>"myminio_bucket_linked" : "A user linked an My MinIO bucket to a project",
+</code></pre></div></p>
+<p><code>アドオン名LogActionList.json</code>はログインした状態でのプロジェクト表示の際に利用され、<code>アドオン名AnonymousLogActionList.json</code>はパブリックなプロジェクト(RDMでは利用を想定していません)に利用されます。
+どのメッセージがログ表示に利用されるかは、add_logメソッドの <code>action</code> 引数に与えられた文字列がキーとして使用されます。また、メッセージ定義中の <code>${パラメータ名}</code> にはadd_logメソッドの <code>params</code> 引数に与えられたパラメータ中のキーを指定することができます。</p>
+<p>メッセージの国際化は<a href="http://babel.pocoo.org/en/latest/cmdline.html">pybabelコマンド</a>を用いて行うことができます。定義したアドオンのメッセージ(英語で記載する)に対応する日本語メッセージの定義ファイルを生成するためには、
+以下のコマンドを実行します。</p>
+<div class="highlight"><pre><span></span><code># メッセージ定義JSONなどをJavaScriptファイルへと変換する
+$ docker compose run --rm web invoke assets
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+</code></pre></div>
+<p>すると、<code>website/translations/ja/LC_MESSAGES/js_messages.po</code>ファイルに、以下のような空の項目が追加されます。</p>
+<div class="highlight"><pre><span></span><code>#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr ""
+</code></pre></div>
+<p>この <code>msgstr</code> に日本語によるメッセージ定義を追加することで、メッセージを国際化することができます。</p>
+<div class="highlight"><pre><span></span><code>#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}が My MinIOバケット(${bucket})を接続しました"
+</code></pre></div>
+<p><code>js_messages.po</code> を変更したら、<code>assets</code>サービスを再起動してください。最新の<code>js_messages.po</code>ファイルがメッセージの表示に使用されるようになります。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose restart assets
+</code></pre></div>
+<h2 id="タイムスタンプの処理">タイムスタンプの処理<a class="headerlink" href="#タイムスタンプの処理" title="Permanent link">&para;</a></h2>
+<p>RDMではユーザが任意のタイミングで、プロジェクト中のファイルに対してタイムスタンプを打つことができます。タイムスタンプは、ファイルに関してその時点での内容を証明するもので、研究の証跡としてのデータを考える上で非常に重要です。</p>
+<p>なお、docker-composeで起動した状態では <a href="http://eswg.jnsa.org/sandbox/freetsa/">FreeTSA Project</a> のサーバを用いてタイムスタンプを付与します。実環境への配備時は<a href="https://certs.nii.ac.jp/">UPKI電子証明書発行サービス</a>によりタイムスタンプ付与することを想定しています。</p>
+<h3 id="ユーザによるタイムスタンプの追加">ユーザによるタイムスタンプの追加<a class="headerlink" href="#ユーザによるタイムスタンプの追加" title="Permanent link">&para;</a></h3>
+<p>タイムスタンプは、ファイルの内容から計算したハッシュ値を署名する形で作成されます。ハッシュの取得は以下のいずれかの方法でおこないます。</p>
+<ul>
+<li><code>osf.models.files.File</code> サブクラスの <code>get_hash_for_timestamp</code>により取得する</li>
+<li>WaterButlerを経由してファイルをダウンロードし、ハッシュ計算を行う</li>
+</ul>
+<p><code>osf.models.files.File</code> サブクラスはアドオンのモデルとしてハッシュ値の取得方法を定義するものです。本サンプルでは <a href="../osf.io/addon/models.py">models.py</a> にあります。
+ストレージにより容易にハッシュ相当の値を取得・管理する方法がある場合は、このモデルに<code>get_hash_for_timestamp(self)</code>メソッドを定義します。
+タイムスタンプ処理はこのメソッドを通じてハッシュ値を取得することができます。
+<code>get_hash_for_timestamp(self)</code>メソッドの実装は dropboxbusinessアドオンの <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38">DropboxBusinessFileクラス</a> を参考にしてください。</p>
+<p><code>osf.models.files.File</code>モデルに<code>get_hash_for_timestamp(self)</code>が定義されていない場合は、タイムスタンプ処理はWaterButlerを経由してファイルをダウンロードする方法を試行します。</p>
+<h3 id="rdm以外でのファイル変更によるタイムスタンプの追加">RDM以外でのファイル変更によるタイムスタンプの追加<a class="headerlink" href="#rdm以外でのファイル変更によるタイムスタンプの追加" title="Permanent link">&para;</a></h3>
+<p>RDM以外でのファイル変更時に実施する場合も、ファイルが変更されたことを示すためにタイムスタンプを付加したい場合があります。
+このような処理を実行するためには <code>website.util.timestamp</code> モジュールを使用します。
+例えばDropbox Businessアドオンでは以下のように実装しています。</p>
+<p><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py">dropboxbusiness/utils.py</a>
+<div class="highlight"><pre><span></span><code>...
+from website.util import timestamp
+
+...
+
+file_info = {
+    'file_id': file_node._id,
+    'file_name': attrs.get('name'),
+    'file_path': attrs.get('materialized'),
+    'size': attrs.get('size'),
+    'created': attrs.get('created_utc'),
+    'modified': attrs.get('modified_utc'),
+    'file_version': '',
+    'provider': PROVIDER_NAME
+}
+# verified by admin
+verify_result = timestamp.check_file_timestamp(
+    admin.id, node, file_info, verify_external_only=True)
+</code></pre></div></p>
+<p><code>check_file_timestamp(uid, node, data, verify_external_only=False)</code>関数は以下のパラメータを指定することができます。</p>
+<ul>
+<li><code>uid</code> ... タイムスタンプ操作を行うユーザを示すOSFUserのID</li>
+<li><code>node</code> ... ファイルが所属するプロジェクトを示すNode</li>
+<li><code>data</code> ... タイムスタンプにより署名検証するデータを示す辞書型データ</li>
+<li><code>verify_external_only</code> ... タイムスタンプ検証情報の格納に<code>osf.models.RdmFileTimestamptokenVerifyResult</code>を使う場合はFalse, 使わない場合(<code>osf.models.files.File</code> サブクラスの<code>def set_timestamp(self, timestamp_data, timestamp_status, context)</code>に格納する場合)はTrueとする (デフォルトはFalse)</li>
+</ul>
+<p>なお、<code>def set_timestamp(self, timestamp_data, timestamp_status, context)</code> の定義方法は dropboxbusinessアドオンの <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/models.py#L38">DropboxBusinessFileクラス</a> を参考にしてください。</p>
+<p>また、タイムスタンプの付加処理はストレージのAPI呼び出しやタイムスタンプの付加処理などI/Oを伴うため、viewsモジュール内の関数など、リクエストハンドラとして振る舞う関数中で処理を行ってしまうと、他のハンドラが待たされる要因になります。
+このような状況に対応するため、RDMでは<a href="https://docs.celeryproject.org/en/stable/">Celery</a>によるワーカーが用意されています。
+関数をCeleryタスクとして定義することで、時間がかかる処理はワーカーに委譲することができます。
+例えばDropbox Businessアドオンでは以下のように定義しています。</p>
+<p><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/utils.py">dropboxbusiness/utils.py</a>
+<div class="highlight"><pre><span></span><code>...
+from framework.celery_tasks import app as celery_app
+
+...
+
+@celery_app.task(bind=True, base=AbortableTask)
+def celery_check_updated_files(self, team_ids):
+    ...
+</code></pre></div></p>
+<p>呼び出し側では以下のように関数を実行することで、ワーカーに処理を任せ、自身の処理を続行することができます。</p>
+<p><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons/dropboxbusiness/views.py">dropboxbusiness/views.py</a>
+<div class="highlight"><pre><span></span><code>utils.celery_check_updated_files.delay(team_ids)
+</code></pre></div></p>
+<h1 id="my-minioアドオンの実装">My MinIOアドオンの実装<a class="headerlink" href="#my-minioアドオンの実装" title="Permanent link">&para;</a></h1>
+<p>ここでは、 <code>myminio</code> という識別名のアドオンの実装を例に説明します。アドオンの完全名は <code>My MinIO</code> とします。</p>
+<p>アドオン名は様々な場所に埋め込まれています。アドオン名を変更したい場合は、以降で追加・変更するファイル名やコードの <code>myminio</code> 、 <code>My MinIO</code> 、 <code>MyMinIO</code> という文字列を変更してください。</p>
+<p>My MinIOアドオンは、AWS S3互換サービスと接続するアドオンなので、Amazon S3アドオンやS3 Compatible Storageアドオンを参考に実装することができます。Amazon S3アドオンやS3 Compatible Storageアドオンとの違いは以下の通りです。</p>
+<ul>
+<li>My MinIOアドオンは簡単のため、アップロードの暗号化機能を実装しない。</li>
+<li>Amazon S3アドオンやS3 Compatible Storageアドオンは、アカウントごとに接続するサービスやLocationなどを選択できるが、My MinIOはサービス側で指定した特定のMinIOサービスのみを扱う。</li>
+</ul>
+<h2 id="osfioへの実装">OSF.ioへの実装<a class="headerlink" href="#osfioへの実装" title="Permanent link">&para;</a></h2>
+<h3 id="addonsmyminio-モジュールの定義">addons.myminio モジュールの定義<a class="headerlink" href="#addonsmyminio-モジュールの定義" title="Permanent link">&para;</a></h3>
+<p>スケルトン アドオンと同様に、<a href="osf.io/addon/">アドオンの実装例(<code>osf.io/addon/</code>)</a>を <code>addons/myminio</code> ディレクトリにコピーします。</p>
+<h3 id="rdmコードの変更">RDMコードの変更<a class="headerlink" href="#rdmコードの変更" title="Permanent link">&para;</a></h3>
+<p>スケルトン アドオンと同様に、RDMのコードをいくつか変更します。</p>
+<ul>
+<li><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/addons.json">addons.json</a></li>
+<li>変更例のサンプル: <a href="../osf.io/config/addons.json">addons.json</a></li>
+<li><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/framework/addons/data/addons.json">framework/addons/data/addons.json</a></li>
+<li>変更例のサンプル: <a href="../osf.io/config/framework/addons/data/addons.json">addons.json</a></li>
+<li><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/Dockerfile">Dockerfile</a></li>
+<li>変更例のサンプル: <a href="../osf.io/config/Dockerfile">Dockerfile</a></li>
+<li><a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/api/base/settings/defaults.py">api/base/settings/defaults.py</a></li>
+<li>変更例のサンプル: <a href="../osf.io/config/api/base/settings/defaults.py">defaults.py</a></li>
+</ul>
+<p><code>api/base/settings/defaults.py</code> は、 <code>INSTALLED_APPS</code> の他に、 <code>ADDONS_FOLDER_CONFIGURABLE</code> 、 <code>ADDONS_OAUTH</code> にもアドオン名を追加します。変更例サンプルでは、Amazon S3アドオンに合わせて、スケルトン アドオンとは異なる方法で設定しています。</p>
+<div class="highlight"><pre><span></span><code>INSTALLED_APPS += ('addons.myminio',)
+ADDONS_FOLDER_CONFIGURABLE.append('myminio')
+ADDONS_OAUTH.append('myminio')
+</code></pre></div>
+<p>他にもストレージアドオンでは、 <a href="https://github.com/RCOSDP/RDM-osf.io/blob/develop/website/static/storageAddons.json">website/static/storageAddons.json</a> にも設定を追加する必要があります。</p>
+<p>変更例は <a href="../osf.io/config/website/static/storageAddons.json">storageAddons.json</a> を参照してください。</p>
+<div class="highlight"><pre><span></span><code>    "myminio": {
+        "fullName": "My MinIO",
+        "externalView": false
+    },
+</code></pre></div>
+<blockquote>
+<p><code>externalView</code> を <code>true</code> に設定すると、FileViewerでファイルの外部ページリンクボタンが表示されるようになります。リンクを正しく動作させるには、WaterButlerのProviderを修正する必要があります。詳細は<a href="https://github.com/RCOSDP/RDM-waterbutler/blob/develop/waterbutler/providers/googledrive/metadata.py#L116">GoogleDriveの実装</a>などを参照してください。</p>
+<p>FileViewerで、フォルダの操作はできるがファイルの操作ができない場合は、 <code>storageAddons.json</code> の設定が漏れている可能性があります。</p>
+</blockquote>
+<h3 id="migrationsファイルの作成">Migrationsファイルの作成<a class="headerlink" href="#migrationsファイルの作成" title="Permanent link">&para;</a></h3>
+<p><code>makemigrations</code> コマンドを実行して、Migrationsファイルを作成します。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose run --rm web python3 manage.py makemigrations
+</code></pre></div>
+<p>上記の出力中に以下のような出力が現れれば成功です。ストレージアドオンの場合、 <code>osf/migrations</code> と <code>addons/myminio/migrations</code> の2つのディレクトリ内にPythonファイルが作成されます。</p>
+<blockquote>
+<p><code>osf/migrations</code> 配下に作成されるファイル名は、作成日時やRDMのバージョンによって異なります。</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code>Migrations for 'osf':
+  osf/migrations/0214_auto_20201001_0007.py
+    - Create proxy model MyMinIOFileNode
+    - Alter field type on basefilenode
+    - Create proxy model MyMinIOFile
+    - Create proxy model MyMinIOFolder
+Migrations for 'addons_myminio':
+  addons/myminio/migrations/0001_initial.py
+    - Create model NodeSettings
+    - Create model UserSettings
+    - Add field user_settings to nodesettings
+</code></pre></div>
+<h3 id="国際化メッセージファイルの作成">国際化メッセージファイルの作成<a class="headerlink" href="#国際化メッセージファイルの作成" title="Permanent link">&para;</a></h3>
+<p>国際化メッセージファイルの定義ファイルは以下のコマンドで生成することができます。</p>
+<blockquote>
+<p>このセクションの実施時は各サービスを停止状態にしてください。</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code># メッセージ定義JSONなどをJavaScriptファイルへと変換する。各サービスが停止している状態で実施する。
+$ docker compose run --rm web invoke assets
+
+# メッセージ定義テンプレートファイル website/translations/js_messages.pot を更新する
+$ docker compose run --rm web pybabel extract -F ./website/settings/babel_js.cfg -o ./website/translations/js_messages.pot .
+
+# メッセージ定義ファイル website/translations/ja/LC_MESSAGES/js_messages.po を更新する
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/en/LC_MESSAGES/js_messages.po -l en
+$ docker compose run --rm web pybabel update -i ./website/translations/js_messages.pot -o ./website/translations/ja/LC_MESSAGES/js_messages.po -l ja
+</code></pre></div>
+<p>変更例のサンプル <a href="../osf.io/config/website/translations/ja/LC_MESSAGES/js_messages.po">js_messages.po</a> を参考に日本語メッセージを追加してください。</p>
+<div class="highlight"><pre><span></span><code>#: website/static/js/logActionsList_extract.js:246
+msgid "${user} linked the My MinIO bucket ${bucket} to ${node}"
+msgstr "${user}がMy MinIOバケット(${bucket})を${node}にリンクしました"
+
+#: website/static/js/logActionsList_extract.js:247
+msgid "${user} unselected the My MinIO bucket ${bucket} in ${node}"
+msgstr "${user}が${node}のMy MinIOバケット(${bucket})の選択を解除しました"
+
+...
+</code></pre></div>
+<p>このメッセージを追加後、<code>assets</code>サービスの再起動時にメッセージ定義が反映されます。</p>
+<h3 id="アドオンのテスト">アドオンのテスト<a class="headerlink" href="#アドオンのテスト" title="Permanent link">&para;</a></h3>
+<p>以下のコマンドで、OSF.ioに追加したMy MinIOアドオンのユニットテストを実行できます。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose run --rm web invoke test_module -m addons/myminio/tests/
+</code></pre></div>
+<h2 id="waterbutlerへの実装">WaterButlerへの実装<a class="headerlink" href="#waterbutlerへの実装" title="Permanent link">&para;</a></h2>
+<h3 id="waterbutlerprovidersmyminio-モジュールの定義">waterbutler.providers.myminio モジュールの定義<a class="headerlink" href="#waterbutlerprovidersmyminio-モジュールの定義" title="Permanent link">&para;</a></h3>
+<p><a href="waterbutler/provider/">Providerの実装例(<code>waterbutler/provider/</code>)</a> を <code>waterbutler/providers/myminio</code> にコピーします。また、<a href="waterbutler/tests">Providerのテストコード例(<code>waterbutler/tests</code>)</a> を <code>tests/providers/myminio</code> にコピーします。</p>
+<h3 id="rdmコードの変更_1">RDMコードの変更<a class="headerlink" href="#rdmコードの変更_1" title="Permanent link">&para;</a></h3>
+<p><a href="https://github.com/RCOSDP/RDM-waterbutler/blob/develop/setup.py">setup.py</a> に、アドオンのエントリポイント定義を追加します。<code>setup()</code> 関数の引数 <code>entry_points</code> に指定するDictionaryの <code>waterbutler.providers</code> キーに指定する配列に、以下を追加します。</p>
+<div class="highlight"><pre><span></span><code>'myminio = waterbutler.providers.myminio:MyMinIOProvider',
+</code></pre></div>
+<p>変更例はサンプル <a href="../waterbutler/config/setup.py">setup.py</a> を参照してください。</p>
+<h3 id="docker-composeoverrideyml-の追加">docker-compose.override.yml の追加<a class="headerlink" href="#docker-composeoverrideyml-の追加" title="Permanent link">&para;</a></h3>
+<p>変更したコードを使うよう、RDMの <code>docker-compose.override.yml</code> で WaterButler のサービスの <code>volumes</code> を指定します。</p>
+<p>例えば、以下のようなディレクトリ階層の場合は、</p>
+<div class="highlight"><pre><span></span><code>.
+├── RDM-osf.io
+│   ├── docker-compose.override.yml
+│   └── docker-compose.yml
+└── RDM-waterbutler
+</code></pre></div>
+<p><code>RDM-osf.io/docker-compose.override.yml</code> の内容を以下のようにします。</p>
+<div class="highlight"><pre><span></span><code>version: "3.4"
+
+services:
+  wb:
+    volumes:
+      - ../RDM-waterbutler:/code
+  wb_worker:
+    volumes:
+      - ../RDM-waterbutler:/code
+  wb_requirements:
+    volumes:
+      - ../RDM-waterbutler:/code
+</code></pre></div>
+<h3 id="アドオンのテスト_1">アドオンのテスト<a class="headerlink" href="#アドオンのテスト_1" title="Permanent link">&para;</a></h3>
+<p>以下のコマンドで、WaterButlerに追加したMy MinIOアドオン Providerのユニットテストを実行できます。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose run --rm wb invoke test --provider myminio
+</code></pre></div>
+<h1 id="my-minioアドオンの動作確認">My MinIOアドオンの動作確認<a class="headerlink" href="#my-minioアドオンの動作確認" title="Permanent link">&para;</a></h1>
+<p>My MinIOアドオンの動作確認をしてみましょう。</p>
+<h2 id="minioサービスの起動">MinIOサービスの起動<a class="headerlink" href="#minioサービスの起動" title="Permanent link">&para;</a></h2>
+<p>接続先のMinIOサービスを起動します。</p>
+<div class="highlight"><pre><span></span><code>docker run -p 9001:9000 \
+  -e "MINIO_ACCESS_KEY=minioadmin" \
+  -e "MINIO_SECRET_KEY=minioadmin" \
+  minio/minio server /data
+</code></pre></div>
+<p>RDMと同じコンピュータで実行する場合、9000番ポートが競合してしまうので、MinIOサービスのホストへの割り当てポートは9001などに設定します。
+<code>MINIO_ACCESS_KEY</code> と <code>MINIO_SECRET_KEY</code> は認証に使うキーです。適宜書き換えてください。</p>
+<p>その他MinIOに関する詳しい説明は<a href="https://docs.min.io/">MinIOのドキュメント</a>を参照してください。</p>
+<h2 id="osfio-addonの設定">OSF.io Addonの設定<a class="headerlink" href="#osfio-addonの設定" title="Permanent link">&para;</a></h2>
+<p>OSF.io Addonの設定をします。 <code>addons/myminio/settings/local-dist.py</code> を <code>addons/myminio/settings/local.py</code> にコピーし、 <code>HOST</code> プロパティに先ほど起動したMinIOサービスのホスト名を指定します。</p>
+<div class="highlight"><pre><span></span><code>HOST = '192.168.168.167:9001'
+</code></pre></div>
+<p>RDMとMinIOサービスを同じ環境で実行している場合は、ループバックエイリアスを指定します。</p>
+<h2 id="dbマイグレーション">DBマイグレーション<a class="headerlink" href="#dbマイグレーション" title="Permanent link">&para;</a></h2>
+<p>マイグレーションを実行し、Migrations定義をPostgreSQLサービスに反映します。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose run --rm web python3 manage.py migrate
+</code></pre></div>
+<h2 id="サービスの再起動">サービスの再起動<a class="headerlink" href="#サービスの再起動" title="Permanent link">&para;</a></h2>
+<p>WaterButlerに追加したProviderを有効にするために、 <code>wb_requirements</code> を起動します。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose up wb_requirements
+</code></pre></div>
+<p>変更したファイルに関連するサービスを再起動します。</p>
+<div class="highlight"><pre><span></span><code>$ docker compose restart assets web api wb
+</code></pre></div>
+<p>これでサービスへの反映は完了です。</p>
+<h2 id="ストレージアドオンを試す">ストレージアドオンを試す<a class="headerlink" href="#ストレージアドオンを試す" title="Permanent link">&para;</a></h2>
+<p>My MinIOアドオンを試すには、以下のような操作を実施します。</p>
+<ol>
+<li>RDM Web UIにアクセスする <code>http://localhost:5000</code></li>
+<li>ユーザ設定ページを開く</li>
+<li>Configure add-on accountsページを開く</li>
+<li>My MinIOアドオンの認証情報を設定をする
+  <img alt="Authorize Addon" src="../images/authorize-addon.png" />
+  認証情報の設定ダイアログが表示されるので、MinIOサービスの <code>MINIO_ACCESS_KEY</code> と <code>MINIO_SECRET_KEY</code> を、それぞれ、<code>Access Key</code> と <code>Secret Key</code> フォームに入力して保存します。
+  <img alt="Filled Credential" src="../images/filled-credential.png" />
+  成功すれば、切断ボタンと利用しているプロジェクトリストが表示されるエリアが表示されます。
+  <img alt="Successful Authorization Addon" src="../images/successful-authorization-addon.png" /></li>
+<li>適当なプロジェクトを作成する</li>
+<li>Add-onsページを開く</li>
+<li>My MinIOアドオンを有効化する
+  <img alt="Enable Addon" src="../images/enable-addon.png" /></li>
+<li>My MinIOアドオンの設定をする
+  <img alt="Configure Addon" src="../images/configure-addon.png" />
+  <code>Import Account from Profile</code>ボタンから、アドオンの設定を行います。
+  接続に成功すると、ルート直下のフォルダリストが表示されるので、プロジェクトに紐付けるフォルダを選択し、保存します。このページでフォルダを作成することもできます。
+  <img alt="Select Current Folder" src="../images/select-current-folder.png" /></li>
+</ol>
+<p>これで、作成したプロジェクトでMy MinIOアドオンが使えるようになりました。
+プロジェクトページのFiles ウィジェットやFilesページから、My MinIOサービスに対してフォルダの作成やファイルのアップロード、削除、ダウンロードなどができるようになるはずです。</p>
+<p><img alt="Enabled Addon" src="../images/enabled-addon.png" /></p>
+<p>以上でMy MinIOアドオンの動作確認は完了です！</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.scrollspy", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d6f25eb3.min.js"></script>
+      
+        <script src="../../../assets/mermaid.min.js"></script>
+      
+        <script src="../../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

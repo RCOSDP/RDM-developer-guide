@@ -1,0 +1,233 @@
+# ADR-07 Native Builds of EOL Middleware / EOL ミドルウェアのネイティブビルド
+
+> **Summary:** Some middleware the current GakuNin RDM needs (Elasticsearch 2.4.6 first) is end of life and only ships `linux/amd64` images. Running such an image under emulation on Apple Silicon is not merely slow: Elasticsearch 2 took 38 minutes to open its port on a fresh data directory (real install run 19), and the same program on a native arm64 JRE starts in 5 seconds. We decide to **build such images ourselves, natively for both architectures, from the official release artefact on a digest-pinned base**, declared in the manifest as `image_build: {context, tag}` with a Dockerfile under `installer/images/<id>/`, until the milestone that retires the middleware (M5 for Elasticsearch 2). The native image also runs as the hardening default (non-root, read-only), so the service's own hardening exception disappears (the owner-init one-shot stays, see §2.4).
+> **概要:** 現在の GakuNin RDM が必要とするミドルウェアの一部（まず Elasticsearch 2.4.6）は EOL で、`linux/amd64` のイメージしか配布されていない。Apple Silicon でそれをエミュレーションで動かすのは「遅い」で済まない。Elasticsearch 2 は新しいデータディレクトリでポートを開くまで 38 分かかり（実機第 19 回）、同じプログラムは arm64 ネイティブの JRE なら 5 秒で起動する。**公式のリリース成果物からダイジェスト固定のベース上に、両アーキテクチャ向けのイメージを自分たちでネイティブに組む**ことを決める。manifest では `image_build: {context, tag}` として宣言し、Dockerfile は `installer/images/<id>/` に置き、そのミドルウェアを退役させる節目（Elasticsearch 2 は M5）まで続ける。ネイティブのイメージは堅牢化の既定（非 root・読み取り専用）で動くので、サービス自身の堅牢化の例外が消える（所有者初期化の一回限りサービスは残る。§2.4）。
+
+**Jump:** [English](#english) · [日本語](#japanese)
+
+- Version / 版: 0.9 — 2026-11-10. **Learned:** an unset connection URL does not fail, it falls back to a default built from other settings: osf.io pointed its mongo client at PostgreSQL, so a client fixed to verify TLS still needs the installer to name the server and the trust anchor (RDM-osf.io-dev2027 PR #9). ／ 接続 URL が未設定でも失敗せず、他の設定から組み立てた既定値に落ちる。osf.io は mongo のクライアントを PostgreSQL に向けていたので、TLS を検証するよう直したクライアントにも、インストーラーが接続先と信頼の起点を渡す必要があると分かった（RDM-osf.io-dev2027 PR #9）。
+  0.8 — 2026-11-10. **Learned:** a byte count does not make a key usable by its consumer: a manually written key may be 43 `!` or 32 quoted spaces, so every CAS key must also be in the base64url alphabet, must not be a published default, and the TGC encryption key must decode canonically to 32 bytes (PR #39 review r1 R1-01). ／ バイト数だけでは、鍵が使う側で使えるとは言えない。手で書いた鍵は感嘆符 43 個や引用符で囲んだ空白 32 個でありうる。そこで CAS の鍵はすべて base64url の文字に限り、公開された既定値を拒み、TGC の暗号鍵は 32 バイトへ正準に復号できなければならない（PR #39 レビュー r1 R1-01）。
+  0.7 — 2026-11-10. **Learned:** a prebuilt image also freezes out every later fix, and an installer key that nothing reads looks healthy until the real program starts, so CAS moved to a native build from its pinned commit and its keys now carry the names and lengths the image needs (§7). ／ 事前ビルド済みイメージは後の修正もすべて締め出す。また誰も読まないインストーラのキーは、実際のプログラムが起動するまで正常に見える。そこで CAS は固定コミットからのネイティブビルドに移し、キーにはイメージが要する名前と長さを与えた（§7）。
+  0.6 — 2026-11-10. **Learned:** review r1 of MFR PR #5 showed that a rename does not prove a transfer is complete and a conversion semaphore does not bound connections, so each transfer now has a declared length, a hard deadline and an authenticated, dedicated path. ／ MFR PR #5 のレビュー r1 で、名前の変更は転送の完了を保証せず、変換のセマフォは接続数を制限しないと分かった。転送ごとに宣言された長さ、固い期限、認証された専用の経路を持たせた。
+  0.5 — 2026-11-10. **Learned:** when a socket protocol cannot cross a version boundary, moving the conversion behind a plain HTTP interface decoupled the two ends and let the converter drop its shared volume and its hardening entry; for sharejs, the driver under the adapter could be replaced without touching the protocol, keeping the OT behaviour. ／ ソケットのプロトコルが版の境界を越えられないとき、変換を素朴な HTTP に移すと両端が切り離され、変換側は共有ボリュームと堅牢化の項目を手放せた。sharejs はアダプタの下のドライバーだけを置き換えられ、OT の動作を保てた。
+  0.4 — 2026-11-10. **Learned:** a reproducible lockfile can preserve a fixable vulnerability, so the fix belongs in the lockfile of the component and is pinned here, and the upgrade path stays reachable before authentication because the browser client depends on the 4401 close (PR #37 review r2). ／ 再現可能なロックは修正可能な脆弱性も固定しうるので、修正はその部品のロックで行ってここで固定する。ブラウザのクライアントが 4401 の close に依存するため、upgrade の経路は認証の前でも到達できる（PR #37 レビュー r2）。
+  0.3 — 2026-11-10. **Learned:** a rebuilt image is only as safe as the commit and dependency set it is built from, so the image must be tested at the authenticating commit with its lockfile and frozen modules, and a data-volume upgrade needs a restorable snapshot rather than an image reference to go back to (PR #37 review r1). ／ 組み直したイメージの安全性は、組む元のコミットと依存の組で決まる。認証を含むコミットとロックファイル、固定したモジュールでそのイメージを試験しなければならず、データボリュームの更新には戻る先のイメージ参照でなく復元できる snapshot が要る（PR #37 レビュー r1）。
+  0.2 — 2026-11-10. **Learned:** a lower CVE count proves nothing about the client on the other end of a socket: a current LibreOffice scanned far cleaner yet could not serve MFR's 6.1 UNO client, so each image change needs its real client path proven. ／ CVE の件数が減ってもソケットの相手のクライアントについては何も証明しない。現行の LibreOffice は検出がはるかに少なかったが MFR の 6.1 の UNO クライアントには応えられなかった。イメージの変更ごとに実際のクライアントの経路を証明する必要がある。
+  0.1 — 2026-11-06. **Learned:** a cold start measures what a warm host hides: an emulated JDK 8 service spends tens of minutes initialising every time its data directory is new, and no timeout makes that acceptable; the program itself starts in seconds when it runs natively (real install run 19, PR #33 review r1). ／ コールドスタートは温まったホストが隠すものを測る。エミュレーションされた JDK 8 のサービスはデータディレクトリが新しいたびに数十分を初期化に費やし、どんなタイムアウトでもそれは許容できない。プログラム自体はネイティブで動かせば数秒で起動する（実機第 19 回、PR #33 レビュー r1）。
+- Status: Proposed for the owner's approval, 2026-11-06 (M2). Review date: start of M5 (Elasticsearch 2 retired); the rule itself stays for any later EOL middleware.
+- Records a decision for: [SPEC-01 §3](../spec/01_manifest.md#english) (`image_build`, MC-15) · [SPEC-02 §3](../spec/02_installer_cli.md#english) (`build` of repo-local images) · [SPEC-03 §3.3](../spec/03_security_gate.md#english) (exception list)
+- Related: [docs/decisions/README.md](README.md) · [ADR-03 Staged security gate](ADR-03_Staged_Security_Gate.md) · [ADR-06 Wiki frontend overlay](ADR-06_Wiki_Frontend_Overlay.md) · [DEMO-20 run 19](../demo/20_core_install_mac_studio.md#english) · [PR #33 review r1](../reviews/2026-11-06_RDM-developer-guide_PR33_Startup_Fixes_r1.md)
+
+---
+
+<a id="english"></a>
+## English
+
+[→ 日本語版へ](#japanese)
+
+### 1. Context
+
+The development environment must start on Apple Silicon (arm64) and on amd64 (the CPU type of ordinary PCs and servers; see [REF-01](../reference/REF-01_Glossary.md)) hosts ([SPEC-00 §4](../spec/00_overview.md#english)). The osf.io (the main part of GRDM: the website and its API; see [REF-01](../reference/REF-01_Glossary.md)) of today still needs Elasticsearch (the search engine inside GRDM; see [REF-01](../reference/REF-01_Glossary.md)) 2.x (retired at M5 with ES 8, [POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md#english)). The only official image, `elasticsearch:2` on Docker (the tool that builds images and runs containers; see [REF-01](../reference/REF-01_Glossary.md)) Hub, is `linux/amd64` only; PR (a pull request, a proposed change reviewed before it is merged; see [REF-01](../reference/REF-01_Glossary.md)) #32 made Compose run it under emulation (the `build_platform` of SPEC-01).
+
+Real install run 19 — the first cold start, with fresh volumes — showed the cost: the container burned two CPU cores for 38 minutes between `initializing ...` and `started`, while `osf_init` gave up waiting for the search engine after 5 minutes and the whole `up` failed. A trial of the official `elasticsearch-2.4.6.tar.gz` (27.3 MB, SHA-256 verified) on an arm64 `eclipse-temurin:8-jre` container reached `started` in 5 seconds. The slowness is the x86-64 image under Rosetta (Docker Desktop's amd64 emulation on Apple Silicon; see [REF-01](../reference/REF-01_Glossary.md)), not the program.
+
+The same shape — an EOL (end of life: software its maker no longer fixes; see [REF-01](../reference/REF-01_Glossary.md)) program that only ships amd64 images — exists for other infra components (unoconv, sharejs, fakecas until M4) and may recur before M5.
+
+### 2. Decision
+
+1. **Manifest** (the file that lists every component with its pinned commit; see [REF-01](../reference/REF-01_Glossary.md)). An `infra` component may carry `image_build: {"context": "<repo-relative directory>", "tag": "<recipe version>"}` ([SPEC-01 §3](../spec/01_manifest.md#english), rule MC-15): the directory holds a `Dockerfile`, the tag names the recipe (bump it when the Dockerfile changes), a `note` says why the official image cannot be used and until which milestone, and `prebuilt_image` / `build_platform` are excluded. `base_image` and `base_image_digest` name the digest-pinned base the Dockerfile starts from.
+2. **Build.** `grdm-dev build` builds such a component from the repository directory for the host platform (or `--platform`), tags it `grdm-dev/<id>:<tag>`, records it in the build report with status `built`, and `--push` publishes `ghcr.io/rcosdp/<id>:<tag>`; `compose render` writes that reference as `image:`, `scan` scans it like any other image. No clone, no integration repository: the component stays `infra`.
+3. **Dockerfile rules.** The artefact is the upstream's official release (tarball, deb or jar) fetched by URL with a checksum that is verified in the build; the base image is digest-pinned; the fetch runs in a `--platform=$BUILDPLATFORM` stage so that `curl`, `sha256sum` and `tar` never run under emulation (tar fails with "Function not implemented" under Rosetta); the final stage only copies files, runs as uid 1000 and needs no writable root except declared `tmpfs`/volumes. The image is a development artefact: no plugins, no site-specific configuration. `fakecas` is the recorded exception for a project with no release artefact: it is compiled from a checksum-verified commit archive with frozen `go.mod`/`go.sum`, and runs as uid 65534 as its service template always has.
+4. **Scope.** First applied to `elasticsearch2` (`installer/images/elasticsearch2/`, tag `2.4.6-1`). The elasticsearch hardening exception (`read_only`) of PR #33 is removed: the native image runs as uid 1000 on a read-only root, like elasticsearch 6. The one-shot `elasticsearch_data_init` stays, now on the native image as an explicit root with `CAP_CHOWN` only, because the bind-mounted data directory belongs to the host user (or to uid 101 after PR #33) and image layers cannot change a mounted tree (review r1 R1-01); that step later became the generic `volume_owner_init` ([SPEC-03 §3.3](../spec/03_security_gate.md#english)). Other amd64-only infra images stay under emulation until they become a start-up problem or reach their modernization milestone; each switch is one PR with its own run record. `elasticsearch6` (`6.8.23-1`) and `fakecas` (`9a9ddd73b225-2`) moved on 2026-11-10 (§5); `elasticsearch6` also lost its `read_only` hardening entry. `cas-overlay` is the first integration-repository component on this path: its own Dockerfile follows these rules and needs no recipe here (§7).
+5. **Retirement.** `target_image` keeps naming the milestone that removes the middleware (ES 2 → M5). A native build is a bridge, not a reason to keep EOL software.
+
+### 3. Options considered
+
+```toon
+options[4]{option,cold_start,hardening,maintenance,chosen}:
+  A,"official elasticsearch:2 under emulation (PR #32)","38 minutes on Apple Silicon","root + chown step, exception","none","no"
+  B,"wait longer / larger timeouts","unchanged, only hidden","unchanged","none","no"
+  C,"third-party arm64 images of ES 2","unknown provenance, unpinnable","unknown","depends on a stranger","no"
+  D,"build natively from the official tarball on a pinned JRE (this ADR)","5 seconds","uid 1000, read-only, no exception","one Dockerfile per image, checksum pinned","yes"
+```
+
+### 4. Consequences
+
+- Cold starts on Apple Silicon are bounded by the osf.io migrations and the ember build, not by a 40-minute search engine.
+- One fewer entry in `manifest/hardening.json` (the elasticsearch service itself); the baseline report shrinks ([SPEC-03 §3.3](../spec/03_security_gate.md#english)).
+- The repository now holds a Dockerfile for third-party software. It is a build recipe, not a fork: the artefact is upstream's, verified by checksum; Trivy (a scanner that reads our images and lists the holes it knows about; see [REF-01](../reference/REF-01_Glossary.md)) scans the resulting image like any other.
+- CI (continuous integration: the checks that run automatically on every pull request; see [REF-01](../reference/REF-01_Glossary.md)) must build `image_build` components for both platforms (amd64 on the GitHub runner, arm64 on the Mac Studio runner, SPEC-02 §10) so a recipe change is caught before a developer hits it.
+
+### 5. Image vulnerability reduction (2026-11-10)
+
+Counts are Trivy 0.75 `image --offline-scan` with the local database of 2026-11-05, CRITICAL/HIGH findings as reported, without the Python 3.13 port. "Before" images are amd64 except y-websocket and rabbitmq, which are arm64. Every "after" image was measured on both arm64 and amd64, with equal counts on each. The tested y-websocket (the real-time co-editing server for the Wiki; see [REF-01](../reference/REF-01_Glossary.md)) commit is `09eb0a9f4af623760a15e100790381560b9e8ce0`, the head of the integration repository's `security/ws-update` branch (`bf2cd67051025416de028f6edd16c83d3fc8ba79` plus `ws` 6.2.6 in the lockfile).
+
+```toon
+results[6]{image,before,after,outcome,proof}:
+  elasticsearch6,37/236,2/50,"adopted: OSS 6.8.23 on Temurin 11 (image_build)","osf.io's django-elasticsearch-metrics wrote a template, documents and an aggregation on both architectures; a copy of a 6.3.1 data volume upgraded and validated; rollback demonstrated (§6)"
+  fakecas,1/57,0/2,"adopted: pinned commit with current Go and frozen modules (image_build)","login form, ticket validation, login redirect, and 404 for an unknown ticket against postgres on both architectures; two uncached builds gave the same binary hash"
+  y-websocket,1/12,0/0,"adopted: JWT-enforcing commit with ws 6.2.6, npm ci from its lockfile, no npm or yarn at run time, Node 24 LTS (build_dockerfile)","no, bad-signature, expired, wrong-document, no-exp, alg-none and duplicate tokens closed 4401 with zero frames; a valid token converged two Yjs providers; a missing secret refuses to start; both architectures"
+  rabbitmq,0/7,0/7,"digest pinned; 3.13.7 is already the newest image of the 3-management tag","same image as the running one"
+  unoconv,147/1140,1/98,"adopted: Debian 13 LibreOffice 25.2 behind a convert service (image_build)","MFR docx, xlsx and pptx to PDF on arm64 and amd64 (text with Japanese verified); see below"
+  sharejs,394/1588,0/0,"adopted: Node 24 with a mongoskin shim on mongodb 3.7 (image_build)","two ShareJS clients converged, documents survived a server restart and osf.io's pymongo read them; see below"
+```
+
+A rejected y-websocket upgrade still passes `handleUpgrade` and is then closed with 4401, and this stays: a browser cannot read the reason of an HTTP 401 on a WebSocket upgrade, SPEC-04 C4 and S1 require 4401 with zero frames, and the wiki client's token recovery keys on that code. Refusing earlier would be a joint change to the client and SPEC-04; the two `ws` advisories on that path are fixed by 6.2.6. The two fakecas findings are `dgrijalva/jwt-go` and `labstack/echo` v3, which upstream's module requires and which have no fixed version in that line. The remaining elasticsearch6 findings are jars inside the 6.8.23 release (netty, jackson, snakeyaml, bouncycastle and Elasticsearch itself) plus `apt` in the JRE base; Elastic published no later 6.8 release (6.8.24 answers 404), and M5 removes this line.
+
+**unoconv.** LibreOffice from Debian 12 (7.4) and Debian 13 (25.2) cannot serve MFR's LibreOffice 6.1 UNO client (`Binary URP bridge disposed during call`), so MFR now posts each document to a small HTTP service in this image, which runs `soffice --convert-to` with its own directory and profile per request. The service has a size limit, a time limit and a bounded queue; the target format is an allow-listed token. MFR no longer shares its temporary directory with the converter, which runs as uid 1000 on a read-only root with no capabilities and a size-limited tmpfs, on the internal network; its hardening entry is removed. The 1/98 are Debian-unfixed findings (25 of them are the Python packages the service needs). Each request authenticates with `UNOCONV_CONVERT_SECRET` before its body is read, connections are served by a fixed worker pool and a bounded queue with hard deadlines, and the converter and MFR share a dedicated internal network (`grdm-convert`) that no other service joins. Per-job directories are resource separation, not a sandbox between concurrent jobs, which run under one uid. The switch needs the MFR change (`UNOCONV_CONVERT_URL`) merged first; until then the old image keeps working with the old default.
+
+**sharejs.** Node 24 with mongodb 1.4.40 never called back over TLS, so `vendor/mongoskin` replaces the part of the mongoskin API that livedb-mongo uses on top of mongodb 3.7 (the last driver line that supports the mongo:3.4 server), and ws 8 replaces ws 0.4. The connection verifies the server certificate and host name against `MONGO_TLS_CA_FILE`: mongo creates its certificate once, keeps the key in `mongo_data`, and copies only the public certificate to `mongo_tls`, which sharejs mounts read-only. osf.io's own pymongo client (`addons/wiki/utils.py` `share_db()`) verifies the same way since RDM-osf.io-dev2027 PR #9: `compose render` writes `SHAREJS_DB_URL=mongodb://mongo:27017/sharejs?ssl=true` and `SHAREJS_DB_CA_FILE=/mongo-tls/mongodb.crt` into `osf.env` and mounts `mongo_tls` read-only in web, api, admin and worker, and `share_db()` refuses any URL option that would weaken the check. Before that, osf.io had no `SHAREJS_DB_URL` here and assembled `mongodb://postgres:5432/sharejs` from `DB_HOST` and `OSF_DB_PORT`. The sharejs server itself changes by five lines. **What osf.io still needs it for:** the wiki editor moved to y-websocket and no longer loads sharejs in the browser (`wiki-edit-page` bundle from RDM-wiki-frontend; the repository's `wikiPage.js` runs only through the legacy fallback when no bundle is installed, which does not happen in this environment), but the text editor on the file page still does (`view_file.mako` loads `//<sharejs>/text.js` and `share.js`; `website/static/js/filepage/editor.js` uses `ShareJSDoc`), and osf.io still reads mongo through `addons/wiki/utils.py` `share_db()` and `WikiVersion.get_draft`, called from `wiki_page_draft`. In this environment sharejs has no published port, so the file page's editor already shows only a spinner (`addons/wiki/settings/defaults.py` gives the browser `localhost:7007`). Retiring sharejs and mongo is a separate decision: it needs a replacement for that editor, removal of `share_db`, `get_draft` and the `/draft/` route, and a data decision about drafts already stored in mongo.
+
+### 6. Upgrading an existing Elasticsearch 6.3.1 data volume
+
+The data under `runtime/volumes/elasticsearch6_data` moves from 6.3.1 (default distribution) to 6.8.23 (OSS) when the new image starts on it. Reverting the image reference does not recover it: once 6.8.23 has written the directory, go back by restoring a snapshot taken before the upgrade ([Elastic 6.8 upgrade guide](https://www.elastic.co/guide/en/elasticsearch/reference/6.8/setup-upgrade.html)). Metrics are development data, so a developer may also choose to discard the directory. Otherwise, with `E=http://<address of the node>:9200`:
+
+1. **Record the old cluster.** `curl $E/` (version and `build_flavor`), `curl "$E/_cat/plugins?v"`, `curl "$E/_cat/templates?h=name"` and `curl "$E/_cluster/state/metadata?filter_path=metadata.licenses.license.type,metadata.ml.jobs,metadata.ml.datafeeds"`.
+2. **Stop the writers.** Stop `web`, `api`, `admin` and `worker`, then `elasticsearch6`.
+3. **Take and verify a snapshot.** Start a one-off `docker.elastic.co/elasticsearch/elasticsearch:6.3.1` with `--platform linux/amd64`, `--user 1000:1000`, the data directory mounted, an empty directory owned by uid 1000 mounted at `/snapshots`, and `-e discovery.type=single-node -e xpack.security.enabled=false -e path.repo=/snapshots`. Then `PUT $E/_snapshot/preupgrade` with `{"type":"fs","settings":{"location":"/snapshots/preupgrade"}}`, `POST $E/_snapshot/preupgrade/_verify`, and `PUT "$E/_snapshot/preupgrade/before-6-8?wait_for_completion=true"` with `{"indices":"*","include_global_state":true}`. Require `"state":"SUCCESS"` and `"failed":0`. Stop the container.
+4. **Upgrade a disposable copy.** Copy the data directory to a new directory owned by uid 1000, start the 6.8.23 image on the copy as the `elasticsearch6` template does, and check the templates, the document counts and an aggregation. Only then start the real service on the real directory.
+5. **On failure, restore to a clean 6.3.1.** Empty the data directory, start the one-off 6.3.1 container of step 3 on it, register the repository with `"readonly":true`, `POST "$E/_snapshot/preupgrade/before-6-8/_restore?wait_for_completion=true"` with `{"indices":"*","include_global_state":true}`, repeat the checks, and stay on the previous revision of this repository.
+
+Demonstrated on 2026-11-10 with throwaway containers and volumes, never the running stack. The 6.3.1 cluster was the default distribution with x-pack modules, plugins `ingest-geoip` and `ingest-user-agent`, no ML jobs or datafeeds, and 15 X-Pack or Logstash templates beside the application's. Three documents written through osf.io's client were snapshotted (`SUCCESS`, 1 shard, 0 failed); a copy upgraded to 6.8.23 returned the template, 3 documents and the aggregation; a clean 6.3.1 restored from the snapshot returned the same. On 6.8.23 OSS the unknown `licenses` metadata is logged and skipped. The x-pack templates stay in the upgraded copy; nothing uses them. A cluster with ML jobs, security users or other X-Pack state was not tested, so step 1 decides whether this procedure applies.
+
+### 7. The login server built from the integration repository (2026-11-10)
+
+`cas-overlay`, our CAS (Central Authentication Service: the real login server; see [REF-01](../reference/REF-01_Glossary.md)), ran a prebuilt `linux/amd64` image, because Maven hung for 8 hours under emulation (DEMO-20 run 3). That image could not carry the security fixes merged into the integration repository. The repository's own Dockerfile is now native: at commit `22610b7681a29241365108e5129bcd43ade4610e`, Maven and the jetty configuration run on the build host's architecture and the final stage only copies files. So the component needs neither `prebuilt_image` nor `build_platform`, and no `build_dockerfile` of ours. The `cas` hardening entry is gone: the service runs as uid 1000 on a read-only root, with only `/tmp` writable.
+
+**Settings.** `compose render` writes all of `/etc/cas/cas.properties` and one service definition in `/etc/cas/services`, which allows only the published web URL. The mount replaces the image's definitions, which name other hosts. The Secure cookie flags are off because the stack is plain HTTP on loopback. Secrets reach CAS only through the environment.
+
+**Keys.** The old `CAS_TGC_*` and `CAS_WEBFLOW_*` keys had no effect: Spring reads `tgc.encryption.key` from `TGC_ENCRYPTION_KEY`, and nothing reads a webflow key. They are retired. `runtime/.env` now holds `TGC_ENCRYPTION_KEY` (43 characters), `TGC_SIGNING_KEY` (86 characters), `OSF_API_INSTITUTIONS_AUTH_JWESECRET` (exactly 32 bytes) and `OSF_API_INSTITUTIONS_AUTH_JWTSECRET` (at least 32 bytes). The last two also become osf.io's `JWE_SECRET` and `JWT_SECRET`, in `api/base/settings`. CAS itself does not check the TGC keys, so `secrets init` and `compose render` check all four: the length, the base64url alphabet (no whitespace or quotes), no published default (compared by SHA-256, so the repository does not hold them), and for `TGC_ENCRYPTION_KEY`, which CAS reads as a JWK octet value, a canonical decoding to 32 bytes. The signing key and the institution keys are used as raw characters and are not decoded.
+
+**Order.** CAS validates the migrated `osf` schema at start and exits 254 on an empty database, so it waits for `osf_init` with `service_completed_successfully`.
+
+**Upgrading an existing `runtime/.env`.** `compose render` stops with exit 2 and names the four missing keys. `grdm-dev secrets rotate` adds them, and it also replaces every other secret and recreates the running containers with the existing Compose file. Then run `compose render`, `build --component cas-overlay` and `up`. To keep the other secrets, append the four keys by hand with those lengths and that alphabet, and skip `rotate`.
+
+**Proof on 2026-11-10, on arm64.** The project was a throwaway `cas-int`, derived from the rendered file with only `cas` and what it waits for, plus a loopback port for the test; the running stack was not touched. The osf.io image ran the real migrations on a new database (`osf_init` exit 0), so this is the first check of the `validate` step against the real GRDM schema.
+
+```toon
+results[8]{check,result}:
+  "image","built by grdm-dev build, arm64, base digest label present"
+  "container","uid 1000, read-only root, cap_drop ALL, no-new-privileges, 0 restarts"
+  "start","Jetty started in 19 s after osf_init; no Missing table or unresolved placeholder"
+  "GET /login","200; JSESSIONID has HttpOnly and no Secure"
+  "wrong password","200 with an error, no ticket, no TGC"
+  "right password (user created through osf.io, bcrypt_sha256)","302 to the web URL with a service ticket; TGC has HttpOnly and no Secure"
+  "/p3/serviceValidate","authenticationSuccess for the user's GUID; the same ticket again gives INVALID_TICKET"
+  "unregistered service","200 not-authorized page with no login form"
+```
+
+**Not verified.** osf.io still logs in through fakecas, because this change does not switch the auth provider. The redirect back into a running web service, institution login with the JWE and JWT keys, TOTP, ORCiD and a real amd64 host (the integration repository's PR tested amd64 under Rosetta before its last secret changes) were not exercised.
+
+---
+
+<a id="japanese"></a>
+## 日本語
+
+[→ To English](#english)
+
+### 1. 背景
+
+開発環境は Apple Silicon（arm64）と amd64 のホストの両方で起動しなければならない（[SPEC-00 §4](../spec/00_overview.md#japanese)）。現在の osf.io はまだ Elasticsearch 2.x を必要とする（M5 で ES 8 に替えて退役。[POL-01 §4](../policy/POL-01_Developer_Environment_2027_Position.md#japanese)）。唯一の公式イメージ Docker Hub の `elasticsearch:2` は `linux/amd64` のみで、PR #32 は Compose にエミュレーションで動かさせた（SPEC-01 の `build_platform`）。
+
+実機第 19 回 — 新しいボリュームでの最初のコールドスタート — がその代償を示した。コンテナは `initializing ...` から `started` まで 38 分間 CPU 2 コアを使い続け、一方 `osf_init` は 5 分で検索エンジンを待つのを諦めて `up` 全体が失敗した。公式の `elasticsearch-2.4.6.tar.gz`（27.3 MB、SHA-256 検証済み）を arm64 の `eclipse-temurin:8-jre` コンテナで試すと 5 秒で `started` に達した。遅いのは Rosetta（Apple Silicon 上の Docker Desktop の amd64 エミュレーション。[REF-01](../reference/REF-01_Glossary.md)）下の x86-64 イメージであって、プログラムではない。
+
+同じ形 — amd64 のイメージしか配布されない EOL のプログラム — は他の基盤部品（M4 までの unoconv・sharejs・fakecas）にもあり、M5 までにまた現れうる。
+
+### 2. 決定
+
+1. **manifest。** `infra` の部品は `image_build: {"context": "<リポジトリ相対のディレクトリ>", "tag": "<レシピの版>"}` を持てる（[SPEC-01 §3](../spec/01_manifest.md#japanese)、規則 MC-15）。ディレクトリには `Dockerfile` があり、tag はレシピの版（Dockerfile を変えたら上げる）、`note` には公式イメージが使えない理由とどの節目までかを書き、`prebuilt_image` と `build_platform` は併用できない。`base_image` と `base_image_digest` は Dockerfile が出発点にするダイジェスト固定のベースを指す。
+2. **ビルド。** `grdm-dev build` はその部品をリポジトリのディレクトリからホストのプラットフォーム（または `--platform`）向けに組み、`grdm-dev/<id>:<tag>` のタグを付け、ビルド報告に `built` として記録し、`--push` では `ghcr.io/rcosdp/<id>:<tag>` へ公開する。`compose render` はその参照を `image:` に書き、`scan` は他のイメージと同じに検査する。clone も統合リポジトリも無く、部品は `infra` のままである。
+3. **Dockerfile の規則。** 成果物は上流の公式リリース（tarball・deb・jar）で、URL から取得しビルド中にチェックサムを検証する。ベースイメージはダイジェスト固定。取得は `--platform=$BUILDPLATFORM` の段で行い、`curl`・`sha256sum`・`tar` をエミュレーション下で動かさない（tar は Rosetta 下で「Function not implemented」で失敗する）。最終段はファイルを写すだけで、uid 1000 で動き、宣言した `tmpfs`/ボリューム以外に書込可能なルートを要しない。イメージは開発用の成果物であり、プラグインもサイト固有の設定も持たない。`fakecas` はリリース成果物の無いプロジェクトとして記録した例外で、チェックサムを検証したコミットのアーカイブから、固定した `go.mod`/`go.sum` でコンパイルし、サービス定義のとおり uid 65534 で動く。
+4. **範囲。** まず `elasticsearch2`（`installer/images/elasticsearch2/`、tag `2.4.6-1`）に適用する。PR #33 の elasticsearch の堅牢化例外（`read_only`）は取り除く。ネイティブのイメージは elasticsearch 6 と同じく uid 1000・読み取り専用ルートで動く。一回限りの `elasticsearch_data_init` は残し、ネイティブイメージを明示の root・`CAP_CHOWN` のみで動かす。bind マウントしたデータディレクトリはホストの利用者（PR #33 の後は uid 101）の所有で、イメージの層ではマウントした木を変えられないからである（レビュー r1 R1-01）。この段は後に汎用の `volume_owner_init` になった（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。他の amd64 のみの基盤イメージは、起動の問題になるか近代化の節目に達するまでエミュレーションのままとし、切り替えは一つずつ PR と実機記録を伴って行う。`elasticsearch6`（`6.8.23-1`）と `fakecas`（`9a9ddd73b225-2`）は 2026-11-10 に移行した（§5）。`elasticsearch6` の `read_only` の堅牢化項目も消えた。`cas-overlay` はこの道を取る最初の統合リポジトリの部品で、自身の Dockerfile がこれらの規則に従うので本リポジトリのレシピは要らない（§7）。
+5. **退役。** `target_image` は引き続きそのミドルウェアを除く節目を指す（ES 2 → M5）。ネイティブビルドは橋であり、EOL ソフトウェアを残す理由ではない。
+
+### 3. 検討した選択肢
+
+```toon
+options[4]{option,cold_start,hardening,maintenance,chosen}:
+  A,"公式 elasticsearch:2 をエミュレーション（PR #32）","Apple Silicon で 38 分","root＋chown の段、例外あり","なし","いいえ"
+  B,"もっと長く待つ／タイムアウトを伸ばす","変わらず、隠れるだけ","変わらず","なし","いいえ"
+  C,"第三者の arm64 版 ES 2 イメージ","出自不明、固定不可","不明","他人次第","いいえ"
+  D,"公式 tarball から固定 JRE 上にネイティブで組む（本 ADR）","5 秒","uid 1000・読み取り専用・例外なし","イメージごとに Dockerfile 一つ、チェックサム固定","はい"
+```
+
+### 4. 影響
+
+- Apple Silicon のコールドスタートの上限は osf.io の migration と ember のビルドで決まり、40 分の検索エンジンではなくなる。
+- `manifest/hardening.json` の項目が一つ減る（elasticsearch サービス自身）。基本対策の報告が小さくなる（[SPEC-03 §3.3](../spec/03_security_gate.md#japanese)）。
+- リポジトリに第三者ソフトウェアの Dockerfile が入る。これはフォークではなくビルドのレシピで、成果物は上流のものをチェックサムで検証したもの。Trivy はできたイメージを他と同じに検査する。
+- CI は `image_build` の部品を両プラットフォームで組まなければならない（amd64 は GitHub ランナー、arm64 は Mac Studio ランナー。SPEC-02 §10）。レシピの変更を開発者が踏む前に捕まえるためである。
+
+### 5. イメージの脆弱性削減（2026-11-10）
+
+件数は Trivy 0.75 の `image --offline-scan`（ローカルのデータベースは 2026-11-05 版）による CRITICAL/HIGH の報告値で、Python 3.13 への移植は含まない。「前」のイメージは y-websocket と rabbitmq が arm64、それ以外は amd64。「後」のイメージはすべて arm64 と amd64 の両方で測り、件数は同じだった。試験した y-websocket のコミットは `09eb0a9f4af623760a15e100790381560b9e8ce0` で、統合リポジトリの `security/ws-update` ブランチの先頭である（`bf2cd67051025416de028f6edd16c83d3fc8ba79` にロックの `ws` 6.2.6 を加えたもの）。
+
+```toon
+results[6]{image,before,after,outcome,proof}:
+  elasticsearch6,37/236,2/50,"採用: Temurin 11 上の OSS 6.8.23（image_build）","osf.io の django-elasticsearch-metrics が両アーキテクチャでテンプレート・文書・集計を実行。6.3.1 のデータボリュームの写しを更新して検証し、復旧も実証（§6）"
+  fakecas,1/57,0/2,"採用: 固定コミットを現行の Go と固定したモジュールで組む（image_build）","両アーキテクチャで postgres に対しログイン画面、チケット検証、ログイン後の転送、未知のチケットの 404。キャッシュなしの 2 回のビルドでバイナリのハッシュが一致"
+  y-websocket,1/12,0/0,"採用: ws 6.2.6 を含む JWT を強制するコミット、ロックファイルからの npm ci、実行時に npm・yarn 無し、Node 24 LTS（build_dockerfile）","トークン無し・署名不正・期限切れ・別文書・exp 無し・alg none・重複は 4401 で閉じフレーム 0。有効なトークンで 2 つの Yjs プロバイダが収束。秘密鍵無しでは起動拒否。両アーキテクチャ"
+  rabbitmq,0/7,0/7,"ダイジェストを固定。3.13.7 は 3-management タグの最新イメージ","動作中のものと同じイメージ"
+  unoconv,147/1140,1/98,"採用: 変換サービス越しの Debian 13 LibreOffice 25.2（image_build）","MFR で docx・xlsx・pptx を arm64・amd64 で PDF に変換し日本語の本文を確認。下記"
+  sharejs,394/1588,0/0,"採用: Node 24 と mongodb 3.7 上の mongoskin 互換層（image_build）","2 つの ShareJS クライアントが収束し、サーバー再起動後も文書を保持し、osf.io の pymongo でも読めた。下記"
+```
+
+拒否された y-websocket の upgrade は `handleUpgrade` を通った後で 4401 で閉じ、この動作は維持する。ブラウザは WebSocket の upgrade に対する HTTP 401 の理由を読めず、SPEC-04 の C4 と S1 は 4401 とフレーム 0 を求め、wiki のクライアントのトークン回復はこのコードで動く。より前で拒否するにはクライアントと SPEC-04 を一緒に変える必要がある。その経路にある `ws` の勧告 2 件は 6.2.6 で修正した。fakecas の 2 件は上流のモジュールが要する `dgrijalva/jwt-go` と `labstack/echo` v3 で、その系統に修正版は無い。elasticsearch6 に残る検出は 6.8.23 のリリースに含まれる jar（netty・jackson・snakeyaml・bouncycastle・Elasticsearch 本体）と JRE ベースの `apt` である。Elastic は後続の 6.8 を出しておらず（6.8.24 は 404）、M5 でこの系統ごと除く。
+
+**unoconv。** Debian 12（7.4）と Debian 13（25.2）の LibreOffice は MFR の 6.1 の UNO クライアントには応えられない（`Binary URP bridge disposed during call`）。そこで MFR は文書をこのイメージの小さな HTTP サービスに送り、サービスは要求ごとに専用のディレクトリとプロファイルで `soffice --convert-to` を動かす。サイズ・時間の上限と同時実行の上限を持ち、変換先の形式は許可された語に限る。MFR は一時ディレクトリを変換側と共有しなくなり、変換側は uid 1000・読み取り専用ルート・capability なし・サイズ上限つき tmpfs で内部ネットワークだけで動くので、堅牢化の項目を削除した。残る 1/98 は Debian で未修正の検出で、うち 25 件はサービスに必要な Python のパッケージである。要求は本文を読む前に `UNOCONV_CONVERT_SECRET` で認証し、接続は固定のワーカーと有限の待ち行列で固い期限のもとに処理し、変換側と MFR は他のサービスが参加しない専用の内部ネットワーク（`grdm-convert`）を共有する。ジョブごとのディレクトリは資源の分離であり、同じ uid で動く同時実行のジョブの間のサンドボックスではない。切り替えには MFR の変更（`UNOCONV_CONVERT_URL`）の取り込みが先に必要で、それまでは旧イメージと旧来の既定のまま動く。
+
+**sharejs。** mongodb 1.4.40 は Node 24 の TLS でコールバックを返さないので、`vendor/mongoskin` で livedb-mongo が使う mongoskin の API を mongodb 3.7（mongo:3.4 を扱える最後のドライバー系統）の上に置き換え、ws 0.4 を ws 8 にした。接続はサーバー証明書とホスト名を `MONGO_TLS_CA_FILE` で検証する。mongo は証明書を一度だけ作り、鍵を `mongo_data` に置き、公開証明書だけを `mongo_tls` に写し、sharejs はそれを読み取り専用でマウントする。osf.io 自身の pymongo（`addons/wiki/utils.py` の `share_db()`）も RDM-osf.io-dev2027 PR #9 以降は同じ方法で検証する。`compose render` は `osf.env` に `SHAREJS_DB_URL=mongodb://mongo:27017/sharejs?ssl=true` と `SHAREJS_DB_CA_FILE=/mongo-tls/mongodb.crt` を書き、web・api・admin・worker に `mongo_tls` を読み取り専用でマウントする。`share_db()` は検証を弱める URL のオプションを拒否する。それ以前のこの環境では osf.io に `SHAREJS_DB_URL` が無く、`DB_HOST` と `OSF_DB_PORT` から `mongodb://postgres:5432/sharejs` を組み立てていた。sharejs 本体の変更は 5 行である。**osf.io がまだ必要とするもの:** wiki エディタは y-websocket に移行し、ブラウザで sharejs を読み込まない（RDM-wiki-frontend の `wiki-edit-page` バンドル。リポジトリの `wikiPage.js` が動くのはバンドルが無いときの旧経路だけで、この環境では起きない）。しかしファイルページのテキストエディタはまだ使う（`view_file.mako` が `//<sharejs>/text.js` と `share.js` を読み、`website/static/js/filepage/editor.js` が `ShareJSDoc` を使う）。また osf.io は `addons/wiki/utils.py` の `share_db()` と `WikiVersion.get_draft`（`wiki_page_draft` から呼ばれる）で mongo を読み続けている。この環境の sharejs は公開ポートを持たないので、ファイルページのエディタはすでにスピナーのままである（`addons/wiki/settings/defaults.py` はブラウザに `localhost:7007` を渡す）。sharejs と mongo の退役は別の判断である。そのエディタの代替、`share_db`・`get_draft`・`/draft/` 経路の除去、mongo に既にある下書きの扱いが必要になる。
+
+### 6. 既存の Elasticsearch 6.3.1 データボリュームの更新
+
+新しいイメージを起動すると、`runtime/volumes/elasticsearch6_data` のデータは 6.3.1（default 配布）から 6.8.23（OSS）へ移る。イメージ参照を戻しても復旧にはならない。6.8.23 が一度ディレクトリに書いたら、戻るには更新前に取った snapshot を復元する（[Elastic 6.8 更新ガイド](https://www.elastic.co/guide/en/elasticsearch/reference/6.8/setup-upgrade.html)）。メトリクスは開発用のデータなので、開発者はディレクトリを捨てることも選べる。そうしない場合は、`E=http://<ノードのアドレス>:9200` として次の手順による。
+
+1. **旧クラスタを記録する。** `curl $E/`（版と `build_flavor`）、`curl "$E/_cat/plugins?v"`、`curl "$E/_cat/templates?h=name"`、`curl "$E/_cluster/state/metadata?filter_path=metadata.licenses.license.type,metadata.ml.jobs,metadata.ml.datafeeds"`。
+2. **書き手を止める。** `web`・`api`・`admin`・`worker` を止め、次に `elasticsearch6` を止める。
+3. **snapshot を取り確認する。** 一回限りの `docker.elastic.co/elasticsearch/elasticsearch:6.3.1` を `--platform linux/amd64`・`--user 1000:1000` で起動する。データディレクトリと、`/snapshots` に uid 1000 所有の空ディレクトリをマウントし、`-e discovery.type=single-node -e xpack.security.enabled=false -e path.repo=/snapshots` を渡す。`PUT $E/_snapshot/preupgrade` に `{"type":"fs","settings":{"location":"/snapshots/preupgrade"}}`、`POST $E/_snapshot/preupgrade/_verify`、`PUT "$E/_snapshot/preupgrade/before-6-8?wait_for_completion=true"` に `{"indices":"*","include_global_state":true}` を送り、`"state":"SUCCESS"` と `"failed":0` を確かめてコンテナを止める。
+4. **使い捨ての写しを更新する。** データディレクトリを uid 1000 所有の新しいディレクトリへ写し、`elasticsearch6` のテンプレートと同じ設定で 6.8.23 のイメージを写しの上で起動し、テンプレート・文書数・集計を確かめる。その後で初めて本来のディレクトリでサービスを起動する。
+5. **失敗したら空の 6.3.1 へ復元する。** データディレクトリを空にし、手順 3 の 6.3.1 のコンテナをその上で起動し、リポジトリを `"readonly":true` で登録し、`POST "$E/_snapshot/preupgrade/before-6-8/_restore?wait_for_completion=true"` に `{"indices":"*","include_global_state":true}` を送って同じ確認をし、本リポジトリの以前の版に留まる。
+
+2026-11-10 に使い捨てのコンテナとボリュームで実証した。稼働中のスタックには触れていない。6.3.1 のクラスタは x-pack モジュールを持つ default 配布で、プラグインは `ingest-geoip` と `ingest-user-agent`、ML のジョブと datafeed は無く、アプリケーションのもののほかに X-Pack と Logstash のテンプレートが 15 個あった。osf.io のクライアントで書いた文書 3 件を snapshot し（`SUCCESS`、1 シャード、失敗 0）、6.8.23 へ更新した写しはテンプレート・文書 3 件・集計を返し、snapshot から復元した空の 6.3.1 も同じものを返した。6.8.23 OSS では未知の `licenses` メタデータはログに出て読み飛ばされる。x-pack のテンプレートは更新後の写しに残るが、使うものは無い。ML ジョブやセキュリティのユーザーなどの X-Pack の状態を持つクラスタは試験していないので、この手順が当てはまるかは手順 1 で判断する。
+
+### 7. 統合リポジトリから組むログインサーバー（2026-11-10）
+
+`cas-overlay`（CAS。Central Authentication Service、実際のログインサーバー。[REF-01](../reference/REF-01_Glossary.md)）は、エミュレーション下で Maven が 8 時間止まったため（DEMO-20 第 3 回）、事前ビルド済みの `linux/amd64` イメージで動かしていた。そのイメージには統合リポジトリに取り込んだセキュリティ修正が入らない。統合リポジトリ自身の Dockerfile はネイティブになった。コミット `22610b7681a29241365108e5129bcd43ade4610e` では Maven と jetty の設定はビルドホストのアーキテクチャで動き、最終段はファイルを写すだけである。そこでこの部品には `prebuilt_image` も `build_platform` も本リポジトリの `build_dockerfile` も要らない。`cas` の堅牢化の項目は消えた。サービスは uid 1000・読み取り専用ルートで動き、書き込めるのは `/tmp` だけである。
+
+**設定。** `compose render` は `/etc/cas/cas.properties` の全体と、`/etc/cas/services` のサービス定義を一つ書く。定義は公開された web の URL だけを許可する。この mount はイメージの定義（別のホストを指す）を置き換える。スタックはループバック上の平文 HTTP なので、Cookie の Secure は切る。秘密は環境変数だけで CAS に渡す。
+
+**キー。** 旧来の `CAS_TGC_*` と `CAS_WEBFLOW_*` は効いていなかった。Spring は `tgc.encryption.key` を `TGC_ENCRYPTION_KEY` から読み、webflow の鍵は何も読まない。これらは廃止した。`runtime/.env` は `TGC_ENCRYPTION_KEY`（43 文字）、`TGC_SIGNING_KEY`（86 文字）、`OSF_API_INSTITUTIONS_AUTH_JWESECRET`（ちょうど 32 バイト）、`OSF_API_INSTITUTIONS_AUTH_JWTSECRET`（32 バイト以上）を持つ。後の二つは `api/base/settings` の osf.io の `JWE_SECRET` と `JWT_SECRET` にもなる。TGC の鍵は CAS 自身が検査しないので、`secrets init` と `compose render` が四つとも検査する。長さ、base64url の文字（空白や引用符は不可）、公開された既定値でないこと（SHA-256 で照合するのでリポジトリは値を持たない）、そして CAS が JWK のオクテット値として読む `TGC_ENCRYPTION_KEY` については 32 バイトへの正準な復号である。署名鍵と機関の鍵は文字のまま使われるので復号しない。
+
+**順序。** CAS は起動時にマイグレーション済みの `osf` スキーマを検証し、空のデータベースでは終了 254 で止まる。そこで `osf_init` を `service_completed_successfully` で待つ。
+
+**既存の `runtime/.env` の更新。** `compose render` は足りない四つのキーの名前を示して終了 2 で止まる。`grdm-dev secrets rotate` はこれらを加えるが、他の秘密もすべて作り直し、既存の Compose ファイルで動作中のコンテナを再作成する。その後 `compose render`、`build --component cas-overlay`、`up` を実行する。他の秘密を保ちたいときは、`rotate` をせず、上記の長さと文字で四つのキーを手で追記する。
+
+**2026-11-10 の実証（arm64）。** 使い捨てのプロジェクト `cas-int` で行った。生成したファイルから `cas` とそれが待つものだけを取り出し、試験用のループバックのポートを加えたもので、動作中のスタックには触れていない。osf.io のイメージが新しいデータベースに実際のマイグレーションを適用した（`osf_init` は終了 0）。したがって実際の GRDM スキーマに対する `validate` の確認はこれが最初である。
+
+```toon
+results[8]{check,result}:
+  "イメージ","grdm-dev build で組み、arm64、ベースのダイジェストのラベルあり"
+  "コンテナ","uid 1000、読み取り専用ルート、cap_drop ALL、no-new-privileges、再起動 0 回"
+  "起動","osf_init の後 19 秒で Jetty が起動。Missing table と未解決のプレースホルダは無し"
+  "GET /login","200。JSESSIONID は HttpOnly で Secure なし"
+  "誤ったパスワード","200 でエラー表示、チケットなし、TGC なし"
+  "正しいパスワード（osf.io で作成した利用者、bcrypt_sha256）","web の URL へ 302 でサービスチケットを発行。TGC は HttpOnly で Secure なし"
+  "/p3/serviceValidate","利用者の GUID で authenticationSuccess。同じチケットの再使用は INVALID_TICKET"
+  "未登録のサービス","200 の未許可ページでログインフォームなし"
+```
+
+**未確認。** osf.io のログインは引き続き fakecas を使う。本変更は認証の提供元を切り替えないからである。動作中の web への戻り、JWE/JWT の鍵を使う機関ログイン、TOTP、ORCiD、実機の amd64 ホスト（統合リポジトリの PR は最後の秘密の変更より前に Rosetta 下の amd64 で試験した）は実行していない。
+
+---
+
+## Glossary / 用語
+
+| Term | English note | 日本語注 |
+|---|---|---|
+| EOL (end of life) | Software whose maker no longer fixes it. | 作った人がもう直さないソフトウェア。 |
+| Emulation | Running a program built for one kind of CPU on another kind, slower but working. | ある種類の CPU 向けに作ったプログラムを別の CPU で動かすこと。遅いが動く。 |
+| Rosetta | Apple's translator that lets x86-64 programs run on Apple Silicon; Docker Desktop can use it for amd64 containers. | x86-64 のプログラムを Apple Silicon で動かす Apple の翻訳機。Docker Desktop は amd64 コンテナにこれを使える。 |
+| Checksum | A short fingerprint of a file; if one byte changes, the fingerprint changes. | ファイルの短い指紋。1 バイトでも変わると指紋も変わる。 |
+| Digest | A checksum of a container image, so the same image is pulled every time. | コンテナイメージのチェックサム。毎回同じイメージが取れる。 |
+| JRE | The part of Java needed to run programs, without the compiler. | Java のプログラムを動かすために必要な部分。コンパイラは含まない。 |
+| Cold start | Starting with empty data: nothing cached, nothing initialised. | 空のデータからの起動。キャッシュも初期化済みのものも無い。 |

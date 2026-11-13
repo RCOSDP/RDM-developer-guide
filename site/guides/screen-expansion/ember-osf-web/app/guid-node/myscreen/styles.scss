@@ -1,0 +1,15 @@
+@media screen and (max-width: 768px) {
+    .MyScreen {
+        margin: 0;
+        padding: 0;
+    }
+}
+
+.MyScreen__header {
+    margin-bottom: 0.5em;
+}
+
+.MyScreen__buttons {
+    margin-top: 1em;
+    margin-bottom: 2em;
+}

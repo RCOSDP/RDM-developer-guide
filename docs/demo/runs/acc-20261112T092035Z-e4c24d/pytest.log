@@ -1,0 +1,171 @@
+FE                                                                       [100%]
+==================================== ERRORS ====================================
+__________ ERROR at setup of test_c4_wiki_collab_rejection[chromium] ___________
+
+page = <Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'>
+login = <function login.<locals>._login at 0x7ea9fdf0dc60>
+user_a = {'email': '***', 'password': '***'}
+
+    @pytest.fixture
+    def logged_in_page(page, login, user_a):
+>       login(page, user_a)
+
+installer/acceptance/conftest.py:344: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/conftest.py:338: in _login
+    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21479: in wait_for_url
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:713: in wait_for_url
+    return await self._main_frame.wait_for_url(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:356: in wait_for_url
+    await self.wait_for_navigation(url=url, wait_until=wait_until, timeout=timeout)
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: in run_async
+    return await func()
+           ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:285: in rest
+    navigated_event: "channels.FrameNavigatedEvent" = await wait
+                                                      ^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:201: in wait_for_promise
+    raise rewrite_error_message(
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:184: in wait_for_promise
+    result = await race([promise, *self._failures])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+awaitables = [<Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
+
+    async def race(awaitables: Sequence[Awaitable[Any]]) -> Any:
+        """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
+        that settles. When several have settled, the first in the list wins.
+    
+        The coroutines in the list run as tasks, which are cancelled when the race ends.
+        A future or a task in the list runs on, as in JS. The errors of the losers are
+        marked as handled, as Promise.race() handles them.
+        """
+        futures: List["asyncio.Future[Any]"] = []
+        owned: List["asyncio.Future[Any]"] = []
+        for awaitable in awaitables:
+            if asyncio.isfuture(awaitable):
+                futures.append(awaitable)
+            else:
+                task: "asyncio.Future[Any]" = asyncio.ensure_future(awaitable)
+                futures.append(task)
+                owned.append(task)
+        for future in futures:
+            future.add_done_callback(_handled)
+        try:
+            await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            winner = next((f for f in futures if f.done()), None)
+            for task in owned:
+                if task is not winner:
+                    task.cancel()
+        assert winner is not None
+>       return winner.result()
+               ^^^^^^^^^^^^^^^
+E       playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.
+E       =========================== logs ===========================
+E       waiting for navigation until "load"
+E       ============================================================
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError
+=================================== FAILURES ===================================
+____________________ test_c4_wiki_collab_success[chromium] _____________________
+
+two_contexts = (<Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'>, <Page url='about:blank'>)
+login = <function login.<locals>._login at 0x7ea9fe034040>
+user_a = {'email': '***', 'password': '***'}
+user_b = {'email': '***', 'password': '***'}
+base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
+api_write = <function api_write.<locals>._write at 0x7ea9fe0340e0>
+add_contributor = <function add_contributor.<locals>._add at 0x7ea9fe035620>
+run_id = 'acc-20261112T092035Z-e4c24d'
+record_property = <function record_property.<locals>.append_property at 0x7ea9fe0358a0>
+
+    @pytest.mark.case("success")
+    def test_c4_wiki_collab_success(two_contexts, login, user_a, user_b, base_url, api_url, api_write, add_contributor,
+                                    run_id, record_property):
+        """Both users open the same wiki page; text typed by B appears in A's editor and text typed by A in B's."""
+        page_a, page_b = two_contexts
+>       login(page_a, user_a)
+
+installer/acceptance/test_c4_wiki_collab.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+installer/acceptance/conftest.py:338: in _login
+    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py:21479: in wait_for_url
+    self._sync(
+.venv/lib/python3.12/site-packages/playwright/_impl/page.py:713: in wait_for_url
+    return await self._main_frame.wait_for_url(
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:356: in wait_for_url
+    await self.wait_for_navigation(url=url, wait_until=wait_until, timeout=timeout)
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:387: in finish
+    raise e from None
+.venv/lib/python3.12/site-packages/playwright/_impl/channel_owner.py:352: in finish
+    result = await zone.run_async(lambda: awaitable)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/zones.py:58: in run_async
+    return await func()
+           ^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/frame.py:285: in rest
+    navigated_event: "channels.FrameNavigatedEvent" = await wait
+                                                      ^^^^^^^^^^
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:201: in wait_for_promise
+    raise rewrite_error_message(
+.venv/lib/python3.12/site-packages/playwright/_impl/waiter.py:184: in wait_for_promise
+    result = await race([promise, *self._failures])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+awaitables = [<Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
+
+    async def race(awaitables: Sequence[Awaitable[Any]]) -> Any:
+        """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
+        that settles. When several have settled, the first in the list wins.
+    
+        The coroutines in the list run as tasks, which are cancelled when the race ends.
+        A future or a task in the list runs on, as in JS. The errors of the losers are
+        marked as handled, as Promise.race() handles them.
+        """
+        futures: List["asyncio.Future[Any]"] = []
+        owned: List["asyncio.Future[Any]"] = []
+        for awaitable in awaitables:
+            if asyncio.isfuture(awaitable):
+                futures.append(awaitable)
+            else:
+                task: "asyncio.Future[Any]" = asyncio.ensure_future(awaitable)
+                futures.append(task)
+                owned.append(task)
+        for future in futures:
+            future.add_done_callback(_handled)
+        try:
+            await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            winner = next((f for f in futures if f.done()), None)
+            for task in owned:
+                if task is not winner:
+                    task.cancel()
+        assert winner is not None
+>       return winner.result()
+               ^^^^^^^^^^^^^^^
+E       playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.
+E       =========================== logs ===========================
+E       waiting for navigation until "load"
+E       ============================================================
+
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError
+=============================== warnings summary ===============================
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR installer/acceptance/test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+FAILED installer/acceptance/test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+1 failed, 1 warning, 1 error in 152.14s (0:02:32)

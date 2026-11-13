@@ -1,0 +1,961 @@
+{
+  "components": [
+    {
+      "adopted_prs": [
+        {
+          "number": 796,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "[GRDM-60922] institutional admin API permission checks"
+        },
+        {
+          "number": 797,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "y-websocket JWT auth"
+        },
+        {
+          "number": 798,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io",
+          "status": "adopted",
+          "title": "Wiki import API ADMIN permission check"
+        },
+        {
+          "number": 35,
+          "reason": "security/auth",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "adopted",
+          "title": "GRDM authentication required / limited user search"
+        }
+      ],
+      "base_image": "node:12-alpine3.9 (+Python 3.6)",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 812,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "Wiki parent cross-project guard"
+        },
+        {
+          "number": 811,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "eduGAIN DS setup"
+        },
+        {
+          "number": 803,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "MATLAB R2026b"
+        },
+        {
+          "number": 802,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "JAIRO Cloud index search"
+        },
+        {
+          "number": 769,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "download history"
+        },
+        {
+          "number": 746,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "S3 SigV4"
+        },
+        {
+          "number": 738,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "quota on move/copy"
+        },
+        {
+          "number": 612,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "FileViewUxRefine"
+        },
+        {
+          "number": 474,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "service access control"
+        },
+        {
+          "number": 402,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "datamgr addon"
+        },
+        {
+          "number": 343,
+          "reason": "feature",
+          "repo": "RDM-osf.io",
+          "status": "candidate",
+          "title": "rushfiles"
+        },
+        {
+          "number": 79,
+          "reason": "dependency",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "candidate",
+          "title": "markdown-it-sanitizer 0.4.3"
+        },
+        {
+          "number": 55,
+          "reason": "dependency",
+          "repo": "RDM-osf.io-develop-private",
+          "status": "candidate",
+          "title": "keen-dataviz 3.15.5"
+        }
+      ],
+      "id": "osf.io",
+      "integration_branch": "develop",
+      "integration_sha": "90b10661c8dcf039c18fdd214aef98191f97497c",
+      "integration_repo": "RDM-osf.io-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "core",
+      "services": [
+        "osf_init",
+        "web",
+        "api",
+        "admin",
+        "worker"
+      ],
+      "target_image": {
+        "M4": "python:3.13-alpine multi-stage, non-root",
+        "M5": "same, ES2/mongo removed"
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-osf.io",
+          "sha": "bacfe64fdc002f09df47145fc17f57630772ac82",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-osf.io-develop-private",
+          "sha": "3f4c9cd32e2e118f42a6b5aacbe2a5ff066a8a38",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/osf.io",
+          "sha": "d7dd98ec6ca7ed6b779cfc35f6aa004ddbef49a2",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        },
+        {
+          "branch": "fix/sec-test",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-osf.io-private",
+          "sha": "1c7b6bd908b578255f8ffb325f29f39e77797bc7",
+          "status": "candidate",
+          "tracking_branch": "upstream/private-sec-test-fix-sec-test"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 101,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-waterbutler",
+          "status": "adopted",
+          "title": "Python 3.13, dependency update, multi-stage image (WIP)"
+        }
+      ],
+      "base_image": "python:3.13-slim",
+      "base_image_digest": "sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90",
+      "candidate_prs": [
+        {
+          "number": 98,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "s3compatsigv4 error handling"
+        },
+        {
+          "number": 93,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "S3 SigV4"
+        },
+        {
+          "number": 92,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "quota on move/copy"
+        },
+        {
+          "number": 79,
+          "reason": "feature",
+          "repo": "RDM-waterbutler",
+          "status": "candidate",
+          "title": "skip s3 region checks"
+        }
+      ],
+      "id": "waterbutler",
+      "integration_branch": "develop",
+      "integration_sha": "3319c10679165b421c0425771779d068f19b9724",
+      "integration_repo": "RDM-waterbutler-dev2027",
+      "note": "Python 3.13.18 on Debian 13 (RDM-waterbutler PR #101 merged in the integration repository), base pinned by its index digest. The runtime stage runs as a named uid/gid 1000 user, which Celery 5 needs to start the worker under the templates' user 1000:1000; wb.json, wb_worker.json and wb.env are unchanged. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1).",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "wb",
+        "wb_worker"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim multi-stage, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-waterbutler",
+          "sha": "004f407fefb071f1dc924d09f99916b1d5ea3561",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-waterbutler-develop-private",
+          "sha": "722557612d3432fbbcd2b952f70660588dd7b4f4",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/waterbutler",
+          "sha": "84e3d21b7c074c4054f24d8998d352be61634cbd",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 9,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-modular-file-renderer",
+          "status": "adopted",
+          "title": "[GRDM-63966] Python 3.13, unoserver split (stage 1)"
+        },
+        {
+          "number": 8,
+          "reason": "vulnerability remediation (M4)",
+          "repo": "RDM-modular-file-renderer",
+          "status": "adopted",
+          "title": "Python/dependency update, multi-stage (WIP)"
+        }
+      ],
+      "base_image": "python:3.13-slim",
+      "base_image_digest": "sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90",
+      "candidate_prs": [
+        {
+          "number": 6,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "metadata from redirect headers"
+        },
+        {
+          "number": 5,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "keys.openpgp.org keyserver"
+        },
+        {
+          "number": 4,
+          "reason": "feature",
+          "repo": "RDM-modular-file-renderer",
+          "status": "candidate",
+          "title": "AWS X-Ray timing"
+        }
+      ],
+      "id": "modular-file-renderer",
+      "integration_branch": "develop",
+      "integration_sha": "9771b8cfb352f6c9907a6733a4205f9e62f4142d",
+      "integration_repo": "RDM-modular-file-renderer-dev2027",
+      "note": "Python 3.13.18 on Debian 13, multi-stage and non-root, base pinned by its index digest. It builds natively on arm64, so the linux/amd64 build_platform was dropped. CAD previews are removed (owner decision 2026-11-10, applied 2026-11-11): the image's default build argument MFR_DEBIAN_TOOLS=pspp leaves freecad out, so .step/.stp files answer 400 (not supported), and the installer passes no build argument. Its remaining HIGH findings are Debian 13 packages without a fixed version, allow-listed with a review date (SPEC-03 5.1). Previews request osf.io's /<guid>/ URL unchanged, so osf.io answers the internal WaterButler URL (RDM-modular-file-renderer-dev2027 PR #7; the COS rewrite to /download/<guid>/ is not used).",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "mfr"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim multi-stage, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-modular-file-renderer",
+          "sha": "8990b184e04ec8c9b83d25123187a7a2cfb32909",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-modular-file-renderer-develop-private",
+          "sha": "571b74fa17ea421f72d46f6e2136936c68bd8d73",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/modular-file-renderer",
+          "sha": "1b2acfdde1a98bcd584950c05eb4a7fd9ab63bca",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "nginxinc/nginx-unprivileged:1.29-alpine",
+      "base_image_digest": "sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
+      "candidate_prs": [
+        {
+          "number": 201,
+          "reason": "feature",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "eduGAIN DS in IdP list"
+        },
+        {
+          "number": 108,
+          "reason": "feature",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "service access control setting"
+        },
+        {
+          "number": 82,
+          "reason": "dependency",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "flat 5.0.1"
+        },
+        {
+          "number": 63,
+          "reason": "dependency",
+          "repo": "RDM-ember-osf-web",
+          "status": "candidate",
+          "title": "node-sass 7.0.0"
+        }
+      ],
+      "id": "ember-osf-web",
+      "integration_branch": "develop",
+      "integration_sha": "4d505f000f8dfb8648955054c76d7a6374204b93",
+      "integration_repo": "RDM-ember-osf-web-dev2027",
+      "note": "Built from the integration repository at develop after its PR #2 (static build, Node 24 LTS) and PR #3 (the file preview takes the API's render link, so MFR reaches the file from inside the network). Its multi-stage Dockerfile runs the ember-cli production build in a digest-pinned Node 24 stage on the build host's own platform (the output is platform-independent HTML, JS and CSS, so no architecture emulates the build; the build stage needs several GiB of engine memory at build time only) and the final stage is nginx-unprivileged (base_image, digest-pinned): uid 101, port 4200, read-only root with a /tmp tmpfs, no Node at run time. The entrypoint checks every value it writes (the backend URLs, OSF_COOKIE_DOMAIN, the CSP settings) as a whole against a strict per-field pattern, writes them URI-encoded into index.html, refuses to start on an invalid value or a Google Analytics adapter left in the page, and sets the CSP; GET /healthz answers ok. This replaces the prebuilt fallback (the distribution image ran ember serve and rebuilt the bundle under amd64 emulation with an 8 GiB floor) and removes prebuilt_image and build_platform (PR #2 review r1 R1-03).",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "ember_osf_web"
+      ],
+      "target_image": {
+        "M4": "Node LTS build stage, nginx-unprivileged static, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-ember-osf-web",
+          "sha": "13dab2e19ea4e083c91e87c1cb793cb206b8a119",
+          "status": "merged",
+          "tracking_branch": "upstream/public-master"
+        },
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-ember-osf-web-master-private",
+          "sha": "79f4c2719e340ceb438bfbae1bfd356008fb6e91",
+          "status": "merged",
+          "tracking_branch": "upstream/private-master"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/ember-osf-web",
+          "sha": "2d188e1ba4769f8064fbea2ace03b34ba6f310cc",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "jetty:9.4-jre8-eclipse-temurin",
+      "base_image_digest": "sha256:7daefa577844d7618a969c9fe339dafc7dce3e602904ade36616c535b71a27e8",
+      "candidate_prs": [],
+      "id": "cas-overlay",
+      "integration_branch": "develop",
+      "integration_sha": "22610b7681a29241365108e5129bcd43ade4610e",
+      "integration_repo": "RDM-cas-overlay-dev2027",
+      "note": "Built natively from the integration repository: its Dockerfile runs Maven (maven:3.9-eclipse-temurin-8, digest-pinned) on the build host's own architecture and the final jetty stage only copies files, so neither architecture emulates the build (ADR-07). JDK 8 stays until M4: the CAS 4.1 service registry fails on JDK 11 and 17.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "cas"
+      ],
+      "target_image": {
+        "M4": "JDK LTS, jetty current, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-cas-overlay",
+          "sha": "ba95f6f87ddeb84bd990690199cd1d72d7e0c2a0",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-cas-overlay-develop-private",
+          "sha": "84d14baa130309e1a2b9447e75dba5e0c0fa0212",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "cos",
+          "repo": "CenterForOpenScience/cas-overlay",
+          "sha": "787e34a62a14c851686f139407d8784be367111a",
+          "status": "reference",
+          "tracking_branch": "upstream/cos-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [
+        {
+          "number": 15,
+          "reason": "security/auth",
+          "repo": "RDM-wiki-frontend",
+          "status": "adopted",
+          "title": "y-websocket JWT auth (client + auth Docker)"
+        }
+      ],
+      "base_image": "node:21-alpine",
+      "base_image_digest": null,
+      "candidate_prs": [
+        {
+          "number": 8,
+          "reason": "feature",
+          "repo": "RDM-wiki-frontend",
+          "status": "candidate",
+          "title": "truncate long file names in import screen"
+        }
+      ],
+      "id": "wiki-frontend",
+      "integration_branch": "develop",
+      "integration_sha": "5985d18b75da4105a610ac041b838c45f295de7d",
+      "integration_repo": "RDM-wiki-frontend-dev2027",
+      "note": "overlay_of osf.io (ADR-06): the Dockerfile is a derivative of osf.io's and COPYs osf.io paths (addons/*, admin/, website/) that this repository does not contain, so it cannot be built alone (real install run 4). The image is built from the osf.io checkout with this repository's files copied over it, using this Dockerfile, and tagged <osf_sha12>-<wiki_sha12>. It skips the application's pip install, collectstatic and pybabel and only runs `yarn run webpack-prod`, so it is a bundle builder, not a runtime: volume_owner_init chowns the named volume wiki_static (root, CAP_CHOWN only, hardening.json) and the one-shot wiki_assets copies website/static/public/js/ (wiki-edit-page.<chunkhash>.js, vendor.<hash>.js, webpack-assets.json, alias wiki-edit-page.js) into it; web/api/admin/worker mount it read-only at /code/website/static/public/js/wiki/. integration_sha cd96330f is RDM-wiki-frontend-dev2027 develop after PR #2 (2026-11-06): package.json/yarn.lock synced with RDM-osf.io develop (linkify-html, linkifyjs 4, sift, bootstrap-datepicker, highlight.js, less) because real install run 5 failed when osf.io's JavaScript required linkify-html that the overlay's lock file did not have; the overlay's dependency manifest must be diffed against osf.io's at every integration (SPEC-05). Follow-up (PR #30 review r1 R1-03): RDM-osf.io-dev2027 addons/wiki/templates/edit.mako must reference /static/public/js/wiki/wiki-edit-page.js instead of /static/js/pages/wiki-edit-page.js; to be verified in the browser once a real install reaches `up` (M2).",
+      "overlay_of": "osf.io",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "core",
+      "services": [
+        "wiki_assets"
+      ],
+      "target_image": {
+        "M4": "node LTS alpine, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-wiki-frontend",
+          "sha": "203d32fab60aad8d78e9b743987519252f99b817",
+          "status": "merged",
+          "tracking_branch": "upstream/public-develop"
+        },
+        {
+          "branch": "develop",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-wiki-frontend-develop-private",
+          "sha": "203d32fab60aad8d78e9b743987519252f99b817",
+          "status": "merged",
+          "tracking_branch": "upstream/private-develop"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "node:24-alpine",
+      "base_image_digest": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
+      "candidate_prs": [],
+      "id": "y-websocket",
+      "integration_branch": "develop",
+      "integration_sha": "97252369cf7e818f61d02dfb447ff76a213789fb",
+      "integration_repo": "RDM-y-websocket-dev2027",
+      "note": "Built from the pinned checkout, which enforces JWT authentication (RDM-osf.io#797), with the recipe in this repository instead of the integration repository's Dockerfile: dependencies come from the checkout's package-lock.json (npm ci) and the running image has no npm or yarn (SPEC-01 build_dockerfile).",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "subsystem",
+      "services": [
+        "y_websocket"
+      ],
+      "target_image": {
+        "M4": "node LTS alpine, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-y-websocket",
+          "sha": "51eb21d35bd37b197514e6cc67409b7c8a2dc130",
+          "status": "merged",
+          "tracking_branch": "upstream/public-master"
+        },
+        {
+          "branch": "master",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-y-webocket-develop-private",
+          "sha": "e16d995eb362fcc8c53e545ba39a835e5af853b9",
+          "status": "merged",
+          "tracking_branch": "upstream/private-master"
+        }
+      ],
+      "build_dockerfile": "installer/images/y-websocket/Dockerfile"
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "OASys",
+      "integration_branch": "develop",
+      "integration_sha": "b3860fda51722bbd0faffbe1d49684125e381af3",
+      "integration_repo": "RDM-OASys-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "oasys"
+      ],
+      "target_image": {
+        "M4": "node LTS, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-OASys-main-private",
+          "sha": "b3860fda51722bbd0faffbe1d49684125e381af3",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo; CentOS based)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "Shibboleth-SP",
+      "integration_branch": "develop",
+      "integration_sha": "623e63fc0c1c9a8e244860ca9a9fa544d3c0ec1b",
+      "integration_repo": "RDM-Shibboleth-SP-dev2027",
+      "note": "mutually exclusive with fakecas; bundled test IdP for acceptance",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "shibboleth_sp",
+        "test_idp"
+      ],
+      "target_image": {
+        "M4": "current Shibboleth SP on a maintained base, non-root where possible",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "public",
+          "repo": "RDM-Shibboleth-SP",
+          "sha": "7f1125bb2f5bccdce1b1fc55d1dcff602bc7d38a",
+          "status": "merged",
+          "tracking_branch": "upstream/public-main"
+        },
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-Shibboleth-SP-main-private",
+          "sha": "218b07f4143834278e5289a2c95ee8fe6ff01cf1",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "rdmcp",
+      "integration_branch": "develop",
+      "integration_sha": "7eed0db7d3726df7a4029b1b6ee024815d4f0646",
+      "integration_repo": "RDM-rdmcp-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "rdmcp"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-rdmcp-private",
+          "sha": "7eed0db7d3726df7a4029b1b6ee024815d4f0646",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "(see repo)",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "aipf_mcp_data_grdm",
+      "integration_branch": "develop",
+      "integration_sha": "94e277da694462516c7a8f12024e3aa0ad67dda7",
+      "integration_repo": "RDM-aipf_mcp_data_grdm-dev2027",
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "full",
+      "role": "subsystem",
+      "services": [
+        "aipf_mcp_data_grdm"
+      ],
+      "target_image": {
+        "M4": "python:3.13-slim, non-root",
+        "M5": null
+      },
+      "upstreams": [
+        {
+          "branch": "main",
+          "fetched_at": "2026-11-05",
+          "kind": "private",
+          "repo": "RDM-aipf_mcp_data_grdm-private",
+          "sha": "94e277da694462516c7a8f12024e3aa0ad67dda7",
+          "status": "merged",
+          "tracking_branch": "upstream/private-main"
+        }
+      ]
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "postgres:18.6",
+      "base_image_digest": "sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42",
+      "candidate_prs": [],
+      "id": "postgres",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": "PostgreSQL 18.6, the newest released major (19 is in beta), pinned by its index digest (ADR-12). osf.io's Django 1.11.28 with psycopg2 2.7.3 (libpq 11) ran its migrations, populate_institutions and 807 DB tests on it with the same outcome as on 9.6 (781 passed, the same 13 failed or erred on both); CAS's JDBC driver 42.1.4 cannot do SCRAM, so the template keeps --auth-host=md5, which also makes initdb set password_encryption=md5. A 9.6 data directory is moved by `grdm-dev db upgrade` (dump and restore, the old directory kept); `up` refuses a directory of another major.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "postgres",
+        "volume_owner_init",
+        "volume_access_check_1000",
+        "volume_access_check_999"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "postgres:18 (adopted early, ADR-12); SCRAM once CAS has JDBC 42.2 or later"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "docker.elastic.co/elasticsearch/elasticsearch:8.19.24",
+      "base_image_digest": "sha256:d6dfe6626d645cfec66e91009aca60c6c1bb6f94d34253528f24d8cea2f94ba6",
+      "candidate_prs": [],
+      "id": "elasticsearch8",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "image_build": {
+        "context": "installer/images/elasticsearch8",
+        "tag": "8.19.24-1"
+      },
+      "note": "Elasticsearch 8.19.24 for osf.io's full-text search (ADR-14, RDM-osf.io-dev2027 PR #11): the official multi-architecture image pinned by its index digest, with analysis-kuromoji and analysis-icu added in installer/images/elasticsearch8, so it runs natively on arm64 and amd64. Security is on: TLS on the REST port with a CA of the installation's own, the elastic bootstrap superuser (ELASTIC8_PASSWORD) and a role-limited user grdm_osf (ELASTIC8_OSF_PASSWORD, created by the one-shot elasticsearch8_setup: every privilege on website* and private__website* only); Painless scripts are off. Runs as uid 1000 with a read-only root. It replaces elasticsearch2 (EOL): the ES 2 data is not migrated, `invoke migrate_search` rebuilds the index from PostgreSQL.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "elasticsearch8",
+        "elasticsearch8_setup"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": null
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "eclipse-temurin:11-jre",
+      "base_image_digest": "sha256:5dd0f12260b837ce636299e4fc0a10c7c70ed879d1f162470da6badd6f8f733d",
+      "candidate_prs": [],
+      "id": "elasticsearch6",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": "Built natively from the official elasticsearch-oss-6.8.23 tarball (sha512-verified; the last 6.8 release, Log4j 2.17.1) on a digest-pinned Temurin 11 JRE (installer/images/elasticsearch6, ADR-07): the 6.3.1 image was linux/amd64 only and carried a Log4Shell-vulnerable Log4j. osf.io uses it only for django-elasticsearch-metrics. Runs as uid 1000 with a read-only root. Moves to Elasticsearch 8 at M5.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "elasticsearch6"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "elasticsearch:8"
+      },
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/elasticsearch6",
+        "tag": "6.8.23-1"
+      }
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "rabbitmq:3-management",
+      "base_image_digest": "sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69",
+      "candidate_prs": [],
+      "id": "rabbitmq",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "rabbitmq"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "rabbitmq current stable"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "redis:7",
+      "base_image_digest": null,
+      "candidate_prs": [],
+      "id": "redis",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": null,
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "redis"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": "redis current stable"
+      },
+      "upstreams": []
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "debian:trixie-slim",
+      "base_image_digest": "sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2",
+      "candidate_prs": [],
+      "id": "unoconv",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": "Built natively on a digest-pinned Debian 13 with LibreOffice 25.2 behind a small web service that runs `soffice --convert-to` with a fresh profile per request (installer/images/unoconv, ADR-07): the published image is Debian 10, linux/amd64 only and ran as root, and MFR's 6.1 UNO client cannot talk to a newer listener, so MFR posts documents to it (RDM-modular-file-renderer-dev2027 fix/unoconv-client-compat, UNOCONV_CONVERT_URL). No shared volume; runs as uid 1000 with a read-only root.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "core",
+      "role": "infra",
+      "services": [
+        "unoconv"
+      ],
+      "target_image": {
+        "M4": null,
+        "M5": null
+      },
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/unoconv",
+        "tag": "25.2-1"
+      }
+    },
+    {
+      "adopted_prs": [],
+      "base_image": "alpine:3",
+      "base_image_digest": "sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf",
+      "candidate_prs": [],
+      "id": "fakecas",
+      "integration_branch": null,
+      "integration_sha": null,
+      "integration_repo": null,
+      "note": "Built natively from upstream commit 9a9ddd73b225 (sha256-verified source archive) with a current Go on a digest-pinned Alpine (installer/images/fakecas, ADR-07): the published quay.io image was linux/amd64 only and compiled with an old Go. Module versions are frozen by go.mod and go.sum beside the Dockerfile.",
+      "platforms": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "profile": "minimum",
+      "role": "infra",
+      "services": [
+        "fakecas"
+      ],
+      "target_image": {
+        "M4": "golang current, alpine current",
+        "M5": null
+      },
+      "upstreams": [],
+      "image_build": {
+        "context": "installer/images/fakecas",
+        "tag": "9a9ddd73b225-2"
+      }
+    }
+  ],
+  "generated_at": "2026-11-05",
+  "note": "Names and SHAs only. This repository is public: no URLs to private repositories, no credentials.",
+  "schema_version": 1
+}

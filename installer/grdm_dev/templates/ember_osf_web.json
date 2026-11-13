@@ -1,0 +1,39 @@
+{
+  "service": "ember_osf_web",
+  "component": "ember-osf-web",
+  "container_port": 4200,
+  "host_port": 4200,
+  "expose": [],
+  "environment": {
+    "OSF_URL": "http://127.0.0.1:{{HOST_PORT:web}}/",
+    "OSF_API_URL": "http://127.0.0.1:{{HOST_PORT:api}}",
+    "OSF_RENDER_URL": "http://127.0.0.1:{{HOST_PORT:mfr}}/render",
+    "OSF_FILE_URL": "http://127.0.0.1:{{HOST_PORT:wb}}/",
+    "OSF_HELP_URL": "http://127.0.0.1:{{HOST_PORT:ember_osf_web}}/help",
+    "CAS_URL": "{{AUTH_URL}}",
+    "OSF_COOKIE_DOMAIN": "127.0.0.1",
+    "CSP_MODE": "enforce"
+  },
+  "tmpfs": [
+    "/tmp"
+  ],
+  "user": "101:101",
+  "healthcheck": {
+    "test": [
+      "CMD",
+      "wget",
+      "-q",
+      "-O",
+      "/dev/null",
+      "http://127.0.0.1:4200/healthz"
+    ],
+    "interval": "10s",
+    "timeout": "3s",
+    "start_period": "5s",
+    "retries": 3
+  },
+  "weight": 0.5,
+  "mem_min_mb": 128,
+  "pids_limit": 128,
+  "note": "Static image built from RDM-ember-osf-web-dev2027 (manifest note; PR #2 review r1 R1-03): nginx-unprivileged as uid 101 on port 4200, read-only root with only /tmp writable. No command: the image's entrypoint renders index.html into /tmp/grdm with the backend URLs below, exits 1 on a value that is not a plain http(s) URL (OSF_COOKIE_DOMAIN: a host name; CSP_MODE: enforce or report-only; CSP_EXTRA_SOURCES, unset here: space-separated http(s) origins), refuses to serve when a placeholder or the Google Analytics adapter is left in the page, writes the Content-Security-Policy from these origins and execs nginx. These are the only variables the image reads. The URLs are the published loopback ports (ADR-02); CAS_URL is fakecas's published port, or web's own origin with --auth shibboleth (osf.io's login route then redirects to the SP). Nothing is built at start, so there is no volume, no depends_on and a 128 MiB floor at weight 0.5 instead of the 8 GiB the former prebuilt image needed to run ember build under emulation. The healthcheck is the image's own (busybox wget; the image has no curl) written out so the Compose file states it; `grdm-dev health` probes /healthz on the published port. web proxies /ember_osf_web/ to this service (PROXY_EMBER_APPS strips the prefix; the image serves both URL spaces)."
+}

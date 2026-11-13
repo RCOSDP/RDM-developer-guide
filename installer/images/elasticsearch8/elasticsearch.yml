@@ -1,0 +1,30 @@
+# Elasticsearch 8 for the GakuNin RDM developer environment (grdm-dev/elasticsearch8, ADR-14).
+# A single node reachable by service name inside the Compose network only (ADR-02); no port is published.
+cluster.name: grdm-dev
+network.host: 0.0.0.0
+discovery.type: single-node
+
+# Authentication and TLS on the HTTP layer. The certificate and key are made once by grdm-entrypoint.sh, kept in
+# the data volume and copied into config/tls at every start (Elasticsearch 8.19 reads SSL files only from config/).
+# The transport layer is not reachable (single node, no cluster), so it stays plain.
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.key: tls/server.key
+xpack.security.http.ssl.certificate: tls/server.crt
+xpack.security.http.ssl.certificate_authorities: tls/ca.crt
+xpack.security.transport.ssl.enabled: false
+
+# ES 8 enables Painless scripts by default (ES 2 had dynamic scripts off): the search never needs them, so a
+# crafted search body cannot run one even if it got past osf.io's own check (RDM-osf.io-dev2027 PR #11).
+script.allowed_types: none
+
+# Nothing here needs machine learning or the GeoIP database download (an outbound connection).
+xpack.ml.enabled: false
+ingest.geoip.downloader.enabled: false
+action.destructive_requires_name: true
+
+# ES 8 applies disk watermarks of 85/90/95 percent; on a large disk that nearly full still leaves tens of GiB,
+# so ask for free bytes instead: writes stop only when the disk is really about to fill.
+cluster.routing.allocation.disk.watermark.low: 2gb
+cluster.routing.allocation.disk.watermark.high: 1gb
+cluster.routing.allocation.disk.watermark.flood_stage: 512mb

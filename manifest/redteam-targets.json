@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "note": "Allowed targets for the AI red team (SPEC-03 §6). Only containers of the isolated Compose project `grdm-redteam` on the `internal: true` network `grdm-redteam` may be probed. `grdm-dev redteam preflight` exits 53 unless: the approval record in docs/demo/*_redteam_*.md names every target in its scope and is at most 30 days old; the network is internal; the attacker container is attached to that network only; a probe run inside the attacker container reaches neither a canary container on a separate bridge nor an external address, while the same probe from the canary's network does reach the canary (otherwise the probe is inconclusive and the run fails). Never add the developer host, the `core`/`full` development project, or any address outside this project. Service names follow SPEC-02 §4.",
+  "project": "grdm-redteam",
+  "network": "grdm-redteam",
+  "attacker": "grdm-redteam-attacker-1",
+  "targets": [
+    "web",
+    "api",
+    "admin",
+    "wb",
+    "mfr",
+    "ember_osf_web",
+    "cas"
+  ],
+  "canary": {
+    "network": "grdm-redteam-canary",
+    "image": "alpine:3.20",
+    "port": 8080
+  },
+  "external_probe": "1.1.1.1:443",
+  "approval_max_age_days": 30
+}

@@ -1,0 +1,42 @@
+accept:
+  run_id: acc-20261111T132104Z-530071
+  base_url: "http://127.0.0.1:5000"
+  started: "2026-11-11T13:21:04Z"
+  duration_ms: 97331
+  only: core
+  seeded: true
+  precheck:
+    healthy: true
+    services: 24
+  pytest_returncode: 0
+  evidence_dir: docs/demo/runs/acc-20261111T132104Z-530071
+  tracing: off
+  trace_quarantine: null
+  expected_scenarios[6]:
+    - C1
+    - C2
+    - C3
+    - C4
+    - C5
+    - C6
+  incomplete_scenarios[0]:
+  summary:
+    passed: 12
+    failed: 0
+    error: 0
+    skipped: 0
+    total: 12
+    known_external_blocked: 98
+  tests[12]{id,name,case,test,status,duration_ms,http_status,evidence,known_external_blocked}:
+    C1,Login via fakecas,success,"test_c1_login_success[chromium]",passed,5939,200,null,7
+    C2,Create project,success,"test_c2_create_project_success[chromium]",passed,9424,200,null,14
+    C2,Create project,rejection,"test_c2_create_project_rejection[chromium]",passed,7866,403,null,8
+    C3,Upload and download file,success,"test_c3_file_upload_success[chromium]",passed,4684,200,null,4
+    C3,Upload and download file,rejection,"test_c3_file_upload_rejection[chromium]",passed,7268,403,null,8
+    C4,Wiki collaborative edit,success,"test_c4_wiki_collab_success[chromium]",passed,11838,200,null,18
+    C4,Wiki collaborative edit,rejection,"test_c4_wiki_collab_rejection[chromium]",passed,7668,4401,null,13
+    C5,File preview,success,"test_c5_file_preview_success[chromium]",passed,7131,200,null,9
+    C5,File preview,rejection,"test_c5_file_preview_rejection[chromium]",passed,6259,401,null,9
+    C6,Institution admin screen,success,"test_c6_admin_success[chromium]",passed,1427,200,null,5
+    C6,Institution admin screen,rejection,"test_c6_admin_rejection[chromium]",passed,2467,403,null,3
+    C1,Login via fakecas,rejection,test_c1_login_rejection,passed,175,401,null,0

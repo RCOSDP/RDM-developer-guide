@@ -1,0 +1,91 @@
+{
+  "service": "admin",
+  "component": "osf.io",
+  "profile": "core",
+  "command": [
+    "python3",
+    "manage.py",
+    "runserver",
+    "0.0.0.0:8001",
+    "--insecure"
+  ],
+  "environment": {
+    "DJANGO_SETTINGS_MODULE": "admin.base.settings",
+    "LANG": "en_US.UTF-8",
+    "PYTHONUNBUFFERED": "1",
+    "SECRET_KEY": "${DJANGO_SECRET_KEY}",
+    "API_SECRET_KEY": "${API_SECRET_KEY}",
+    "SESSION_COOKIE_SECRET": "${SESSION_COOKIE_SECRET}",
+    "OSF_DB_PASSWORD": "${POSTGRES_PASSWORD}",
+    "BROKER_URL": "amqp://grdm:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/",
+    "WATERBUTLER_JWE_SECRET": "${WATERBUTLER_JWE_SECRET}",
+    "WATERBUTLER_JWE_SALT": "${WATERBUTLER_JWE_SALT}",
+    "WATERBUTLER_JWT_SECRET": "${WATERBUTLER_JWT_SECRET}",
+    "WATERBUTLER_HMAC_SECRET": "${WATERBUTLER_HMAC_SECRET}",
+    "MFR_SERVER_SECRET": "${MFR_SERVER_SECRET}",
+    "Y_WEBSOCKET_JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
+    "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
+    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
+    "ELASTIC_USERNAME": "grdm_osf",
+    "ELASTIC_PASSWORD": "${ELASTIC8_OSF_PASSWORD}"
+  },
+  "env_files": [
+    "osf.env"
+  ],
+  "volumes": [
+    {
+      "config": "osf/local.py",
+      "target": "/code/website/settings/local.py",
+      "ro": true
+    },
+    {
+      "config": "osf/api_local.py",
+      "target": "/code/api/base/settings/local.py",
+      "ro": true
+    },
+    {
+      "config": "osf/admin_local.py",
+      "target": "/code/admin/base/settings/local.py",
+      "ro": true
+    },
+    {
+      "volume": "wiki_static",
+      "target": "/code/website/static/public/js/wiki",
+      "ro": true
+    },
+    {
+      "volume": "elasticsearch8_ca",
+      "target": "/es-ca",
+      "ro": true
+    }
+  ],
+  "tmpfs": [
+    "/tmp",
+    "/code/website/static/built",
+    "/code/logs"
+  ],
+  "user": "1000:1000",
+  "depends_on": [
+    "postgres",
+    "rabbitmq",
+    {
+      "service": "elasticsearch8_setup",
+      "condition": "service_completed_successfully"
+    },
+    {
+      "service": "wiki_assets",
+      "condition": "service_completed_successfully"
+    },
+    {
+      "service": "osf_init",
+      "condition": "service_completed_successfully"
+    }
+  ],
+  "weight": 2,
+  "mem_min_mb": 512,
+  "pids_limit": 1024,
+  "container_port": 8001,
+  "host_port": 8001,
+  "note": "Threaded `runserver` (no `--nothreading`) for the same reason as api: Django 2.2 keeps connections open and a single-threaded server stalls on an idle browser connection for 30 s. Upstream also starts crond for rdm_statistics; cron needs root, so it is left to a later milestone (non-root rule, SPEC-03 §3.3). stdin_open: invoke's stdin-forwarding thread needs an open stdin or the process dies with `Not a tty` (real install run 9; upstream compose sets the same). tmpfs /code/website/static/built: init_app rewrites built/nodeCategories.json at every start (the image keeps only .gitkeep and that file there), which a read-only root refused in real install run 10. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root).",
+  "stdin_open": true
+}

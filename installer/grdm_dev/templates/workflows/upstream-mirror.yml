@@ -1,0 +1,162 @@
+# TEMPLATE — copy to .github/workflows/upstream-mirror.yml of each RDM-<name>-dev2027
+# repository (SPEC-05 §2). It is NOT a workflow of RDM-developer-guide itself: the mirror
+# needs Git credentials for the private -dev2027 and -private repositories, which this
+# public repository's CI never holds (SPEC-02 §3).
+#
+# What it does, once a day at 03:00 JST (= 18:00 UTC of the previous day):
+#   1. check out RDM-developer-guide (public; holds the manifest and grdm-dev) into `guide/`,
+#   2. check out its `status/upstream` branch into a SEPARATE directory `status/` BEFORE anything is
+#      generated (an empty orphan branch when it does not exist yet), so that reports already on
+#      that branch, or older reports on develop, can never obstruct the switch (review U3),
+#   3. run `grdm-dev upstream mirror --component <this component>` with the report directory
+#      inside `status/`: fast-forward every upstream/<kind>-<branch> of the manifest into this
+#      repository (never forced; a non-fast-forward is reported as `halt` and exit 70 fails the job),
+#   4. publish the diff report (names, branches, SHAs, counts only — no URLs, no messages) as a
+#      workflow artifact and push it to `status/upstream`, from which a daily PR brings it into
+#      develop. Both publication steps run `if: always()`: a FAILED mirror (fetch refused, push
+#      failed) is published too, so the failure is visible on the status page, while the job
+#      itself still fails because the mirror step has no `continue-on-error`.
+#
+# Secrets (documented placeholders; create them in the -dev2027 repository settings):
+#   UPSTREAM_MIRROR_TOKEN   fine-grained token or GitHub App installation token with
+#                           `contents: read` on every source repository named in the
+#                           manifest for this component (RDM-<name>, RDM-<name>-*-private,
+#                           CenterForOpenScience/<name>) and `contents: write` on this
+#                           -dev2027 repository (to push upstream/* tracking branches).
+#   STATUS_PUSH_TOKEN       token with `contents: write` on RDM-developer-guide, used only
+#                           to push the report commit to the `status/upstream` branch.
+#   Never print either token; the mirror writes names and SHAs only.
+#
+# Every `uses:` is pinned to a commit SHA (same pins as RDM-developer-guide
+# .github/workflows/security.yml); the comment names the tag it was resolved from.
+#
+# Replace the two placeholders before adopting: COMPONENT_ID (manifest `id`, e.g. osf.io)
+# and, if the repository is not under RCOSDP, the owner in GUIDE_REPO.
+
+name: Upstream mirror (SPEC-05 daily)
+
+on:
+  schedule:
+    - cron: '0 18 * * *'   # 03:00 JST daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'fetch and report only; push nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-mirror
+  cancel-in-progress: false   # a running mirror must finish; two at once could race on the push
+
+env:
+  COMPONENT_ID: 'COMPONENT_ID'              # <- replace with the manifest component id of this repository
+  GUIDE_REPO: 'RCOSDP/RDM-developer-guide'  # public; manifest and grdm-dev live here
+  GUIDE_REF: 'develop'
+
+jobs:
+  mirror:
+    name: Fast-forward upstream/* and write the diff report
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out RDM-developer-guide (manifest + grdm-dev)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ env.GUIDE_REPO }}
+          ref: ${{ env.GUIDE_REF }}
+          path: guide
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+
+      - name: Install grdm-dev
+        run: python3 -m pip install --quiet ./guide/installer
+
+      - name: Prepare the status/upstream checkout in its own directory
+        # Done BEFORE the report is generated, and in a directory of its own: the report is written
+        # straight into this checkout, so no untracked or modified report file can obstruct a later
+        # branch switch. The branch is public, so this fetch needs no token.
+        run: |
+          mkdir status
+          cd status
+          git init --quiet --initial-branch=status/upstream .
+          git remote add origin "https://github.com/${GUIDE_REPO}.git"
+          if git fetch --quiet --depth 1 origin status/upstream; then
+            git reset --quiet --hard FETCH_HEAD
+            echo "status/upstream exists; reports are written on top of it"
+          else
+            echo "status/upstream does not exist yet; the first push creates it"
+          fi
+          mkdir -p docs/status/upstream
+
+      - name: Give git the mirror token for every github.com fetch and push
+        # The token is read by git through a credential helper; it is never written to a file
+        # that is checked in, and the mirror report never contains an address or a token.
+        env:
+          UPSTREAM_MIRROR_TOKEN: ${{ secrets.UPSTREAM_MIRROR_TOKEN }}
+        run: |
+          test -n "$UPSTREAM_MIRROR_TOKEN" || { echo "::error::secret UPSTREAM_MIRROR_TOKEN is not set"; exit 1; }
+          git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${UPSTREAM_MIRROR_TOKEN}"; }; f'
+          git config --global user.name 'upstream-mirror[bot]'
+          git config --global user.email 'upstream-mirror[bot]@users.noreply.github.com'
+
+      - name: grdm-dev upstream mirror
+        id: mirror
+        env:
+          UPSTREAM_MIRROR_TOKEN: ${{ secrets.UPSTREAM_MIRROR_TOKEN }}
+        run: |
+          cd guide
+          flags=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then flags="--dry-run"; fi
+          # exit 70 (SPEC-02 §6): fetch refused / failed or push failed — the report is still written,
+          # the two steps below publish it, and this step fails the job
+          grdm-dev --yes upstream mirror --component "$COMPONENT_ID" \
+            --workdir "$RUNNER_TEMP/upstream" \
+            --report-dir "$GITHUB_WORKSPACE/status/docs/status/upstream" $flags
+
+      - name: Upload the diff report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: upstream-mirror-report
+          path: |
+            status/docs/status/upstream/latest.json
+            status/docs/status/upstream/latest.toon
+            status/docs/status/upstream/archive/
+          if-no-files-found: warn
+
+      - name: Push the report to RDM-developer-guide status/upstream
+        # Reports land on a bot branch, never on develop; a daily PR brings them in (SPEC-05 §2).
+        # `always()`: the report of a FAILED mirror (non-fast-forward, fetch or push failure) is
+        # published as well — that failure must be visible on the status page, not only in the
+        # workflow log. The job still fails, because the mirror step above is not `continue-on-error`.
+        # Plain `git push` without force: if status/upstream moved meanwhile, the step fails and
+        # the next run retries on top of the new tip.
+        if: ${{ always() && inputs.dry_run != true }}
+        env:
+          STATUS_PUSH_TOKEN: ${{ secrets.STATUS_PUSH_TOKEN }}
+          MIRROR_OUTCOME: ${{ steps.mirror.outcome }}
+        run: |
+          test -n "$STATUS_PUSH_TOKEN" || { echo "::error::secret STATUS_PUSH_TOKEN is not set"; exit 1; }
+          cd status
+          git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${STATUS_PUSH_TOKEN}"; }; f'
+          git config user.name 'upstream-mirror[bot]'
+          git config user.email 'upstream-mirror[bot]@users.noreply.github.com'
+          git add --all docs/status/upstream
+          if git diff --cached --quiet; then
+            echo "report unchanged; nothing to push"
+            exit 0
+          fi
+          if [ "$MIRROR_OUTCOME" = "success" ]; then
+            git commit --quiet -m "status(upstream): $(date -u +%Y-%m-%d) の日次ミラー報告（${COMPONENT_ID}）"
+          else
+            git commit --quiet -m "status(upstream): $(date -u +%Y-%m-%d) の日次ミラー報告（${COMPONENT_ID}、ミラー失敗: ${MIRROR_OUTCOME}）"
+          fi
+          git push origin HEAD:refs/heads/status/upstream

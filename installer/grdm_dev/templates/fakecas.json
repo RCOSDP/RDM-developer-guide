@@ -1,0 +1,23 @@
+{
+  "service": "fakecas",
+  "component": "fakecas",
+  "profile": "minimum",
+  "container_port": 8080,
+  "host_port": 8080,
+  "command": [
+    "sh",
+    "-c",
+    "exec fakecas -host=0.0.0.0:8080 -osfhost=127.0.0.1:{{HOST_PORT:web}} -dbaddress=\"postgres://postgres:$POSTGRES_PASSWORD@postgres:5432/osf?sslmode=disable\""
+  ],
+  "user": "65534:65534",
+  "depends_on": [
+    "postgres"
+  ],
+  "weight": 0.5,
+  "mem_min_mb": 64,
+  "pids_limit": 128,
+  "environment": {
+    "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}"
+  },
+  "note": "The database password reaches fakecas through the environment (Compose interpolates ${POSTGRES_PASSWORD} from runtime/.env there) and the container shell expands it into -dbaddress: a `${KEY}` inside `command` is escaped to `$$` by compose render and would be passed literally — fakecas then answered 500 `invalid userinfo` on every login (acceptance run 6)."
+}

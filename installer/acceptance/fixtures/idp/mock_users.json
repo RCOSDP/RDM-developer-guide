@@ -1,0 +1,109 @@
+{
+  "_label": "MOCK — test IdP users for acceptance scenario S5 (SPEC-04 §5). Every value is invented: `mock-`/`MOCK`/`モック` prefix, reserved `.test` domain (RFC 2606), no real person, institution, or e-mail. The only exception is eduPersonAffiliation, whose values must be real eduPerson vocabulary so the SP rule can be exercised (ADR-05 §3.5; allow-list in installer/tests/test_compose.py). Canonical copy; installer/grdm_dev/templates/idp/authsources.php.tmpl must agree per user and per attribute (checked by installer/tests/test_compose.py).",
+  "schema_version": 1,
+  "scope": "idp.mock.test",
+  "institution": {
+    "o": "MOCK Institution",
+    "jaOrganizationName": "モック大学（MOCK）",
+    "entity_id_note": "the IdP entityID is rendered from GRDM_PORT_TEST_IDP at compose render; see templates/idp/README.md"
+  },
+  "affiliation_vocabulary_exception": {
+    "attribute": "eduPersonAffiliation",
+    "allowed_values": [
+      "member",
+      "faculty",
+      "student",
+      "affiliate"
+    ],
+    "why": "controlled vocabulary of eduPerson; `member` is what SP_REQUIRED_AFFILIATION tests, the others are the real companion values; no other attribute may carry a non-mock value (ADR-05 §3.5)"
+  },
+  "derived_identifiers": {
+    "eduPersonTargetedID": "not stored per user: core:TargetedID derives a persistent NameID from uid at login (ADR-05 §3.7)",
+    "pairwise-id": "not stored per user: saml:PairwiseID derives hash(uid, SP)@idp.mock.test at login (ADR-05 §3.7)"
+  },
+  "users": [
+    {
+      "username": "mock-user-01",
+      "password": "mock-pass-01",
+      "role": "success",
+      "attributes": {
+        "uid": "mock-user-01",
+        "eduPersonPrincipalName": "mock-user-01@idp.mock.test",
+        "mail": "mock-user-01@idp.mock.test",
+        "displayName": "MOCK User 01",
+        "jaDisplayName": "モック 利用者01",
+        "givenName": "mock-01",
+        "sn": "MOCK-USER",
+        "o": "MOCK Institution",
+        "jaOrganizationName": "モック大学（MOCK）",
+        "eduPersonAffiliation": [
+          "member",
+          "faculty"
+        ],
+        "eduPersonScopedAffiliation": [
+          "member@idp.mock.test",
+          "faculty@idp.mock.test"
+        ],
+        "eduPersonEntitlement": [
+          "https://idp.mock.test/entitlement/mock-grdm"
+        ],
+        "isMemberOf": [
+          "https://idp.mock.test/groups/mock-group-01"
+        ]
+      }
+    },
+    {
+      "username": "mock-user-02",
+      "password": "mock-pass-02",
+      "role": "success-second",
+      "attributes": {
+        "uid": "mock-user-02",
+        "eduPersonPrincipalName": "mock-user-02@idp.mock.test",
+        "mail": "mock-user-02@idp.mock.test",
+        "displayName": "MOCK User 02",
+        "jaDisplayName": "モック 利用者02",
+        "givenName": "mock-02",
+        "sn": "MOCK-USER",
+        "o": "MOCK Institution",
+        "jaOrganizationName": "モック大学（MOCK）",
+        "eduPersonAffiliation": [
+          "member",
+          "student"
+        ],
+        "eduPersonScopedAffiliation": [
+          "member@idp.mock.test",
+          "student@idp.mock.test"
+        ],
+        "eduPersonEntitlement": [],
+        "isMemberOf": [
+          "https://idp.mock.test/groups/mock-group-02"
+        ]
+      }
+    },
+    {
+      "username": "mock-user-noaff",
+      "password": "mock-pass-noaff",
+      "role": "rejection",
+      "attributes": {
+        "uid": "mock-user-noaff",
+        "eduPersonPrincipalName": "mock-user-noaff@idp.mock.test",
+        "mail": "mock-user-noaff@idp.mock.test",
+        "displayName": "MOCK User NoAff",
+        "jaDisplayName": "モック 利用者（所属なし）",
+        "givenName": "mock-noaff",
+        "sn": "MOCK-USER",
+        "o": "MOCK Institution",
+        "jaOrganizationName": "モック大学（MOCK）",
+        "eduPersonAffiliation": [
+          "affiliate"
+        ],
+        "eduPersonScopedAffiliation": [
+          "affiliate@idp.mock.test"
+        ],
+        "eduPersonEntitlement": [],
+        "isMemberOf": []
+      }
+    }
+  ],
+  "rejection_rule": "shibboleth_sp requires eduPersonAffiliation to contain `member` (SP_REQUIRED_AFFILIATION); mock-user-noaff carries only `affiliate` and must stop at the SP 403 error page with no GRDM session."
+}

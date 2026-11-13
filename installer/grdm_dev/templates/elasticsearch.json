@@ -1,0 +1,5 @@
+{
+  "service": "elasticsearch",
+  "retired": true,
+  "note": "Retired: Elasticsearch 2 is replaced by templates/elasticsearch8.json (ADR-14; ADR-13 retires ES 2). No manifest component lists this service, so it is never rendered. Kept as a pointer because review records link to this path and review records stay verbatim (SPEC-06 \u00a78)."
+}

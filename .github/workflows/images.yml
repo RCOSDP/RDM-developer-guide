@@ -1,0 +1,63 @@
+name: Image recipes
+
+# ADR-07 §4 / SPEC-02 §10: every `image_build` recipe under installer/images/ must build for both
+# linux/amd64 and linux/arm64 on every pull request that can change it, so a broken download, digest
+# or architecture-specific step is caught before a developer hits it. Nothing is pushed.
+
+on:
+  pull_request:
+    paths:
+      - "installer/images/**"
+      - "manifest/upstreams.json"
+      - ".github/workflows/images.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "installer/images/**"
+      - "manifest/upstreams.json"
+
+permissions:
+  contents: read
+
+jobs:
+  recipes:
+    name: Build image_build recipes (amd64 + arm64, no push)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up QEMU (arm64 emulation on the amd64 runner)
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build every recipe the manifest declares, for both platforms
+        run: |
+          set -eu
+          python3 - <<'PY' > recipes.txt
+          import json
+          for c in json.load(open("manifest/upstreams.json"))["components"]:
+              ib = c.get("image_build")
+              if ib:
+                  print(f"{c['id'].lower()} {ib['context']} {ib['tag']}")
+          PY
+          test -s recipes.txt || { echo "no image_build component in the manifest"; exit 0; }
+          while read -r cid ctx tag; do
+            echo "== $cid ($ctx) tag $tag"
+            docker buildx build --platform linux/amd64,linux/arm64 \
+              --label "org.gakunin-rdm.component=$cid" \
+              -t "grdm-dev/$cid:$tag" --output type=cacheonly "$ctx"
+          done < recipes.txt
+      - name: Smoke-test the amd64 variant of each recipe (image starts, port opens)
+        run: |
+          set -eu
+          while read -r cid ctx tag; do
+            docker buildx build --platform linux/amd64 --load -t "grdm-dev/$cid:$tag" "$ctx"
+            docker image inspect "grdm-dev/$cid:$tag" --format '{{index .Config.Labels "org.opencontainers.image.base.digest"}}' | grep -q sha256: || { echo "missing base digest label"; exit 1; }
+            case "$cid" in
+              elasticsearch2)
+                docker run -d --name smoke --read-only --tmpfs /tmp --tmpfs /usr/share/elasticsearch/logs:mode=1777 -v smoke:/usr/share/elasticsearch/data --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:19200:9200 "grdm-dev/$cid:$tag"
+                for i in $(seq 1 24); do sleep 5; curl -sf http://127.0.0.1:19200/ >/dev/null && break; done
+                curl -sf http://127.0.0.1:19200/ | grep -q cluster_name
+                docker rm -f smoke >/dev/null; docker volume rm smoke >/dev/null ;;
+            esac
+          done < recipes.txt

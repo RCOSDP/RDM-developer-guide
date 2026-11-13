@@ -1,0 +1,157 @@
+"""Loopback-only network guard of the acceptance suite (SPEC-04 §3.4, ADR-02 §3.5).
+
+Pure functions on URLs, importable without Playwright or pytest so that `installer/tests/` can unit
+test them. The fixtures in conftest.py use them for browser routes, WebSocket routes, and the
+wrapper around Playwright's APIRequestContext.
+"""
+from __future__ import annotations
+
+import json
+import re
+
+from urllib.parse import urljoin, urlsplit
+
+LOOPBACK_HOST = "127.0.0.1"
+# Redirects of API calls are never delegated to Playwright (max_redirects is forced to 0); the wrapper
+# follows at most this many hops itself and checks every Location against the loopback origin.
+MAX_REDIRECT_HOPS = 5
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+# 307/308 keep the verb and the body; the others are re-issued as GET without a body (RFC 9110 §15.4).
+METHOD_PRESERVING_STATUSES = frozenset({307, 308})
+BODY_KWARGS = ("data", "form", "multipart")
+WEBSOCKET_ROUTE_REQUIREMENT = (
+    "BrowserContext.route_web_socket is unavailable: the loopback guard cannot intercept WebSockets. "
+    "Playwright >= 1.48 (pytest-playwright >= 0.6) is required; run: pip install -e \"installer[accept]\" "
+    "&& PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium"
+)
+# Third-party assets the GRDM pages of today load from fixed places (SPEC-04 §3 rule 4): (host, full-path
+# pattern, Playwright resource type). The whole path must match, so a lookalike or an unknown file under the
+# same directory is not known. They are aborted like every other external request; only the verdict differs:
+# counted instead of failing the test. Anything else off the machine still fails. The list can only shrink
+# and must be empty at M5; a new entry needs a SPEC-04 change.
+_VERSION = r"[0-9]+\.[0-9]+\.[0-9]+"
+KNOWN_EXTERNAL_ASSETS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/es6-shim/{_VERSION}/es6-shim\.min\.js"), "script"),
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/mathjax/{_VERSION}/MathJax\.js"), "script"),
+    # ember-osf-web's index.html (production build of RDM-ember-osf-web-dev2027 PR #2) names it although the build also ships
+    # the same file as /zxcvbn.js; one version, one file, the password-strength library only
+    ("cdnjs.cloudflare.com", re.compile(rf"/ajax/libs/zxcvbn/{_VERSION}/zxcvbn\.js"), "script"),
+    # /css: base.mako and ember's index.html; /css2: addons/wiki/templates/edit.mako. Exact endpoints.
+    ("fonts.googleapis.com", re.compile(r"/css2?"), "stylesheet"),
+    # A gravatar is the MD5 of the address (website/filters); "placeholder" is the comment pane's default image.
+    ("secure.gravatar.com", re.compile(r"/avatar/(?:[0-9a-f]{32}|placeholder)"), "image"),
+)
+HTTP_SCHEMES: tuple[str, ...] = ("http",)
+WS_SCHEMES: tuple[str, ...] = ("ws",)
+ALL_SCHEMES: tuple[str, ...] = HTTP_SCHEMES + WS_SCHEMES
+DEFAULT_PORTS = {"http": 80, "ws": 80}
+
+
+def origin_of(url: str, schemes: tuple[str, ...] = ALL_SCHEMES) -> tuple[str, str, int] | None:
+    """(scheme, host, port) of `url`, or None when the URL is not a plain, credential-free URL
+    with one of `schemes`. The netloc must be exactly `host` or `host:port`."""
+    try:
+        u = urlsplit(url)
+        port = u.port  # raises ValueError on a non-numeric or out-of-range port
+    except (ValueError, AttributeError, TypeError):
+        return None
+    if u.scheme not in schemes or not u.hostname:
+        return None
+    if u.username is not None or u.password is not None:
+        return None
+    host = u.hostname
+    expected = host if port is None else f"{host}:{port}"
+    if u.netloc.lower() != expected:
+        return None
+    return u.scheme, host, port if port is not None else DEFAULT_PORTS.get(u.scheme, 0)
+
+
+def is_loopback_origin(url: str, schemes: tuple[str, ...] = HTTP_SCHEMES) -> bool:
+    """True only for `http://127.0.0.1[:port]/...` (or the scheme(s) given), parsed exactly.
+
+    Rejects https, `localhost`, `[::1]`, `127.0.0.1.evil.test`, `127.0.0.1.`, credentials in the
+    netloc, and anything urlsplit cannot parse. Lookalikes never pass a string-prefix check here.
+    """
+    origin = origin_of(url, schemes)
+    return origin is not None and origin[1] == LOOPBACK_HOST
+
+
+def known_external_asset_host(url: str, resource_type: str) -> str | None:
+    """The host of `url` when it is an entry of KNOWN_EXTERNAL_ASSETS requested as that resource type, else
+    None. Only the host is returned so results never carry a query string or a per-user avatar hash."""
+    try:
+        u = urlsplit(url)
+    except (ValueError, AttributeError, TypeError):
+        return None
+    if u.scheme not in ("http", "https") or not u.hostname or u.netloc.lower() != u.hostname:
+        return None  # a port or credentials in the URL is not the asset the list names
+    for host, path, kind in KNOWN_EXTERNAL_ASSETS:
+        if u.hostname == host and path.fullmatch(u.path) and resource_type == kind:
+            return host
+    return None
+
+
+def same_origin(url: str, other: str, schemes: tuple[str, ...] = ALL_SCHEMES) -> bool:
+    """Exact (scheme, host, port) equality; False if either URL does not parse to an origin."""
+    a = origin_of(url, schemes)
+    b = origin_of(other, schemes)
+    return a is not None and a == b
+
+
+def offending_urls(urls: list[str], schemes: tuple[str, ...] = ALL_SCHEMES) -> list[str]:
+    """The subset of `urls` that would leave the machine."""
+    return [u for u in urls if not is_loopback_origin(u, schemes)]
+
+
+def forced_redirect_kwargs(kwargs: dict) -> dict:
+    """`kwargs` with `max_redirects` forced to 0. A caller asking for automatic redirects is a
+    programming error (ValueError): Playwright would follow them before any origin check."""
+    requested = kwargs.get("max_redirects", 0)
+    if requested not in (0, None):
+        raise ValueError(f"max_redirects={requested!r} is not allowed: the guard follows redirects itself (SPEC-04 §3.4)")
+    return {**kwargs, "max_redirects": 0}
+
+
+def redirect_target(url: str, status: int, headers: dict | None) -> str | None:
+    """Absolute URL of the Location header for a 3xx answer to `url`, or None when the response is
+    not a redirect. Relative Locations resolve against the answered URL (ADR-02 §3.5 keeps the check
+    on the resolved value, never on the raw header)."""
+    if status not in REDIRECT_STATUSES or not headers:
+        return None
+    location = None
+    for k, v in headers.items():
+        if isinstance(k, str) and k.lower() == "location":
+            location = v
+            break
+    if not location:
+        return None
+    return urljoin(url, location.strip())
+
+
+def redirect_follow_up(verb: str, status: int, kwargs: dict) -> tuple[str, dict]:
+    """(verb, kwargs) to use for the next hop: 307/308 keep both, every other 3xx becomes a GET without
+    a body."""
+    if status in METHOD_PRESERVING_STATUSES:
+        return verb, dict(kwargs)
+    return "get", {k: v for k, v in kwargs.items() if k not in BODY_KWARGS}
+
+
+def transport_status_must_be(status: int, body: str, expected: int) -> None:
+    """SPEC-04 §5 S2 rejection contract: the *transport* HTTP status is `expected`.
+
+    `status` is the HTTP status line; `body` the response text. A 200 whose JSON-RPC error embeds the
+    expected code (`error.data.http_status`) is still a failure: it would let the client believe the
+    request succeeded. Kept free of pytest/playwright so installer/tests can unit-test it.
+    """
+    if status == 200:
+        embedded = None
+        try:
+            err = json.loads(body).get("error") or {}
+            embedded = (err.get("data") or {}).get("http_status")
+        except (ValueError, AttributeError):
+            pass
+        if embedded is not None:
+            raise AssertionError(f"HTTP 200 carrying an embedded http_status {embedded}: SPEC-04 §5 requires transport HTTP {expected}")
+    if status != expected:
+        raise AssertionError(f"expected transport HTTP {expected}, got {status} (404 is not acceptable)" if expected == 403
+                             else f"expected transport HTTP {expected}, got {status}")

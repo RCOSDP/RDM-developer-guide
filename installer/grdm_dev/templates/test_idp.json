@@ -1,0 +1,47 @@
+{
+  "service": "test_idp",
+  "component": "Shibboleth-SP",
+  "container_port": 8080,
+  "host_port": 8081,
+  "environment": {
+    "SIMPLESAMLPHP_BASEURLPATH": "http://127.0.0.1:{{HOST_PORT:test_idp}}/simplesaml/",
+    "TEST_IDP_ENTITY_ID": "http://127.0.0.1:{{HOST_PORT:test_idp}}/simplesaml/saml2/idp/metadata.php",
+    "TEST_IDP_SP_ENTITY_ID": "http://127.0.0.1:{{HOST_PORT:shibboleth_sp}}/shibboleth",
+    "TEST_IDP_SP_ACS_URL": "http://127.0.0.1:{{HOST_PORT:shibboleth_sp}}/Shibboleth.sso/SAML2/POST",
+    "TEST_IDP_SP_SLO_URL": "http://127.0.0.1:{{HOST_PORT:shibboleth_sp}}/Shibboleth.sso/SLO/Redirect",
+    "APACHE_RUN_USER": "#1000",
+    "APACHE_RUN_GROUP": "#1000",
+    "APACHE_PID_FILE": "/run/apache2.pid",
+    "APACHE_RUN_DIR": "/run",
+    "APACHE_LOCK_DIR": "/run/lock",
+    "APACHE_LOG_DIR": "/tmp/apache2"
+  },
+  "volumes": [
+    {
+      "config_dir": "idp/config",
+      "target": "/var/simplesamlphp/config",
+      "ro": true
+    },
+    {
+      "config_dir": "idp/metadata",
+      "target": "/var/simplesamlphp/metadata",
+      "ro": true
+    },
+    {
+      "config_dir": "idp/cert",
+      "target": "/var/simplesamlphp/cert",
+      "ro": true
+    }
+  ],
+  "tmpfs": [
+    "/tmp",
+    "/run",
+    "/var/simplesamlphp/log",
+    "/var/simplesamlphp/data"
+  ],
+  "user": "1000:1000",
+  "weight": 1,
+  "mem_min_mb": 128,
+  "pids_limit": 256,
+  "note": "Bundled test IdP for acceptance (ADR-05): our own image `test-idp`, SimpleSAMLphp 2.x release on php:8.3-apache, Apache listening on 8080 as uid 1000, SAML 2.0 only, exampleauth:UserPass with the MOCK users of installer/acceptance/fixtures/idp/mock_users.json. Published on 127.0.0.1 (GRDM_PORT_TEST_IDP, default 8081) over plain HTTP because the browser must POST the SAML Response through it and the acceptance guard allows only http://127.0.0.1 (SPEC-04 section 3.4). Config comes from templates/idp/*.tmpl rendered into runtime/config/idp/{config,metadata,cert}/ at `compose render` (follow-up F-1 in templates/idp/README.md). Secrets that must exist in runtime/.env before render (follow-up F-2, `secrets init`): TEST_IDP_SECRET_SALT, TEST_IDP_ADMIN_PASSWORD, and the self-signed key pairs runtime/config/idp/cert/idp.key (0600) + idp.crt and sp.key (0600) + sp.crt. This template does not reference them with the dollar syntax on purpose: test_secrets checks that every key a top-level template references is generated, and secrets.py is changed in the follow-up, not here. The hardening exception for test_idp in manifest/hardening.json describes the previous Java image and is removed in follow-up F-3 once this image is built; until then compose render still drops user: and read_only for this service. Manifest follow-up F-4: a component `test-idp` of its own (services [test_idp]) so that compose render gives this service its own image instead of the Shibboleth-SP image."
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 20px;
+      background: #f8f9fa; color: #333;
+    }
+    .container { max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { font-size: 24px; margin-top: 0; color: #2c3e50; }
+    h2 { font-size: 18px; color: #3498db; margin-top: 30px; }
+    p { line-height: 1.6; color: #555; margin-bottom: 15px; }
+    ul { padding-left: 20px; color: #555; margin-bottom: 15px; }
+    li { margin-bottom: 8px; }
+    a { color: #3498db; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card {
+      border: 1px solid #e0e0e0; border-radius: 6px;
+      padding: 15px; margin-bottom: 15px;
+    }
+    .card h3 { margin-top: 0; color: #2c3e50; }
+    .card p { margin-bottom: 10px; font-size: 14px; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; }
+    .japanese { font-size: 14px; color: #666; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</h1>
+    
+    <div class="card">
+      <h3>📖 Document Site / 文書サイト</h3>
+      <p><a href="site/index.html">Open the MkDocs-built documentation site</a> — MkDocsが生成した文書サイトを開く</p>
+      <p class="japanese">このサイトは <code>grdm-dev docs build</code> コマンドで生成されます。</p>
+    </div>
+
+    <h2>About this repository / このリポジトリについて</h2>
+    <p>This is the public repository for the GakuNin RDM (Research Data Management) developer environment 2027 version. It contains documentation, specifications, and tools for setting up and managing the development environment.</p>
+    <p class="japanese">これはGakuNin RDM（研究データマネジメント）開発環境2027版の公開リポジトリです。ドキュメント、仕様、開発環境構築・管理のためのツールを含みます。</p>
+
+    <h2>Quick links /  Quick Links</h2>
+    <ul>
+      <li><a href="docs/README.md">Documentation index / 文書一覧</a></li>
+      <li><a href="README.md">Project README / プロジェクト概要</a></li>
+      <li><a href="installer/install.sh">Installer script / インストーラー</a></li>
+      <li><a href="manifest/upstreams.json">Component manifest / 部品マニフェスト</a></li>
+    </ul>
+
+    <div class="card">
+      <h3>🔧 Building the site / サイトのビルド</h3>
+      <p>To build the documentation site, run:</p>
+      <pre><code>grdm-dev docs build</code></pre>
+      <p class="japanese">文書サイトをビルドするには、次のように実行します：</p>
+      <pre><code>grdm-dev docs build</code></pre>
+    </div>
+
+    <h2>Resources / リソース</h2>
+    <ul>
+      <li><strong>Specifications / 仕様:</strong> Detailed technical rules for the installer, security gate, manifest format, and more</li>
+      <li class="japanese"><strong>仕様:</strong> インストーラー、セキュリティの門、マニフェスト形式などの詳細な技術規則</li>
+      <li><strong>Decisions / 決定:</strong> Record of architecture and design decisions</li>
+      <li class="japanese"><strong>決定:</strong> アーキテクチャと設計の決定記錄</li>
+      <li><strong>Policies / 方針:</strong> Position and rules for development</li>
+      <li class="japanese"><strong>方針:</strong> 開発の立場と規則</li>
+    </ul>
+
+    <div class="footer">
+      <p>GakuNin RDM Developer Environment 2027 / 開発環境 2027 版</p>
+      <p>Document generated from source at <code>develop</code> branch</p>
+    </div>
+  </div>
+</body>
+</html>
