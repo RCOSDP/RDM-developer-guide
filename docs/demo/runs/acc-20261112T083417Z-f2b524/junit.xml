@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="8" failures="3" skipped="10" tests="22" time="723.081" timestamp="2026-11-12T17:34:24.789840+09:00" hostname="lima-grdm-ubuntu2404-amd64"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="77.375"><properties><property name="known_external_blocked" value="0" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================">page = &lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="8" failures="3" skipped="10" tests="22" time="723.081" timestamp="2026-11-12T17:34:24.789840+09:00" hostname="redacted-host"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="77.375"><properties><property name="known_external_blocked" value="0" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================">page = &lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;
 login = &lt;function login.&lt;locals&gt;._login at 0x761e34cc0180&gt;
 user_a = {'email': '***', 'password': '***'}
 base_url = 'http://127.0.0.1:5000'
@@ -37,7 +37,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -109,7 +109,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -181,7 +181,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -253,7 +253,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -325,7 +325,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -406,7 +406,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -478,7 +478,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -550,7 +550,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -622,7 +622,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -726,7 +726,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -762,4 +762,4 @@ E       =========================== logs ===========================
 E       waiting for navigation until "load"
 E       ============================================================
 
-.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError</error></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_success[chromium]" time="0.005"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s1_y_websocket.py:65: M3</skipped></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s1_y_websocket.py:91: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s2_rdmcp.py:80: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s2_rdmcp.py:99: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s3_aipf.py:78: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s3_aipf.py:96: M3</skipped></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s4_oasys.py:45: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s5_shibboleth.py:97: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_rejection[chromium]" time="0.003"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s5_shibboleth.py:121: M3</skipped></testcase><testcase classname="test_c1_login" name="test_c1_login_rejection" time="0.870"><properties><property name="http_status" value="401" /><property name="known_external_blocked" value="0" /></properties></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_rejection" time="0.430"><skipped type="pytest.skip" message="M3">/home/grdm/RDM-developer-guide/installer/acceptance/test_s4_oasys.py:65: M3</skipped></testcase></testsuite></testsuites>
+.venv/lib/python3.12/site-packages/playwright/_impl/utils/tasks.py:131: TimeoutError</error></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_success[chromium]" time="0.005"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s1_y_websocket.py:65: M3</skipped></testcase><testcase classname="test_s1_y_websocket" name="test_s1_y_websocket_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s1_y_websocket.py:91: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s2_rdmcp.py:80: M3</skipped></testcase><testcase classname="test_s2_rdmcp" name="test_s2_rdmcp_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s2_rdmcp.py:99: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s3_aipf.py:78: M3</skipped></testcase><testcase classname="test_s3_aipf" name="test_s3_aipf_rejection[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s3_aipf.py:96: M3</skipped></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s4_oasys.py:45: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_success[chromium]" time="0.002"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s5_shibboleth.py:97: M3</skipped></testcase><testcase classname="test_s5_shibboleth" name="test_s5_shibboleth_rejection[chromium]" time="0.003"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s5_shibboleth.py:121: M3</skipped></testcase><testcase classname="test_c1_login" name="test_c1_login_rejection" time="0.870"><properties><property name="http_status" value="401" /><property name="known_external_blocked" value="0" /></properties></testcase><testcase classname="test_s4_oasys" name="test_s4_oasys_rejection" time="0.430"><skipped type="pytest.skip" message="M3">installer/acceptance/test_s4_oasys.py:65: M3</skipped></testcase></testsuite></testsuites>

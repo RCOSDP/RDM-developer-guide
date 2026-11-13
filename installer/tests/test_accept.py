@@ -1,4 +1,5 @@
 import argparse
+import html
 import io
 import json
 import os
@@ -279,6 +280,122 @@ class AcceptTests(unittest.TestCase):
             accept.default_runner(["x"], env={}, timeout=5)
         self.assertEqual(seen, [1900, 38000, 1900, 1900, 5])
         self.assertGreater(38000, 30 * 60 * 20 + 1)  # the suite's stretched 36,000 s fits inside the parent's limit
+
+    def test_run_evidence_loses_the_machine_name_and_absolute_paths(self):
+        """PR #62 review r1 R1-03: committed run folders carried a host name and a home path."""
+        pairs = accept.host_identity_pairs(Path("/home/alice/work/RDM-developer-guide"), home="/home/alice",
+                                           hostnames={"alices-Mac-Studio.local", "web"})
+        junit = ('<testsuite hostname="alices-Mac-Studio.local"><skipped message="M3">'
+                 '/home/alice/work/RDM-developer-guide/installer/acceptance/test_s1.py:65: M3</skipped>'
+                 '<failure>/home/alice/.cache/ms-playwright on alices-Mac-Studio.local; web answered</failure></testsuite>')
+        out = accept.scrub_host_text(junit, pairs, "xml")
+        self.assertNotIn("alice", out)
+        self.assertIn('hostname="redacted-host"', out)
+        self.assertIn(">installer/acceptance/test_s1.py:65: M3<", out)
+        self.assertIn("~/.cache/ms-playwright on redacted-host", out)
+        self.assertIn("web answered", out)  # a short host name is not replaced: it would corrupt the evidence
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-x"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(junit, encoding="utf-8")
+        accept.sanitize_run_dir(run_dir, [], pairs)
+        self.assertNotIn("alice", (run_dir / "junit.xml").read_text(encoding="utf-8"))
+
+    def test_a_real_run_scrubs_its_own_checkout_path(self):
+        runner = FakeRunner(junit=JUNIT_ONE_FAILURE.replace("<testsuite ", f'<testsuite hostname="{"h" * 12}" ', 1)
+                            + f"<!-- {self.root}/installer/acceptance -->")
+        with mock.patch.object(accept.socket, "gethostname", return_value="h" * 12):
+            self.run_accept(self.args(base_url="http://127.0.0.1:5000"), runner)
+        text = (self.run_dir() / "junit.xml").read_text(encoding="utf-8")
+        self.assertNotIn(str(self.root.resolve()), text)
+        self.assertNotIn("h" * 12, text)
+
+    def test_a_plain_word_host_name_never_rewrites_the_evidence_structure(self):
+        """PR #63 review r1 R1-01: a host called `testcase` must not rename <testcase> or a `rejection` case."""
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-y"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(JUNIT_ONE_FAILURE.replace("<testsuite ", '<testsuite hostname="testcase" ', 1), encoding="utf-8")
+        before = accept.collect_results(run_dir)
+        for host in ("testcase", "rejection", "chromium", "skipped1"):
+            accept.sanitize_run_dir(run_dir, [], accept.host_identity_pairs(self.root, home="/nonexistent-home", hostnames={host}))
+        self.assertEqual(accept.collect_results(run_dir), before)
+        self.assertIn('hostname="redacted-host"', (run_dir / "junit.xml").read_text(encoding="utf-8"))
+
+    def test_escaped_paths_in_xml_and_json_are_scrubbed_too(self):
+        """PR #63 review r1 R1-02: a path with `&` appears as `&amp;` in XML and with escapes in JSON."""
+        root = Path("/srv/R&D \\ lab/RDM-developer-guide")
+        pairs = accept.host_identity_pairs(root, home="/srv/R&D \\ lab", hostnames=set())
+        xml_text = '<failure message="%s/installer/x.py">%s/y</failure>' % (html.escape(str(root), quote=True), html.escape("/srv/R&D \\ lab", quote=True))
+        json_text = json.dumps({"path": str(root) + "/installer/x.py", "home": "/srv/R&D \\ lab/.cache"})
+        out_xml = accept.scrub_host_text(xml_text, pairs, "xml")
+        out_json = accept.scrub_host_text(json_text, pairs, "json")
+        self.assertNotIn("R&amp;D", out_xml)
+        self.assertIn('message="installer/x.py"', out_xml)
+        self.assertNotIn("R&D", out_json)
+        self.assertEqual(json.loads(out_json), {"path": "installer/x.py", "home": "~/.cache"})
+
+    def test_numbers_and_localhost_lookalikes_follow_the_written_rule(self):
+        """PR #63 review r2 R2-01, R2-03: a numeric host name never matches; only exact localhost names are exempt."""
+        pairs = accept.host_identity_pairs(self.root, home="/nonexistent-home", hostnames={"12345678", "localhost", "localhost-dev-01"})
+        self.assertEqual([b for a, b in pairs if b == "redacted-host"], ["redacted-host"])  # only localhost-dev-01
+        collector = json.dumps({"tests": [{"id": "C1", "duration_ms": 12345678, "case": "rejection", "host": "localhost-dev-01"}]})
+        out = json.loads(accept.scrub_host_text(collector, pairs, "json"))
+        self.assertEqual(out["tests"][0]["duration_ms"], 12345678)
+        self.assertEqual(out["tests"][0]["host"], "redacted-host")
+
+    def test_real_serialisers_round_trip_without_leaving_the_path(self):
+        """PR #63 review r2 R2-02: values written by ElementTree and by json.dumps(ensure_ascii=False)."""
+        import xml.etree.ElementTree as ET
+        root = Path("/srv/Ü \"q\" & 'r' lab/RDM-developer-guide")
+        pairs = accept.host_identity_pairs(root, home="/srv/Ü \"q\" & 'r' lab", hostnames={"build-host-07"})
+        suite = ET.Element("testsuite", hostname="build-host-07", note=f"{root}/installer/a.py")
+        case = ET.SubElement(suite, "testcase", name="t", file=f"{root}/installer/b.py")
+        ET.SubElement(case, "skipped", message="M3").text = f"{root}/installer/c.py:65: M3 on build-host-07"
+        xml_out = accept.scrub_host_text(ET.tostring(suite, encoding="unicode"), pairs, "xml")
+        parsed = ET.fromstring(xml_out)
+        self.assertEqual(parsed.get("note"), "installer/a.py")
+        self.assertEqual(parsed.get("hostname"), "redacted-host")
+        self.assertEqual(parsed.find("testcase").get("file"), "installer/b.py")
+        self.assertEqual(parsed.find("testcase/skipped").text, "installer/c.py:65: M3 on redacted-host")
+        self.assertEqual(parsed.find("testcase").tag, "testcase")
+        data = {"evidence": f"{root}/docs/demo/runs/x", "cache": "/srv/Ü \"q\" & 'r' lab/.cache", "n": 7}
+        json_out = accept.scrub_host_text(json.dumps(data, ensure_ascii=False, indent=2), pairs, "json")
+        self.assertEqual(json.loads(json_out), {"evidence": "docs/demo/runs/x", "cache": "~/.cache", "n": 7})
+        self.assertNotIn("lab", xml_out + json_out)
+
+    def test_a_quote_in_a_text_node_never_breaks_the_xml(self):
+        """PR #63 review r3 R3-01: pytest writes failure text with raw quotes; the result must parse and collect the same."""
+        import xml.etree.ElementTree as ET
+        pairs = accept.host_identity_pairs(Path("/srv/ci/RDM-developer-guide"), home="/srv/ci", hostnames={"build-host-07"})
+        suite = ET.Element("testsuite", hostname="build-host-07", name="pytest", tests="2", failures="1")
+        ok = ET.SubElement(suite, "testcase", classname="acceptance.test_c1_login", name="test_c1_login_success", time="1.0")
+        bad = ET.SubElement(suite, "testcase", classname="acceptance.test_c1_login", name="test_c1_login_rejection", time="0.5")
+        ET.SubElement(bad, "failure", message='assert "x == y" in /srv/ci/RDM-developer-guide/a.py').text = (
+            'E   assert page.url == "http://127.0.0.1:5000/  (unclosed quote at /srv/ci/RDM-developer-guide/b.py')
+        ok.tail = "\n"
+        xml_in = '<?xml version="1.0" encoding="utf-8"?>' + ET.tostring(ET.Element("testsuites"), encoding="unicode").replace(
+            "<testsuites />", "<testsuites>" + ET.tostring(suite, encoding="unicode") + "</testsuites>") + "\n<!-- /srv/ci/RDM-developer-guide/x on build-host-07 -->"
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-z"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(xml_in, encoding="utf-8")
+        before = accept.collect_results(run_dir)
+        accept.sanitize_run_dir(run_dir, [], pairs)
+        out = (run_dir / "junit.xml").read_text(encoding="utf-8")
+        ET.fromstring(out.split("?>", 1)[1])  # still well-formed
+        self.assertEqual(accept.collect_results(run_dir), before)
+        self.assertEqual(len(before), 2)
+        self.assertNotIn("/srv/ci", out)
+        self.assertNotIn("build-host-07", out)
+        self.assertIn("unclosed quote at b.py", out)
+
+    def test_comments_and_cdata_are_scrubbed_as_they_stand(self):
+        pairs = accept.host_identity_pairs(Path("/srv/ci/RDM-developer-guide"), home="/srv/ci", hostnames={"build-host-07"})
+        xml_in = ('<testsuite hostname="x"><!-- at /srv/ci/RDM-developer-guide/a & b on build-host-07 -->'
+                  '<testcase name="t"><system-out><![CDATA[log "/srv/ci/RDM-developer-guide/c.py" <ok> & done]]></system-out>'
+                  '</testcase></testsuite>')
+        out = accept.scrub_host_text(xml_in, pairs, "xml")
+        self.assertEqual(out, '<testsuite hostname="redacted-host"><!-- at a & b on redacted-host -->'
+                              '<testcase name="t"><system-out><![CDATA[log "c.py" <ok> & done]]></system-out>'
+                              '</testcase></testsuite>')
 
     # --- results, exit 60 -------------------------------------------------------------------------
 
