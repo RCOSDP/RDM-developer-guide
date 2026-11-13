@@ -5,13 +5,13 @@ Never skipped: y_websocket belongs to the `core` profile (SPEC-02 §4).
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import user_id_of
+from acceptance.conftest import scaled, user_id_of
 from acceptance.netguard import WS_SCHEMES, is_loopback_origin
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C4", "Wiki collaborative edit")]
 
 CONVERGE_MS = 5_000  # SPEC-04 §5 S1 budget, reused for the M2 case
-COLLAB_BOUND_MS = 30_000  # editor load + websocket sync + binding; not the convergence budget
+COLLAB_BOUND_MS = scaled(30_000)  # editor load + websocket sync + binding; not the convergence budget
 
 # Document text of the editor. Another user's caret is a y-prosemirror widget placed inside the text (it can
 # split a word, measured: "mark-A-xy<caret>z"), so it is removed first; it is presence, not content.
@@ -30,8 +30,8 @@ def _wiki_edit_url(base_url: str, node_id: str) -> str:
 
 def _open_editor(page, base_url: str, node_id: str):
     resp = page.goto(_wiki_edit_url(base_url, node_id), wait_until="domcontentloaded")
-    page.click(sel.WEB["wiki_edit_button"], timeout=60_000)
-    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=60_000)
+    page.click(sel.WEB["wiki_edit_button"], timeout=scaled(60_000))
+    page.wait_for_selector(sel.WEB["wiki_editor"], timeout=scaled(60_000))
     return resp
 
 

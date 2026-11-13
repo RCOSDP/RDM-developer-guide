@@ -38,8 +38,26 @@ from acceptance.netguard import (
     redirect_target,
 )
 
-TEST_TIMEOUT_S = 120          # SPEC-04 §3.3
-SUITE_TIMEOUT_S = 30 * 60
+def _wait_scale() -> float:
+    """GRDM_ACCEPT_WAIT_SCALE (set by `grdm-dev accept --wait-scale`): 1 to 20, anything else counts as 1."""
+    try:
+        v = float(os.environ.get("GRDM_ACCEPT_WAIT_SCALE", "1"))
+    except ValueError:
+        return 1.0
+    return v if 1.0 <= v <= 20.0 else 1.0
+
+
+WAIT_SCALE = _wait_scale()
+
+
+def scaled(ms: int) -> int:
+    """A page, click, selector or login wait in milliseconds, stretched for a slow or emulated host.
+    The SPEC-04 §5 convergence budget (5 s) is a product requirement and is never passed through here."""
+    return int(ms * WAIT_SCALE)
+
+
+TEST_TIMEOUT_S = int(120 * WAIT_SCALE)          # SPEC-04 §3.3, stretched with the waits so a stretched wait can still finish
+SUITE_TIMEOUT_S = int(30 * 60 * WAIT_SCALE)
 DEFAULT_PORTS = {"WEB": 5000, "API": 8000, "ADMIN": 8001, "WB": 7777, "MFR": 7778, "FAKECAS": 8080, "EMBER_OSF_WEB": 4200}
 
 _SESSION_START = time.monotonic()
@@ -299,6 +317,9 @@ def new_context(browser, browser_context_args, external_guard):
     def _new(**overrides):
         ctx = browser.new_context(**{**browser_context_args, **overrides, "service_workers": "block"})
         guard_context(ctx, external_guard)
+        if WAIT_SCALE > 1:  # Playwright's own 30 s default (page.goto and the like) stretches with the explicit waits
+            ctx.set_default_timeout(scaled(30_000))
+            ctx.set_default_navigation_timeout(scaled(30_000))
         created.append(ctx)
         return ctx
 
@@ -332,13 +353,13 @@ def login(base_url, service_url):
         # web answers 302 to fakecas (/login?service=...), whose page is the form itself (confirmed on the
         # real stack, acceptance run 5). fakecas identifies the user by e-mail alone: its password field sits
         # inside a `<section hidden>` and is never shown, so it is filled only when a build makes it visible.
-        page.wait_for_selector(sel.FAKECAS["username"], timeout=30_000)
+        page.wait_for_selector(sel.FAKECAS["username"], timeout=scaled(30_000))
         page.fill(sel.FAKECAS["username"], user["email"])
         pw = page.locator(sel.FAKECAS["password"])
         if pw.count() and pw.first.is_visible():
             pw.first.fill(user["password"])
         page.click(sel.FAKECAS["submit"])
-        page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+        page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=scaled(60_000))
     return _login
 
 

@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import api
+from acceptance.conftest import api, scaled
 from acceptance.netguard import same_origin
 
 pytestmark = [pytest.mark.subsystem, pytest.mark.scenario("S5", "Shibboleth-SP via test IdP"), pytest.mark.skip(reason="M3")]
@@ -84,11 +84,11 @@ def _idp_login(page, base_url: str, ports: dict[str, int], user: dict) -> list:
     responses: list = []
     page.on("response", responses.append)
     page.goto(base_url + PATH_INSTITUTION_LOGIN, wait_until="domcontentloaded")
-    page.wait_for_url(re.compile(re.escape(idp_origin) + r"/simplesaml/"), timeout=30_000)   # the SP redirected us to the test IdP
-    page.wait_for_selector(_SEL["idp_form_marker"], timeout=30_000)
+    page.wait_for_url(re.compile(re.escape(idp_origin) + r"/simplesaml/"), timeout=scaled(30_000))   # the SP redirected us to the test IdP
+    page.wait_for_selector(_SEL["idp_form_marker"], timeout=scaled(30_000))
     page.fill(_SEL["idp_username"], user["username"])
     page.fill(_SEL["idp_password"], user["password"])
-    with page.expect_response(lambda r: "/Shibboleth.sso/SAML2/POST" in r.url, timeout=30_000):
+    with page.expect_response(lambda r: "/Shibboleth.sso/SAML2/POST" in r.url, timeout=scaled(30_000)):
         page.click(_SEL["idp_submit"])                 # SimpleSAMLphp returns an auto-submitting form to the SP's ACS
     page.wait_for_load_state("domcontentloaded")
     return responses
@@ -102,11 +102,11 @@ def test_s5_shibboleth_success(page, base_url, api_url, ports, record_property):
     assert user["username"].startswith("mock-"), user
     _idp_login(page, base_url, ports, user)
 
-    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=60_000)
+    page.wait_for_url(re.compile(re.escape(base_url) + r"/(dashboard|myprojects)"), timeout=scaled(60_000))
     resp = page.goto(base_url + sel.PATHS["dashboard"], wait_until="domcontentloaded")
     record_property("http_status", resp.status if resp else None)
     assert same_origin(page.url, base_url), f"dashboard must be served by web, not by the SP: {page.url}"
-    page.wait_for_selector(_SEL["dashboard_heading"], timeout=30_000)
+    page.wait_for_selector(_SEL["dashboard_heading"], timeout=scaled(30_000))
 
     cookies = {c["name"] for c in page.context.cookies(base_url)}
     assert SESSION_COOKIE in cookies, f"no GRDM session cookie after the SAML login: {sorted(cookies)}"
@@ -115,7 +115,7 @@ def test_s5_shibboleth_success(page, base_url, api_url, ports, record_property):
     institutions = api(page.context).get(api_url + API_MY_INSTITUTIONS).json()["data"]
     names = {i["attributes"]["name"] for i in institutions}
     assert INSTITUTION_NAME in names, f"institution attribute did not reach GRDM: {sorted(names)}"
-    page.wait_for_selector(_SEL["institution_name"], timeout=30_000)
+    page.wait_for_selector(_SEL["institution_name"], timeout=scaled(30_000))
 
 
 @pytest.mark.case("rejection")
@@ -138,7 +138,7 @@ def test_s5_shibboleth_rejection(new_context, base_url, api_url, ports, record_p
     record_property("http_status", status)
     assert status == SP_DENIED_STATUS, f"expected {SP_DENIED_STATUS} from the SP for a user without `member`, got {status} at {final}"
     assert same_origin(final, sp_origin), f"the browser must stop at the SP error page, it reached {final}"
-    page.wait_for_selector(_SEL["sp_error_marker"], timeout=30_000)
+    page.wait_for_selector(_SEL["sp_error_marker"], timeout=scaled(30_000))
 
     cookies = {c["name"] for c in ctx.cookies(base_url)}
     assert SESSION_COOKIE not in cookies, f"a GRDM session was created for a denied user: {sorted(cookies)}"

@@ -6,6 +6,7 @@ All scanners are faked through the injectable runner / which; Docker is never re
 from __future__ import annotations
 
 import datetime as _dt
+import argparse
 import io
 import json
 import os
@@ -155,6 +156,37 @@ class ScanTestBase(unittest.TestCase):
     def baseline_ids(self, **flags):
         code, data, err = self.run_scan(fake_runner(), baseline=True, **flags)
         return code, data, {f["id"] for f in data["findings"]}
+
+
+class TrivyTimeoutTests(ScanTestBase):
+    """--trivy-timeout: Trivy's own 5 minute per-call limit stops a very large image on a slow host (DEMO-22, exit 51)."""
+
+    def _trivy_calls(self, **flags):
+        self.write_compose()
+        calls = []
+        code, data, _ = self.run_scan(fake_runner(calls=calls), **flags)
+        return code, [c for c in calls if c[0] == "trivy" and "--version" not in c]
+
+    def test_without_the_flag_trivy_keeps_its_own_default(self):
+        code, calls = self._trivy_calls()
+        self.assertEqual(code, exit_codes.OK)
+        self.assertTrue(calls)
+        self.assertTrue(all("--timeout" not in c for c in calls))
+
+    def test_the_flag_reaches_every_sbom_and_scan_call_once(self):
+        code, calls = self._trivy_calls(trivy_timeout="45m")
+        self.assertEqual(code, exit_codes.OK)
+        self.assertTrue(len(calls) >= 4)  # an SBOM and a scan for the image and for the repository
+        for c in calls:
+            self.assertEqual(c.count("--timeout"), 1, c)
+            self.assertEqual(c[c.index("--timeout") + 1], "45m")
+
+    def test_only_a_bounded_whole_duration_is_accepted(self):
+        for ok in ("30s", "30m", "1h", "24h", " 2h "):
+            self.assertEqual(scan.trivy_duration(ok), ok.strip())
+        for bad in ("", "0m", "-5m", "1.5h", "25h", "86401s", "30", "m", "30min", "1d", "9999h", "5m; rm"):
+            with self.assertRaises(argparse.ArgumentTypeError, msg=bad):
+                scan.trivy_duration(bad)
 
 
 class StagedGateTests(ScanTestBase):

@@ -5,7 +5,7 @@ import pytest
 
 from acceptance import selectors as sel
 from acceptance import totp
-from acceptance.conftest import api
+from acceptance.conftest import api, scaled
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C6", "Institution admin screen")]
 
@@ -33,7 +33,7 @@ def _admin_login(page, admin_url: str, user: dict[str, str]) -> None:
 def _listed(page, admin_url: str, path: str) -> str:
     resp = page.goto(admin_url + path, wait_until="domcontentloaded")
     assert resp is not None and resp.status == 200, f"{path} returned {resp and resp.status}"
-    page.wait_for_selector(sel.ADMIN_UI["institution_user_table"], timeout=30_000)
+    page.wait_for_selector(sel.ADMIN_UI["institution_user_table"], timeout=scaled(30_000))
     return page.inner_text(sel.ADMIN_UI["institution_user_table"]).lower()  # OSF stores addresses in lower case
 
 

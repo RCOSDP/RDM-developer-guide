@@ -224,6 +224,38 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual((rows, ok), ([], False))
         self.assertIn("docker-compose.yml", problem)
 
+    """--wait-scale: a slow or emulated host can stretch the suite's waits without patching it (DEMO-22 C4)."""
+
+    def test_wait_scale_reaches_the_suite_only_when_asked(self):
+        for scale, expected in ((None, None), (10.0, "10")):
+            runner = FakeRunner(junit=JUNIT_ALL_PASS) if "JUNIT_ALL_PASS" in globals() else FakeRunner(junit=JUNIT_ONE_FAILURE)
+            self.run_accept(self.args(base_url="http://127.0.0.1:5000", wait_scale=scale), runner)
+            env = [e for a, e in runner.calls if "pytest" in a][-1]
+            self.assertEqual(env.get("GRDM_ACCEPT_WAIT_SCALE"), expected)
+            newest = sorted((self.root / "docs" / "demo" / "runs").iterdir(), key=lambda d: d.stat().st_mtime_ns)[-1]
+            results = json.loads((newest / "results.json").read_text())
+            self.assertEqual(results["wait_scale"], scale or 1.0)  # the run says which waits it used
+
+    def test_scale_is_parsed_within_one_to_twenty_and_nothing_else(self):
+        self.assertEqual(accept.wait_scale("10"), 10.0)
+        self.assertEqual(accept.wait_scale("1"), 1.0)
+        self.assertEqual(accept.wait_scale("2.5"), 2.5)
+        for bad in ("0", "0.5", "21", "-3", "nan", "inf", "ten", ""):
+            with self.assertRaises(argparse.ArgumentTypeError, msg=bad):
+                accept.wait_scale(bad)
+
+    def test_the_acceptance_suite_has_no_unscaled_wait_and_never_scales_the_convergence_budget(self):
+        """Every `timeout=<n>_000` in the suite goes through scaled(); the 5 s budget (CONVERGE_*) never does."""
+        suite = Path(__file__).resolve().parent.parent / "acceptance"
+        raw = re.compile(r"timeout=\d+_000")
+        for f in sorted(suite.glob("*.py")):
+            if f.name == "selectors.py":
+                continue
+            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                self.assertIsNone(raw.search(line), f"{f.name}:{n} has an unscaled wait: {line.strip()}")
+                if "CONVERGE" in line and "=" in line.split("CONVERGE", 1)[1][:12]:
+                    self.assertNotIn("scaled(", line, f"{f.name}:{n} scales the SPEC-04 convergence budget")
+
     # --- results, exit 60 -------------------------------------------------------------------------
 
     def test_pytest_failure_maps_to_60_and_writes_results(self):
@@ -354,6 +386,7 @@ class AcceptTests(unittest.TestCase):
         fake_pytest.mark = _Mark()
         fake_conftest = types.ModuleType("acceptance.conftest")
         fake_conftest.api = lambda ctx: ctx
+        fake_conftest.scaled = lambda ms: ms
         with mock.patch.dict(sys.modules, {"pytest": fake_pytest, "acceptance.conftest": fake_conftest}):
             sys.modules.pop("acceptance.test_c6_admin", None)
             module = importlib.import_module("acceptance.test_c6_admin")

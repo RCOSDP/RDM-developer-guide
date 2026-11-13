@@ -18,6 +18,7 @@ import re
 
 import pytest
 
+from acceptance.conftest import scaled
 from acceptance.netguard import same_origin
 
 pytestmark = [pytest.mark.subsystem, pytest.mark.scenario("S4", "OASys"), pytest.mark.skip(reason="M3")]
@@ -52,11 +53,11 @@ def test_s4_oasys_success(logged_in_page, project, base_url, ports, record_prope
     assert resp is not None and resp.status == 200, f"OASys home answered {resp and resp.status}"
     if page.locator(_SEL["signin_button"]).count():          # OASys hands off to GRDM and must come back to itself
         page.click(_SEL["signin_button"])
-        page.wait_for_url(re.compile(re.escape(oasys) + r"/"), timeout=60_000)
+        page.wait_for_url(re.compile(re.escape(oasys) + r"/"), timeout=scaled(60_000))
     page.goto(oasys + _PATHS["projects"], wait_until="domcontentloaded")
-    page.wait_for_selector(_SEL["project_list"], timeout=30_000)
+    page.wait_for_selector(_SEL["project_list"], timeout=scaled(30_000))
     link = page.locator(_SEL["project_link"].format(node_id=project)).first
-    link.wait_for(timeout=30_000)
+    link.wait_for(timeout=scaled(30_000))
     href = link.get_attribute("href") or ""
     target = href if href.startswith("http") else base_url + href
     assert same_origin(target, base_url) and project in target, f"project link does not point back to GRDM: {href}"
