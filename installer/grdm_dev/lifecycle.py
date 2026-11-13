@@ -2,7 +2,8 @@
 
 up     finishes or rolls back an interrupted `db upgrade`/`db rollback`, then refuses (exit 15) a
        runtime/volumes/postgres_data written by another PostgreSQL major than the rendered image, or one whose major
-       cannot be read (database.recover_pending, database.preflight, ADR-12); then `docker compose up -d`, then wait for health (exit 40 on timeout),
+       cannot be read (database.recover_pending, database.preflight, ADR-12); before that, refuses (exit 13) Docker
+       volumes of the project `grdm-dev` that another checkout created (stale_volume_problems); then `docker compose up -d`, then wait for health (exit 40 on timeout),
        then open the browser at http://127.0.0.1:<GRDM_PORT_WEB> unless --no-open; the browser is only opened when stdin is a
        terminal. Idempotent: healthy services are left alone by Compose. Without --timeout the wait is
        DEFAULT_TIMEOUT, or QEMU_TIMEOUT on Linux arm64 when the profile has amd64 services (default_timeout).
@@ -20,6 +21,7 @@ Runner: `runner(argv) -> (rc, stdout)`; tests inject a fake and never need Docke
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import sys
@@ -123,6 +125,54 @@ def _require_compose(ctx: Context) -> int | None:
     return None
 
 
+def stale_volume_problems(ctx: Context, runner) -> list[str]:
+    """Volumes of the Compose project that exist already and are bound to another directory than the rendered file's.
+
+    The rendered volumes are named volumes of the local driver bound to runtime/volumes/<name> of THIS checkout. Docker
+    keeps a volume's options from the day it was created, and Compose reuses an existing volume without comparing them, so
+    a second checkout of the same project (a new clone, a moved directory) silently opened the first checkout's data with
+    its own new secrets: postgres refused the password and `osf_init` retried until it failed, 8 minutes into `up` (DEMO-21 0.5,
+    run 4). Nothing is deleted here; the message names the volumes and the commands that release them."""
+    try:
+        data = json.loads(health.compose_path(ctx).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    problems: list[str] = []
+    for key, spec in sorted((data.get("volumes") or {}).items()):
+        spec = spec or {}
+        device = (spec.get("driver_opts") or {}).get("device")
+        if not device:
+            continue
+        name = spec.get("name") or f"{health.COMPOSE_PROJECT}_{key}"
+        rc, out = runner(["docker", "volume", "inspect", "--format", "{{json .Options}}", name])
+        lines = out.strip().splitlines() if rc == 0 else []
+        if not lines:
+            continue  # the volume does not exist yet (Compose creates it from the rendered options)
+        try:
+            options = json.loads(lines[-1])
+        except ValueError:
+            continue
+        existing = options.get("device") if isinstance(options, dict) else None
+        if existing and os.path.realpath(existing) != os.path.realpath(device):
+            problems.append(f"{name} is bound to {existing}, this checkout uses {device}")
+    return problems
+
+
+def stale_volume_message(problems: list[str]) -> str:
+    names = [p.split(" ", 1)[0] for p in problems]
+    return (
+        "Docker volumes of project " + health.COMPOSE_PROJECT + " were created by another checkout, and Compose would reuse them: "
+        + "; ".join(problems)
+        + ". That checkout's data would be opened with this checkout's new secrets. To start clean here, stop the other "
+        + "checkout (`grdm-dev down` in it), then run `docker volume rm " + " ".join(names) + "` (the files under its "
+        + "runtime/volumes/ stay on disk); to keep that data, continue in that checkout instead. / "
+        + "別のチェックアウトが作った Docker のボリュームを Compose が再利用してしまう。そのチェックアウトのデータを、"
+        + "このチェックアウトの新しい秘密で開くことになる。ここで最初からやり直すなら、もう一方で `grdm-dev down` を実行してから "
+        + "`docker volume rm " + " ".join(names) + "` を実行する（そのチェックアウトの runtime/volumes/ のファイルは残る）。"
+        + "そのデータを使うなら、そのチェックアウトで続ける。"
+    )
+
+
 def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT, runner=None, prober=None, opener=None, sleep=None) -> int:
     missing = _require_compose(ctx)
     if missing is not None:
@@ -135,6 +185,9 @@ def run_up(ctx: Context, no_open: bool = False, timeout: float = DEFAULT_TIMEOUT
     # containers: an interrupted `db upgrade`/`db rollback` is finished or rolled back first; then a server refuses a
     # data directory of another major, or one whose major cannot be read (ADR-12).
     checker = runner or health.default_runner
+    stale = stale_volume_problems(ctx, checker)
+    if stale:
+        return report.error(ctx, exit_codes.PREFLIGHT_FAILED, stale_volume_message(stale))
     with database.lifecycle_lock(ctx) as held:
         db_problem = held or database.recover_pending(ctx, checker) or database.preflight(ctx, checker)
         if db_problem:
