@@ -64,11 +64,19 @@ def register(subparsers) -> None:
     p.set_defaults(_module=sys.modules[__name__])
 
 
-def run(ctx: Context, args, run_step: Callable[[Context, list[str]], int] | None = None) -> int:
-    from .lifecycle import web_url
+def default_volume_check(ctx: Context) -> list[str]:
+    from . import health
+    from .lifecycle import stale_volume_problems
+    return stale_volume_problems(ctx, health.default_runner)
+
+
+def run(ctx: Context, args, run_step: Callable[[Context, list[str]], int] | None = None,
+        volume_check: Callable[[Context], list[str]] | None = None) -> int:
+    from .lifecycle import stale_volume_message, web_url
     from .secrets import env_path
 
     run_step = run_step or default_run_step
+    volume_check = volume_check or default_volume_check
     steps = plan_steps(ctx, platform=getattr(args, "platform", None), no_open=bool(getattr(args, "no_open", False)),
                        memory_gib=getattr(args, "memory_gib", None), timeout=getattr(args, "timeout", None))
     skipped_secrets = env_path(ctx).exists()
@@ -93,6 +101,16 @@ def run(ctx: Context, args, run_step: Callable[[Context, list[str]], int] | None
         if code != 0:
             final = code
             break
+        if name == "compose render":
+            # `up` refuses volumes another checkout created (exit 13), but only after `build`, which can take
+            # hours on an emulated host (DEMO-22 0.7: 10 h 45 min, then exit 13). The same read-only check runs
+            # here, as soon as the rendered file exists, so the way out is shown before anything is built.
+            stale = volume_check(ctx)
+            if stale:
+                rows.append({"step": "volume check", "code": exit_codes.PREFLIGHT_FAILED, "status": "failed"})
+                final = exit_codes.PREFLIGHT_FAILED
+                sys.stderr.write("[grdm-dev] install: " + stale_volume_message(stale) + "\n")
+                break
     url = web_url(ctx) if final == exit_codes.OK else None
     report.emit(ctx, "install", {"steps": rows, "result": final, "url": url})
     if final != exit_codes.OK:
