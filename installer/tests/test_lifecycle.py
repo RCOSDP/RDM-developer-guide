@@ -111,6 +111,62 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(runner.calls[-1][6:], ["up", "-d", "--force-recreate", "--remove-orphans"])
         self.assertFalse(hasattr(lifecycle, "restart"))  # restart keeps the old environment: not offered
 
+    def render_with_volumes(self, here: Path):
+        vols = {n: {"driver": "local", "driver_opts": {"type": "none", "o": "bind", "device": str(here / "runtime" / "volumes" / n)}}
+                for n in ("postgres_data", "redis_data")}
+        (self.root / "runtime" / "docker-compose.yml").write_text(json.dumps({**COMPOSE, "volumes": vols}))
+
+    def runner_with_existing_volumes(self, existing: dict):
+        base = make_runner(PS_OK)
+
+        def runner(argv):
+            if argv[:3] == ["docker", "volume", "inspect"]:
+                base.calls.append(argv)
+                name = argv[-1]
+                if name in existing:
+                    return 0, json.dumps({"type": "none", "o": "bind", "device": existing[name]}) + "\n"
+                return 1, ""
+            return base(argv)
+
+        runner.calls = base.calls
+        return runner
+
+    def test_up_refuses_volumes_that_another_checkout_created(self):
+        self.render_with_volumes(self.root)
+        old = "/home/someone/RDM-developer-guide/runtime/volumes"
+        runner = self.runner_with_existing_volumes({"grdm-dev_postgres_data": f"{old}/postgres_data"})
+        ctx = Context(root=self.root, stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, "up", runner), exit_codes.PREFLIGHT_FAILED)
+        err = self.err.getvalue()
+        self.assertIn("exit 13", err)
+        self.assertIn(f"grdm-dev_postgres_data is bound to {old}/postgres_data", err)
+        self.assertIn("docker volume rm grdm-dev_postgres_data", err)
+        self.assertNotIn("grdm-dev_redis_data", err)  # it does not exist, so Compose creates it here
+        self.assertFalse([c for c in runner.calls if "up" in c and c[0] == "docker" and c[1] == "compose"])  # nothing started
+        self.assertFalse([c for c in runner.calls if "rm" in c])  # and nothing deleted
+
+    def test_up_accepts_volumes_bound_to_this_checkout_or_absent(self):
+        self.render_with_volumes(self.root)
+        here = self.root / "runtime" / "volumes"
+        runner = self.runner_with_existing_volumes({"grdm-dev_postgres_data": str(here / "postgres_data"),
+                                                    "grdm-dev_redis_data": str(here / "redis_data")})
+        ctx = Context(root=self.root, stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, "up", runner), exit_codes.OK)
+        runner = self.runner_with_existing_volumes({})
+        self.assertEqual(self.run_cmd(ctx, "up", runner), exit_codes.OK)
+
+    def test_up_ignores_a_volume_listing_it_cannot_read(self):
+        self.render_with_volumes(self.root)
+        base = make_runner(PS_OK)
+
+        def runner(argv):
+            if argv[:3] == ["docker", "volume", "inspect"]:
+                return 0, "not json"
+            return base(argv)
+
+        ctx = Context(root=self.root, stdin_is_tty=False)
+        self.assertEqual(self.run_cmd(ctx, "up", runner), exit_codes.OK)
+
     def test_missing_compose_is_usage_error(self):
         (self.root / "runtime" / "docker-compose.yml").unlink()
         ctx = Context(root=self.root, stdin_is_tty=False)
