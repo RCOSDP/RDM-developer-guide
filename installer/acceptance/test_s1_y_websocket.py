@@ -21,7 +21,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import user_id_of
+from acceptance.conftest import scaled, user_id_of
 from acceptance.netguard import WS_SCHEMES, is_loopback_origin
 
 pytestmark = [pytest.mark.subsystem, pytest.mark.scenario("S1", "y-websocket"), pytest.mark.skip(reason="M3")]
@@ -58,7 +58,7 @@ def _open_wiki(page, base_url: str, node_id: str) -> list:
     page.on("websocket", sockets.append)
     page.goto(_wiki_url(base_url, node_id), wait_until="domcontentloaded")
     page.click(_SEL["wiki_edit"])
-    page.wait_for_selector(_SEL["wiki_editor"], timeout=30_000)
+    page.wait_for_selector(_SEL["wiki_editor"], timeout=scaled(30_000))
     return sockets
 
 

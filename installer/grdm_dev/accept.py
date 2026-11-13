@@ -31,6 +31,7 @@ callables so unit tests never need a browser, Docker, or the application.
 """
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import html
 import importlib
@@ -161,12 +162,29 @@ CLEANUP_SNIPPET = (
 )
 
 
+WAIT_SCALE_MAX = 20.0
+
+
+def wait_scale(text: str) -> float:
+    """argparse type for --wait-scale: a number from 1 to WAIT_SCALE_MAX."""
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a number") from None
+    if not (1.0 <= v <= WAIT_SCALE_MAX):
+        raise argparse.ArgumentTypeError(f"{text}: use a number from 1 to {WAIT_SCALE_MAX:g}")
+    return v
+
+
 def register(subparsers) -> None:
     p = subparsers.add_parser("accept", help="run the Playwright acceptance suite in this venv; exit 60 on any failing test")
     p.add_argument("--only", metavar="SCENARIO", help="run one scenario (C1..C7, S1..S5, a name fragment like 'login', or a marker: core, subsystem)")
     p.add_argument("--seed", action="store_true", help="create disposable test users in the web container before running (removed afterwards)")
     p.add_argument("--base-url", dest="base_url", help="web URL; must be http://127.0.0.1:<port> (default: GRDM_PORT_WEB from runtime/.env, else 5000)")
     p.add_argument("--headed", action="store_true", help="show the browser window (debugging only)")
+    p.add_argument("--wait-scale", dest="wait_scale", type=wait_scale, metavar="N", default=None,
+                   help=f"multiply the page, click and login waits and the per-test limit by N (1 to {WAIT_SCALE_MAX:g}, default 1) for a slow or emulated host; "
+                        "the SPEC-04 §5 convergence budget (5 s) is never scaled")
     p.add_argument("--trace", action="store_true",
                    help="record Playwright traces for failed tests; the ZIPs are quarantined under runtime/reports/quarantine/<run_id>/ (owner-only, git-ignored), never kept in docs/demo/runs/")
     p.set_defaults(_module=sys.modules[__name__])
@@ -197,7 +215,15 @@ ACCEPTANCE_DIR = resolve_acceptance_dir()
 # --- helpers -------------------------------------------------------------------------------------
 
 def default_runner(argv: list[str], env: dict[str, str] | None = None, cwd: str | Path | None = None,
-                   timeout: int = 1900) -> tuple[int, str]:
+                   timeout: int | None = None) -> tuple[int, str]:
+    if timeout is None:
+        # The parent's limit (the suite's 30 minutes plus slack) follows the scale the child was given, or it would
+        # kill a stretched run before the suite's own, equally stretched, limit.
+        try:
+            scale = float((env or {}).get("GRDM_ACCEPT_WAIT_SCALE", "1"))
+        except ValueError:
+            scale = 1.0
+        timeout = int(1900 * (scale if 1.0 <= scale <= WAIT_SCALE_MAX else 1.0))
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, env=env, cwd=cwd, timeout=timeout)
     except FileNotFoundError as exc:
@@ -667,9 +693,11 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     secret_values = sorted(set(secret_values) | set(seed_secret_values(users)), key=len, reverse=True)
 
     env = dict(ctx.env)
+    env.pop("GRDM_ACCEPT_WAIT_SCALE", None)  # only --wait-scale sets it; a stray value in the environment must not stretch (or mislabel) a run
     env.update({
         "PLAYWRIGHT_BROWSERS_PATH": str(browsers),
         "GRDM_BASE_URL": base_url,
+        **({"GRDM_ACCEPT_WAIT_SCALE": f"{args.wait_scale:g}"} if getattr(args, "wait_scale", None) else {}),
         "GRDM_RUN_ID": run_id,
         "GRDM_ENV_FILE": str(env_file),
         "GRDM_ACCEPT_RESULTS": str(run_dir / "collector.json"),
@@ -725,6 +753,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
         "pytest_returncode": rc,
         "evidence_dir": str(run_dir.relative_to(ctx.root)) if run_dir.is_relative_to(ctx.root) else str(run_dir),
         "tracing": "retain-on-failure" if trace else "off",
+        "wait_scale": getattr(args, "wait_scale", None) or 1.0,
         "trace_quarantine": {
             "dir": str(quarantine_dir.relative_to(ctx.root)) if quarantine_dir.is_relative_to(ctx.root) else str(quarantine_dir),
             "files": quarantined,

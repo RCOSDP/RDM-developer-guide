@@ -2,6 +2,7 @@
 import pytest
 
 from acceptance import selectors as sel
+from acceptance.conftest import scaled
 from acceptance.netguard import same_origin
 from acceptance.test_c3_file_upload import upload
 
@@ -19,9 +20,9 @@ def test_c5_file_preview_success(logged_in_page, project, base_url, service_url,
     page = logged_in_page
     entity = upload(page.context, service_url("wb"), project, f"c5-{run_id}.pdf", tmp_pdf)
     mfr = service_url("mfr")
-    with page.expect_response(lambda r: same_origin(r.url, mfr) and "/render" in r.url, timeout=90_000) as render:
+    with page.expect_response(lambda r: same_origin(r.url, mfr) and "/render" in r.url, timeout=scaled(90_000)) as render:
         page.goto(_file_page_url(base_url, project, entity["attributes"]["path"]), wait_until="domcontentloaded")
-        page.wait_for_selector(sel.WEB["file_preview_iframe"], timeout=60_000)
+        page.wait_for_selector(sel.WEB["file_preview_iframe"], timeout=scaled(60_000))
     record_property("http_status", render.value.status)
     assert render.value.status == 200, f"mfr render returned {render.value.status}"
 

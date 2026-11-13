@@ -1,0 +1,57 @@
+.............sssssssss.s                                                 [100%]
+=============================== warnings summary ===============================
+test_c1_login.py::test_c1_login_success[chromium]
+  test_c1_login.py:11: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_success[chromium]
+  test_c2_create_project.py:11: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c2_create_project.py::test_c2_create_project_rejection[chromium]
+  test_c2_create_project.py:39: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_success[chromium]
+  test_c3_file_upload.py:29: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c3_file_upload.py::test_c3_file_upload_rejection[chromium]
+  test_c3_file_upload.py:43: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_success[chromium]
+  test_c4_wiki_collab.py:55: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c4_wiki_collab.py::test_c4_wiki_collab_rejection[chromium]
+  test_c4_wiki_collab.py:85: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_success[chromium]
+  test_c5_file_preview.py:17: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c5_file_preview.py::test_c5_file_preview_rejection[chromium]
+  test_c5_file_preview.py:30: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_success[chromium]
+  test_c6_admin.py:40: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c6_admin.py::test_c6_admin_rejection[chromium]
+  test_c6_admin.py:60: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c7_file_editor.py::test_c7_file_editor_success[chromium]
+  test_c7_file_editor.py:45: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c7_file_editor.py::test_c7_file_editor_rejection[chromium]
+  test_c7_file_editor.py:75: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+test_c1_login.py::test_c1_login_rejection
+  test_c1_login.py:21: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] installer/acceptance/test_s1_y_websocket.py:65: M3
+SKIPPED [1] installer/acceptance/test_s1_y_websocket.py:91: M3
+SKIPPED [1] installer/acceptance/test_s2_rdmcp.py:80: M3
+SKIPPED [1] installer/acceptance/test_s2_rdmcp.py:99: M3
+SKIPPED [1] installer/acceptance/test_s3_aipf.py:78: M3
+SKIPPED [1] installer/acceptance/test_s3_aipf.py:96: M3
+SKIPPED [1] installer/acceptance/test_s4_oasys.py:46: M3
+SKIPPED [1] installer/acceptance/test_s5_shibboleth.py:97: M3
+SKIPPED [1] installer/acceptance/test_s5_shibboleth.py:121: M3
+SKIPPED [1] installer/acceptance/test_s4_oasys.py:66: M3
+14 passed, 10 skipped, 14 warnings in 57.66s

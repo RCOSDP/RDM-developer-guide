@@ -2,6 +2,7 @@
 import pytest
 
 from acceptance import selectors as sel
+from acceptance.conftest import scaled
 from acceptance.netguard import same_origin
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C1", "Login via fakecas")]
@@ -13,7 +14,7 @@ def test_c1_login_success(page, login, user_a, base_url, record_property):
     login(page, user_a)
     resp = page.goto(base_url + sel.PATHS["dashboard"], wait_until="domcontentloaded")
     record_property("http_status", resp.status if resp else None)
-    page.wait_for_selector(sel.WEB["dashboard_heading"], timeout=30_000)
+    page.wait_for_selector(sel.WEB["dashboard_heading"], timeout=scaled(30_000))
     assert same_origin(page.url, base_url), f"dashboard must be served by web ({base_url}), not fakecas: {page.url}"
 
 

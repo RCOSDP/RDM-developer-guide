@@ -2,7 +2,7 @@
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import api, user_id_of
+from acceptance.conftest import api, scaled, user_id_of
 from acceptance.netguard import same_origin
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C2", "Create project")]
@@ -18,8 +18,8 @@ def test_c2_create_project_success(logged_in_page, base_url, api_url, api_write,
     page.fill(sel.WEB["create_project_title"], title)
     page.click(sel.WEB["create_project_submit"])
     page.click(sel.WEB["create_project_go"])  # the modal stays on the dashboard and offers this link
-    page.wait_for_url(lambda url: same_origin(url, base_url) and "/dashboard" not in url, timeout=60_000)
-    page.wait_for_selector(f"text={title}", timeout=30_000)
+    page.wait_for_url(lambda url: same_origin(url, base_url) and "/dashboard" not in url, timeout=scaled(60_000))
+    page.wait_for_selector(f"text={title}", timeout=scaled(30_000))
 
     node_id = page.url.rstrip("/").rsplit("/", 1)[-1]
     me = api(page.context).get(api_url + sel.API["node"].format(node_id=node_id))

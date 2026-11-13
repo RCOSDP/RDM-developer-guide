@@ -7,14 +7,14 @@ other's text, and a socket without a token is refused. Never skipped: y_websocke
 import pytest
 
 from acceptance import selectors as sel
-from acceptance.conftest import api, user_id_of
+from acceptance.conftest import api, scaled, user_id_of
 from acceptance.netguard import WS_SCHEMES, is_loopback_origin
 from acceptance.test_c3_file_upload import upload
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C7", "File page collaborative edit")]
 
 CONVERGE_MS = 5_000       # SPEC-04 §5 S1 budget, reused
-COLLAB_BOUND_MS = 30_000  # panel load + token + websocket sync; not the convergence budget
+COLLAB_BOUND_MS = scaled(30_000)  # panel load + token + websocket sync; not the convergence budget
 
 _EDITOR_HAS = "(marker) => { const e = window.ace && ace.edit('editor'); return !!e && e.getValue().includes(marker); }"
 
@@ -26,8 +26,8 @@ def _file_page(base_url: str, node_id: str, entity: dict) -> str:
 def _open_editor(page, url: str) -> None:
     resp = page.goto(url, wait_until="domcontentloaded")
     assert resp is not None and resp.status == 200, f"file page answered {resp and resp.status}"
-    page.click(sel.WEB["file_edit_tab"], timeout=60_000)
-    page.wait_for_selector(sel.WEB["file_editor"], timeout=60_000)
+    page.click(sel.WEB["file_edit_tab"], timeout=scaled(60_000))
+    page.wait_for_selector(sel.WEB["file_editor"], timeout=scaled(60_000))
 
 
 def _connected(page) -> None:

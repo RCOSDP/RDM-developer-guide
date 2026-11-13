@@ -1,0 +1,61 @@
+accept:
+  run_id: acc-20261113T024626Z-b2178f
+  base_url: "http://127.0.0.1:5000"
+  started: "2026-11-13T02:46:26Z"
+  duration_ms: 80971
+  only: null
+  seeded: true
+  precheck:
+    healthy: true
+    services: 23
+  pytest_returncode: 0
+  evidence_dir: docs/demo/runs/acc-20261113T024626Z-b2178f
+  tracing: off
+  wait_scale: 3.0
+  trace_quarantine: null
+  expected_scenarios[12]:
+    - C1
+    - C2
+    - C3
+    - C4
+    - C5
+    - C6
+    - C7
+    - S1
+    - S2
+    - S3
+    - S4
+    - S5
+  incomplete_scenarios[0]:
+  summary:
+    passed: 14
+    failed: 0
+    error: 0
+    skipped: 10
+    total: 24
+    known_external_blocked: 138
+  tests[24]{id,name,case,test,status,duration_ms,http_status,evidence,known_external_blocked}:
+    C1,Login via fakecas,success,"test_c1_login_success[chromium]",passed,2602,200,null,7
+    C2,Create project,success,"test_c2_create_project_success[chromium]",passed,4163,200,null,14
+    C2,Create project,rejection,"test_c2_create_project_rejection[chromium]",passed,3817,403,null,8
+    C3,Upload and download file,success,"test_c3_file_upload_success[chromium]",passed,2940,200,null,4
+    C3,Upload and download file,rejection,"test_c3_file_upload_rejection[chromium]",passed,4125,403,null,8
+    C4,Wiki collaborative edit,success,"test_c4_wiki_collab_success[chromium]",passed,7767,200,null,18
+    C4,Wiki collaborative edit,rejection,"test_c4_wiki_collab_rejection[chromium]",passed,4449,4401,null,13
+    C5,File preview,success,"test_c5_file_preview_success[chromium]",passed,5700,200,null,9
+    C5,File preview,rejection,"test_c5_file_preview_rejection[chromium]",passed,4251,401,null,9
+    C6,Institution admin screen,success,"test_c6_admin_success[chromium]",passed,1656,200,null,6
+    C6,Institution admin screen,rejection,"test_c6_admin_rejection[chromium]",passed,698,403,null,3
+    C7,File page collaborative edit,success,"test_c7_file_editor_success[chromium]",passed,8792,200,null,22
+    C7,File page collaborative edit,rejection,"test_c7_file_editor_rejection[chromium]",passed,6475,4401,null,17
+    S1,y-websocket,success,"test_s1_y_websocket_success[chromium]",skipped,0,null,null,0
+    S1,y-websocket,rejection,"test_s1_y_websocket_rejection[chromium]",skipped,0,null,null,0
+    S2,rdmcp (MCP endpoint),success,"test_s2_rdmcp_success[chromium]",skipped,0,null,null,0
+    S2,rdmcp (MCP endpoint),rejection,"test_s2_rdmcp_rejection[chromium]",skipped,0,null,null,0
+    S3,aipf_mcp_data_grdm,success,"test_s3_aipf_success[chromium]",skipped,0,null,null,0
+    S3,aipf_mcp_data_grdm,rejection,"test_s3_aipf_rejection[chromium]",skipped,0,null,null,0
+    S4,OASys,success,"test_s4_oasys_success[chromium]",skipped,0,null,null,0
+    S5,Shibboleth-SP via test IdP,success,"test_s5_shibboleth_success[chromium]",skipped,0,null,null,0
+    S5,Shibboleth-SP via test IdP,rejection,"test_s5_shibboleth_rejection[chromium]",skipped,0,null,null,0
+    C1,Login via fakecas,rejection,test_c1_login_rejection,passed,58,401,null,0
+    S4,OASys,rejection,test_s4_oasys_rejection,skipped,34,null,null,0

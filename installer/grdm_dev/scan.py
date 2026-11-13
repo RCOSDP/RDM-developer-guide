@@ -32,6 +32,7 @@ gate judges the findings it has; at M4-M5 it makes the run incomplete (exit 51) 
 """
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import errno
 import json
@@ -117,6 +118,8 @@ def register(subparsers) -> None:
     p.add_argument("--secrets", action="store_true", help="only run gitleaks over the repository")
     p.add_argument("--dynamic", action="store_true", help="only run the OWASP ZAP baseline (exit 52 if services are unhealthy)")
     p.add_argument("--milestone", choices=MILESTONES, help="override manifest/milestone.json for this run")
+    p.add_argument("--trivy-timeout", dest="trivy_timeout", metavar="DURATION", type=trivy_duration,
+                   help="Trivy's per-call limit, e.g. 30m or 1h (default: Trivy's own 5m); raise it for a very large image on a slow or emulated host")
     p.set_defaults(_module=sys.modules[__name__])
 
 
@@ -817,8 +820,20 @@ def integration_checkouts(ctx: Context) -> tuple[list[Path], list[str]]:
     return out, notes
 
 
+_TRIVY_DURATION = re.compile(r"^([1-9][0-9]{0,5})(s|m|h)$")  # 86400s is 24h; the cap below, not the digit count, is the limit
+
+
+def trivy_duration(text: str) -> str:
+    """argparse type for --trivy-timeout: a positive whole number plus s, m or h, at most 24h (Trivy's own --timeout format)."""
+    m = _TRIVY_DURATION.match(text.strip())
+    seconds = int(m.group(1)) * {"s": 1, "m": 60, "h": 3600}[m.group(2)] if m else 0
+    if not m or seconds > 24 * 3600:
+        raise argparse.ArgumentTypeError(f"{text!r}: use a whole number and s, m or h, for example 30m (at most 24h)")
+    return text.strip()
+
+
 def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: str,
-              secrets: list[str] | None = None) -> tuple[list[dict], dict, list[str]]:
+              secrets: list[str] | None = None, timeout: str | None = None) -> tuple[list[dict], dict, list[str]]:
     """Trivy over every compose image, every integration checkout, and this repository.
 
     A failed SBOM or scan of any target is a finding (SBOM-FAILED / SCAN-FAILED) and marks the tool
@@ -847,7 +862,7 @@ def run_trivy(ctx: Context, runner: Runner, which: Callable[[str], bool], ts: st
         sbom = reports / f"sbom_{safe}_{ts}.json"
         # --offline-scan: never resolve pom.xml parents or dependencies from remote Maven repositories
         # (Maven Central answered 429 and blocked the host in real install run 17); lockfiles are enough.
-        fs_opts = (["--offline-scan"] if kind == "fs" else []) + list(extra or [])
+        fs_opts = (["--offline-scan"] if kind == "fs" else []) + (["--timeout", timeout] if timeout else []) + list(extra or [])
         rc, out = runner(["trivy", kind, "--quiet", *fs_opts, "--format", "cyclonedx", "--output", str(sbom), target])
         if rc != 0 or not sbom.exists():
             findings.append(_finding("trivy", "SBOM-FAILED", "HIGH", label, label, f"trivy {kind} SBOM failed (rc {rc})"))
@@ -1254,7 +1269,7 @@ def run(ctx: Context, args, runner: Runner | None = None, which: Callable[[str],
             if not compose_path.exists():
                 baseline_result = "skipped"
         if full:
-            tf, tt, tn = run_trivy(ctx, runner, which, ts, secrets)
+            tf, tt, tn = run_trivy(ctx, runner, which, ts, secrets, getattr(args, "trivy_timeout", None))
             findings.extend(tf)
             tools.append(tt)
             notes.extend(tn)
