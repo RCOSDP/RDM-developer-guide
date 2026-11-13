@@ -387,6 +387,16 @@ class AcceptTests(unittest.TestCase):
         self.assertNotIn("build-host-07", out)
         self.assertIn("unclosed quote at b.py", out)
 
+    def test_comments_and_cdata_are_scrubbed_as_they_stand(self):
+        pairs = accept.host_identity_pairs(Path("/srv/ci/RDM-developer-guide"), home="/srv/ci", hostnames={"build-host-07"})
+        xml_in = ('<testsuite hostname="x"><!-- at /srv/ci/RDM-developer-guide/a & b on build-host-07 -->'
+                  '<testcase name="t"><system-out><![CDATA[log "/srv/ci/RDM-developer-guide/c.py" <ok> & done]]></system-out>'
+                  '</testcase></testsuite>')
+        out = accept.scrub_host_text(xml_in, pairs, "xml")
+        self.assertEqual(out, '<testsuite hostname="redacted-host"><!-- at a & b on redacted-host -->'
+                              '<testcase name="t"><system-out><![CDATA[log "c.py" <ok> & done]]></system-out>'
+                              '</testcase></testsuite>')
+
     # --- results, exit 60 -------------------------------------------------------------------------
 
     def test_pytest_failure_maps_to_60_and_writes_results(self):
