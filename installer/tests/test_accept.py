@@ -288,7 +288,7 @@ class AcceptTests(unittest.TestCase):
         junit = ('<testsuite hostname="alices-Mac-Studio.local"><skipped message="M3">'
                  '/home/alice/work/RDM-developer-guide/installer/acceptance/test_s1.py:65: M3</skipped>'
                  '<failure>/home/alice/.cache/ms-playwright on alices-Mac-Studio.local; web answered</failure></testsuite>')
-        out = accept.scrub_host_text(junit, pairs)
+        out = accept.scrub_host_text(junit, pairs, "xml")
         self.assertNotIn("alice", out)
         self.assertIn('hostname="redacted-host"', out)
         self.assertIn(">installer/acceptance/test_s1.py:65: M3<", out)
@@ -326,12 +326,41 @@ class AcceptTests(unittest.TestCase):
         pairs = accept.host_identity_pairs(root, home="/srv/R&D \\ lab", hostnames=set())
         xml_text = '<failure message="%s/installer/x.py">%s/y</failure>' % (html.escape(str(root), quote=True), html.escape("/srv/R&D \\ lab", quote=True))
         json_text = json.dumps({"path": str(root) + "/installer/x.py", "home": "/srv/R&D \\ lab/.cache"})
-        out_xml = accept.scrub_host_text(xml_text, pairs)
-        out_json = accept.scrub_host_text(json_text, pairs)
+        out_xml = accept.scrub_host_text(xml_text, pairs, "xml")
+        out_json = accept.scrub_host_text(json_text, pairs, "json")
         self.assertNotIn("R&amp;D", out_xml)
         self.assertIn('message="installer/x.py"', out_xml)
         self.assertNotIn("R&D", out_json)
         self.assertEqual(json.loads(out_json), {"path": "installer/x.py", "home": "~/.cache"})
+
+    def test_numbers_and_localhost_lookalikes_follow_the_written_rule(self):
+        """PR #63 review r2 R2-01, R2-03: a numeric host name never matches; only exact localhost names are exempt."""
+        pairs = accept.host_identity_pairs(self.root, home="/nonexistent-home", hostnames={"12345678", "localhost", "localhost-dev-01"})
+        self.assertEqual([b for a, b in pairs if b == "redacted-host"], ["redacted-host"])  # only localhost-dev-01
+        collector = json.dumps({"tests": [{"id": "C1", "duration_ms": 12345678, "case": "rejection", "host": "localhost-dev-01"}]})
+        out = json.loads(accept.scrub_host_text(collector, pairs, "json"))
+        self.assertEqual(out["tests"][0]["duration_ms"], 12345678)
+        self.assertEqual(out["tests"][0]["host"], "redacted-host")
+
+    def test_real_serialisers_round_trip_without_leaving_the_path(self):
+        """PR #63 review r2 R2-02: values written by ElementTree and by json.dumps(ensure_ascii=False)."""
+        import xml.etree.ElementTree as ET
+        root = Path("/srv/Ü \"q\" & 'r' lab/RDM-developer-guide")
+        pairs = accept.host_identity_pairs(root, home="/srv/Ü \"q\" & 'r' lab", hostnames={"build-host-07"})
+        suite = ET.Element("testsuite", hostname="build-host-07", note=f"{root}/installer/a.py")
+        case = ET.SubElement(suite, "testcase", name="t", file=f"{root}/installer/b.py")
+        ET.SubElement(case, "skipped", message="M3").text = f"{root}/installer/c.py:65: M3 on build-host-07"
+        xml_out = accept.scrub_host_text(ET.tostring(suite, encoding="unicode"), pairs, "xml")
+        parsed = ET.fromstring(xml_out)
+        self.assertEqual(parsed.get("note"), "installer/a.py")
+        self.assertEqual(parsed.get("hostname"), "redacted-host")
+        self.assertEqual(parsed.find("testcase").get("file"), "installer/b.py")
+        self.assertEqual(parsed.find("testcase/skipped").text, "installer/c.py:65: M3 on redacted-host")
+        self.assertEqual(parsed.find("testcase").tag, "testcase")
+        data = {"evidence": f"{root}/docs/demo/runs/x", "cache": "/srv/Ü \"q\" & 'r' lab/.cache", "n": 7}
+        json_out = accept.scrub_host_text(json.dumps(data, ensure_ascii=False, indent=2), pairs, "json")
+        self.assertEqual(json.loads(json_out), {"evidence": "docs/demo/runs/x", "cache": "~/.cache", "n": 7})
+        self.assertNotIn("lab", xml_out + json_out)
 
     # --- results, exit 60 -------------------------------------------------------------------------
 

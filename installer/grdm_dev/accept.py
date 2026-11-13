@@ -517,44 +517,86 @@ HOSTNAME_ATTR = re.compile(r'hostname="[^"]*"')
 HOST_PLACEHOLDER = "redacted-host"
 
 
+_HOST_MARK = "\0host:"
+_LOCALHOSTS = {"localhost", "localhost.localdomain", "localhost6", "localhost6.localdomain6"}
+
+
 def host_identity_pairs(root: Path, home: str | None = None, hostnames: set[str] | None = None) -> list[tuple[str, str]]:
     """(text, replacement) pairs that strip where and on whose machine a run happened from committed evidence
     (PR #62 review r1 R1-03): the checkout's absolute path becomes repository-relative, the home directory `~`,
-    and the machine name a placeholder. Only a host name that looks like one (8 characters or more and with a
-    `-`, `.` or digit) is replaced, and only as a whole token (`scrub_host_text`), because replacing a plain word
-    (a host called `testcase`, say) would rewrite XML element names and result fields (PR #63 review r1 R1-01).
-    Each pair also comes XML-escaped and JSON-escaped, as the paths appear in junit.xml and the JSON files (R1-02)."""
-    raw: list[tuple[str, str]] = []
+    and the machine name a placeholder. A host name is used only when it looks like one (8 characters or more,
+    at least one letter, and a `-`, `.` or digit) and only as a whole token, so a plain word or a number never
+    matches (PR #63 reviews r1 R1-01, r2 R2-01, R2-03). Escaping is handled by `scrub_host_text`, which works on
+    decoded XML and JSON strings, not on their encoded forms (R1-02, R2-02)."""
+    pairs: list[tuple[str, str]] = []
     for r in {str(Path(root)), str(Path(root).resolve())}:  # as given and with symlinks resolved (macOS /home, /tmp)
         if r not in ("", "/", "."):
-            raw += [(r + "/", ""), (r, ".")]
+            pairs += [(r + "/", ""), (r, ".")]
     home = str(Path.home()) if home is None else home
     if home and home != "/":
-        raw.append((home, "~"))
-    pairs: list[tuple[str, str]] = []
-    for a, b in raw:
-        for enc in (lambda t: t, lambda t: html.escape(t, quote=True), lambda t: json.dumps(t)[1:-1]):
-            pairs.append((enc(a), enc(b)))
+        pairs.append((home, "~"))
     if hostnames is None:
         hostnames = {socket.gethostname(), socket.getfqdn()}
     for h in hostnames:
-        if h and len(h) >= 8 and re.search(r"[-.0-9]", h) and not h.startswith("localhost"):
-            pairs.append(("\0host:" + h, HOST_PLACEHOLDER))
+        if (h and len(h) >= 8 and h.lower() not in _LOCALHOSTS
+                and re.search(r"[A-Za-z]", h) and re.search(r"[-.0-9]", h)):
+            pairs.append((_HOST_MARK + h, HOST_PLACEHOLDER))
     return sorted(set(pairs), key=lambda p: len(p[0]), reverse=True)
 
 
-def scrub_host_text(text: str, pairs: list[tuple[str, str]]) -> str:
-    """Remove the run's machine identity: junit's hostname attribute, then every pair of `host_identity_pairs`
-    (host names only as whole tokens, never inside a longer word or name)."""
-    if not text:
-        return text
-    text = HOSTNAME_ATTR.sub(f'hostname="{HOST_PLACEHOLDER}"', text)
+def _scrub_plain(text: str, pairs: list[tuple[str, str]]) -> str:
     for a, b in pairs:
-        if a.startswith("\0host:"):
-            text = re.sub(r"(?<![\w.-])" + re.escape(a[len("\0host:"):]) + r"(?![\w-])", b, text)
+        if a.startswith(_HOST_MARK):
+            text = re.sub(r"(?<![\w.-])" + re.escape(a[len(_HOST_MARK):]) + r"(?![\w-])", b, text)
         else:
             text = text.replace(a, b)
     return text
+
+
+_JSON_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+_XML_ATTR = re.compile(r'(=)(["\'])(.*?)\2', re.S)
+_XML_TEXT = re.compile(r'(>)([^<]+)(<)')
+
+
+def _scrub_json(text: str, pairs: list[tuple[str, str]]) -> str:
+    """Only inside JSON string literals: numbers, keys' structure and formatting stay as they are."""
+    def one(m):
+        try:
+            value = json.loads(m.group(0))
+        except ValueError:
+            return m.group(0)
+        new = _scrub_plain(value, pairs)
+        return m.group(0) if new == value else json.dumps(new, ensure_ascii=not any(ord(c) > 127 for c in m.group(0)))
+    return _JSON_STRING.sub(one, text)
+
+
+def _scrub_xml(text: str, pairs: list[tuple[str, str]]) -> str:
+    """Only inside attribute values and text nodes, decoded and re-escaped: element names never change."""
+    def attr(m):
+        value = html.unescape(m.group(3))
+        new = _scrub_plain(value, pairs)
+        if new == value:
+            return m.group(0)
+        return m.group(1) + m.group(2) + html.escape(new, quote=True) + m.group(2)
+    def node(m):
+        value = html.unescape(m.group(2))
+        new = _scrub_plain(value, pairs)
+        return m.group(0) if new == value else m.group(1) + html.escape(new, quote=False) + m.group(3)
+    text = _XML_ATTR.sub(attr, text)
+    return _XML_TEXT.sub(node, text)
+
+
+def scrub_host_text(text: str, pairs: list[tuple[str, str]], kind: str = "text") -> str:
+    """Remove the run's machine identity. kind: "xml" (attribute values and text nodes), "json" (string
+    literals) or "text" (plain logs). junit's hostname attribute is always replaced."""
+    if not text:
+        return text
+    if kind == "xml":
+        text = HOSTNAME_ATTR.sub(f'hostname="{HOST_PLACEHOLDER}"', text)
+        return _scrub_xml(text, pairs)
+    if kind == "json":
+        return _scrub_json(text, pairs)
+    return _scrub_plain(text, pairs)
 
 
 def sanitize_run_dir(run_dir: Path, secret_values: list[str], identity: list[tuple[str, str]] | None = None) -> None:
@@ -570,7 +612,8 @@ def sanitize_run_dir(run_dir: Path, secret_values: list[str], identity: list[tup
             if lower.endswith(TEXT_SUFFIXES):
                 mask_file(p, secret_values)
                 if identity is not None and p.is_file():
-                    write_private(p, scrub_host_text(p.read_text(encoding="utf-8", errors="replace"), identity))
+                    kind = "xml" if lower.endswith(".xml") else "json" if lower.endswith((".json", ".har")) else "text"
+                    write_private(p, scrub_host_text(p.read_text(encoding="utf-8", errors="replace"), identity, kind))
             elif lower.endswith(".zip"):
                 sanitize_zip(p, secret_values)
     restrict_tree(run_dir)
