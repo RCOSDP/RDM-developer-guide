@@ -1,4 +1,5 @@
 import argparse
+import html
 import io
 import json
 import os
@@ -307,6 +308,30 @@ class AcceptTests(unittest.TestCase):
         text = (self.run_dir() / "junit.xml").read_text(encoding="utf-8")
         self.assertNotIn(str(self.root.resolve()), text)
         self.assertNotIn("h" * 12, text)
+
+    def test_a_plain_word_host_name_never_rewrites_the_evidence_structure(self):
+        """PR #63 review r1 R1-01: a host called `testcase` must not rename <testcase> or a `rejection` case."""
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-y"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(JUNIT_ONE_FAILURE.replace("<testsuite ", '<testsuite hostname="testcase" ', 1), encoding="utf-8")
+        before = accept.collect_results(run_dir)
+        for host in ("testcase", "rejection", "chromium", "skipped1"):
+            accept.sanitize_run_dir(run_dir, [], accept.host_identity_pairs(self.root, home="/nonexistent-home", hostnames={host}))
+        self.assertEqual(accept.collect_results(run_dir), before)
+        self.assertIn('hostname="redacted-host"', (run_dir / "junit.xml").read_text(encoding="utf-8"))
+
+    def test_escaped_paths_in_xml_and_json_are_scrubbed_too(self):
+        """PR #63 review r1 R1-02: a path with `&` appears as `&amp;` in XML and with escapes in JSON."""
+        root = Path("/srv/R&D \\ lab/RDM-developer-guide")
+        pairs = accept.host_identity_pairs(root, home="/srv/R&D \\ lab", hostnames=set())
+        xml_text = '<failure message="%s/installer/x.py">%s/y</failure>' % (html.escape(str(root), quote=True), html.escape("/srv/R&D \\ lab", quote=True))
+        json_text = json.dumps({"path": str(root) + "/installer/x.py", "home": "/srv/R&D \\ lab/.cache"})
+        out_xml = accept.scrub_host_text(xml_text, pairs)
+        out_json = accept.scrub_host_text(json_text, pairs)
+        self.assertNotIn("R&amp;D", out_xml)
+        self.assertIn('message="installer/x.py"', out_xml)
+        self.assertNotIn("R&D", out_json)
+        self.assertEqual(json.loads(out_json), {"path": "installer/x.py", "home": "~/.cache"})
 
     # --- results, exit 60 -------------------------------------------------------------------------
 

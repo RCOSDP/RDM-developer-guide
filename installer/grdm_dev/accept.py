@@ -520,30 +520,40 @@ HOST_PLACEHOLDER = "redacted-host"
 def host_identity_pairs(root: Path, home: str | None = None, hostnames: set[str] | None = None) -> list[tuple[str, str]]:
     """(text, replacement) pairs that strip where and on whose machine a run happened from committed evidence
     (PR #62 review r1 R1-03): the checkout's absolute path becomes repository-relative, the home directory `~`,
-    and the machine name a placeholder. Host names shorter than 8 characters are left alone, because replacing
-    a short common word (a host called `web`, say) would corrupt the evidence."""
-    pairs: list[tuple[str, str]] = []
+    and the machine name a placeholder. Only a host name that looks like one (8 characters or more and with a
+    `-`, `.` or digit) is replaced, and only as a whole token (`scrub_host_text`), because replacing a plain word
+    (a host called `testcase`, say) would rewrite XML element names and result fields (PR #63 review r1 R1-01).
+    Each pair also comes XML-escaped and JSON-escaped, as the paths appear in junit.xml and the JSON files (R1-02)."""
+    raw: list[tuple[str, str]] = []
     for r in {str(Path(root)), str(Path(root).resolve())}:  # as given and with symlinks resolved (macOS /home, /tmp)
         if r not in ("", "/", "."):
-            pairs += [(r + "/", ""), (r, ".")]
+            raw += [(r + "/", ""), (r, ".")]
     home = str(Path.home()) if home is None else home
     if home and home != "/":
-        pairs.append((home, "~"))
+        raw.append((home, "~"))
+    pairs: list[tuple[str, str]] = []
+    for a, b in raw:
+        for enc in (lambda t: t, lambda t: html.escape(t, quote=True), lambda t: json.dumps(t)[1:-1]):
+            pairs.append((enc(a), enc(b)))
     if hostnames is None:
         hostnames = {socket.gethostname(), socket.getfqdn()}
     for h in hostnames:
-        if h and len(h) >= 8 and h not in ("localhost", "localhost.localdomain"):
-            pairs.append((h, HOST_PLACEHOLDER))
+        if h and len(h) >= 8 and re.search(r"[-.0-9]", h) and not h.startswith("localhost"):
+            pairs.append(("\0host:" + h, HOST_PLACEHOLDER))
     return sorted(set(pairs), key=lambda p: len(p[0]), reverse=True)
 
 
 def scrub_host_text(text: str, pairs: list[tuple[str, str]]) -> str:
-    """Remove the run's machine identity: junit's hostname attribute, then every pair of `host_identity_pairs`."""
+    """Remove the run's machine identity: junit's hostname attribute, then every pair of `host_identity_pairs`
+    (host names only as whole tokens, never inside a longer word or name)."""
     if not text:
         return text
     text = HOSTNAME_ATTR.sub(f'hostname="{HOST_PLACEHOLDER}"', text)
     for a, b in pairs:
-        text = text.replace(a, b)
+        if a.startswith("\0host:"):
+            text = re.sub(r"(?<![\w.-])" + re.escape(a[len("\0host:"):]) + r"(?![\w-])", b, text)
+        else:
+            text = text.replace(a, b)
     return text
 
 
