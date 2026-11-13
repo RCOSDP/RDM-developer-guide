@@ -244,6 +244,38 @@ class StagedGateTests(ScanTestBase):
         self.assertEqual(code, exit_codes.SCAN_GATE_FAILED)
         self.assertTrue(any("grew" in r for r in data["gate_reasons"]))
 
+    def _entries(self, n):
+        return [{"cve": f"CVE-2026-{i:05d}", "component": f"pkg{i}", "reason": "r", "owner": "AID",
+                 "expires": "2026-12-31", "added_at": "2026-11-05"} for i in range(n)]
+
+    def test_m3_ceiling_is_the_m2_exit_count(self):
+        # Owner decision of 2026-11-13: M2 closed with 58 entries; at M3 the ceiling is the M2 count, not M1's 0.
+        self.write_manifest("milestone.json", {"milestone": "M3", "gate": "count-not-growing"})
+        self.write_manifest("allowlist.baseline.json", {"counts": {"M1": 0, "M2": 58}})
+        self.write_manifest("allowlist.json", {"entries": self._entries(58)})
+        code, data, _ = self.run_scan(fake_runner())
+        self.assertEqual(code, exit_codes.OK, data["gate_reasons"])
+        self.assertEqual(data["milestone"], "M3")
+        self.assertEqual(data["allowlist_baseline"], 58)
+        self.assertFalse(any("grew" in r for r in data["gate_reasons"]))
+        self.write_manifest("allowlist.json", {"entries": self._entries(59)})
+        code, data, _ = self.run_scan(fake_runner())
+        self.assertEqual(code, exit_codes.SCAN_GATE_FAILED)
+        self.assertEqual(data["allowlist_baseline"], 58)
+        self.assertIn("allow-list grew: 59 > baseline 58 (SPEC-03 §5.1 rule 5)", data["gate_reasons"])
+
+    def test_repository_gate_manifest_holds_its_own_count(self):
+        # The committed manifest/ must pass its own count rule: from M2 on, the allow-list size must not exceed
+        # the count of the current (or latest earlier) milestone in allowlist.baseline.json (SPEC-03 §5.1 rule 5).
+        manifest = REPO_ROOT / "manifest"
+        milestone = json.loads((manifest / "milestone.json").read_text())["milestone"]
+        if scan.GATE_BY_MILESTONE[milestone] == "report-only":
+            self.skipTest(f"{milestone} is report-only; the count is not enforced")
+        counts = json.loads((manifest / "allowlist.baseline.json").read_text())["counts"]
+        entries = json.loads((manifest / "allowlist.json").read_text())["entries"]
+        ceiling = next(counts[m] for m in reversed(scan.MILESTONES[: scan.MILESTONES.index(milestone) + 1]) if m in counts)
+        self.assertLessEqual(len(entries), ceiling, (milestone, counts))
+
     def test_malformed_milestone_json_fails_closed_not_m1(self):
         (self.root / "manifest" / "milestone.json").write_text("{not json")
         code, data, _ = self.run_scan(fake_runner())

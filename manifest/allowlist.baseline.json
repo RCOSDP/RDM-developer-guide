@@ -1,5 +1,5 @@
 {
   "schema_version": 1,
-  "note": "Allow-list entry count at each milestone exit, owner-maintained (SPEC-03 §5.1 rule 5). grdm-dev scan uses the count of the current (or latest earlier) milestone as the ceiling. M1: the allow-list was created empty.",
-  "counts": {"M1": 0}
+  "note": "Allow-list entry count at each milestone exit, owner-maintained (SPEC-03 §5.1 rule 5). grdm-dev scan uses the count of the current (or latest earlier) milestone as the ceiling. M1: the allow-list was created empty. M2: 58, accepted by the owner's decision of 2026-11-13 when M2 was declared complete; this does not meet M2's written criterion (fewer entries than M1), it records the owner's acceptance (docs/status/README.md). At M3 the ceiling is 58.",
+  "counts": {"M1": 0, "M2": 58}
 }
