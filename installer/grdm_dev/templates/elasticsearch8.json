@@ -32,7 +32,7 @@
     "interval": "10s",
     "timeout": "5s",
     "start_period": "30s",
-    "retries": 120
+    "retries": 100
   },
   "weight": 3,
   "mem_min_mb": 1536,

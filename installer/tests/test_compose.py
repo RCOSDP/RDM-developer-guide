@@ -584,11 +584,16 @@ class ComposeRenderTests(unittest.TestCase):
             self.assertIn("--cacert /es-ca/ca.crt", es["healthcheck"]["test"][1])
             # an emulated amd64 host needed 8 min 10 s to start Elasticsearch 8 (DEMO-22 0.7): the window must
             # outlast that, yet stay inside the default `up` wait (1800 s), or the check never fails in time
+            # Docker waits `interval` after each probe ends, so a probe that always hangs costs interval + timeout
+            # per try: the shortest window (fast failures) must still exceed the measured start with margin, and the
+            # longest (every probe timing out) must end before `up`'s default 1800 s health wait (PR #62 review r1 R1-01)
             hc = es["healthcheck"]
-            budget = 30 + int(hc["interval"].rstrip("s")) * hc["retries"]
+            secs = lambda v: int(v.rstrip("s"))
+            shortest = secs(hc["start_period"]) + secs(hc["interval"]) * hc["retries"]
+            longest = secs(hc["start_period"]) + (secs(hc["interval"]) + secs(hc["timeout"])) * hc["retries"]
             self.assertEqual(hc["start_period"], "30s")
-            self.assertGreaterEqual(budget, 15 * 60)
-            self.assertLess(budget, 1800)
+            self.assertGreaterEqual(shortest, 2 * (8 * 60 + 10))   # twice the 8 min 10 s measured start
+            self.assertLessEqual(longest, 1800 - 120)               # at least 2 minutes of slack inside the wait
             self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
             setup = doc["services"]["elasticsearch8_setup"]
             self.assertEqual(setup["restart"], "no")
