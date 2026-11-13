@@ -5,8 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-12. **Learned:** Publication must redact provenance locations and body artifact paths as well as link destinations; only these location labels changed, with judgments, findings, test results and earlier version lines preserved. ／ 公開時はリンク先だけでなく出典の場所と本文の成果物パスも秘匿する。場所の表記のみを変更し、判定、指摘、試験結果、過去の版行を保持した。
 - Version / 版: 0.2 — 2026-11-12. **Learned:** REV changed only link destinations for publication: scratch-path links were replaced by repository-relative links or plain-text references. ／ REV は公開のためリンク先のみを変更し、作業用パスへのリンクをリポジトリ相対リンクまたは平文の参照に置き換えた。
-- Provenance / 出典: Original file / 原本: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-12_RDM-developer-guide_PR50_Ubuntu_Amd64_r1.md`. All other original text is retained verbatim below, including the original version and review-time context. ／ 以下は元の版とレビュー時点の文脈を含め、それ以外の原文をそのまま保持する。
+- Provenance / 出典: Original file / 原本: `2026-11-12_RDM-developer-guide_PR50_Ubuntu_Amd64_r1.md`. Publication 0.3 redacts only original-file locations, local artifact paths and the guest checkout location to basenames or neutral artifact names; prior publication link changes remain. Judgments, findings, test results and earlier version lines are unchanged. ／ 公開版 0.3 では原本の場所、ローカル成果物のパス、ゲスト配置先のみをファイル名または中立的な成果物名に置換し、前公開版のリンク修正を維持する。判定、指摘、試験結果、過去の版行は変更しない。
 - Version / 版: 0.1 — 2026-11-12. **Learned:** passing repository checks does not establish that a narrative matches its committed evidence; an omitted failed attempt and an unparsed TOON row count survived those checks. ／ リポジトリの検査が成功しても、説明がコミット済み証跡と一致する証明にはならない。失敗した実行の集計漏れと TOON の行数不一致は検査を通過した。
 - Applies to: RCOSDP/RDM-developer-guide PR #50, round 1; REV（担当レビュワ, Codex Astra）.
 - Related: [Review index](../reviews/README.md) · [SPEC-06](../spec/06_documentation_conventions.md) · [SPEC-02](../spec/02_installer_cli.md) · [DEMO-22](../demo/22_core_install_ubuntu_amd64_lima.md).
@@ -53,7 +54,7 @@ runs[4]{run_id,seeded,passed,failed,error,skipped,pytest_exit}:
 
 The seeded full run's 1,288,938 ms is the overall acceptance-command duration (about 21 min 29 s); its pytest execution is 830.04 s. Both seeded C4 logs fail at `_open_editor` → `page.goto(...wiki/home/?edit&view&menu, wait_until="domcontentloaded")`, with `Timeout 30000ms exceeded`; both rejection cases pass with WebSocket close code 4401. The cause remains unresolved. No browser/acceptance rerun was performed.
 
-Content inspection and targeted searches of all 20 UTF-8 files found no credential values, disposable test email/password values, or local scratch paths. Identity/password values shown in tracebacks are `***`; no GitHub token/private-key patterns or email addresses remain. The guest checkout path `/home/grdm/RDM-developer-guide` remains in some Playwright traceback callbacks; it is the documented guest path, not a scratch path. No trace archives or screenshots are included. This is a bounded content review, not a claim that the unexecuted stack `scan` passed.
+Content inspection and targeted searches of all 20 UTF-8 files found no credential values, disposable test email/password values, or local scratch paths. Identity/password values shown in tracebacks are `***`; no GitHub token/private-key patterns or email addresses remain. The guest checkout path `guest-checkout` remains in some Playwright traceback callbacks; it is the documented guest path, not a scratch path. No trace archives or screenshots are included. This is a bounded content review, not a claim that the unexecuted stack `scan` passed.
 
 Prerequisites, compile timings, image transfer, `up` duration and `health --network` exit zero are described in the narrative but have no corresponding new raw logs/reports in these four acceptance folders. Acceptance prechecks corroborate a healthy 24-service stack, not the loopback binding audit or the complete earlier sequence. The Rosetta-built osf.io/wiki-frontend import and interrupted single-command run are disclosed; a completed uninterrupted emulated/native amd64 install is not evidenced.
 
@@ -116,7 +117,7 @@ runs[4]{run_id,seeded,passed,failed,error,skipped,pytest_exit}:
 
 seed あり全体実行の1,288,938 msは受入コマンド全体の約21分29秒であり、pytest 部分は830.04秒である。seed ありの C4 ログは2回とも `_open_editor` → `page.goto(...wiki/home/?edit&view&menu, wait_until="domcontentloaded")` で `Timeout 30000ms exceeded` となり、拒否系は2回とも WebSocket close code 4401で合格した。原因は未解決である。今回ブラウザ／受入試験の再実行はしていない。
 
-20個すべての UTF-8 ファイルの内容確認と対象検索では、秘密値、使い捨て試験メール／パスワード値、ローカル scratch パスを検出しなかった。traceback の利用者・パスワード値は `***`、GitHub token／秘密鍵形式やメールアドレスも残っていない。一部 Playwright callback にゲストの `/home/grdm/RDM-developer-guide` は残るが、記載されたゲスト配置先であり scratch パスではない。trace archive やスクリーンショットは含まれない。この限定的な内容監査は、未実施の stack `scan` の成功を意味しない。
+20個すべての UTF-8 ファイルの内容確認と対象検索では、秘密値、使い捨て試験メール／パスワード値、ローカル scratch パスを検出しなかった。traceback の利用者・パスワード値は `***`、GitHub token／秘密鍵形式やメールアドレスも残っていない。一部 Playwright callback にゲストの `guest-checkout` は残るが、記載されたゲスト配置先であり scratch パスではない。trace archive やスクリーンショットは含まれない。この限定的な内容監査は、未実施の stack `scan` の成功を意味しない。
 
 前提条件、ビルド時間、イメージ移送、`up` 所要時間、`health --network` の終了0は本文の記録であり、この4受入フォルダに対応する生ログ／報告は追加されていない。受入の precheck は24サービスが healthy だったことを裏付けるが、loopback bind の検査や前段すべての手順は証明しない。Rosetta 製 osf.io／wiki-frontend の輸入と単一コマンドの中断は開示されている。エミュレーション／実機 amd64 で中断しない完走の証跡は無い。
 

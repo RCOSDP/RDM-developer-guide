@@ -5,8 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-13. **Learned:** Publication must redact provenance locations and body artifact paths as well as link destinations; only these location labels changed, with judgments, findings, test results and earlier version lines preserved. ／ 公開時はリンク先だけでなく出典の場所と本文の成果物パスも秘匿する。場所の表記のみを変更し、判定、指摘、試験結果、過去の版行を保持した。
 - Version / 版: 0.2 — 2026-11-13. **Learned:** REV changed only link destinations for publication: scratch-path links were replaced by repository-relative links or plain-text references. ／ REV は公開のためリンク先のみを変更し、作業用パスへのリンクをリポジトリ相対リンクまたは平文の参照に置き換えた。
-- Provenance / 出典: Original file / 原本: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r1.md`. All other original text is retained verbatim below, including the original version and review-time context. ／ 以下は元の版とレビュー時点の文脈を含め、それ以外の原文をそのまま保持する。
+- Provenance / 出典: Original file / 原本: `2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r1.md`. Publication 0.3 redacts only original-file locations, local artifact paths and the guest checkout location to basenames or neutral artifact names; prior publication link changes remain. Judgments, findings, test results and earlier version lines are unchanged. ／ 公開版 0.3 では原本の場所、ローカル成果物のパス、ゲスト配置先のみをファイル名または中立的な成果物名に置換し、前公開版のリンク修正を維持する。判定、指摘、試験結果、過去の版行は変更しない。
 - Version / 版: 0.1 — 2026-11-13. **Learned:** successful unit tests do not establish that a scanner exemption identifies the authentication boundary; an unrelated redirect must remain a failed scan. ／ 単体試験の成功だけでは検査除外が認証の境界を識別しているとは言えず、無関係な転送先への失敗は検査失敗として残す必要がある。
 - Applies to: RCOSDP/RDM-developer-guide PR #56, head `eae88bdd9b61550920d975146d3275ba6aca43bc`, base `develop`; REV round 1.
 - Related: [PR #56](https://github.com/RCOSDP/RDM-developer-guide/pull/56) · [review index](../reviews/README.md) · [SPEC-06](../spec/06_documentation_conventions.md).

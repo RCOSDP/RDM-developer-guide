@@ -5,8 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-12. **Learned:** Publication must redact provenance locations and body artifact paths as well as link destinations; only these location labels changed, with judgments, findings, test results and earlier version lines preserved. ／ 公開時はリンク先だけでなく出典の場所と本文の成果物パスも秘匿する。場所の表記のみを変更し、判定、指摘、試験結果、過去の版行を保持した。
 - Version / 版: 0.2 — 2026-11-12. **Learned:** REV changed only link destinations for publication: scratch-path links were replaced by repository-relative links or plain-text references. ／ REV は公開のためリンク先のみを変更し、作業用パスへのリンクをリポジトリ相対リンクまたは平文の参照に置き換えた。
-- Provenance / 出典: Original file / 原本: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-12_RDM-developer-guide_PR52_Amd64_Scan_r1.md`. All other original text is retained verbatim below, including the original version and review-time context. ／ 以下は元の版とレビュー時点の文脈を含め、それ以外の原文をそのまま保持する。
+- Provenance / 出典: Original file / 原本: `2026-11-12_RDM-developer-guide_PR52_Amd64_Scan_r1.md`. Publication 0.3 redacts only original-file locations, local artifact paths and the guest checkout location to basenames or neutral artifact names; prior publication link changes remain. Judgments, findings, test results and earlier version lines are unchanged. ／ 公開版 0.3 では原本の場所、ローカル成果物のパス、ゲスト配置先のみをファイル名または中立的な成果物名に置換し、前公開版のリンク修正を維持する。判定、指摘、試験結果、過去の版行は変更しない。
 - Version / 版: 0.1 — 2026-11-12. **Learned:** a passing documentation check cannot distinguish an observed timeout from an exclusive causal claim, or a milestone entry-count baseline from matched findings. ／ 文書検査の合格だけでは、観察されたタイムアウトと排他的な原因の断定、節目の項目数基準と一致した指摘件数を区別できない。
 - Applies to: [PR #52](https://github.com/RCOSDP/RDM-developer-guide/pull/52), `docs/ubuntu-amd64-scan` → `develop`, head `989ff6e5f46993f75069cd2ec7bd858ec7787151`, base `32e2344292abc5391bb27452a7c8a0022d585bff`.
 - Reviewer: REV（担当レビュワ, Codex Astra）.

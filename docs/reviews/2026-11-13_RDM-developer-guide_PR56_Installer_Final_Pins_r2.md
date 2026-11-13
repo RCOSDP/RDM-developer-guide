@@ -5,8 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-13. **Learned:** Publication must redact provenance locations and body artifact paths as well as link destinations; only these location labels changed, with judgments, findings, test results and earlier version lines preserved. ／ 公開時はリンク先だけでなく出典の場所と本文の成果物パスも秘匿する。場所の表記のみを変更し、判定、指摘、試験結果、過去の版行を保持した。
 - Version / 版: 0.2 — 2026-11-13. **Learned:** REV changed only link destinations for publication: scratch-path links were replaced by repository-relative links or plain-text references. ／ REV は公開のためリンク先のみを変更し、作業用パスへのリンクをリポジトリ相対リンクまたは平文の参照に置き換えた。
-- Provenance / 出典: Original file / 原本: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r2.md`. All other original text is retained verbatim below, including the original version and review-time context. ／ 以下は元の版とレビュー時点の文脈を含め、それ以外の原文をそのまま保持する。
+- Provenance / 出典: Original file / 原本: `2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r2.md`. Publication 0.3 redacts only original-file locations, local artifact paths and the guest checkout location to basenames or neutral artifact names; prior publication link changes remain. Judgments, findings, test results and earlier version lines are unchanged. ／ 公開版 0.3 では原本の場所、ローカル成果物のパス、ゲスト配置先のみをファイル名または中立的な成果物名に置換し、前公開版のリンク修正を維持する。判定、指摘、試験結果、過去の版行は変更しない。
 - Version / 版: 0.1 — 2026-11-13. **Learned:** a non-following HTTP probe can successfully return an invalid Location; validating its output must itself fail closed without interrupting the scanner report. ／ 転送を追わない HTTP の探りは不正な Location も正常に返しうるため、その出力の検証自体も報告の生成を中断せず安全に失敗する必要がある。
 - Applies to: RCOSDP/RDM-developer-guide PR #56, `eae88bdd9b61550920d975146d3275ba6aca43bc..cb93d48a855dbb894575c1efa815b65668dbaecc`; REV round 2.
 - Related: [PR #56](https://github.com/RCOSDP/RDM-developer-guide/pull/56) · [review index](../reviews/README.md) · [SPEC-06](../spec/06_documentation_conventions.md) · [r1](2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r1.md).
@@ -39,7 +40,7 @@ ADR-14 0.2 now prescribes `secrets init --missing`, render/build/render/up and a
 
 ### Checks and boundaries
 
-Clean detached clone: `/private/tmp/rev-pr56-r2-clone`; GitHub head was checked with `gh pr view`. Commands ran from that clone; process exits were checked individually:
+Clean detached clone: `rev-pr56-r2-clone`; GitHub head was checked with `gh pr view`. Commands ran from that clone; process exits were checked individually:
 
 ```toon
 checks[4]{command,exit,result}:
@@ -49,7 +50,7 @@ checks[4]{command,exit,result}:
   "/usr/bin/python3 tools/manifest_check.py",0,"0 manifest findings; 0 policy findings; 780 scanned; 63 non-UTF-8 skipped"
 ```
 
-The targeted probe script and version-preservation checks exited 0; the deliberately uncaught malformed-Location reproduction exited 1. Logs/scripts are `/private/tmp/rev-pr56-r2-{installer,tools,docs,manifest,probe}.log`, `/private/tmp/rev-pr56-r2-probe.py`, `/private/tmp/rev-pr56-r2-malformed.py`, and `/private/tmp/rev-pr56-r2-versions.py`. The clone has no tracked changes. No live Docker command, live `runtime/.env` access, commit, push, approval, merge, close or prune was performed. Temporary fixtures contain synthetic values only. One concise Japanese PR comment accompanies this report. Remaining work: fix R2-01 and rerun its regression; a real Docker probe/stack scan remains explicitly unverified.
+The targeted probe script and version-preservation checks exited 0; the deliberately uncaught malformed-Location reproduction exited 1. Logs/scripts are `rev-pr56-r2-{installer,tools,docs,manifest,probe}.log`, `rev-pr56-r2-probe.py`, `rev-pr56-r2-malformed.py`, and `rev-pr56-r2-versions.py`. The clone has no tracked changes. No live Docker command, live `runtime/.env` access, commit, push, approval, merge, close or prune was performed. Temporary fixtures contain synthetic values only. One concise Japanese PR comment accompanies this report. Remaining work: fix R2-01 and rerun its regression; a real Docker probe/stack scan remains explicitly unverified.
 
 ---
 
@@ -78,6 +79,6 @@ ADR-14 0.2 は英和とも `secrets init --missing`、render/build/render/up、�
 
 ### 検査と範囲
 
-`/private/tmp/rev-pr56-r2-clone` の隔離した detached clone を使い、`gh pr view` で GitHub の head を確認した。正確なコマンドは英語部の一覧に記録した。installer は 677 件・10 skip・88.044 秒、tools は 93 件・5.595 秒、docs_check は 193 ファイル・8 例外・58 警告、manifest_check は manifest/policy とも指摘 0（780 検査、非 UTF-8 の 63 を除外）。四コマンドは終了コードを個別に確認し、すべて 0 だった。
+`rev-pr56-r2-clone` の隔離した detached clone を使い、`gh pr view` で GitHub の head を確認した。正確なコマンドは英語部の一覧に記録した。installer は 677 件・10 skip・88.044 秒、tools は 93 件・5.595 秒、docs_check は 193 ファイル・8 例外・58 警告、manifest_check は manifest/policy とも指摘 0（780 検査、非 UTF-8 の 63 を除外）。四コマンドは終了コードを個別に確認し、すべて 0 だった。
 
 追加の探り・版保持の確認スクリプトは終了 0、意図して例外を捕捉しない不正 Location 再現は終了 1。ログとスクリプトのパスは英語部に記録した。clone に追跡ファイルの変更はない。実 Docker 操作、実環境の `runtime/.env` 参照、commit、push、approve、merge、close、prune は行っていない。一時試験の値は合成データだけである。日本語の PR コメントは一件のみとする。残件は R2-01 の修正と回帰試験。実 Docker の探りとスタック検査は引き続き未検証である。

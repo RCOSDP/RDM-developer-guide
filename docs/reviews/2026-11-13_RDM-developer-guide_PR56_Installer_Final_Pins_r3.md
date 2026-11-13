@@ -5,8 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
+- Version / 版: 0.3 — 2026-11-13. **Learned:** Publication must redact provenance locations and body artifact paths as well as link destinations; only these location labels changed, with judgments, findings, test results and earlier version lines preserved. ／ 公開時はリンク先だけでなく出典の場所と本文の成果物パスも秘匿する。場所の表記のみを変更し、判定、指摘、試験結果、過去の版行を保持した。
 - Version / 版: 0.2 — 2026-11-13. **Learned:** REV changed only link destinations for publication: scratch-path links were replaced by repository-relative links or plain-text references. ／ REV は公開のためリンク先のみを変更し、作業用パスへのリンクをリポジトリ相対リンクまたは平文の参照に置き換えた。
-- Provenance / 出典: Original file / 原本: `/private/tmp/claude-501/-Users-komiyama-ai-development-GitHub-RDM-developer-guide/8baac84b-080f-4104-a2b5-7416702c57e1/scratchpad/reviews/2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r3.md`. All other original text is retained verbatim below, including the original version and review-time context. ／ 以下は元の版とレビュー時点の文脈を含め、それ以外の原文をそのまま保持する。
+- Provenance / 出典: Original file / 原本: `2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r3.md`. Publication 0.3 redacts only original-file locations, local artifact paths and the guest checkout location to basenames or neutral artifact names; prior publication link changes remain. Judgments, findings, test results and earlier version lines are unchanged. ／ 公開版 0.3 では原本の場所、ローカル成果物のパス、ゲスト配置先のみをファイル名または中立的な成果物名に置換し、前公開版のリンク修正を維持する。判定、指摘、試験結果、過去の版行は変更しない。
 - Version / 版: 0.1 — 2026-11-13. **Learned:** a narrowly placed evidence-validation exception handler preserves failure reporting without granting an exemption; reverting only that handler proves the regression test detects the original defect. ／ 証拠の検証だけを囲む例外処理は除外を認めず失敗報告を維持でき、その処理だけを戻すことで回帰試験が元の欠陥を検出すると確かめられる。
 - Applies to: RCOSDP/RDM-developer-guide PR #56, `cb93d48a855dbb894575c1efa815b65668dbaecc..5fca0b56f5207c1f59d87aa81e9781b6a54edb58`; REV round 3.
 - Related: [PR #56](https://github.com/RCOSDP/RDM-developer-guide/pull/56) · [review index](../reviews/README.md) · [SPEC-06](../spec/06_documentation_conventions.md) · [r1](2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r1.md) · [r2](2026-11-13_RDM-developer-guide_PR56_Installer_Final_Pins_r2.md).
@@ -21,7 +22,7 @@
 
 ### Verdict and scope
 
-**Pass; no remaining blocking finding.** R2-01 is closed. Review used the clean detached clone `/private/tmp/rev-pr56-r3-clone`; `gh pr view` confirmed the requested head both before and after verification. Exactly one commit follows r2, changing only `installer/grdm_dev/scan.py` and `installer/tests/test_scan.py`.
+**Pass; no remaining blocking finding.** R2-01 is closed. Review used the clean detached clone `rev-pr56-r3-clone`; `gh pr view` confirmed the requested head both before and after verification. Exactly one commit follows r2, changing only `installer/grdm_dev/scan.py` and `installer/tests/test_scan.py`.
 
 The new `zap_behind_sign_in` wrapper at line 1089 catches `ValueError` (including `UnicodeDecodeError`) and `OSError` only around the sign-in evidence helper. It returns `None`, which makes `run_zap` retain its ordinary missing-report problem. It cannot create a verified destination or increment skipped coverage on that failure. Actual scanning, report reading, findings, and report saving remain outside the wrapper. The helper body, including all positive evidence requirements and the accepted-redirect success path, is otherwise unchanged.
 
@@ -41,7 +42,7 @@ Comparison with the r1 head confirms that all files outside the previously revie
 
 ### Checks and boundaries
 
-Commands ran from `/private/tmp/rev-pr56-r3-clone`; each process exit was checked. The following is this review's observed result record, not a mirror of repository JSON.
+Commands ran from `rev-pr56-r3-clone`; each process exit was checked. The following is this review's observed result record, not a mirror of repository JSON.
 
 ```toon
 checks[7]{command,exit,result}:
@@ -49,12 +50,12 @@ checks[7]{command,exit,result}:
   "/usr/bin/python3 -m unittest discover -s tools/tests",0,"93 tests; 5.233 seconds"
   "/usr/bin/python3 tools/docs_check.py",0,"193 files; 8 exempt; 58 warnings"
   "/usr/bin/python3 tools/manifest_check.py",0,"0 manifest findings; 0 policy findings; 780 scanned; 63 non-UTF-8 skipped"
-  "PYTHONPATH=installer:installer/tests /usr/bin/python3 /private/tmp/rev-pr56-r3-extra.py",0,"written reports and exception boundaries verified"
+  "PYTHONPATH=installer:installer/tests /usr/bin/python3 rev-pr56-r3-extra.py",0,"written reports and exception boundaries verified"
   "PYTHONPATH=installer:installer/tests /usr/bin/python3 -m unittest test_scan.ScannerRobustnessTests.test_zap_malformed_evidence_is_no_evidence_and_the_scan_still_reports_incomplete (scan.py temporarily reverted)",1,"expected ERROR: Invalid IPv6 URL"
   "PYTHONPATH=installer:installer/tests /usr/bin/python3 -m unittest test_scan.ScannerRobustnessTests (HEAD restored)",0,"25 tests; 0.430 seconds"
 ```
 
-Logs: `/private/tmp/rev-pr56-r3-{installer,tools,docs,manifest,extra,reverted,restored}.log`. The independent script is `/private/tmp/rev-pr56-r3-extra.py`. Historical-version preservation and final `git diff --check` also exited 0. Git status was clean. No live Docker operations, live `runtime/.env` access, merge, approval, close, push, commit or prune occurred. Exactly one concise Japanese PR comment accompanies this review. Nothing remains to fix in this review's scope; actual Docker-image probe execution and a new live stack scan remain unverified, as in r2.
+Logs: `rev-pr56-r3-{installer,tools,docs,manifest,extra,reverted,restored}.log`. The independent script is `rev-pr56-r3-extra.py`. Historical-version preservation and final `git diff --check` also exited 0. Git status was clean. No live Docker operations, live `runtime/.env` access, merge, approval, close, push, commit or prune occurred. Exactly one concise Japanese PR comment accompanies this review. Nothing remains to fix in this review's scope; actual Docker-image probe execution and a new live stack scan remain unverified, as in r2.
 
 ---
 
@@ -65,7 +66,7 @@ Logs: `/private/tmp/rev-pr56-r3-{installer,tools,docs,manifest,extra,reverted,re
 
 ### 判定と範囲
 
-**Pass（合格）。統合を止める残件なし。** R2-01 は解消した。隔離した `/private/tmp/rev-pr56-r3-clone` の detached clone を使い、検証の前後に `gh pr view` で指定 head を確認した。r2 後は一コミットだけで、変更は `installer/grdm_dev/scan.py` と `installer/tests/test_scan.py` に限られる。
+**Pass（合格）。統合を止める残件なし。** R2-01 は解消した。隔離した `rev-pr56-r3-clone` の detached clone を使い、検証の前後に `gh pr view` で指定 head を確認した。r2 後は一コミットだけで、変更は `installer/grdm_dev/scan.py` と `installer/tests/test_scan.py` に限られる。
 
 1089 行の `zap_behind_sign_in` は、サインインの証拠を判定する処理だけで `ValueError`（`UnicodeDecodeError` を含む）と `OSError` を捕捉する。返すのは `None` なので、`run_zap` は通常の報告欠落の問題を保つ。失敗から確認済みの宛先を作ったり、対象外の数を増やしたりしない。検査本体、報告の読込み、検出結果、保存はこの捕捉の外にある。肯定的な証拠の全条件と、正当な転送を認める経路は変更されていない。
 
