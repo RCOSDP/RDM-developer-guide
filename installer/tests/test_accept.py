@@ -280,6 +280,34 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual(seen, [1900, 38000, 1900, 1900, 5])
         self.assertGreater(38000, 30 * 60 * 20 + 1)  # the suite's stretched 36,000 s fits inside the parent's limit
 
+    def test_run_evidence_loses_the_machine_name_and_absolute_paths(self):
+        """PR #62 review r1 R1-03: committed run folders carried a host name and a home path."""
+        pairs = accept.host_identity_pairs(Path("/home/alice/work/RDM-developer-guide"), home="/home/alice",
+                                           hostnames={"alices-Mac-Studio.local", "web"})
+        junit = ('<testsuite hostname="alices-Mac-Studio.local"><skipped message="M3">'
+                 '/home/alice/work/RDM-developer-guide/installer/acceptance/test_s1.py:65: M3</skipped>'
+                 '<failure>/home/alice/.cache/ms-playwright on alices-Mac-Studio.local; web answered</failure></testsuite>')
+        out = accept.scrub_host_text(junit, pairs)
+        self.assertNotIn("alice", out)
+        self.assertIn('hostname="redacted-host"', out)
+        self.assertIn(">installer/acceptance/test_s1.py:65: M3<", out)
+        self.assertIn("~/.cache/ms-playwright on redacted-host", out)
+        self.assertIn("web answered", out)  # a short host name is not replaced: it would corrupt the evidence
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-x"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(junit, encoding="utf-8")
+        accept.sanitize_run_dir(run_dir, [], pairs)
+        self.assertNotIn("alice", (run_dir / "junit.xml").read_text(encoding="utf-8"))
+
+    def test_a_real_run_scrubs_its_own_checkout_path(self):
+        runner = FakeRunner(junit=JUNIT_ONE_FAILURE.replace("<testsuite ", f'<testsuite hostname="{"h" * 12}" ', 1)
+                            + f"<!-- {self.root}/installer/acceptance -->")
+        with mock.patch.object(accept.socket, "gethostname", return_value="h" * 12):
+            self.run_accept(self.args(base_url="http://127.0.0.1:5000"), runner)
+        text = (self.run_dir() / "junit.xml").read_text(encoding="utf-8")
+        self.assertNotIn(str(self.root.resolve()), text)
+        self.assertNotIn("h" * 12, text)
+
     # --- results, exit 60 -------------------------------------------------------------------------
 
     def test_pytest_failure_maps_to_60_and_writes_results(self):

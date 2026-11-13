@@ -40,6 +40,7 @@ import os
 import re
 import secrets
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -512,7 +513,41 @@ def restrict_tree(run_dir: Path) -> None:
                 os.chmod(p, stat.S_IRUSR | stat.S_IWUSR)
 
 
-def sanitize_run_dir(run_dir: Path, secret_values: list[str]) -> None:
+HOSTNAME_ATTR = re.compile(r'hostname="[^"]*"')
+HOST_PLACEHOLDER = "redacted-host"
+
+
+def host_identity_pairs(root: Path, home: str | None = None, hostnames: set[str] | None = None) -> list[tuple[str, str]]:
+    """(text, replacement) pairs that strip where and on whose machine a run happened from committed evidence
+    (PR #62 review r1 R1-03): the checkout's absolute path becomes repository-relative, the home directory `~`,
+    and the machine name a placeholder. Host names shorter than 8 characters are left alone, because replacing
+    a short common word (a host called `web`, say) would corrupt the evidence."""
+    pairs: list[tuple[str, str]] = []
+    for r in {str(Path(root)), str(Path(root).resolve())}:  # as given and with symlinks resolved (macOS /home, /tmp)
+        if r not in ("", "/", "."):
+            pairs += [(r + "/", ""), (r, ".")]
+    home = str(Path.home()) if home is None else home
+    if home and home != "/":
+        pairs.append((home, "~"))
+    if hostnames is None:
+        hostnames = {socket.gethostname(), socket.getfqdn()}
+    for h in hostnames:
+        if h and len(h) >= 8 and h not in ("localhost", "localhost.localdomain"):
+            pairs.append((h, HOST_PLACEHOLDER))
+    return sorted(set(pairs), key=lambda p: len(p[0]), reverse=True)
+
+
+def scrub_host_text(text: str, pairs: list[tuple[str, str]]) -> str:
+    """Remove the run's machine identity: junit's hostname attribute, then every pair of `host_identity_pairs`."""
+    if not text:
+        return text
+    text = HOSTNAME_ATTR.sub(f'hostname="{HOST_PLACEHOLDER}"', text)
+    for a, b in pairs:
+        text = text.replace(a, b)
+    return text
+
+
+def sanitize_run_dir(run_dir: Path, secret_values: list[str], identity: list[tuple[str, str]] | None = None) -> None:
     """Mask every retained artefact under the run directory and lock permissions (SPEC-04 §7):
     text files by suffix (junit.xml, collector.json, pytest.log, *.har, *.json, *.txt, *.log, *.md)
     anywhere below it, ZIP archives member by member (`sanitize_zip`), screenshots untouched."""
@@ -524,6 +559,8 @@ def sanitize_run_dir(run_dir: Path, secret_values: list[str]) -> None:
             lower = f.lower()
             if lower.endswith(TEXT_SUFFIXES):
                 mask_file(p, secret_values)
+                if identity is not None and p.is_file():
+                    write_private(p, scrub_host_text(p.read_text(encoding="utf-8", errors="replace"), identity))
             elif lower.endswith(".zip"):
                 sanitize_zip(p, secret_values)
     restrict_tree(run_dir)
@@ -734,7 +771,7 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
     quarantine_dir = ctx.runtime / QUARANTINE_SUBDIR / run_id
     quarantined = quarantine_traces(run_dir, quarantine_dir)
     write_private(run_dir / "pytest.log", mask_text(out, secret_values))
-    sanitize_run_dir(run_dir, secret_values)
+    sanitize_run_dir(run_dir, secret_values, host_identity_pairs(ctx.root))
 
     rows = mask_data(collect_results(run_dir), secret_values)
     finished = _dt.datetime.now(_dt.timezone.utc)

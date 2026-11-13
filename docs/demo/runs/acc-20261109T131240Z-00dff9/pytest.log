@@ -99,7 +99,7 @@ record_property = <function record_property.<locals>.append_property at 0x10aca9
 installer/acceptance/test_c3_file_upload.py:34: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
 wb_url = 'http://127.0.0.1:7777', node_id = 'etrvf'
 name = 'c3-acc-20261109T131240Z-00dff9.txt'
 data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
@@ -121,7 +121,7 @@ installer/acceptance/test_c3_file_upload.py:19: AssertionError
 ___________________ test_c3_file_upload_rejection[chromium] ____________________
 
 logged_in_page = <Page url='http://127.0.0.1:5000/dashboard'>, project = '4jm8q'
-context_b = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+context_b = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
 service_url = <function service_url.<locals>._url at 0x1095acb40>
 tmp_txt = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
 run_id = 'acc-20261109T131240Z-00dff9'
@@ -140,7 +140,7 @@ record_property = <function record_property.<locals>.append_property at 0x10a863
 installer/acceptance/test_c3_file_upload.py:49: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
 wb_url = 'http://127.0.0.1:7777', node_id = '4jm8q'
 name = 'c3-private-acc-20261109T131240Z-00dff9.txt'
 data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock dat'
@@ -304,7 +304,7 @@ record_property = <function record_property.<locals>.append_property at 0x10a6ef
 installer/acceptance/test_c5_file_preview.py:20: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
 wb_url = 'http://127.0.0.1:7777', node_id = 'nkm63'
 name = 'c5-acc-20261109T131240Z-00dff9.pdf'
 data = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
@@ -343,7 +343,7 @@ record_property = <function record_property.<locals>.append_property at 0x109886
 installer/acceptance/test_c5_file_preview.py:34: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
+context = <BrowserContext browser=<Browser type=<BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing> version=156.0.8078.4>>
 wb_url = 'http://127.0.0.1:7777', node_id = 'vxdkw'
 name = 'c5-private-acc-20261109T131240Z-00dff9.pdf'
 data = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'

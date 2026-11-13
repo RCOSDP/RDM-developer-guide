@@ -191,7 +191,7 @@ Findings by severity (report-only at M1, [ADR-03](../decisions/ADR-03_Staged_Sec
 
 ### Correction to the setup — the home mount did expose the credentials
 
-The warning in the setup says the home mount "would have shown" the host's GitHub credentials. That understates it. The VM's first boot mounted `/Users/komiyama` read-only, and a directory listing confirmed it, so `~/.config/gh/hosts.yml` was readable inside the VM from the first boot until the mount was removed from `lima.yaml` and the VM restarted, a few minutes later. Nothing read the file, and no repository or tool had been copied into the VM by then. Since commit 45b49be, `install-ubuntu.sh` stops with exit 10 when a shared folder (virtiofs, 9p, sshfs and similar) holds `.config/gh/hosts.yml`, `.git-credentials`, `.netrc` or `.docker/config.json`. The environment guide now has the Lima steps: delete the `"~"` mount before the first start, then check `mount`.
+The warning in the setup says the home mount "would have shown" the host's GitHub credentials. That understates it. The VM's first boot mounted `/Users/<user>` read-only, and a directory listing confirmed it, so `~/.config/gh/hosts.yml` was readable inside the VM from the first boot until the mount was removed from `lima.yaml` and the VM restarted, a few minutes later. Nothing read the file, and no repository or tool had been copied into the VM by then. Since commit 45b49be, `install-ubuntu.sh` stops with exit 10 when a shared folder (virtiofs, 9p, sshfs and similar) holds `.config/gh/hosts.yml`, `.git-credentials`, `.netrc` or `.docker/config.json`. The environment guide now has the Lima steps: delete the `"~"` mount before the first start, then check `mount`.
 
 ### Run 5 — rebased onto develop 50740b1 (PR #40–#43), database upgrade
 
@@ -454,7 +454,7 @@ run4:
 
 ### 準備の訂正 — ホームの mount は資格情報を実際に見せていた
 
-準備の Warning は、ホームの mount がホストの GitHub 資格情報を「見せてしまうところだった」と書いたが、それは小さく書きすぎである。VM の最初の起動で `/Users/komiyama` が読み取り専用で mount され、ディレクトリの一覧で確かめた。最初の起動から、`lima.yaml` から mount を外して VM を再起動するまでの数分間、`~/.config/gh/hosts.yml` は VM の中から読めた。そのファイルを読んだものは無く、その時点で VM にはリポジトリも道具も入れていなかった。コミット 45b49be 以降、`install-ubuntu.sh` は共有フォルダ（virtiofs・9p・sshfs など）に `.config/gh/hosts.yml`・`.git-credentials`・`.netrc`・`.docker/config.json` があると終了 10 で止まる。環境ガイドには Lima の手順（最初の起動の前に `"~"` の mount を消し、`mount` で確かめる）を加えた。
+準備の Warning は、ホームの mount がホストの GitHub 資格情報を「見せてしまうところだった」と書いたが、それは小さく書きすぎである。VM の最初の起動で `/Users/<user>` が読み取り専用で mount され、ディレクトリの一覧で確かめた。最初の起動から、`lima.yaml` から mount を外して VM を再起動するまでの数分間、`~/.config/gh/hosts.yml` は VM の中から読めた。そのファイルを読んだものは無く、その時点で VM にはリポジトリも道具も入れていなかった。コミット 45b49be 以降、`install-ubuntu.sh` は共有フォルダ（virtiofs・9p・sshfs など）に `.config/gh/hosts.yml`・`.git-credentials`・`.netrc`・`.docker/config.json` があると終了 10 で止まる。環境ガイドには Lima の手順（最初の起動の前に `"~"` の mount を消し、`mount` で確かめる）を加えた。
 
 ### 第 5 回 — develop 50740b1（PR #40〜#43）へ rebase、PostgreSQL 18
 

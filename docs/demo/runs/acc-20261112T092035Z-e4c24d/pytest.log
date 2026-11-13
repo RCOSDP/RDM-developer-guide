@@ -38,7 +38,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [<Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
+awaitables = [<Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -> Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -123,7 +123,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [<Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
+awaitables = [<Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]>, <Future finished exception=TimeoutError('Timeout 60000ms exceeded.')>]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -> Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable

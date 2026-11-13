@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="9" skipped="0" tests="13" time="200.235" timestamp="2026-11-09T22:12:50.773057+09:00" hostname="YusukenoMac-Studio.local"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="4.185"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="7" /></properties></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_success[chromium]" time="33.827"><properties><property name="known_external_blocked" value="7" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.fill: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;input#projectName, input[name='title']&quot;)">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="9" skipped="0" tests="13" time="200.235" timestamp="2026-11-09T22:12:50.773057+09:00" hostname="redacted-host"><testcase classname="test_c1_login" name="test_c1_login_success[chromium]" time="4.185"><properties><property name="http_status" value="200" /><property name="known_external_blocked" value="7" /></properties></testcase><testcase classname="test_c2_create_project" name="test_c2_create_project_success[chromium]" time="33.827"><properties><property name="known_external_blocked" value="7" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.fill: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for locator(&quot;input#projectName, input[name='title']&quot;)">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;
 base_url = 'http://127.0.0.1:5000', api_url = 'http://127.0.0.1:8000'
 api_write = &lt;function api_write.&lt;locals&gt;._write at 0x109732f00&gt;
 run_id = 'acc-20261109T131240Z-00dff9'
@@ -69,7 +69,7 @@ record_property = &lt;function record_property.&lt;locals&gt;.append_property at
 installer/acceptance/test_c3_file_upload.py:34: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
+context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
 wb_url = 'http://127.0.0.1:7777', node_id = 'etrvf'
 name = 'c3-acc-20261109T131240Z-00dff9.txt'
 data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
@@ -88,7 +88,7 @@ E       assert 401 in (200, 201)
 E        +  where 401 = &lt;APIResponse url='http://127.0.0.1:7777/v1/resources/etrvf/providers/osfstorage/?kind=file&amp;name=c3-acc-20261109T131240Z-00dff9.txt' status=401 status_text='Unauthorized'&gt;.status
 
 installer/acceptance/test_c3_file_upload.py:19: AssertionError</failure></testcase><testcase classname="test_c3_file_upload" name="test_c3_file_upload_rejection[chromium]" time="5.359"><properties><property name="known_external_blocked" value="8" /></properties><failure message="AssertionError: upload failed: 401 {&quot;message_short&quot;: &quot;Unauthorized&quot;, &quot;message_long&quot;: &quot;You must &lt;a href=\&quot;/login/?next=http://web:5000/api/v1/4jm8q/osfstorage/6af1c705c38b200015a219b4/children/?user_id=nxvcg&amp;payload=eyJ0aW1lIjogMTc5NDIzMDEyM30%3D&amp;signature=***\&quot;&gt;log in&lt;\/a&gt; &#10;assert 401 in (200, 201)&#10;[+1 more line; full report in element text]">logged_in_page = &lt;Page url='http://127.0.0.1:5000/dashboard'&gt;, project = '4jm8q'
-context_b = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
+context_b = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
 service_url = &lt;function service_url.&lt;locals&gt;._url at 0x1095acb40&gt;
 tmp_txt = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...ta\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm'
 run_id = 'acc-20261109T131240Z-00dff9'
@@ -107,7 +107,7 @@ record_property = &lt;function record_property.&lt;locals&gt;.append_property at
 installer/acceptance/test_c3_file_upload.py:49: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
+context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
 wb_url = 'http://127.0.0.1:7777', node_id = '4jm8q'
 name = 'c3-private-acc-20261109T131240Z-00dff9.txt'
 data = b'grdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm a...mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock data\ngrdm acceptance acc-20261109T131240Z-00dff9 mock dat'
@@ -262,7 +262,7 @@ record_property = &lt;function record_property.&lt;locals&gt;.append_property at
 installer/acceptance/test_c5_file_preview.py:20: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
+context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
 wb_url = 'http://127.0.0.1:7777', node_id = 'nkm63'
 name = 'c5-acc-20261109T131240Z-00dff9.pdf'
 data = b'%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\n2 0 obj&lt;&lt;/Type/Pages/Kids[3 0 R]/Count 1&gt;&gt;endobj\n3 0 obj&lt;&lt;/Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'
@@ -298,7 +298,7 @@ record_property = &lt;function record_property.&lt;locals&gt;.append_property at
 installer/acceptance/test_c5_file_preview.py:34: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=/Users/komiyama/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
+context = &lt;BrowserContext browser=&lt;Browser type=&lt;BrowserType name=chromium executable_path=~/ai-development/GitHub...um-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing&gt; version=156.0.8078.4&gt;&gt;
 wb_url = 'http://127.0.0.1:7777', node_id = 'vxdkw'
 name = 'c5-private-acc-20261109T131240Z-00dff9.pdf'
 data = b'%PDF-1.4\n1 0 obj&lt;&lt;/Type/Catalog/Pages 2 0 R&gt;&gt;endobj\n2 0 obj&lt;&lt;/Type/Pages/Kids[3 0 R]/Count 1&gt;&gt;endobj\n3 0 obj&lt;&lt;/Ty...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'

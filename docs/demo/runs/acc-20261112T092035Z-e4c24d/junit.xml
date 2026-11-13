@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="1" skipped="0" tests="2" time="152.250" timestamp="2026-11-12T18:20:39.931762+09:00" hostname="lima-grdm-ubuntu2404-amd64"><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="76.465"><properties><property name="known_external_blocked" value="0" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================">two_contexts = (&lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;, &lt;Page url='about:blank'&gt;)
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="1" skipped="0" tests="2" time="152.250" timestamp="2026-11-12T18:20:39.931762+09:00" hostname="redacted-host"><testcase classname="test_c4_wiki_collab" name="test_c4_wiki_collab_success[chromium]" time="76.465"><properties><property name="known_external_blocked" value="0" /></properties><failure message="playwright._impl._errors.TimeoutError: Page.wait_for_url: Timeout 60000ms exceeded.&#10;=========================== logs ===========================&#10;waiting for navigation until &quot;load&quot;&#10;============================================================">two_contexts = (&lt;Page url='http://127.0.0.1:8080/login?service=http%3A%2F%2F127.0.0.1%3A5000%2Fdashboard%2F'&gt;, &lt;Page url='about:blank'&gt;)
 login = &lt;function login.&lt;locals&gt;._login at 0x7ea9fe034040&gt;
 user_a = {'email': '***', 'password': '***'}
 user_b = {'email': '***', 'password': '***'}
@@ -43,7 +43,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
@@ -115,7 +115,7 @@ installer/acceptance/conftest.py:338: in _login
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-awaitables = [&lt;Future pending cb=[_handled() at /home/grdm/RDM-developer-guide/.venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
+awaitables = [&lt;Future pending cb=[_handled() at .venv/lib/python3.12/site-packages/playwright/_impl/...e-packages/playwright/_impl/utils/tasks.py:33]&gt;, &lt;Future finished exception=TimeoutError('Timeout 60000ms exceeded.')&gt;]
 
     async def race(awaitables: Sequence[Awaitable[Any]]) -&gt; Any:
         """`Promise.race(awaitables)`: the result, or the error, of the first awaitable
