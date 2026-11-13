@@ -554,8 +554,11 @@ def _scrub_plain(text: str, pairs: list[tuple[str, str]]) -> str:
 
 
 _JSON_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
-_XML_ATTR = re.compile(r'(=)(["\'])(.*?)\2', re.S)
-_XML_TEXT = re.compile(r'(>)([^<]+)(<)')
+# XML is cut into its own tokens first, so a quote in a text node can never reach into a tag (PR #63 review r3
+# R3-01): comments and CDATA, then tags (a raw `<` or `>` cannot occur inside a well-formed attribute value
+# written by ElementTree or pytest), and the text between them.
+_XML_TOKEN = re.compile(r"<!--.*?-->|<!\[CDATA\[.*?\]\]>|<\?.*?\?>|<[^<>]*>", re.S)
+_XML_ATTR = re.compile(r'(\s[\w:.-]+\s*=\s*)(["\'])(.*?)\2', re.S)
 
 
 def _scrub_json(text: str, pairs: list[tuple[str, str]]) -> str:
@@ -571,19 +574,32 @@ def _scrub_json(text: str, pairs: list[tuple[str, str]]) -> str:
 
 
 def _scrub_xml(text: str, pairs: list[tuple[str, str]]) -> str:
-    """Only inside attribute values and text nodes, decoded and re-escaped: element names never change."""
+    """Only inside attribute values, text, comments and CDATA, each decoded and re-escaped as needed:
+    element and attribute names never change, and a value that does not change is left byte for byte."""
     def attr(m):
         value = html.unescape(m.group(3))
         new = _scrub_plain(value, pairs)
-        if new == value:
-            return m.group(0)
-        return m.group(1) + m.group(2) + html.escape(new, quote=True) + m.group(2)
-    def node(m):
-        value = html.unescape(m.group(2))
+        return m.group(0) if new == value else m.group(1) + m.group(2) + html.escape(new, quote=True) + m.group(2)
+
+    def text_part(t: str) -> str:
+        value = html.unescape(t)
         new = _scrub_plain(value, pairs)
-        return m.group(0) if new == value else m.group(1) + html.escape(new, quote=False) + m.group(3)
-    text = _XML_ATTR.sub(attr, text)
-    return _XML_TEXT.sub(node, text)
+        return t if new == value else html.escape(new, quote=False)
+
+    out: list[str] = []
+    pos = 0
+    for m in _XML_TOKEN.finditer(text):
+        out.append(text_part(text[pos:m.start()]))
+        tok = m.group(0)
+        if tok.startswith(("<!--", "<![CDATA[")):
+            out.append(_scrub_plain(tok, pairs))   # raw inside: no entities to decode
+        elif tok.startswith("<?"):
+            out.append(tok)
+        else:
+            out.append(_XML_ATTR.sub(attr, tok))
+        pos = m.end()
+    out.append(text_part(text[pos:]))
+    return "".join(out)
 
 
 def scrub_host_text(text: str, pairs: list[tuple[str, str]], kind: str = "text") -> str:

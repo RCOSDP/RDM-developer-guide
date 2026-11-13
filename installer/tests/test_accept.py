@@ -362,6 +362,31 @@ class AcceptTests(unittest.TestCase):
         self.assertEqual(json.loads(json_out), {"evidence": "docs/demo/runs/x", "cache": "~/.cache", "n": 7})
         self.assertNotIn("lab", xml_out + json_out)
 
+    def test_a_quote_in_a_text_node_never_breaks_the_xml(self):
+        """PR #63 review r3 R3-01: pytest writes failure text with raw quotes; the result must parse and collect the same."""
+        import xml.etree.ElementTree as ET
+        pairs = accept.host_identity_pairs(Path("/srv/ci/RDM-developer-guide"), home="/srv/ci", hostnames={"build-host-07"})
+        suite = ET.Element("testsuite", hostname="build-host-07", name="pytest", tests="2", failures="1")
+        ok = ET.SubElement(suite, "testcase", classname="acceptance.test_c1_login", name="test_c1_login_success", time="1.0")
+        bad = ET.SubElement(suite, "testcase", classname="acceptance.test_c1_login", name="test_c1_login_rejection", time="0.5")
+        ET.SubElement(bad, "failure", message='assert "x == y" in /srv/ci/RDM-developer-guide/a.py').text = (
+            'E   assert page.url == "http://127.0.0.1:5000/  (unclosed quote at /srv/ci/RDM-developer-guide/b.py')
+        ok.tail = "\n"
+        xml_in = '<?xml version="1.0" encoding="utf-8"?>' + ET.tostring(ET.Element("testsuites"), encoding="unicode").replace(
+            "<testsuites />", "<testsuites>" + ET.tostring(suite, encoding="unicode") + "</testsuites>") + "\n<!-- /srv/ci/RDM-developer-guide/x on build-host-07 -->"
+        run_dir = self.root / "docs" / "demo" / "runs" / "acc-z"
+        run_dir.mkdir(parents=True)
+        (run_dir / "junit.xml").write_text(xml_in, encoding="utf-8")
+        before = accept.collect_results(run_dir)
+        accept.sanitize_run_dir(run_dir, [], pairs)
+        out = (run_dir / "junit.xml").read_text(encoding="utf-8")
+        ET.fromstring(out.split("?>", 1)[1])  # still well-formed
+        self.assertEqual(accept.collect_results(run_dir), before)
+        self.assertEqual(len(before), 2)
+        self.assertNotIn("/srv/ci", out)
+        self.assertNotIn("build-host-07", out)
+        self.assertIn("unclosed quote at b.py", out)
+
     # --- results, exit 60 -------------------------------------------------------------------------
 
     def test_pytest_failure_maps_to_60_and_writes_results(self):
