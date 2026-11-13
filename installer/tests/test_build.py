@@ -37,8 +37,9 @@ MANIFEST = {
 
 
 class FakeRunner:
-    def __init__(self, fail_build_for=None, fail_git_for=None):
+    def __init__(self, fail_build_for=None, fail_git_for=None, build_output="ERROR: failed to solve"):
         self.calls = []
+        self.build_output = build_output
         self.fail_build_for = fail_build_for
         self.fail_git_for = fail_git_for
 
@@ -57,7 +58,7 @@ class FakeRunner:
         if argv[:3] == ["docker", "buildx", "build"]:
             tag = argv[argv.index("-t") + 1]
             if self.fail_build_for and tag.split("/")[-1].startswith(f"{self.fail_build_for}:"):
-                return 1, "ERROR: failed to solve"
+                return 1, self.build_output
             return 0, "ok"
         return 0, ""
 
@@ -181,6 +182,26 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(self.run_cmd(ctx, runner), exit_codes.BUILD_FAILED)
         self.assertIn("waterbutler", self.err.getvalue())
         self.assertIn("exit 30", self.err.getvalue())
+
+    def test_dns_failure_in_the_build_output_is_named_in_the_error(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        out = "#17 24.85 error: Failed to download `boto3`\n#17 24.85   cause: dns error\n#17 24.85   cause: failed to lookup address information: Try again\n"
+        runner = FakeRunner(fail_build_for="waterbutler", build_output=out)
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.BUILD_FAILED)
+        self.assertIn("DNS lookups failing", self.err.getvalue())
+        self.assertIn("名前解決の失敗", self.err.getvalue())
+        self.assertIn("docker buildx build exited 1", self.err.getvalue())
+
+    def test_other_build_failures_get_no_dns_hint(self):
+        ctx = Context(root=self.root, profile="core", stdin_is_tty=False)
+        runner = FakeRunner(fail_build_for="waterbutler", build_output="ERROR: failed to solve: process exited 2")
+        self.assertEqual(self.run_cmd(ctx, runner), exit_codes.BUILD_FAILED)
+        self.assertNotIn("DNS", self.err.getvalue())
+
+    def test_name_resolution_hint_markers(self):
+        for text in ("dns error", "Temporary failure in name resolution", "getaddrinfo EAI_AGAIN registry.yarnpkg.com", "curl: (6) Could not resolve host: x"):
+            self.assertTrue(build.name_resolution_hint(text), text)
+        self.assertEqual(build.name_resolution_hint("npm ERR! 404 Not Found"), "")
 
     def test_clone_failure_is_30(self):
         ctx = Context(root=self.root, profile="minimum", stdin_is_tty=False)

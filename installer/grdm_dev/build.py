@@ -94,6 +94,39 @@ def default_runner(argv: list[str]) -> tuple[int, str]:
     return proc.wait(), "".join(lines)
 
 
+# A build step that downloads many files at once (uv, pip, yarn) sends a burst of DNS queries straight from the
+# build container to the VM's resolver, which on a Lima virtual machine (gvisor user-mode network, 192.168.5.2)
+# drops bursts of about 60 or more. The failure reads "dns error ... Try again" and repeats on every run
+# (DEMO-21 0.5, runs 1 and 2: modular-file-renderer, `uv sync`), so it is named here instead of left as a bare exit 30.
+NAME_RESOLUTION_MARKERS = (
+    "dns error",
+    "failed to lookup address information",
+    "Temporary failure in name resolution",
+    "EAI_AGAIN",
+    "Could not resolve host",
+)
+
+
+def name_resolution_hint(output: str) -> str:
+    """Return a two-language hint when a failed build's output shows DNS lookups failing, else an empty string."""
+    low = output.lower()
+    if not any(marker.lower() in low for marker in NAME_RESOLUTION_MARKERS):
+        return ""
+    return (
+        "the build output shows DNS lookups failing inside the build container; test it with `docker build` of a one-line "
+        "`RUN getent hosts pypi.org`, and on a Lima or other user-mode-network VM give Docker a caching resolver "
+        "(docs/demo/21_core_install_ubuntu_arm64_lima.md) / "
+        "ビルドの出力に、ビルド用コンテナの中での名前解決の失敗がある。Lima などユーザーモードのネットワークの VM では、"
+        "Docker にキャッシュ付きのリゾルバーを与える（docs/demo/21_core_install_ubuntu_arm64_lima.md）"
+    )
+
+
+
+def _hint_suffix(output: str) -> str:
+    hint = name_resolution_hint(output)
+    return f"; {hint}" if hint else ""
+
+
 def host_platform() -> str:
     machine = _platform.machine().lower()
     if machine in ("arm64", "aarch64"):
@@ -294,7 +327,7 @@ def run(ctx: Context, args, runner=None) -> int:
             rows.append({"component": cid, "repo": "", "sha12": "", "image_tag": tag, "platforms": ",".join(platforms), "status": status,
                          "image": registry_tag(cid, tag) if push else local_tag(cid, tag), "context": str(image_build["context"])})
             if rc != 0:
-                failed, detail = cid, f"docker buildx build exited {rc} (image_build {image_build['context']})"
+                failed, detail = cid, f"docker buildx build exited {rc} (image_build {image_build['context']})" + _hint_suffix(out)
                 break
             continue
         repo = comp["integration_repo"]
@@ -373,7 +406,7 @@ def run(ctx: Context, args, runner=None) -> int:
         rows.append({"component": cid, "repo": repo, "sha12": sha12, "image_tag": tag, "platforms": ",".join(platforms), "status": status,
                      "image": registry_tag(cid, tag) if push else local_tag(cid, tag), **extra})
         if rc != 0:
-            failed, detail = cid, f"docker buildx build exited {rc}" + (f" (overlay of {base_id})" if base_id else "")
+            failed, detail = cid, f"docker buildx build exited {rc}" + (f" (overlay of {base_id})" if base_id else "") + _hint_suffix(out)
             break
 
     data = {"profile": profile, "platform_override": override or "(per component)", "push": push, "components": rows, "failed": failed}
