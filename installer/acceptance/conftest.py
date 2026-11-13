@@ -139,7 +139,10 @@ def other_institution_member(run_id) -> dict[str, str]:
 def admin_user(run_id) -> dict[str, str]:
     """The admin app has its own password form, checked against the OSF account, not fakecas's e-mail rule."""
     user = _user("GRDM_ACCEPT_ADMIN", "admin-user", run_id)
-    return {**user, "password": os.environ.get("GRDM_ACCEPT_ADMIN_OSF_PASSWORD", user["password"])}
+    # The admin app asks a second factor after the password (RDM-osf.io-dev2027 PR #10): `accept --seed` enrols the
+    # seeded administrator with this secret (hexadecimal). Without it the second step cannot be answered.
+    return {**user, "password": os.environ.get("GRDM_ACCEPT_ADMIN_OSF_PASSWORD", user["password"]),
+            "totp_secret": os.environ.get("GRDM_ACCEPT_ADMIN_TOTP_SECRET", "")}
 
 
 # --- generated test files (never real files of real people) --------------------------------------

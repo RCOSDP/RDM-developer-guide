@@ -37,6 +37,8 @@ WATERBUTLER = {
 
 ADMIN = {
     "login": "/account/login/",            # verified on the real admin app (LoginView, admin/common_auth/urls.py)
+    "two_factor": "/account/login/two-factor/",   # the step after the password (RDM-osf.io-dev2027 PR #10)
+    "two_factor_setup": "/account/login/two-factor/setup/",  # an administrator without TOTP is sent here
     # UserIdentificationAdminListView: staff, not superuser, affiliated; lists the admin's own institution
     "institution_users": "/user_identification_information_admin/",
     # the same view's search by e-mail (UserIdentificationListView.user_list: GET username), still limited to the
@@ -65,6 +67,14 @@ WEB = {
     "wiki_tab": "a:has-text('Wiki')",
     "wiki_edit_button": "#editWysiwyg",                         # Milkdown mounts only after this toolbar control is clicked
     "wiki_editor": "#mEditor .ProseMirror",                     # RDM-wiki-frontend: Milkdown (ProseMirror) + y-websocket
+    # File page Edit panel (RDM-osf.io-dev2027 PR #12: Ace editor bound to a y-websocket room), verified on the real page:
+    # the "Toggle view" button group shows the hidden #editPanel; its header turns green ("Live editing mode") once bound.
+    "file_edit_tab": ".btn-group button.btn:text-is('Edit')",
+    "file_editor": "#editPanel #editor .ace_content",
+    "file_editor_connected": "#editPanel .progress-bar-success",
+    "file_editor_room_js": "() => { const cv = window.contextVars || {}; const f = cv.file, e = cv.editor; "
+                           "return f && f.urls && f.urls.y_websocket && e && e.docId "
+                           "? {endpoint: f.urls.y_websocket, doc_id: e.docId, token_path: f.urls.y_websocket_token} : null; }",
     "wiki_cursor_widget": ".ProseMirror-yjs-cursor",            # another editor's caret: y-prosemirror widget, not document text
     "wiki_remote_cursor": "#mEditor .ProseMirror-yjs-cursor",   # the same widget as seen on the page
     "wiki_rendered": "#wikiViewRender, .wiki-content",          # TODO(M2)
@@ -76,5 +86,7 @@ ADMIN_UI = {
     "login_user": "input[name='email']",                        # admin LoginForm (verified)
     "login_pass": "input[name='password']",
     "login_submit": "button[type='submit'], input[type='submit']",
+    "two_factor_code": "#two-factor-form input[name='code']",    # admin two-step sign-in (TwoFactorVerifyView)
+    "two_factor_submit": "#two-factor-form button[type='submit']",
     "institution_user_table": "table",                          # TODO(M2): institution users list
 }

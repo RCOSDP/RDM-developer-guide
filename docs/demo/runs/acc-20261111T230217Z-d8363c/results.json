@@ -1,0 +1,190 @@
+{
+  "run_id": "acc-20261111T230217Z-d8363c",
+  "base_url": "http://127.0.0.1:5000",
+  "started": "2026-11-11T23:02:17Z",
+  "duration_ms": 74164,
+  "only": "core",
+  "seeded": true,
+  "precheck": {
+    "healthy": true,
+    "services": 23
+  },
+  "pytest_returncode": 0,
+  "evidence_dir": "docs/demo/runs/acc-20261111T230217Z-d8363c",
+  "tracing": "off",
+  "trace_quarantine": null,
+  "expected_scenarios": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "incomplete_scenarios": [],
+  "summary": {
+    "passed": 14,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "total": 14,
+    "known_external_blocked": 157
+  },
+  "tests": [
+    {
+      "id": "C1",
+      "name": "Login via fakecas",
+      "case": "success",
+      "test": "test_c1_login_success[chromium]",
+      "status": "passed",
+      "duration_ms": 1539,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 9
+    },
+    {
+      "id": "C2",
+      "name": "Create project",
+      "case": "success",
+      "test": "test_c2_create_project_success[chromium]",
+      "status": "passed",
+      "duration_ms": 3778,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 16
+    },
+    {
+      "id": "C2",
+      "name": "Create project",
+      "case": "rejection",
+      "test": "test_c2_create_project_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 3660,
+      "http_status": 403,
+      "evidence": null,
+      "known_external_blocked": 10
+    },
+    {
+      "id": "C3",
+      "name": "Upload and download file",
+      "case": "success",
+      "test": "test_c3_file_upload_success[chromium]",
+      "status": "passed",
+      "duration_ms": 2669,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 5
+    },
+    {
+      "id": "C3",
+      "name": "Upload and download file",
+      "case": "rejection",
+      "test": "test_c3_file_upload_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 3852,
+      "http_status": 403,
+      "evidence": null,
+      "known_external_blocked": 10
+    },
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "success",
+      "test": "test_c4_wiki_collab_success[chromium]",
+      "status": "passed",
+      "duration_ms": 6925,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 20
+    },
+    {
+      "id": "C4",
+      "name": "Wiki collaborative edit",
+      "case": "rejection",
+      "test": "test_c4_wiki_collab_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 3884,
+      "http_status": 4401,
+      "evidence": null,
+      "known_external_blocked": 15
+    },
+    {
+      "id": "C5",
+      "name": "File preview",
+      "case": "success",
+      "test": "test_c5_file_preview_success[chromium]",
+      "status": "passed",
+      "duration_ms": 5099,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 10
+    },
+    {
+      "id": "C5",
+      "name": "File preview",
+      "case": "rejection",
+      "test": "test_c5_file_preview_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 3946,
+      "http_status": 401,
+      "evidence": null,
+      "known_external_blocked": 10
+    },
+    {
+      "id": "C6",
+      "name": "Institution admin screen",
+      "case": "success",
+      "test": "test_c6_admin_success[chromium]",
+      "status": "passed",
+      "duration_ms": 1659,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 6
+    },
+    {
+      "id": "C6",
+      "name": "Institution admin screen",
+      "case": "rejection",
+      "test": "test_c6_admin_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 653,
+      "http_status": 403,
+      "evidence": null,
+      "known_external_blocked": 4
+    },
+    {
+      "id": "C7",
+      "name": "File page collaborative edit",
+      "case": "success",
+      "test": "test_c7_file_editor_success[chromium]",
+      "status": "passed",
+      "duration_ms": 7720,
+      "http_status": 200,
+      "evidence": null,
+      "known_external_blocked": 22
+    },
+    {
+      "id": "C7",
+      "name": "File page collaborative edit",
+      "case": "rejection",
+      "test": "test_c7_file_editor_rejection[chromium]",
+      "status": "passed",
+      "duration_ms": 6172,
+      "http_status": 4401,
+      "evidence": null,
+      "known_external_blocked": 20
+    },
+    {
+      "id": "C1",
+      "name": "Login via fakecas",
+      "case": "rejection",
+      "test": "test_c1_login_rejection",
+      "status": "passed",
+      "duration_ms": 69,
+      "http_status": 401,
+      "evidence": null,
+      "known_external_blocked": 0
+    }
+  ]
+}

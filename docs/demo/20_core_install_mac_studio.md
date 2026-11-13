@@ -5,7 +5,10 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
+- Version / 版: 0.21 — 2026-11-13. **Learned:** a tool row that reads `ok (3 targets)` is not a statement that three targets were scanned: under mandatory sign-in the earlier scan logic counted a skipped `web` as a scanned target, and the raw report of the complete scan is not committed, so the committed record cannot show per target what ZAP did; the correction says so, and the scan code now reports skipped targets separately (PR #56 review r1 R1-01). ／ `ok (3 targets)` と読める行は、三つの対象を検査したという主張ではない。必須サインインのもとでは、以前の検査の処理は飛ばした `web` を検査済みの対象に数えていた。完走した検査の生レポートはコミットしていないので、コミット済みの記録だけでは、ZAP が対象ごとに何をしたか示せない。この訂正はそれを述べ、検査の処理は対象外を別に報告するようになった（PR #56 レビュー r1 R1-01）。
+  0.20 — 2026-11-13. **Learned:** a candidate is proven again on the merge commits before it counts: the three pull requests merged under their own review, osf.io was pinned to the merged develop tip `90b10661c8dc`, the stack was rebuilt and brought up on it, and the same 14 of 14 and a complete scan (exit 0, 6,264 open findings) were recorded; the rebuild reused Docker's layer cache, so the 55-minute cold build time of 0.19 was not measured again. ／ 候補は、マージコミットでもう一度確かめて初めて数に入る。三つの PR がそれぞれのレビューを経てマージされ、osf.io をマージ後の develop 先端 `90b10661c8dc` に固定し、その上でスタックを組み直して起動し、同じ 14 件中 14 件と完走した検査（終了 0、未解決 6,264 件）を記録した。組み直しは Docker のレイヤーキャッシュを使ったので、0.19 のコールド 55 分は測り直していない。
+  0.19 — **Learned:** a candidate that combines unmerged pull requests proves the installer, not the pull requests: the first acceptance run found three defects that none of the unit tests or any single PR could show (a development server that stalls on Django 2.2, a CDN script the static ember names, a WaterButler that sends no CORS header), and the run that passes records exactly which commits it combined and that they are not pushed. ／ 未マージの PR を組み合わせた候補が証明するのは、PR でなくインストーラーである。最初の受入は、単体試験にも一つの PR にも見えない欠陥を三つ見つけた（Django 2.2 で止まる開発用サーバー、静的な ember が名指しする CDN のスクリプト、CORS ヘッダーを送らない WaterButler）。合格した実行は、組み合わせたコミットが何で、push されていないことを正確に記録する。
+  0.18 — 2026-11-11. **Learned:** an allow-list that only reproduces today's numbers is not yet safe. After exact package matching and the no-fix condition ([PR #45 review r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01), the same 177 findings are accepted, while a fix published later reopens its finding. Review r1 R1-03 also corrected the wiki-frontend pin in the 11-of-12 entry and the 0.17 summary. ／ 今日の件数を再現するだけの許容リストは、まだ安全ではない。パッケージの厳密な照合と修正版なしの条件（[PR #45 レビュー r1](../reviews/2026-11-11_RDM-developer-guide_PR45_Pin_Py313_r1.md) R1-01）の後も許容されるのは同じ 177 件だが、後から修正版が出た検出は再び数えられる。あわせてレビュー r1 の R1-03 により、12 件中 11 件の節の wiki-frontend の固定版と 0.17 の要約を訂正した。
   0.17 — 2026-11-11. **Learned:** a fix proven on an unmerged head is proven again on its merge commit before it counts: the same 12 of 12 and the same Trivy totals at MFR `9771b8cf` show that the merge changed nothing (the whole scan has one more ZAP MEDIUM, 10,983 → 10,984). ／ 未マージの先頭で確かめた修正は、マージコミットでもう一度確かめて初めて数に入る。MFR `9771b8cf` で同じ 12 件中 12 件、同じ Trivy の件数になったことで、マージで何も変わっていないと分かる（検査全体では ZAP の MEDIUM が 1 件増え、10,983 → 10,984）。
   0.16 — 2026-11-11. **Learned:** the narrowest fix for a broken hop is to stop changing the URL the other service built, not to teach the client a second origin: once MFR requests osf.io's `/<guid>/` URL unchanged again, osf.io answers the internal WaterButler URL itself, so previews pass with the credential pair unchanged. ／ 壊れた転送の最も狭い直し方は、相手のサービスが組み立てた URL を変えるのをやめることで、利用側に別の origin を教えることではない。MFR が osf.io の `/<guid>/` の URL を再び変えずに要求すると、osf.io 自身が内部向けの WaterButler の URL を返すので、資格情報の組を変えずにプレビューが通る。
   0.15 — 2026-11-11. **Learned:** a service's own tests with a stubbed OSF cannot prove a hop that the real osf.io answers differently: the Python 3.13 MFR asks `/download/<guid>/`, whose redirect names the browser's WaterButler URL instead of the internal one, so only the full acceptance run on the real stack found that previews break; and a shared Docker disk that fills up turns build and scan steps into misleading errors ("not signed", ZAP rc 3). ／ OSF をスタブにしたサービス自身の試験では、本物の osf.io が違う答えを返す経路は証明できない。Python 3.13 の MFR は `/download/<guid>/` を要求し、そのリダイレクトは内部でなくブラウザ向けの WaterButler の URL を指すため、プレビューが壊れることは実スタックでの受入の全件実行で初めて分かった。また共有の Docker のディスクが満杯になると、ビルドや検査の手順は紛らわしいエラー（「not signed」、ZAP の rc 3）になる。
@@ -573,6 +576,57 @@ Scan totals: 10,984 findings, of which 726 CRITICAL, 3,782 HIGH, 4,148 MEDIUM, 2
 
 **After PR #45 review r1 (same stack, 2026-11-11 14:18 UTC).** The allow-list matcher was changed (R1-01). Each of the 58 entries now names the exact `name@version` packages of its image, taken from the raw Trivy reports. A Trivy finding is accepted only while its `FixedVersion` is empty and its `Status` is a no-fix status, and only for the OS packages of that image. `scan` and `report` were run again, and both exited 0. `scan_20261111T141804Z` has the same totals as above: 10,984 open findings and 177 allow-listed, matched by all 58 entries. Replaying the stored reports `20261111T132241Z` through the new matcher gives the same 177. The new unit tests show that the old matcher accepted a fixed version, an unrelated package and a name prefix.
 
+### Acceptance run — 2026-11-12, local osf.io candidate with Elasticsearch 8, y-websocket only, mandatory sign-in and the admin second factor, 14 of 14
+
+Stack: the installer at branch `feat/installer-osf-integration` on the Mac Studio (project `grdm-dev`, Colima), from the previous pins and PostgreSQL 18. osf.io is a **local candidate, not a pushed commit**: RDM-osf.io-dev2027 develop `73ff43b3c2` (with #13 Django 2.2, #12 y-websocket editor, #14 render URL) merged with the heads of the open PR #8 (mandatory sign-in, `c9d293dd1a`), #10 (admin two-step sign-in, `834d1b62c0`) and #11 (Elasticsearch 8, `b4bc134188`); conflicts resolved by hand in `admin/common_auth/urls.py`, `admin/base/settings/defaults.py`, `api/base/authentication/backends.py`, `website/search/views.py`, `api/search/views.py`, `website/search/elastic_search.py` and `.github/scripts/ci/run-tests.sh`, which the three PRs will meet again when they are rebased). The manifest pins it at `9e1fb9c8597d` (served through a local bare mirror and `GIT_CONFIG_*` `url.<mirror>.insteadOf`; the installer has no local-source mechanism and gained none). y-websocket `97252369cf` (PR #5) and ember-osf-web `4180cb58bb` (PR #2, #3) are real merge commits.
+
+| Step | Exit | Result |
+|---|---|---|
+| `secrets rotate` | 40 | Rolled back by design: the old stack's former ember image did not become healthy in 300 s while the builds ran, so the old `runtime/.env` was restored; this is why `secrets init --missing` was added |
+| `secrets init --missing` | 0 | Added `ELASTIC8_PASSWORD` and `ELASTIC8_OSF_PASSWORD`, dropped `SHAREJS_SECRET`; no other value changed |
+| `compose render` | 0 | |
+| `build` | 0 | osf.io `9e1fb9c8597d` (about 55 min cold: `scipy` and friends compile on Alpine 3.9), y-websocket, ember-osf-web (static nginx), wiki-frontend overlay `9e1fb9c8597d-5985d18b75da`, `elasticsearch8:8.19.24-1` |
+| `compose render` after `build` | 0 | no stale build tags |
+| `up` | 0 | 23 services healthy; `elasticsearch8` healthy in 25 s; `osf_init` applied the merge migrations and `addons_twofactor` 0006/0007 and wrote the institutions into Elasticsearch 8; the sharejs, mongo and Elasticsearch 2 containers were removed as orphans |
+| `accept --seed --only core` (first) | 60 | 13 failing, three installer defects found and fixed (below) |
+| `accept --seed --only core` (final) | 0 | Run [`acc-20261111T230217Z-d8363c`](runs/acc-20261111T230217Z-d8363c/results.toon): **14 of 14 pass** (C1–C7, success and rejection) |
+| `scan` | 0 | `scan_20261111T231702Z` (commit `a14fb70`): baseline pass with no new exception (mongo's is gone, elasticsearch8 needs none); Trivy 22 targets, Semgrep, gitleaks ok; ZAP: `web` skipped with a note, `admin` and `ember_osf_web` scanned; gate report-only, pass |
+
+Defects found by the first acceptance run on the candidate, each fixed in the installer with a test:
+
+1. **`api` and `admin` stalled for 30 s at a time** (C2, C4, C6, C7 timed out; 12 errors at teardown). Django 2.2's development server keeps a connection open, and `runserver --nothreading` (what `invoke apiserver` starts) waits on a browser's idle second connection until the socket times out. Both now run the threaded `manage.py runserver`.
+2. **C1 and every browser scenario failed the loopback guard** on `https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js`, which the static ember `index.html` names although the build ships `/zxcvbn.js`. It is a version-pinned entry of the known external assets, and a finding for the ember repository.
+3. **The file page could not read its file** (C7, "Could not GET file contents"): the 3.13 WaterButler sends no CORS header when `CORS_ALLOW_ORIGIN` is empty. `wb.env` now lists exactly web's and ember's origins.
+
+Checked on the same stack outside the scenarios: an authenticated owner finds a private project through `/api/v1/search/` and API v2 (1 hit), another user finds none (0), user search returns only the user themself, anonymous search answers 401 (PR #8's boundary on the Elasticsearch 8 index); an administrator without TOTP lands on `/account/login/two-factor/setup/` and the admin pages redirect to the sign-in without the second factor; y-websocket's LevelDB in `y_websocket_data` holds the file rooms. Not run: amd64, a Linux host, the Shibboleth profile with admin `idp` mode, `ENABLE_PUBLIC_ACCESS=true`, the unpushed `images.yml` smoke test, and a migration of an installation that holds Elasticsearch 2 data (`invoke migrate_search`).
+
+Scan totals: 6,200 findings (CRITICAL 314, HIGH 1,875, MEDIUM 2,654, LOW 1,353, INFO 4) and 177 allow-listed by the 58 entries; the totals fell from 10,984 (CRITICAL 726, HIGH 3,782) because Elasticsearch 2, MongoDB and sharejs left the stack. The new `elasticsearch8` image adds 2 HIGH and 30 MEDIUM Trivy findings (listed per package, not allow-listed). `allowlist_baseline` is still 0 against 58 entries, so the M2 count condition stays open (status board).
+
+### Acceptance run — 2026-11-12 (UTC), merged final pins, 14 of 14
+
+Stack: the installer at commit `f223f2c` of branch `feat/installer-osf-integration` (merged with `develop` at the PR #52 merge), on the same Mac Studio and the same running project `grdm-dev`, upgraded in place from the 0.19 candidate. Every pin is now a merge commit of its repository: osf.io `90b10661c8dc` (RDM-osf.io-dev2027 `develop` after #8 `66ce3a573c`, #10 `24108e0fe3`, #11 `90b10661c8`), ember-osf-web `4d505f000f8d` (#4), y-websocket `97252369cf`; the other pins are unchanged. The wiki-frontend overlay tag follows the osf.io pin (`90b10661c8dc-5985d18b75da`). #8 was merged without R7-01 (the CI job that needs the `workflow` token scope; tracked as issue #16 of RDM-osf.io-dev2027).
+
+```toon
+steps[9]{step,exit,result}:
+  "secrets init --missing",0,"nothing added or dropped (the Elasticsearch 8 secrets exist already)"
+  "compose render",0,"tags `grdm-dev/osf.io:90b10661c8dc`, `grdm-dev/ember-osf-web:4d505f000f8d`"
+  "build",0,"9 min 7 s (22:23:26Z to 22:32:33Z) with Docker's layer cache; not a cold build"
+  "compose render after build",0,"no stale build tags"
+  "up",0,"68 s; web, api, admin, worker, ember_osf_web recreated on the new images; 23 services healthy"
+  "health --network",0,"23 services, 16 loopback bindings; one warning: a foreign listener (`ControlCe`, macOS) on *:5000"
+  "invoke migrate_search",0,"13 s; the index was rebuilt on Elasticsearch 8 (the `private__website` alias now points to `private__website_v2`; the seeded data held almost nothing to migrate)"
+  "accept --seed --only core",0,"run acc-20261112T223428Z-fda84a: 14 passed, 0 failed, 0 error, 0 skipped"
+  "scan and report",0,"scan 2 min 55 s at commit f223f2c; report exit 0"
+```
+
+Migrations `addons_twofactor` 0006 and 0007 show as applied inside the `web` container. Run [`acc-20261112T223428Z-fda84a`](runs/acc-20261112T223428Z-fda84a/results.toon): C1 to C7, success and rejection, all pass (C4 and C7 rejections close the WebSocket with 4401; C6 rejection is 403; C5 rejection is 401); the netguard counted 138 known external requests and blocked them.
+
+Scan (`scan_20261112T223858Z`, milestone M1): baseline pass; Trivy 0.75.0 (22 targets), Semgrep 1.184.0 (4), gitleaks 8.30.1 (1) and ZAP (3) all ok with no problems; gate report-only, pass. Open findings: 6,264 (CRITICAL 314, HIGH 1,889, MEDIUM 2,656, LOW 1,401, INFO 4), plus 177 allow-listed by the 58 entries; `allowlist_baseline` is still 0. By tool: Trivy 6,239, ZAP 13, Semgrep 12, gitleaks 0. The 0.19 candidate had 6,200; the 64 more are not analysed here (the osf.io pin moved from the candidate to the merged tips and dependencies resolve at build time). The Mac scan finished with exit 0, unlike the amd64 emulation scan ([DEMO-22](22_core_install_ubuntu_amd64_lima.md#english)), where the Trivy call for the ember-osf-web image hit its 5-minute limit.
+
+What this run does not show: a cold install from an empty `runtime/` on the final pins (the stack was upgraded in place, which is also why the build was fast), a search index rebuilt from real Elasticsearch 2 data (the seeded installation held almost none), the `images.yml` smoke test and the per-OS workflow files (they wait for the `workflow` token scope), a Shibboleth `idp` admin login, and `ENABLE_PUBLIC_ACCESS=true`.
+
+**Correction and limit of the ZAP row (0.21).** "ZAP (3) all ok with no problems" above must be read with this: that scan ran the earlier code, which excused `web` whenever ZAP's message named an address other than the target's own, and counted the three targets whether or not they were scanned. With mandatory sign-in (the default and the setting of this run) `web` answers an anonymous request only with a redirect that ZAP cannot follow; in the previous run on the same stack (`scan_20261111T231702Z`, above) `web` was skipped with a note and only `admin` and `ember_osf_web` were scanned. So the most this row supports is that `admin` and `ember_osf_web` were scanned, with 13 ZAP findings in the total; it does **not** show that ZAP scanned `web` or anything behind sign-in. That is an inference from the earlier run, not a reading of this run: the raw report `scan_20261112T223858Z` is not in the committed acceptance folder, so neither the 6,264 count nor the per-target ZAP coverage is independently rederivable from this repository; both are the operator's recorded result. The exception was also weaker than it looked (it accepted a redirect to any unreachable host); the scan code now requires the rendered sign-in configuration and a probe that shows the redirect to the configured address, lists a skipped target under `skipped_targets` instead of counting it, and keeps exit 51 otherwise ([SPEC-03 §4.3](../spec/03_security_gate.md#english)). That stricter code has been tested with unit tests only; it was **not** run against the Mac Studio stack, so the next scan on it is still to be recorded.
+
 ---
 
 <a id="japanese"></a>
@@ -1118,6 +1172,57 @@ RDM-modular-file-renderer-dev2027 PR #7 は `9771b8cf` としてマージされ�
 検査の件数: 10,984 件。内訳は CRITICAL 726、HIGH 3,782、MEDIUM 4,148、LOW 2,322、INFO 6。これとは別に、58 項目の許容リストで 177 件を許容した。道具ごとの内訳: Trivy 726/3,769/4,139/2,310（CRITICAL/HIGH/MEDIUM/LOW）、Semgrep は HIGH 12、gitleaks は 0、ZAP は HIGH 1・MEDIUM 9・LOW 12・INFO 6。ZAP の MEDIUM が 1 件多いことを除けば、上の実行と同じである。
 
 **PR #45 レビュー r1 の後（同じスタック、2026-11-11 14:18 UTC）。** 許容リストの照合を変えた（R1-01）。58 項目はそれぞれ、自分のイメージの正確な `name@version` のパッケージを名指しする。一覧は Trivy の生の報告から取った。Trivy の検出を許容するのは、`FixedVersion` が空で `Status` が修正版なしの状態の間だけで、対象はそのイメージの OS パッケージだけである。`scan` と `report` をやり直し、どちらも終了 0 だった。`scan_20261111T141804Z` の件数は上と同じで、未許容が 10,984 件、許容が 177 件。177 件は 58 項目すべてが当てはまった結果である。保存した報告 `20261111T132241Z` を新しい照合に通しても同じ 177 件になる。新しい単体試験では、古い照合が修正版のある検出、名指していないパッケージ、名前の前方一致を許容していたことが示された。
+
+### 受入の実行 — 2026-11-12、ローカルの osf.io 候補、Elasticsearch 8・y-websocket のみ・必須サインイン・管理者の第二要素、14 件中 14 件
+
+スタック: Mac Studio（プロジェクト `grdm-dev`、Colima）で、ブランチ `feat/installer-osf-integration` のインストーラーを、以前の固定版と PostgreSQL 18 から進めた。osf.io は**ローカルの候補で、push 済みのコミットではない**。RDM-osf.io-dev2027 の develop `73ff43b3c2`（#13 Django 2.2、#12 y-websocket のエディタ、#14 の render URL を含む）に、開いている PR #8（必須サインイン、`c9d293dd1a`）、#10（管理画面の 2 段階サインイン、`834d1b62c0`）、#11（Elasticsearch 8、`b4bc134188`）の先頭をマージしたもの。手で解消した競合は `admin/common_auth/urls.py`、`admin/base/settings/defaults.py`、`api/base/authentication/backends.py`、`website/search/views.py`、`api/search/views.py`、`website/search/elastic_search.py`、`.github/scripts/ci/run-tests.sh` で、三つの PR はリベースのときに同じものに出会う。manifest は `9e1fb9c8597d` に固定した（ローカルの bare ミラーと、`GIT_CONFIG_*` の `url.<ミラー>.insteadOf` で渡した。インストーラーにローカル参照の仕組みは無く、足してもいない）。y-websocket `97252369cf`（PR #5）と ember-osf-web `4180cb58bb`（PR #2・#3）は実際のマージコミットである。
+
+| 手順 | 終了 | 結果 |
+|---|---|---|
+| `secrets rotate` | 40 | 設計どおり巻き戻した。ビルド中で旧スタックの以前の ember イメージが 300 秒で健全にならず、古い `runtime/.env` を戻した。このため `secrets init --missing` を足した |
+| `secrets init --missing` | 0 | `ELASTIC8_PASSWORD` と `ELASTIC8_OSF_PASSWORD` を足し、`SHAREJS_SECRET` を捨てた。ほかの値は変えていない |
+| `compose render` | 0 | |
+| `build` | 0 | osf.io `9e1fb9c8597d`（コールドで約 55 分。Alpine 3.9 で `scipy` などをコンパイルする）、y-websocket、ember-osf-web（静的な nginx）、wiki-frontend のオーバーレイ `9e1fb9c8597d-5985d18b75da`、`elasticsearch8:8.19.24-1` |
+| `build` 後の `compose render` | 0 | 古いビルドのタグなし |
+| `up` | 0 | 23 サービスが正常。`elasticsearch8` は 25 秒で健全。`osf_init` が統合の migration と `addons_twofactor` の 0006・0007 を適用し、機関を Elasticsearch 8 へ書いた。sharejs・mongo・Elasticsearch 2 のコンテナは孤児として消えた |
+| `accept --seed --only core`（最初） | 60 | 13 件失敗。インストーラーの欠陥を三つ見つけ、直した（下記） |
+| `accept --seed --only core`（最終） | 0 | 実行 [`acc-20261111T230217Z-d8363c`](runs/acc-20261111T230217Z-d8363c/results.toon): **14 件中 14 件合格**（C1〜C7、成功と拒否） |
+| `scan` | 0 | `scan_20261111T231702Z`（コミット `a14fb70`）: 基本対策は合格で、新しい例外なし（mongo の例外は消え、elasticsearch8 は要らない）。Trivy 22 対象・Semgrep・gitleaks は ok。ZAP は `web` を注つきで飛ばし、`admin` と `ember_osf_web` を検査。門は報告のみで合格 |
+
+候補での最初の受入が見つけた欠陥。いずれもインストーラーで試験つきで直した。
+
+1. **`api` と `admin` が 30 秒ずつ止まった**（C2・C4・C6・C7 がタイムアウト、後片付けで 12 件のエラー）。Django 2.2 の開発用サーバーは接続を開いたままにし、`runserver --nothreading`（`invoke apiserver` が起動する）はブラウザの使われない二本目の接続を、ソケットがタイムアウトするまで待つ。どちらもスレッドありの `manage.py runserver` で動かす。
+2. **C1 とすべてのブラウザのシナリオがループバックの監視に失敗した**。対象は `https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js` で、ビルドが `/zxcvbn.js` を同梱するのに、静的な ember の `index.html` がそれを名指しする。版つきで既知の外部アセットに足し、ember リポジトリへの指摘にした。
+3. **ファイルページが自分のファイルを読めなかった**（C7、「Could not GET file contents」）。3.13 の WaterButler は `CORS_ALLOW_ORIGIN` が空だと CORS ヘッダーを送らない。`wb.env` に web と ember の起点だけを列挙した。
+
+同じスタックでシナリオの外から確認したこと。認証した所有者は `/api/v1/search/` と API v2 で非公開プロジェクトを見つけ（1 件）、別の利用者は見つけず（0 件）、利用者検索は本人だけを返し、匿名の検索は 401（PR #8 の境界が Elasticsearch 8 の索引で保たれる）。TOTP 未登録の管理者は `/account/login/two-factor/setup/` へ着き、第二要素なしでは管理画面がサインインへ転送される。`y_websocket_data` の LevelDB にファイルの部屋がある。未確認: amd64、Linux のホスト、管理者の `idp` モードの Shibboleth プロファイル、`ENABLE_PUBLIC_ACCESS=true`、push していない `images.yml` の smoke test、Elasticsearch 2 のデータを持つ導入の移行（`invoke migrate_search`）。
+
+検査の件数: 6,200 件（CRITICAL 314、HIGH 1,875、MEDIUM 2,654、LOW 1,353、INFO 4）。これとは別に、58 項目の許容リストで 177 件を許容した。Elasticsearch 2・MongoDB・sharejs がスタックから消えたので、10,984 件（CRITICAL 726、HIGH 3,782）から減った。新しい `elasticsearch8` イメージは Trivy で HIGH 2 件と MEDIUM 30 件を足す（パッケージ単位で記録し、許容はしていない）。`allowlist_baseline` は 58 項目に対しまだ 0 なので、M2 の件数の条件は開いたままである（状況表）。
+
+### 受入実行 — 2026-11-12（UTC）、マージ後の最終の固定版、14 件中 14 件
+
+スタック: ブランチ `feat/installer-osf-integration` のコミット `f223f2c`（PR #52 のマージ時点の `develop` を取り込み済み）のインストーラーを、同じ Mac Studio の動いている同じプロジェクト `grdm-dev` に、0.19 の候補から上書きで適用した。固定版はすべて各リポジトリのマージコミットになった。osf.io `90b10661c8dc`（RDM-osf.io-dev2027 の `develop`。#8 `66ce3a573c`、#10 `24108e0fe3`、#11 `90b10661c8` のマージ後）、ember-osf-web `4d505f000f8d`（#4）、y-websocket `97252369cf`。ほかの固定版は変わらない。wiki-frontend のオーバーレイのタグは osf.io の固定版に従う（`90b10661c8dc-5985d18b75da`）。#8 は R7-01（`workflow` 権限の要る CI ジョブ。RDM-osf.io-dev2027 の issue #16 で追跡）を除いてマージした。
+
+```toon
+steps[9]{step,exit,result}:
+  "secrets init --missing",0,"追加も削除も無し（Elasticsearch 8 の秘密は既にある）"
+  "compose render",0,"タグ `grdm-dev/osf.io:90b10661c8dc`、`grdm-dev/ember-osf-web:4d505f000f8d`"
+  "build",0,"9 分 7 秒（22:23:26Z〜22:32:33Z）。Docker のレイヤーキャッシュを使ったので、コールドビルドではない"
+  "build 後の compose render",0,"古いビルドのタグは無し"
+  "up",0,"68 秒。web・api・admin・worker・ember_osf_web が新しいイメージで作り直され、23 サービスが healthy"
+  "health --network",0,"23 サービス、ループバックの bind は 16 件。警告が 1 件: *:5000 の他者のリスナー（`ControlCe`、macOS）"
+  "invoke migrate_search",0,"13 秒。Elasticsearch 8 で索引を作り直した（`private__website` のエイリアスが `private__website_v2` を指す。種データには移す内容がほとんど無かった）"
+  "accept --seed --only core",0,"実行 acc-20261112T223428Z-fda84a: 合格 14、失敗 0、エラー 0、skip 0"
+  "scan と report",0,"scan はコミット f223f2c で 2 分 55 秒、report は終了 0"
+```
+
+`web` コンテナの中で `addons_twofactor` の migration 0006 と 0007 が適用済みと出る。実行 [`acc-20261112T223428Z-fda84a`](runs/acc-20261112T223428Z-fda84a/results.toon): C1〜C7 の成功と拒否がすべて合格（C4・C7 の拒否は WebSocket が 4401 で閉じ、C6 の拒否は 403、C5 の拒否は 401）。netguard は既知の外部要求 138 件を数えて遮断した。
+
+検査（`scan_20261112T223858Z`、節目 M1）: baseline は pass。Trivy 0.75.0（22 対象）、Semgrep 1.184.0（4）、gitleaks 8.30.1（1）、ZAP（3）はすべて ok で問題なし。ゲートは report-only で pass。未解決は 6,264 件（CRITICAL 314、HIGH 1,889、MEDIUM 2,656、LOW 1,401、INFO 4）。これとは別に、58 項目の許容リストで 177 件を許容した。`allowlist_baseline` は今も 0。ツール別は Trivy 6,239、ZAP 13、Semgrep 12、gitleaks 0。0.19 の候補は 6,200 件で、増えた 64 件は分析していない（osf.io の固定版が候補からマージ後の先端に移り、依存はビルド時に解決されるため）。Mac の検査は終了 0 で完走した。amd64 のエミュレーションでの検査（[DEMO-22](22_core_install_ubuntu_amd64_lima.md#japanese)）では、ember-osf-web のイメージの Trivy 呼び出しが 5 分の制限に達した。
+
+この実行が示さないこと: 最終の固定版での空の `runtime/` からのコールドな導入（上書きで進めたので、ビルドが速かった理由でもある）、本物の Elasticsearch 2 のデータからの索引の再構築（種データのみで、ほぼ空）、`images.yml` のスモーク試験と per-OS のワークフローファイル（`workflow` 権限待ち）、Shibboleth の `idp` での管理者ログイン、`ENABLE_PUBLIC_ACCESS=true`。
+
+**ZAP の行の訂正と限界（0.21）。** 上の「ZAP（3）はすべて ok で問題なし」は次のように読む。この検査は以前の処理で動き、ZAP のメッセージが対象自身と違うアドレスを示せば `web` を除外し、三つの対象を検査したかどうかにかかわらず数えていた。必須サインイン（既定で、この実行の設定）では、`web` は匿名の要求に ZAP が追えない転送しか返さない。同じスタックの前回の実行（上の `scan_20261111T231702Z`）では `web` は注つきで飛ばされ、`admin` と `ember_osf_web` だけが検査された。したがってこの行が支えるのは、`admin` と `ember_osf_web` を検査し、合計に ZAP の検出 13 件があることまでで、ZAP が `web` やサインインの向こうを検査したことは**示さない**。これは前回の実行からの推定で、この実行を読んだ結果ではない。生レポート `scan_20261112T223858Z` はコミット済みの受入フォルダにないので、6,264 件も ZAP の対象ごとの網羅も、このリポジトリから独立に再導出できず、どちらも作業者の記録である。除外は見かけより弱かった（届かない任意のホストへの転送を受け入れた）。検査の処理は今は、生成済みのサインイン設定と、設定済みのアドレスへの転送を示す探りを求め、対象外を数えずに `skipped_targets` に載せ、それ以外は終了 51 のままにする（[SPEC-03 §4.3](../spec/03_security_gate.md#japanese)）。この厳しくした処理は単体試験でだけ確かめ、Mac Studio のスタックでは**実行していない**。そのスタックでの次の検査の記録は未了である。
 
 ---
 

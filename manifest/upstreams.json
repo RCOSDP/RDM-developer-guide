@@ -128,7 +128,7 @@
       ],
       "id": "osf.io",
       "integration_branch": "develop",
-      "integration_sha": "8fc45de461fde227dc60c30a47139a61d6209a26",
+      "integration_sha": "90b10661c8dcf039c18fdd214aef98191f97497c",
       "integration_repo": "RDM-osf.io-dev2027",
       "note": null,
       "platforms": [
@@ -370,8 +370,8 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "quay.io/centerforopenscience/ember-base + node:8-alpine",
-      "base_image_digest": null,
+      "base_image": "nginxinc/nginx-unprivileged:1.29-alpine",
+      "base_image_digest": "sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6",
       "candidate_prs": [
         {
           "number": 201,
@@ -404,22 +404,20 @@
       ],
       "id": "ember-osf-web",
       "integration_branch": "develop",
-      "integration_sha": "57d9c7ce9e7ecfef76b912953f2ff566c37035e5",
+      "integration_sha": "4d505f000f8dfb8648955054c76d7a6374204b93",
       "integration_repo": "RDM-ember-osf-web-dev2027",
-      "note": "Prebuilt fallback (M2, second real install on Mac Studio): the Dockerfile's base image quay.io/centerforopenscience/ember-base is a Docker image manifest v2 schema 1 image that current Docker refuses (\"support for schema 1 has been removed\"), so the integration repository cannot be built on any host. Until M4 modernizes the Dockerfile (target_image.M4), the legacy guide's distribution image niicloudoperation/rdm-ember-osf-web:latest is run instead, pinned by its linux/amd64 manifest digest (resolved 2026-11-05 with docker buildx imagetools inspect). This bypasses the build-from-pinned-source guarantee of SPEC-01; prebuilt_image must be removed at M4.",
+      "note": "Built from the integration repository at develop after its PR #2 (static build, Node 24 LTS) and PR #3 (the file preview takes the API's render link, so MFR reaches the file from inside the network). Its multi-stage Dockerfile runs the ember-cli production build in a digest-pinned Node 24 stage on the build host's own platform (the output is platform-independent HTML, JS and CSS, so no architecture emulates the build; the build stage needs several GiB of engine memory at build time only) and the final stage is nginx-unprivileged (base_image, digest-pinned): uid 101, port 4200, read-only root with a /tmp tmpfs, no Node at run time. The entrypoint checks every value it writes (the backend URLs, OSF_COOKIE_DOMAIN, the CSP settings) as a whole against a strict per-field pattern, writes them URI-encoded into index.html, refuses to start on an invalid value or a Google Analytics adapter left in the page, and sets the CSP; GET /healthz answers ok. This replaces the prebuilt fallback (the distribution image ran ember serve and rebuilt the bundle under amd64 emulation with an 8 GiB floor) and removes prebuilt_image and build_platform (PR #2 review r1 R1-03).",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
       ],
-      "build_platform": "linux/amd64",
-      "prebuilt_image": "niicloudoperation/rdm-ember-osf-web@sha256:65ee1fae52a33ec7dbc42546f5b3a240dddd70eb963d1ebe2ededa80135cc2e7",
       "profile": "core",
       "role": "core",
       "services": [
         "ember_osf_web"
       ],
       "target_image": {
-        "M4": "node LTS alpine, non-root",
+        "M4": "Node LTS build stage, nginx-unprivileged static, non-root",
         "M5": null
       },
       "upstreams": [
@@ -573,7 +571,7 @@
       "candidate_prs": [],
       "id": "y-websocket",
       "integration_branch": "develop",
-      "integration_sha": "d4d1cfaed2e4b10362237df1f3424b2a076a56fb",
+      "integration_sha": "97252369cf7e818f61d02dfb447ff76a213789fb",
       "integration_repo": "RDM-y-websocket-dev2027",
       "note": "Built from the pinned checkout, which enforces JWT authentication (RDM-osf.io#797), with the recipe in this repository instead of the integration repository's Dockerfile: dependencies come from the checkout's package-lock.json (npm ci) and the running image has no npm or yarn (SPEC-01 build_dockerfile).",
       "platforms": [
@@ -791,18 +789,18 @@
     },
     {
       "adopted_prs": [],
-      "base_image": "eclipse-temurin:8-jre",
-      "base_image_digest": "sha256:377fe8e36a4b1530d9d52020069367ef44313fa891a82ae102b1016a6a3a72f5",
+      "base_image": "docker.elastic.co/elasticsearch/elasticsearch:8.19.24",
+      "base_image_digest": "sha256:d6dfe6626d645cfec66e91009aca60c6c1bb6f94d34253528f24d8cea2f94ba6",
       "candidate_prs": [],
-      "id": "elasticsearch2",
+      "id": "elasticsearch8",
       "integration_branch": null,
       "integration_sha": null,
       "integration_repo": null,
       "image_build": {
-        "context": "installer/images/elasticsearch2",
-        "tag": "2.4.6-1"
+        "context": "installer/images/elasticsearch8",
+        "tag": "8.19.24-1"
       },
-      "note": "Built natively from the official elasticsearch-2.4.6 tarball (sha256-verified) on a digest-pinned Temurin 8 JRE (installer/images/elasticsearch2, ADR-07): elasticsearch:2 on Docker Hub ships linux/amd64 only, and under Rosetta on Apple Silicon it needed 38 minutes to open port 9200 on a fresh data directory (real install run 19) while the native build starts in 5 seconds. Runs as uid 1000 with a read-only root (no hardening exception for the service itself; the one-shot volume_owner_init hands the data volume to uid 1000 first). Retired at M5 with ES8.",
+      "note": "Elasticsearch 8.19.24 for osf.io's full-text search (ADR-14, RDM-osf.io-dev2027 PR #11): the official multi-architecture image pinned by its index digest, with analysis-kuromoji and analysis-icu added in installer/images/elasticsearch8, so it runs natively on arm64 and amd64. Security is on: TLS on the REST port with a CA of the installation's own, the elastic bootstrap superuser (ELASTIC8_PASSWORD) and a role-limited user grdm_osf (ELASTIC8_OSF_PASSWORD, created by the one-shot elasticsearch8_setup: every privilege on website* and private__website* only); Painless scripts are off. Runs as uid 1000 with a read-only root. It replaces elasticsearch2 (EOL): the ES 2 data is not migrated, `invoke migrate_search` rebuilds the index from PostgreSQL.",
       "platforms": [
         "linux/arm64",
         "linux/amd64"
@@ -810,11 +808,12 @@
       "profile": "minimum",
       "role": "infra",
       "services": [
-        "elasticsearch"
+        "elasticsearch8",
+        "elasticsearch8_setup"
       ],
       "target_image": {
         "M4": null,
-        "M5": "removed (ES8)"
+        "M5": null
       },
       "upstreams": []
     },
@@ -846,31 +845,6 @@
         "context": "installer/images/elasticsearch6",
         "tag": "6.8.23-1"
       }
-    },
-    {
-      "adopted_prs": [],
-      "base_image": "mongo:3.4",
-      "base_image_digest": null,
-      "candidate_prs": [],
-      "id": "mongo",
-      "integration_branch": null,
-      "integration_sha": null,
-      "integration_repo": null,
-      "note": null,
-      "platforms": [
-        "linux/arm64",
-        "linux/amd64"
-      ],
-      "profile": "core",
-      "role": "infra",
-      "services": [
-        "mongo"
-      ],
-      "target_image": {
-        "M4": null,
-        "M5": "removed"
-      },
-      "upstreams": []
     },
     {
       "adopted_prs": [],
@@ -921,35 +895,6 @@
         "M5": "redis current stable"
       },
       "upstreams": []
-    },
-    {
-      "adopted_prs": [],
-      "base_image": "node:24-alpine",
-      "base_image_digest": "sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8",
-      "candidate_prs": [],
-      "id": "sharejs",
-      "integration_branch": null,
-      "integration_sha": null,
-      "integration_repo": null,
-      "note": "Built natively from upstream commit 7d4731ce03f6 (sha256-verified) on digest-pinned Node 24 Alpine with no npm or yarn in the running image (installer/images/sharejs, ADR-07): the published image is Debian 8 with Node 0.12 and linux/amd64 only. vendor/mongoskin puts the mongoskin API that livedb-mongo uses on mongodb 3.7, because mongodb 1.4 never calls back on current Node TLS; ws 8 and current express, body-parser and morgan replace the old lines. Retiring sharejs and mongo remains a separate decision.",
-      "platforms": [
-        "linux/arm64",
-        "linux/amd64"
-      ],
-      "profile": "core",
-      "role": "infra",
-      "services": [
-        "sharejs"
-      ],
-      "target_image": {
-        "M4": null,
-        "M5": null
-      },
-      "upstreams": [],
-      "image_build": {
-        "context": "installer/images/sharejs",
-        "tag": "7d4731ce03f6-1"
-      }
     },
     {
       "adopted_prs": [],

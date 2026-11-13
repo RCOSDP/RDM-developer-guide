@@ -5,7 +5,10 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 1.7 — 2026-11-12. **Learned:** the guide must not promise what an option cannot do: `--timeout` lengthens only the wait of `up`, never the build ([PR #50 review r1](../../reviews/README.md) R2). ／ 手引きは、オプションにできないことを約束してはならない。`--timeout` が延ばすのは `up` の待ちだけで、ビルドではない（[PR #50 レビュー r1](../../reviews/README.md) R2）。
+- Version / 版: 1.10 — 2026-11-13. **Learned:** a scan line that reads `ok` has to say what it did not scan: with mandatory sign-in ZAP cannot enter `web`, and the report now lists that target as skipped (`skipped_targets`), not as scanned (PR #56 review r1 R1-01). ／ `ok` と読める検査の行は、検査しなかったものを言わなければならない。必須サインインでは ZAP は `web` に入れず、報告はその対象を検査済みでなく対象外（`skipped_targets`）として載せる（PR #56 レビュー r1 R1-01）。
+  1.9 — 2026-11-12. **Learned:** an upgrade guide has to be an order of commands, because each step needs the one before: the new secrets must exist before `compose render`, `compose render` before `build` (tags) and again after it, and the search index rebuild only after `up`; `secrets rotate` is not that first step, since it needs a healthy old stack and rolled back here when the former ember image took more than 300 seconds to start. ／ アップグレードの手引きはコマンドの順序でなければならない。どの段も前の段を要するからである。新しい秘密は `compose render` の前に、`compose render` は `build`（タグ）の前と後に、検索の索引の再構築は `up` の後に要る。`secrets rotate` はその最初の段ではない。健康な旧スタックを要し、ここでは以前の ember のイメージの起動が 300 秒を超えて巻き戻った。
+  1.8 — 2026-11-11. **Learned:** a troubleshooting entry that names a workaround goes stale the day the workaround ends: ember-osf-web is built from source again as a static image, so the DEMO-20 cases now say that the prebuilt image was the past state and what `build` does now (RDM-ember-osf-web-dev2027 PR #2 review r1 R1-03). ／ 回避策を名指しする障害対応の項は、その回避策が終わった日に古くなる。ember-osf-web は再びソースから静的なイメージとして組まれるので、DEMO-20 の事例は事前ビルド済みのイメージが過去の状態だったことと、いまの `build` の動きを書くようにした（RDM-ember-osf-web-dev2027 PR #2 レビュー r1 R1-03）。
+  1.7 — 2026-11-12. **Learned:** the guide must not promise what an option cannot do: `--timeout` lengthens only the wait of `up`, never the build ([PR #50 review r1](../../reviews/README.md) R2). ／ 手引きは、オプションにできないことを約束してはならない。`--timeout` が延ばすのは `up` の待ちだけで、ビルドではない（[PR #50 レビュー r1](../../reviews/README.md) R2）。
   1.6 — 2026-11-12. **Learned:** an amd64 test machine on Apple Silicon is a fully emulated computer, so it needs two more host tools and a long first start, and it compiled osf.io's scientific Python about ten times slower than Rosetta did (a full build there was not finished after 5 h 12 min); the guide now says so and says how to give `up` a longer wait through the one command, which does not shorten the build ([DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)). ／ Apple Silicon 上の amd64 の試験機は全体をエミュレーションする計算機なので、ホストの道具が二つ多く要り、最初の起動も長く、osf.io の科学計算の Python のコンパイルは Rosetta の約 10 倍遅かった（そこでのビルド全体が 5 時間 12 分後も未完）。手引きはそれを書き、一つのコマンドで `up` の待ちを延ばす方法も示す（ビルドは短くならない）（[DEMO-22](../../demo/22_core_install_ubuntu_amd64_lima.md)）。
   1.5 — 2026-11-10. **Learned:** a safety check should say what it does not cover: the shared-folder check looks for four names directly under each shared mount point, decoded as the kernel escapes them, not for every credential anywhere ([PR #44 review r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1). ／ 安全のための検査は、何を見ないかも言うべきである。共有フォルダの検査は、カーネルのエスケープを復号した各共有 mount 先の直下にある四つの名前だけを探し、どこにある資格情報でも見つけるわけではない（[PR #44 レビュー r1](../../reviews/2026-11-10_RDM-developer-guide_PR44_Per_OS_Installers_r1.md) R1）。
   1.4 — 2026-11-10. **Learned:** a test VM is only isolated if nothing of the host is shared by default: Lima's Ubuntu template mounted the host home and showed `~/.config/gh` inside the VM, so the Lima steps below share only read-only mirrors and `install-ubuntu.sh` stops when credentials are visible ([DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)). ／ テスト用の VM は、既定でホストの何も共有しないときだけ隔離されている。Lima の Ubuntu テンプレートはホームを mount し `~/.config/gh` を VM から見せたので、下の Lima の手順は読み取り専用のミラーだけを共有し、`install-ubuntu.sh` は資格情報が見えると止まる（[DEMO-21](../../demo/21_core_install_ubuntu_arm64_lima.md)）。
@@ -213,7 +216,7 @@ Build or pull all images:
 > **Real cases from DEMO-20:**
 >
 > - **modular-file-renderer (the file preview service):** Built with emulation (`build_platform: linux/amd64`) because `pandas==0.25.1` has no arm64 *wheel* (a prebuilt Python package file; without one, pip must compile from source, which fails on this EOL base).
-> - **ember-osf-web:** The source build fails on every CPU because the base image uses Docker manifest v2 schema 1, which current Docker refuses. The manifest therefore already carries a digest-pinned `prebuilt_image` for ember-osf-web, which `build` pulls instead of building; this fallback stays until M4 modernizes the Dockerfile (`manifest/upstreams.json`, DEMO-20).
+> - **ember-osf-web:** At the time, the source build failed on every CPU because the base image used Docker manifest v2 schema 1, which current Docker refuses, so the manifest carried a digest-pinned `prebuilt_image` that `build` pulled instead (DEMO-20). The Dockerfile has since been modernized (RDM-ember-osf-web-dev2027 PR #2): `build` builds ember-osf-web from its pinned commit on your own CPU, without emulation, into a static nginx image, and the row says `built`.
 
 #### 3.6 `grdm-dev up`
 
@@ -261,6 +264,8 @@ Without flags, `scan` runs every part: baseline controls, the Trivy (a scanner t
 **Success:** Exit `0`; the report under `runtime/reports/scan_<date>.json` (plus TOON) shows the baseline controls passed and the findings for the current milestone.
 
 **Failure exit codes:** `50` — gate failed for the current milestone (see rule above); `51` — a scanner could not run (Trivy, gitleaks, or Semgrep missing, or its vulnerability database could not be downloaded); `52` — `--dynamic` was requested while services are unhealthy.
+
+**Limit of the dynamic part:** with mandatory sign-in (`ENABLE_PUBLIC_ACCESS=false`, the default) `web` answers an anonymous request only with a redirect to the sign-in page, which ZAP cannot open. When the scan itself confirms that redirect and that it goes to the configured sign-in address, `web` is listed under `skipped_targets` with a note "ZAP NOT RUN on web" and the run can still exit `0`; the pages behind sign-in were then **not** scanned by ZAP. Any other failure to reach a target, such as a redirect elsewhere, stays exit `51`.
 
 #### 3.9 `grdm-dev accept` (manual, separate step)
 
@@ -360,6 +365,8 @@ The installer implements these controls from milestone M1 ([SPEC-03 §3](../../s
 - **Network:** Services talk on an internal Compose network (`internal: true`). Browser-facing ports are published *only* on `127.0.0.1`; `health --network` verifies it.
 - **[Container](../../reference/REF-01_Glossary.md#english) hardening:** Non-root (the program does not run as the all-powerful administrator user) user, read-only root filesystem, and `cap_drop: [ALL]` are the defaults for every service, together with resource limits (memory, CPU, process count). `privileged: true` is forbidden everywhere. A service that cannot tolerate one of the defaults (for example the PostgreSQL, RabbitMQ, or Elasticsearch images, which must write inside the image at start-up) gets a documented per-service exception in [`manifest/hardening.json`](../../../manifest/hardening.json), naming the relaxed control, the reason, the review date, and the milestone at which it is to be removed. Read-only roots therefore apply where the service tolerates them, not to every service.
 - **Supply chain:** Images are pulled by digest (exact fingerprint), never a floating tag such as `latest`.
+- **Sign-in:** Since RDM-osf.io-dev2027 PR #8 every data page and API route needs a signed-in user (`ENABLE_PUBLIC_ACCESS=false`, the default); `grdm-dev compose render --public-access true` turns anonymous viewing of public projects back on. The admin app asks a one-time code after the password (PR #10): an administrator without one is sent to an enrolment page on the first sign-in, and every administrator signs in again after an upgrade.
+- **Search:** Elasticsearch 8 is reached over TLS with its own certificate authority and a user limited to the search indices; no port is published ([ADR-14](../../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md)).
 
 > These are the requirements the installer enforces; whether a given running environment satisfies them is shown by `health --network` and `scan`, not by this guide.
 
@@ -398,9 +405,9 @@ This happens when an image cannot be built for your CPU architecture or a prebui
 **Real cases from DEMO-20:**
 
 1. **modular-file-renderer on arm64:** Built successfully with `build_platform: linux/amd64` (emulation) because the base Python 3.5 image has no arm64 wheel for `pandas==0.25.1`.
-2. **ember-osf-web on any platform:** The source build fails because the base image uses Docker manifest v2 schema 1, which current Docker refuses to pull.
+2. **ember-osf-web on any platform:** The source build failed because the base image used Docker manifest v2 schema 1, which current Docker refuses to pull.
 
-**Current state:** For ember-osf-web the manifest already contains a digest-pinned `prebuilt_image` (`niicloudoperation/rdm-ember-osf-web@sha256:...`, `manifest/upstreams.json`), so `build` pulls that image instead of building and reports it as `prebuilt`. The fallback stays until M4 modernizes the Dockerfile, when it must be removed. A failed source build therefore does not by itself mean the configured fallback fails; check the `prebuilt` row in the build report.
+**Current state:** ember-osf-web no longer uses a `prebuilt_image`: its modernized Dockerfile (RDM-ember-osf-web-dev2027 PR #2) runs the ember-cli build in a Node stage on your own CPU and produces a static nginx image, so `build` builds it like the other components (`manifest/upstreams.json`). That Node stage needs several GiB of Docker engine memory while it runs; if the ember-osf-web build fails with exit 30, check the engine's memory first.
 
 #### Health check failed (exit 40)
 
@@ -427,6 +434,7 @@ The rows below compare what `README.legacy.md` actually describes with the 2027 
 
 ### 8. Latest changes
 
+- **2026-11-12 — Elasticsearch 8, y-websocket only, mandatory sign-in, admin two-step sign-in (ADR-13 §6, ADR-14).** An existing installation upgrades in this order: `git pull`; `grdm-dev secrets init --missing` (adds `ELASTIC8_PASSWORD` and `ELASTIC8_OSF_PASSWORD`, keeps every other value, drops `SHAREJS_SECRET`); `grdm-dev compose render`; `grdm-dev build`; `grdm-dev compose render` again; `grdm-dev up`; then once `docker compose exec web invoke migrate_search` to rebuild the search index from PostgreSQL (the Elasticsearch 2 data is not moved; `runtime/volumes/elasticsearch_data`, `mongo_data` and `mongo_tls` are no longer used and can be removed by hand). `sharejs` and `mongo` are gone, so port 7007 is no longer published. The first administrator sign-in after the upgrade asks to enrol a one-time code; keep the recovery codes it shows once.
 - **2026-11-06 — Waffle flag for the Metadata addon (PR #17).** The legacy startup steps in [`README.legacy.md`](README.legacy.md) now run `docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone` once, right after the first database migration, in each of the three startup variants. A *waffle flag* (a named on/off switch stored in the database that turns a feature on for chosen users) is required to open the Project Metadata edit page of the Metadata addon. The 2027 installer (`grdm-dev`) does not run this step yet; if you need the Metadata addon, run the same `manage.py waffle_flag` command against the `web` service by hand. Incorporated from PR #17 by yacchin1205 (2026-11-06).
 
 ---
@@ -623,7 +631,7 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 > **DEMO-20 の実際のケース:**
 >
 > - **modular-file-renderer（ファイルのプレビューを作るサービス）:** `pandas==0.25.1` の arm64 *wheel*（ビルド済みの Python パッケージファイル。無いと pip がソースから組む必要があり、この EOL ベースでは失敗する）が存在しないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
-> - **ember-osf-web:** ベースイメージが Docker manifest v2 schema 1 を使っており現行 Docker が拒否するため、ソースからのビルドはどの CPU でも失敗します。そのため manifest には ember-osf-web 向けにダイジェスト固定の `prebuilt_image` がすでに設定されており、`build` はビルドの代わりにそれを取得します。この代替は M4 で Dockerfile を近代化するまで維持されます（`manifest/upstreams.json`、DEMO-20）。
+> - **ember-osf-web:** 当時は、ベースイメージが現行 Docker の拒否する Docker manifest v2 schema 1 を使っていたため、ソースからのビルドはどの CPU でも失敗し、manifest にはダイジェスト固定の `prebuilt_image` を設定して `build` がビルドの代わりにそれを取得していました（DEMO-20）。その後 Dockerfile は近代化されました（RDM-ember-osf-web-dev2027 PR #2）。いまの `build` は ember-osf-web を固定コミットからお使いの CPU 上でエミュレーションなしに静的な nginx のイメージへ組み、行は `built` になります。
 
 #### 3.6 `grdm-dev up`
 
@@ -671,6 +679,8 @@ manifest とプロファイルから Docker Compose ファイルを生成しま�
 **成功:** 終了 `0`。`runtime/reports/scan_<日付>.json`（と TOON）の報告に、基本対策の合格と現在の節目での指摘が示されます。
 
 **失敗終了コード:** `50` — 現在の節目で門に落ちた（上の規則）。`51` — スキャナーが動かせない（Trivy・gitleaks・Semgrep が無い、または脆弱性データベースを取得できない）。`52` — サービスが健康でないのに `--dynamic` を求めた。
+
+**動的部分の限界:** 必須サインイン（`ENABLE_PUBLIC_ACCESS=false`、既定）では、`web` は匿名の要求にサインインのページへの転送しか返さず、ZAP はそれを開けません。スキャン自身がその転送を確かめ、転送先が設定済みのサインインのアドレスであるときだけ、`web` は注「ZAP NOT RUN on web」つきで `skipped_targets` に載り、終了 `0` になりえます。このときサインインの向こうのページは ZAP では**検査されていません**。転送先が別の場所であるなど、対象に届かないほかの失敗は終了 `51` のままです。
 
 #### 3.9 `grdm-dev accept`（手動・別手順）
 
@@ -770,6 +780,8 @@ docker compose -f runtime/docker-compose.yml logs -f web api
 - **ネットワーク:** サービスは内部 Compose ネットワーク（`internal: true`）で通信します。ブラウザ向けのポートは `127.0.0.1` に*だけ*公開され、`health --network` がそれを検証します。
 - **[コンテナ](../../reference/REF-01_Glossary.md#japanese)堅牢化:** 非 root ユーザー（全権限を持つ管理者ユーザーでプログラムを動かさない）、読み取り専用ルートファイルシステム、`cap_drop: [ALL]` が全サービスの既定で、資源制限（メモリ、CPU、プロセス数）も付きます。`privileged: true` はどこでも禁止です。既定に耐えられないサービス（例: 起動時にイメージ内へ書き込む必要がある PostgreSQL・RabbitMQ・Elasticsearch のイメージ）には、[`manifest/hardening.json`](../../../manifest/hardening.json) にサービスごとの記録付き例外があり、緩める対策、理由、見直し日、解消予定の節目を明記します。したがって読み取り専用ルートは「耐えられるサービス」に適用され、全サービスではありません。
 - **サプライチェーン:** イメージは「ダイジェスト」（正確な指紋）で取得し、`latest` のような動くタグは使いません。
+- **サインイン:** RDM-osf.io-dev2027 PR #8 以降、すべてのデータのページと API の経路でサインインが必要です（`ENABLE_PUBLIC_ACCESS=false`、既定）。`grdm-dev compose render --public-access true` で、公開プロジェクトの匿名閲覧を戻せます。管理アプリはパスワードのあとにワンタイムコードを求めます（PR #10）。コードを登録していない管理者は、最初のサインインで登録画面へ送られ、アップグレードの後はすべての管理者がもう一度サインインします。
+- **検索:** Elasticsearch 8 には、導入ごとの認証局による TLS と、検索の索引に限った利用者で接続し、ポートは公開しません（[ADR-14](../../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md)）。
 
 > 上記はインストーラーが課す要求事項です。実際の稼働環境がそれを満たしているかは、このガイドではなく `health --network` と `scan` の結果が示します。
 
@@ -808,9 +820,9 @@ sudo lsof -i :5000
 **DEMO-20 の実際のケース:**
 
 1. **modular-file-renderer on arm64:** ベース Python 3.5 イメージが arm64 向けの `pandas==0.25.1` wheel を持たないため、`build_platform: linux/amd64`（エミュレーション）で正常にビルド。
-2. **ember-osf-web on 任意プラットフォーム:** ベースイメージが Docker manifest v2 schema 1 を使っているため、現行 Docker が取得を拒み、ソースからのビルドは失敗。
+2. **ember-osf-web on 任意プラットフォーム:** ベースイメージが Docker manifest v2 schema 1 を使っていたため、現行 Docker が取得を拒み、ソースからのビルドは失敗していた。
 
-**現状:** ember-osf-web については manifest にダイジェスト固定の `prebuilt_image`（`niicloudoperation/rdm-ember-osf-web@sha256:...`、`manifest/upstreams.json`）がすでに設定されているため、`build` はビルドの代わりにそのイメージを取得し `prebuilt` と報告します。この代替は M4 で Dockerfile を近代化するまで維持され、その時点で削除が必要です。したがってソースビルドの失敗だけでは、設定済みの代替も失敗するとは言えません。ビルド報告の `prebuilt` 行を確認してください。
+**現状:** ember-osf-web はもう `prebuilt_image` を使いません。近代化した Dockerfile（RDM-ember-osf-web-dev2027 PR #2）は ember-cli のビルドをお使いの CPU 上の Node の段で実行して静的な nginx のイメージを作るので、`build` はほかの部品と同じようにこれを組みます（`manifest/upstreams.json`）。この Node の段は動いている間 Docker エンジンのメモリを数 GiB 使います。ember-osf-web のビルドが終了 30 で失敗したら、まずエンジンのメモリを確かめてください。
 
 #### 健康確認失敗（終了コード 40）
 
@@ -837,6 +849,7 @@ sudo lsof -i :5000
 
 ### 8. 最近の変更
 
+- **2026-11-12 — Elasticsearch 8、y-websocket だけ、必須サインイン、管理者の 2 段階サインイン（ADR-13 §6、ADR-14）。** 既存の導入は次の順でアップグレードします。`git pull`、`grdm-dev secrets init --missing`（`ELASTIC8_PASSWORD` と `ELASTIC8_OSF_PASSWORD` を足し、ほかの値は変えず、`SHAREJS_SECRET` を捨てます）、`grdm-dev compose render`、`grdm-dev build`、もう一度 `grdm-dev compose render`、`grdm-dev up`。そのあと一度だけ `docker compose exec web invoke migrate_search` で検索の索引を PostgreSQL から作り直します（Elasticsearch 2 のデータは移しません。`runtime/volumes/elasticsearch_data`・`mongo_data`・`mongo_tls` はもう使われないので、手で消せます）。`sharejs` と `mongo` は無くなったので、ポート 7007 はもう公開されません。アップグレード後の最初の管理者のサインインはワンタイムコードの登録を求めます。一度だけ表示されるリカバリーコードを保管してください。
 - **2026-11-06 — Metadata アドオン用の waffle フラグ設定（PR #17）。** [`README.legacy.md`](README.legacy.md) の起動手順では、3 通りの起動手順それぞれで、初回の DB マイグレーション直後に `docker compose run --rm web python3 manage.py waffle_flag ember_edit_draft_registration_page --everyone` を一度実行するようになりました。*waffle フラグ*（データベースに保存される名前付きのオン／オフのスイッチで、選んだ利用者に機能を有効にするもの）は、Metadata アドオンの Project Metadata 編集画面を開くために必要です。2027 インストーラー（`grdm-dev`）にはまだこの手順が無いため、Metadata アドオンが必要な場合は同じ `manage.py waffle_flag` コマンドを `web` サービスに対して手で実行してください。Incorporated from PR #17 by yacchin1205 (2026-11-06).
 
 ---

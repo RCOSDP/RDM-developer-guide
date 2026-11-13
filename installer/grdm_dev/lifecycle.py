@@ -29,10 +29,11 @@ from pathlib import Path
 from . import compose, database, exit_codes, health, manifest as _manifest, plan, report
 from .context import Context
 
-DEFAULT_TIMEOUT = 1800.0  # cold start: ember's first build under amd64 emulation took 13-25 min and osf_init runs migrations (real install runs 10-18; PR #33 review r1)
-# Linux arm64 emulates amd64 with QEMU, which is slower than Rosetta: ember's first build took 44 min there, on one
-# core, so more CPUs do not help, and 1800 s stopped an otherwise healthy install with exit 40 (DEMO-21 run 2).
-# About twice the measurement.
+DEFAULT_TIMEOUT = 1800.0  # cold start: the former prebuilt ember's first build under amd64 emulation took 13-25 min and osf_init runs migrations (real install runs 10-18; PR #33 review r1)
+# Linux arm64 emulates amd64 with QEMU, which is slower than Rosetta: the former prebuilt ember's first build took 44 min
+# there, on one core, so more CPUs do not help, and 1800 s stopped an otherwise healthy install with exit 40 (DEMO-21 run 2).
+# About twice the measurement. ember now builds nothing at start (static image); both values stay until a cold start
+# without it is measured, and QEMU_TIMEOUT still applies while another service (mfr) runs as linux/amd64.
 QEMU_TIMEOUT = 5400.0
 _ARM64 = ("aarch64", "arm64")
 

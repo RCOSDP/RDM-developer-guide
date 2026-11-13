@@ -6,7 +6,9 @@
     "HOST": "0.0.0.0",
     "PORT": "1234",
     "JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
-    "HOME": "/tmp"
+    "HOME": "/tmp",
+    "YPERSISTENCE": "/data",
+    "YPERSISTENCE_DOC_PREFIX": "file-"
   },
   "tmpfs": [
     "/tmp"
@@ -18,5 +20,12 @@
   "weight": 1,
   "mem_min_mb": 128,
   "pids_limit": 256,
-  "host_port": 1234
+  "host_port": 1234,
+  "volumes": [
+    {
+      "volume": "y_websocket_data",
+      "target": "/data"
+    }
+  ],
+  "note": "Collaborative editing for the wiki and, since RDM-osf.io-dev2027 PR #12, the file page (ShareJS and MongoDB are retired, ADR-13). JWT_SECRET is shared with osf.io (Y_WEBSOCKET_SECRET), which issues the room tokens and calls DELETE /<room> on the internal URL when a file version is replaced. YPERSISTENCE=/data (LevelDB in the named volume y_websocket_data) with YPERSISTENCE_DOC_PREFIX=file- keeps the drafts of file rooms across restarts and when the last user leaves; wiki rooms stay in memory (the saved text is in WaterButler). The server caps the store (4 MiB per room, 256 MiB in all by default) and keeps only memory beyond that."
 }

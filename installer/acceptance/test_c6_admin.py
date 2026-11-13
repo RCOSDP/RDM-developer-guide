@@ -4,18 +4,30 @@ from urllib.parse import quote
 import pytest
 
 from acceptance import selectors as sel
+from acceptance import totp
 from acceptance.conftest import api
 
 pytestmark = [pytest.mark.core, pytest.mark.scenario("C6", "Institution admin screen")]
 
 
 def _admin_login(page, admin_url: str, user: dict[str, str]) -> None:
-    """The admin app (port ADMIN) has its own Django login form."""
+    """The admin app (port ADMIN) has its own Django login form, then a TOTP step (RDM-osf.io-dev2027 PR #10).
+
+    The password alone logs nobody in: it must land on the second step, which only the enrolled administrator
+    (seeded with a known secret by `accept --seed`) can pass."""
     page.goto(admin_url + sel.ADMIN["login"], wait_until="domcontentloaded")
     page.fill(sel.ADMIN_UI["login_user"], user["email"])
     page.fill(sel.ADMIN_UI["login_pass"], user["password"])
     page.click(sel.ADMIN_UI["login_submit"])
     page.wait_for_load_state("domcontentloaded")
+    assert sel.ADMIN["two_factor"] in page.url, (
+        f"the admin password step did not lead to the second factor but to {page.url.split('?')[0]}; "
+        "an unenrolled administrator would be sent to the enrolment page instead")
+    assert user.get("totp_secret"), "no TOTP secret for the seeded administrator (run `grdm-dev accept --seed`)"
+    page.fill(sel.ADMIN_UI["two_factor_code"], totp.next_code(user["totp_secret"]))
+    page.click(sel.ADMIN_UI["two_factor_submit"])
+    page.wait_for_load_state("domcontentloaded")
+    assert sel.ADMIN["two_factor"] not in page.url, "the correct TOTP code was refused"
 
 
 def _listed(page, admin_url: str, path: str) -> str:

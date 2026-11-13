@@ -59,6 +59,7 @@ SCENARIOS: dict[str, str] = {
     "C4": "Wiki collaborative edit",
     "C5": "File preview",
     "C6": "Institution admin screen",
+    "C7": "File page collaborative edit",
     "S1": "y-websocket",
     "S2": "rdmcp (MCP endpoint)",
     "S3": "aipf_mcp_data_grdm",
@@ -136,10 +137,19 @@ QUARANTINE_SUBDIR = Path("reports") / "quarantine"
 # C6's admin is what the admin app calls an institution administrator: is_staff, not superuser, with an
 # affiliation (RdmPermissionMixin.is_admin, UserIdentificationAdminListView). `{institutions}` is a slice of the
 # non-deleted institutions by id: "0:0" none, "0:1" the first (the admin's), "1:2" only the second (another one).
+# RDM-osf.io-dev2027 PR #10 (admin two-step sign-in): the admin app sends every staff user to a TOTP step after the
+# password, and an administrator without TOTP lands on the enrolment page. The seeded administrator is therefore
+# enrolled and confirmed beforehand with a random secret that only the test receives (GRDM_ACCEPT_ADMIN_TOTP_SECRET),
+# so C6 types a real code and nothing weakens the sign-in (ADMIN_2FA_GRACE_UNTIL stays unset).
+TWO_FACTOR_SNIPPET = (
+    "u.add_addon('twofactor'); a = u.get_addon('twofactor'); "
+    "a.totp_secret = {totp_secret!r}; a.totp_drift = 0; a.is_confirmed = True; a.save(); "
+)
 SEED_SNIPPET = (
     "from osf.models import OSFUser; "
     "u = OSFUser.create_confirmed(username={email!r}, password={osf_password!r}, fullname={fullname!r}); "
     "u.have_email = True; u.is_staff = {admin}; u.is_superuser = False; u.save(); "
+    "{two_factor}"
     "from osf.models import Institution; "
     "u.affiliated_institutions.add(*Institution.objects.filter(is_deleted=False).order_by('id')[{institutions}]); "
     "print('seeded', u._id)"
@@ -153,7 +163,7 @@ CLEANUP_SNIPPET = (
 
 def register(subparsers) -> None:
     p = subparsers.add_parser("accept", help="run the Playwright acceptance suite in this venv; exit 60 on any failing test")
-    p.add_argument("--only", metavar="SCENARIO", help="run one scenario (C1..C6, S1..S5, a name fragment like 'login', or a marker: core, subsystem)")
+    p.add_argument("--only", metavar="SCENARIO", help="run one scenario (C1..C7, S1..S5, a name fragment like 'login', or a marker: core, subsystem)")
     p.add_argument("--seed", action="store_true", help="create disposable test users in the web container before running (removed afterwards)")
     p.add_argument("--base-url", dest="base_url", help="web URL; must be http://127.0.0.1:<port> (default: GRDM_PORT_WEB from runtime/.env, else 5000)")
     p.add_argument("--headed", action="store_true", help="show the browser window (debugging only)")
@@ -269,6 +279,8 @@ def seed_users(run_id: str) -> dict[str, dict[str, str]]:
         email = f"{key.replace('_', '-')}-{run_id}@{SEED_DOMAIN}"
         users[key] = {"email": email, "password": email, "osf_password": secrets.token_urlsafe(24),
                       "fullname": f"Acceptance {key} {run_id}", "admin": admin, "institutions": institutions}
+        if admin:
+            users[key]["totp_secret"] = secrets.token_hex(20)  # 160 bits, the hexadecimal form OSF stores
     return users
 
 
@@ -276,7 +288,7 @@ def seed_secret_values(users: dict[str, dict[str, str]]) -> list[str]:
     """Every credential of the seeded users, as written and lower-cased (OSF stores the lower-cased username)."""
     values: set[str] = set()
     for user in users.values():
-        for field in ("email", "password", "osf_password"):
+        for field in ("email", "password", "osf_password", "totp_secret"):
             if user.get(field):
                 values.update((user[field], user[field].lower()))
     return list(values)
@@ -667,12 +679,14 @@ def run(ctx: Context, args, runner=None, importer=None, now=None,
         "GRDM_ACCEPT_OTHER_INSTITUTION_MEMBER": users["other_institution_member"]["email"],
         "GRDM_ACCEPT_ADMIN": users["admin_user"]["email"],
         "GRDM_ACCEPT_ADMIN_OSF_PASSWORD": users["admin_user"]["osf_password"],  # masked with the other run secrets
+        "GRDM_ACCEPT_ADMIN_TOTP_SECRET": users["admin_user"]["totp_secret"],
     })
 
     seeded = False
     if getattr(args, "seed", False):
         for u in users.values():
-            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=u["osf_password"], fullname=u["fullname"], admin=u["admin"], institutions=u["institutions"])
+            two_factor = TWO_FACTOR_SNIPPET.format(totp_secret=u["totp_secret"]) if u.get("totp_secret") else ""
+            snippet = SEED_SNIPPET.format(email=u["email"], osf_password=u["osf_password"], fullname=u["fullname"], admin=u["admin"], institutions=u["institutions"], two_factor=two_factor)
             rc, out = runner(compose_exec(ctx, "web", "python3", "manage.py", "shell", "-c", snippet), env=env, cwd=ctx.root)
             if rc != 0:
                 return fail(exit_codes.SERVICES_UNHEALTHY, f"seed failed for {u['email']}: {out.strip()[-400:]}")

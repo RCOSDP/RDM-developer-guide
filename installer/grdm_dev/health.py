@@ -38,10 +38,15 @@ from .context import Context
 
 COMPOSE_PROJECT = "grdm-dev"
 HTTP_SERVICES: tuple[str, ...] = ("web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas")
-# Probe paths other than "/": osf.io's "/" proxies to ember_osf_web (PROXY_EMBER_APPS) and answers 500
-# while ember is still building its first bundle (real install run 14), so web is probed at its own
-# login page, which renders without ember; ember_osf_web has its own row.
-HTTP_PATHS: dict[str, str] = {"web": "/login/"}
+# Probe paths other than "/": osf.io's "/" proxies to ember_osf_web (PROXY_EMBER_APPS) and answered 500
+# while the former prebuilt ember was still building its first bundle (real install run 14), so web is
+# probed at its own login page, which renders without ember; ember_osf_web has its own row. The static
+# ember image answers GET /healthz with 200 "ok" once its entrypoint has rendered index.html and nginx
+# serves (the same path as its Compose healthcheck).
+HTTP_PATHS: dict[str, str] = {"web": "/login/", "ember_osf_web": "/healthz"}
+# Services whose probe path is a health endpoint: only HTTP 200 counts, not any status below 500 (a 404
+# there means the image is not the one that serves /healthz).
+HTTP_EXACT_200: frozenset[str] = frozenset({"ember_osf_web"})
 DOCKER_PROCESS_MARKERS: tuple[str, ...] = ("docker-proxy", "docker-pr", "com.docker", "com.docke", "vpnkit")
 HTTP_TIMEOUT = 3.0
 
@@ -158,6 +163,8 @@ def check_services(ctx: Context, runner, prober) -> tuple[list[dict], bool]:
             if port:
                 url = f"http://127.0.0.1:{port}{HTTP_PATHS.get(name, '/')}"
                 reachable, http = prober(url)
+                if name in HTTP_EXACT_200:
+                    reachable = reachable and http == "HTTP 200"
                 ok = ok and reachable
         rows.append({"service": name, "state": state, "health": health or "n/a", "url": url, "http": http, "ok": ok})
         all_ok = all_ok and ok

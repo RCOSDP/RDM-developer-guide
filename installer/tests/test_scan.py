@@ -45,7 +45,7 @@ GITLEAKS_EMPTY = "[]"
 
 def fake_runner(trivy_json=TRIVY_CLEAN, semgrep_json=SEMGREP_EMPTY, gitleaks_json=GITLEAKS_EMPTY,
                 images="", compose_ps=None, zap_json=None, calls=None, semgrep_rc=0, gitleaks_rc=0,
-                sbom_rc=0, trivy_fail_target=None, zap_rc=0):
+                sbom_rc=0, trivy_fail_target=None, zap_rc=0, zap_out=None, probe=None):
     """Return a runner that answers canned output per tool and records argv in `calls`."""
     def _run(argv):
         if calls is not None:
@@ -78,6 +78,10 @@ def fake_runner(trivy_json=TRIVY_CLEAN, semgrep_json=SEMGREP_EMPTY, gitleaks_jso
                 return 0, images
             if argv[1] == "compose":
                 return (0, compose_ps) if compose_ps is not None else (1, "")
+            if argv[1] == "run" and "python3" in argv:  # the redirect probe of zap_behind_sign_in
+                return probe if probe is not None else (1, "")
+            if argv[1] == "run" and zap_out is not None:  # zap-baseline.py ended without writing a report
+                return zap_rc, zap_out
             if argv[1] == "run":
                 Path(argv[argv.index("-v") + 1].split(":")[0]).joinpath(argv[argv.index("-J") + 1]).write_text(zap_json or '{"site":[]}')
                 return zap_rc, ""
@@ -251,7 +255,7 @@ class BaselineValidatorTests(ScanTestBase):
                 by_service.setdefault(a["service"], set()).add(a["control"])
             # every root-running service of the core profile is covered by a recorded `user` exception
             # (elasticsearch left this list in real install run 8; cas left it with the native image, ADR-07)
-            for svc in ("postgres", "mongo", "rabbitmq"):
+            for svc in ("postgres", "rabbitmq"):  # mongo left with ADR-13
                 self.assertIn("user", by_service[svc], svc)
             self.assertNotIn("cas", by_service)
             # and the full scan reports them under baseline_exceptions
@@ -728,7 +732,7 @@ class ScannerRobustnessTests(ScanTestBase):
             "api": hardened("grdm-dev/api:abc123"),
             "postgres": hardened("postgres:9.6"),
             "redis": hardened("redis:7-alpine"),
-            "elasticsearch": hardened("elasticsearch:2"),
+            "elasticsearch": hardened("elasticsearch:8"),
             "rabbitmq": hardened("rabbitmq:3-management"),
             "mongo": hardened("mongo:3.4"),
             "unoconv": hardened("centerforopenscience/unoconv"),
@@ -742,7 +746,7 @@ class ScannerRobustnessTests(ScanTestBase):
         self.assertEqual(code, exit_codes.OK)
         image_scans = [c[-1] for c in calls if c[:2] == ["trivy", "image"] and "json" in c]
         self.assertEqual(image_scans, ["grdm-dev/web:abc123", "grdm-dev/api:abc123", "postgres:9.6", "redis:7-alpine",
-                                       "elasticsearch:2", "rabbitmq:3-management", "mongo:3.4",
+                                       "elasticsearch:8", "rabbitmq:3-management", "mongo:3.4",
                                        "centerforopenscience/unoconv", "grdm-dev/fakecas:abc123"])
         fs_scans = [c[-1] for c in calls if c[:2] == ["trivy", "fs"] and "json" in c]
         self.assertEqual(fs_scans, [str(self.root / "runtime" / "src" / "osf.io"), str(self.root / "runtime" / "src" / "waterbutler"), "."])
@@ -794,6 +798,117 @@ class ScannerRobustnessTests(ScanTestBase):
         code, data, _ = self.run_scan(fake_runner(compose_ps=ps, zap_rc=3), dynamic=True)
         self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
         self.assertIn("exited 3", data["tools"][0]["result"])
+
+    SIGN_IN_OUT = ("Automation plan failures:\n\tJob spider failed to access URL http://web:5000 : "
+                   "Connect to http://127.0.0.1:8081 failed: Connection refused\n")
+    SIGN_IN_PROBE = (0, "302 http://127.0.0.1:8081/login?service=http%3A%2F%2F127.0.0.1%3A8000%2F\n")
+
+    def write_osf_env(self, public_access="false", cas="http://127.0.0.1:8081"):
+        cfg = self.root / "runtime" / "config"
+        cfg.mkdir(parents=True, exist_ok=True)
+        (cfg / "osf.env").write_text(f"# generated\nENABLE_PUBLIC_ACCESS={public_access}\nCAS_SERVER_URL={cas}\n", encoding="utf-8")
+
+    def zap_web(self, out=SIGN_IN_OUT, probe=SIGN_IN_PROBE, calls=None):
+        self.write_compose()
+        ps = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+        return self.run_scan(fake_runner(compose_ps=ps, zap_rc=3, zap_out=out, probe=probe, calls=calls), dynamic=True)
+
+    def assertZapUnverified(self, code, data):
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertTrue(data["tools"][0]["result"].startswith("incomplete"), data["tools"][0])
+        self.assertIn("no ZAP report for http://web:5000", data["tools"][0]["result"])
+        self.assertNotIn("skipped_targets", data["tools"][0])
+        self.assertFalse(any("ZAP NOT RUN" in n for n in data["notes"]), data["notes"])
+
+    def test_zap_records_a_verified_sign_in_wall_as_skipped_coverage_not_as_a_scanned_target(self):
+        """Mandatory sign-in (RDM-osf.io-dev2027 PR #8): web answers every anonymous request with a 302 to the configured
+        CAS_SERVER_URL, and zap-baseline.py ends with "failed to access URL" and no report."""
+        self.write_osf_env()
+        calls = []
+        code, data, _ = self.zap_web(calls=calls)
+        self.assertEqual(code, exit_codes.OK)
+        zap = data["tools"][0]
+        self.assertEqual(zap["targets"], 0)  # nothing was scanned
+        self.assertEqual(zap["skipped_targets"], ["http://web:5000"])
+        self.assertTrue(zap["result"].startswith("ok (0 scanned, 1 skipped behind sign-in"), zap["result"])
+        self.assertTrue(any("ZAP NOT RUN on web" in n and "127.0.0.1:8081" in n and "no page behind sign-in was scanned" in n
+                            for n in data["notes"]), data["notes"])
+        probes = [c for c in calls if "python3" in c]
+        self.assertEqual(len(probes), 1)  # a request of its own proves the redirect
+        self.assertEqual(probes[0][probes[0].index(scan.ZAP_IMAGE) + 1:][0], "python3")
+        self.assertEqual(probes[0][-1], "http://web:5000")
+
+    def test_zap_still_fails_when_the_redirect_goes_to_an_unknown_host(self):
+        """REV r1 R1-01: an arbitrary 'Connect to ... failed' must not be a success, even if the probe also shows a redirect."""
+        self.write_osf_env()
+        out = self.SIGN_IN_OUT.replace("http://127.0.0.1:8081", "http://unexpected.invalid:9443")
+        for probe in (self.SIGN_IN_PROBE, (0, "302 http://unexpected.invalid:9443/login\n")):
+            code, data, _ = self.zap_web(out=out, probe=probe)
+            self.assertZapUnverified(code, data)
+
+    def test_zap_still_fails_when_the_probe_does_not_show_the_configured_redirect(self):
+        self.write_osf_env()
+        for probe in (None,                                          # the probe could not run
+                      (0, "200 \n"),                                # web answered; nothing redirects
+                      (0, "302 http://unexpected.invalid:9443/\n"),  # redirects somewhere else
+                      (0, "302 /login\n"),                           # relative: not the configured address
+                      (0, "302 \n"), (1, "302 http://127.0.0.1:8081/\n"),
+                      (0, "500 http://127.0.0.1:8081/\n")):
+            code, data, _ = self.zap_web(probe=probe)
+            self.assertZapUnverified(code, data)
+
+    def test_zap_malformed_evidence_is_no_evidence_and_the_scan_still_reports_incomplete(self):
+        """REV r2 R2-01: a Location or address that cannot be parsed, or an osf.env that cannot be decoded, must end in
+        exit 51 with a written report (an incomplete ZAP result, no skipped target), never an uncaught exception."""
+        self.write_osf_env()
+        for probe in ((0, "302 http://[broken\n"), (0, "302 http://[::1\n")):
+            code, data, _ = self.zap_web(probe=probe)
+            self.assertZapUnverified(code, data)
+        out = self.SIGN_IN_OUT.replace("http://127.0.0.1:8081", "http://[broken")
+        self.assertZapUnverified(*self.zap_web(out=out)[:2])
+        self.write_osf_env(cas="http://[broken")  # a configured destination that cannot be parsed
+        self.assertZapUnverified(*self.zap_web()[:2])
+        (self.root / "runtime" / "config" / "osf.env").write_bytes(b"ENABLE_PUBLIC_ACCESS=false\nCAS_SERVER_URL=\xff\xfe\n")
+        self.assertZapUnverified(*self.zap_web()[:2])
+
+    def test_zap_still_fails_for_another_representation_of_the_sign_in_address_or_a_different_seed(self):
+        self.write_osf_env()
+        for out in (self.SIGN_IN_OUT.replace("127.0.0.1:8081", "localhost:8081"),
+                    self.SIGN_IN_OUT.replace("127.0.0.1:8081", "127.0.0.1:8082"),
+                    self.SIGN_IN_OUT.replace("http://web:5000", "http://web:5001")):
+            code, data, _ = self.zap_web(out=out)
+            self.assertZapUnverified(code, data)
+
+    def test_zap_still_fails_in_public_access_or_without_a_rendered_sign_in_configuration(self):
+        for public_access in ("true", "", "maybe"):
+            self.write_osf_env(public_access=public_access)
+            code, data, _ = self.zap_web()
+            self.assertZapUnverified(code, data)
+        self.write_osf_env(cas="")  # no configured sign-in address to compare with
+        self.assertZapUnverified(*self.zap_web()[:2])
+        (self.root / "runtime" / "config" / "osf.env").unlink()  # never rendered: no evidence
+        self.assertZapUnverified(*self.zap_web()[:2])
+        self.write_osf_env()
+        self.write_env(test_compose.fake_secrets() + "GRDM_ENABLE_PUBLIC_ACCESS=true\n")  # the operator's setting disagrees
+        self.assertZapUnverified(*self.zap_web()[:2])
+
+    def test_zap_sign_in_exception_applies_to_web_only(self):
+        self.write_osf_env()
+        self.write_compose({"admin": hardened(ports=["127.0.0.1:8001:8001"], networks=["grdm", "grdm-edge"])})
+        ps = json.dumps([{"Service": "admin", "State": "running", "Health": "healthy"}])
+        out = self.SIGN_IN_OUT.replace("http://web:5000", "http://admin:8001")
+        code, data, _ = self.run_scan(fake_runner(compose_ps=ps, zap_rc=3, zap_out=out, probe=self.SIGN_IN_PROBE), dynamic=True)
+        self.assertEqual(code, exit_codes.SCANNER_UNAVAILABLE)
+        self.assertIn("no ZAP report for http://admin:8001", data["tools"][0]["result"])
+
+    def test_zap_still_fails_when_the_target_itself_cannot_be_reached(self):
+        self.write_osf_env()
+        out = "Automation plan failures:\n\tJob spider failed to access URL http://web:5000 : Connect to http://web:5000 failed: Connection refused\n"
+        code, data, _ = self.zap_web(out=out)
+        self.assertZapUnverified(code, data)
+        ctx = self.ctx
+        for text in ("", "something else"):
+            self.assertIsNone(scan.zap_behind_sign_in(ctx, fake_runner(probe=self.SIGN_IN_PROBE), "grdm", "web", "http://web:5000", text))
 
     def test_semgrep_warning_maps_to_medium(self):
         code, data, _ = self.run_scan(fake_runner(semgrep_json=SEMGREP_WARNING))

@@ -47,10 +47,10 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(data["platform"], "linux/arm64")
         self.assertEqual(data["network"], "grdm")
         ports = {r["service"]: r for r in data["ports"]}
-        # SPEC-02 §4 table plus the two browser-facing wiki collaboration ports (C4; §4 lets render assign them)
-        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS) | {"y_websocket", "sharejs"})
+        # SPEC-02 §4 table plus the browser-facing y-websocket port (C4, C7; §4 lets render assign it)
+        self.assertEqual(set(ports), set(plan.DEFAULT_PORTS) | {"y_websocket"})
         self.assertEqual(ports["y_websocket"]["host_port"], 1234)
-        self.assertEqual(ports["sharejs"]["host_port"], 7007)
+        self.assertNotIn("sharejs", ports)  # retired (ADR-13)
         for name, port in plan.DEFAULT_PORTS.items():
             self.assertEqual(ports[name]["host_port"], port)
             self.assertEqual(ports[name]["url"], f"http://127.0.0.1:{port}")
@@ -100,38 +100,42 @@ class PlanTests(unittest.TestCase):
         rc, out, _ = run_plan(root, json_output=False)
         self.assertEqual(rc, 0)
         self.assertIn("plan:", out)
-        self.assertIn("ports[9]{service,host_port,container_port,url,source}:", out)
+        self.assertIn("ports[8]{service,host_port,container_port,url,source}:", out)
         self.assertFalse((root / "runtime" / "docker-compose.yml").exists())
         self.assertTrue((root / "runtime" / "reports" / "plan_latest.json").exists())
 
     def test_prebuilt_component_is_shown_with_its_reference_and_not_built(self):
-        """SPEC-01 §3 prebuilt_image: ember-osf-web runs a digest-pinned registry image until M4."""
-        rc, out, _ = run_plan(make_root())
+        """SPEC-01 §3 prebuilt_image: no component uses it now; the former ember fallback is put back on a copy."""
+        ref = "registry.example.invalid/rdm-ember-osf-web@sha256:" + "e" * 64
+
+        def prebuilt(data):
+            for c in data["components"]:
+                if c["id"] == "ember-osf-web":
+                    c["prebuilt_image"] = ref
+        rc, out, _ = run_plan(make_root(mutate=prebuilt))
         self.assertEqual(rc, exit_codes.OK)
         data = json.loads(out)
         services = {r["service"]: r for r in data["services"]}
         ember = services["ember_osf_web"]
-        self.assertRegex(ember["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
-        self.assertEqual(ember["build_from"], "prebuilt " + ember["image"])
+        self.assertEqual(ember["image"], ref)
+        self.assertEqual(ember["build_from"], "prebuilt " + ref)
         self.assertEqual(ember["origin"], "prebuilt")
         self.assertEqual(services["web"]["origin"], "built")
         self.assertEqual(services["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(services["postgres"]["origin"], "pinned")
-        self.assertIn(ember["image"], data["prebuilt_images"])  # other components (e.g. cas-overlay) may be prebuilt too
+        self.assertEqual(data["prebuilt_images"], [ref])
         self.assertFalse(any("ember-osf-web" in i for i in data["images_to_build"]))
 
-    def test_without_prebuilt_image_ember_is_built_again(self):
-        def strip(data):
-            for c in data["components"]:
-                if c["id"] == "ember-osf-web":
-                    del c["prebuilt_image"]
-        rc, out, _ = run_plan(make_root(mutate=strip))
+    def test_ember_is_built_from_the_integration_repository(self):
+        """PR #2 review r1 R1-03: the static ember image is built from RDM-ember-osf-web-dev2027; nothing is prebuilt."""
+        rc, out, _ = run_plan(make_root())
         self.assertEqual(rc, exit_codes.OK)
         data = json.loads(out)
         ember = {r["service"]: r for r in data["services"]}["ember_osf_web"]
         self.assertTrue(ember["image"].startswith("grdm-dev/ember-osf-web:"))
-        self.assertTrue(ember["build_from"].startswith("RDM-ember-osf-web-dev2027@"))
-        self.assertFalse(any("ember-osf-web" in i for i in data["prebuilt_images"]))  # ember is built again; others may stay prebuilt
+        self.assertEqual(ember["build_from"], "RDM-ember-osf-web-dev2027@4d505f000f8d")
+        self.assertEqual(ember["origin"], "built")
+        self.assertEqual(data["prebuilt_images"], [])
 
     def test_overlay_service_shows_both_commits_and_its_own_image(self):
         """SPEC-01 §3 overlay_of (ADR-06): wiki_assets runs grdm-dev/wiki-frontend:<osf12>-<wiki12>; osf.io keeps its tag."""

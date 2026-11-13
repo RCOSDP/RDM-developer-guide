@@ -18,8 +18,10 @@ Images: a component with an integration repository is built locally as
 pinned upstream image, `base_image[@base_image_digest]`. A component with `prebuilt_image`
 (SPEC-01 §3: a registry reference pinned by digest, allowed only with a `note` and until M4) is
 not built at all: `grdm-dev build` records it as `prebuilt`, and `compose render` runs that
-reference. The ember-osf-web Dockerfile's schema-1 base image (refused by current Docker) is the
-case that made this fallback necessary. The build SHA is the integration
+reference. The ember-osf-web Dockerfile's schema-1 base image (refused by current Docker) was the
+case that made this fallback necessary; ember-osf-web is built from source again since its
+Dockerfile became a Node build stage plus a static nginx image, and no component uses the field
+at present. The build SHA is the integration
 commit when the manifest carries one (`integration_sha`, optional, written by the weekly
 integration PR), else the first merged upstream in SPEC-01 rule 3 order (public, then private).
 The clone URL is composed at run time from the bare repository name; it is never stored here.

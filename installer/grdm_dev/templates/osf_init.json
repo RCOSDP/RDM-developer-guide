@@ -6,7 +6,7 @@
   "command": [
     "sh",
     "-c",
-    "set -e; cd /code; n=0; until python3 manage.py migrate --noinput; do n=$((n+1)); if [ $n -ge 30 ]; then echo 'osf_init: migrate failed 30 times' >&2; exit 1; fi; echo \"osf_init: database not ready yet, retry $n\"; sleep 10; done; n=0; until python3 -m scripts.populate_institutions -e test -a; do n=$((n+1)); if [ $n -ge 180 ]; then echo 'osf_init: populate_institutions failed 180 times (30 minutes); is elasticsearch up?' >&2; exit 1; fi; echo \"osf_init: search not ready yet, retry $n of 180\"; sleep 10; done; python3 -m scripts.register_oauth_scopes; echo 'osf_init: done'"
+    "set -e; cd /code; n=0; until python3 manage.py migrate --noinput; do n=$((n+1)); if [ $n -ge 30 ]; then echo 'osf_init: migrate failed 30 times' >&2; exit 1; fi; echo \"osf_init: database not ready yet, retry $n\"; sleep 10; done; n=0; until invoke search_ensure_index; do n=$((n+1)); if [ $n -ge 30 ]; then echo 'osf_init: search_ensure_index failed 30 times; is elasticsearch8 up and elasticsearch8_setup done?' >&2; exit 1; fi; echo \"osf_init: search not ready yet, retry $n of 30\"; sleep 10; done; n=0; until python3 -m scripts.populate_institutions -e test -a; do n=$((n+1)); if [ $n -ge 30 ]; then echo 'osf_init: populate_institutions failed 30 times' >&2; exit 1; fi; echo \"osf_init: populate_institutions failed, retry $n of 30\"; sleep 10; done; python3 -m scripts.register_oauth_scopes; echo 'osf_init: done'"
   ],
   "environment": {
     "DJANGO_SETTINGS_MODULE": "api.base.settings",
@@ -22,10 +22,11 @@
     "WATERBUTLER_JWT_SECRET": "${WATERBUTLER_JWT_SECRET}",
     "WATERBUTLER_HMAC_SECRET": "${WATERBUTLER_HMAC_SECRET}",
     "MFR_SERVER_SECRET": "${MFR_SERVER_SECRET}",
-    "SHAREJS_SECRET": "${SHAREJS_SECRET}",
     "Y_WEBSOCKET_JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
-    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}"
+    "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
+    "ELASTIC_USERNAME": "grdm_osf",
+    "ELASTIC_PASSWORD": "${ELASTIC8_OSF_PASSWORD}"
   },
   "env_files": [
     "osf.env"
@@ -40,6 +41,11 @@
       "config": "osf/api_local.py",
       "target": "/code/api/base/settings/local.py",
       "ro": true
+    },
+    {
+      "volume": "elasticsearch8_ca",
+      "target": "/es-ca",
+      "ro": true
     }
   ],
   "tmpfs": [
@@ -50,10 +56,13 @@
   "user": "1000:1000",
   "depends_on": [
     "postgres",
-    "elasticsearch"
+    {
+      "service": "elasticsearch8_setup",
+      "condition": "service_completed_successfully"
+    }
   ],
   "weight": 1,
   "mem_min_mb": 512,
   "pids_limit": 512,
-  "note": "One-shot database initialisation (real install run 12: a fresh postgres has no tables, so web answered 500 with `relation osf_institution does not exist`). Runs, in the osf.io image as uid 1000, the steps the upstream README lists for a new install: `manage.py migrate`, `scripts.populate_institutions -e test -a` (the institutions the acceptance tests and the institution admin screens need; it also writes them to Elasticsearch, hence the retry loop of up to 30 minutes until the emulated elasticsearch:2 accepts connections (cold start, real install run 19: Elasticsearch 2 under Rosetta needed well over 5 minutes to open port 9200)) and `scripts.register_oauth_scopes`. All three are idempotent, so the service runs at every `up` and exits 0 quickly when nothing changed; web, api, admin and worker wait for it with condition service_completed_successfully. A Django `migrate` against a half-started postgres is retried every 10 s for up to 5 minutes. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root)."
+  "note": "One-shot database initialisation (real install run 12: a fresh postgres has no tables, so web answered 500 with `relation osf_institution does not exist`). Runs, in the osf.io image as uid 1000, the steps the upstream README lists for a new install: `manage.py migrate`, `scripts.populate_institutions -e test -a` (the institutions the acceptance tests and the institution admin screens need; it also writes them to Elasticsearch 8, which is why `invoke search_ensure_index` runs first: it creates the index website_v1 with the Japanese-analyzer mapping and the alias website when they are missing, because a write to a missing index would create it with a dynamic mapping that breaks aggregations (RDM-osf.io-dev2027 PR #11); both steps retry for up to 5 minutes while elasticsearch8_setup finishes) and `scripts.register_oauth_scopes`. All three are idempotent, so the service runs at every `up` and exits 0 quickly when nothing changed; web, api, admin and worker wait for it with condition service_completed_successfully. A Django `migrate` against a half-started postgres is retried every 10 s for up to 5 minutes. tmpfs /code/logs: scripts/utils.py add_file_logger writes a per-run log file there (real install run 13: register_oauth_scopes failed on the read-only root). With RDM-osf.io-dev2027 PR #10 (admin two-factor sign-in) the `migrate` also applies addons_twofactor 0006 and 0007 (the admin project runs no migrations itself)."
 }

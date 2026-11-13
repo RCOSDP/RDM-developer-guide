@@ -52,7 +52,7 @@ def make_root(dotenv: str | None = fake_secrets(), hardening=True) -> Path:
     return root
 
 
-PUBLISHING = {"web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas", "y_websocket", "sharejs"}
+PUBLISHING = {"web", "api", "admin", "wb", "mfr", "ember_osf_web", "fakecas", "y_websocket"}
 
 
 def ps_runner(bindings: dict[str, int] | None = None, rc: int = 0):
@@ -70,9 +70,9 @@ def ps_runner(bindings: dict[str, int] | None = None, rc: int = 0):
 
 
 def render(root: Path, profile="core", auth="fakecas", checker=lambda port: True, memory_gib=16.0, cpus=4.0, json_output=True,
-           egress=None, runner=None):
+           egress=None, runner=None, public_access=None):
     ctx = Context(root=root, yes=True, json_output=json_output, profile=profile)
-    args = argparse.Namespace(compose_command="render", auth=auth, platform="linux/arm64", memory_gib=None, cpus=None, egress=egress)
+    args = argparse.Namespace(compose_command="render", auth=auth, platform="linux/arm64", memory_gib=None, cpus=None, egress=egress, public_access=public_access)
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
         rc = compose.run(ctx, args, memory_gib=memory_gib, cpus=cpus, port_checker=checker, platform_string="linux/arm64",
@@ -112,7 +112,7 @@ class ComposeRenderTests(unittest.TestCase):
         build_platforms = manifest_build_platforms()
         services = doc["services"]
         self.assertEqual(set(services), {s["service"] for s in json.loads(out)["services"]})
-        self.assertEqual(len(services), 24)  # core profile (SPEC-02 §4), one-shots osf_init, volume_owner_init, volume_access_check_*, wiki_assets included
+        self.assertEqual(len(services), 23)  # core profile (SPEC-02 §4), one-shots osf_init, volume_owner_init, volume_access_check_*, wiki_assets included
         self.assertNotIn("wiki", services)
         for name, svc in services.items():
             relaxed = exceptions.get(name, set())
@@ -148,7 +148,7 @@ class ComposeRenderTests(unittest.TestCase):
             for dep in svc.get("depends_on", []):
                 self.assertIn(dep, services, f"{name} depends on {dep} outside the profile")
         published = {name: svc["ports"] for name, svc in services.items() if "ports" in svc}
-        self.assertEqual(set(published), set(plan.DEFAULT_PORTS) | {"y_websocket", "sharejs"})
+        self.assertEqual(set(published), set(plan.DEFAULT_PORTS) | {"y_websocket"})
         self.assertEqual(published["web"], ["127.0.0.1:5000:5000"])
         # volumes map under runtime/volumes/<name> and the directories exist
         for name, vol in doc["volumes"].items():
@@ -207,12 +207,18 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertNotIn("CHANGEME", local_py)
         osf_env = plan.read_dotenv(cfg / "osf.env")
         self.assertEqual(osf_env["OSF_DB_HOST"], "postgres")
-        self.assertEqual(osf_env["ELASTIC_URI"], "elasticsearch:9200")
+        self.assertEqual(osf_env["ELASTIC_URI"], "https://elasticsearch8:9200")
+        self.assertEqual(osf_env["ELASTIC_CA_CERTS"], "/es-ca/ca.crt")
+        self.assertEqual(osf_env["Y_WEBSOCKET_INTERNAL_URL"], "http://y_websocket:1234")
+        self.assertEqual(osf_env["ENABLE_PUBLIC_ACCESS"], "false")  # RDM-osf.io-dev2027 PR #8: authentication is required by default
+        self.assertFalse((cfg / "sharejs.env").exists())  # ShareJS and MongoDB are retired (ADR-13)
         self.assertEqual(osf_env["DOMAIN"], "http://127.0.0.1:5050/")
         wb_env = plan.read_dotenv(cfg / "wb.env")
         self.assertEqual(wb_env["OSF_URL"], "http://web:5000")
+        # the browser-facing origins of web and ember, exactly, so the file page may call WaterButler with the session
+        self.assertEqual(wb_env["SERVER_CONFIG_CORS_ALLOW_ORIGIN"], "http://127.0.0.1:5050,http://127.0.0.1:4200")
+        self.assertNotIn("*", wb_env["SERVER_CONFIG_CORS_ALLOW_ORIGIN"])
         self.assertEqual(plan.read_dotenv(cfg / "mfr.env")["UNOCONV_PORT_2002_TCP_ADDR"], "unoconv")
-        self.assertIn("mongodb://mongo:27017/sharejs", plan.read_dotenv(cfg / "sharejs.env")["SHAREJS_DB_URL"])
         for path in cfg.rglob("*"):
             if path.is_file():
                 text = path.read_text(encoding="utf-8")
@@ -230,18 +236,18 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertEqual(doc["services"]["y_websocket"]["ports"], ["127.0.0.1:1240:1234"])
-        self.assertEqual(doc["services"]["sharejs"]["ports"], ["127.0.0.1:7007:7007"])
+        self.assertNotIn("sharejs", doc["services"])
+        self.assertNotIn("mongo", doc["services"])
         self.assertIn("./config/osf/wiki_local.py:/code/addons/wiki/settings/local.py:ro", doc["services"]["web"]["volumes"])
         wiki = (root / "runtime" / "config" / "osf" / "wiki_local.py").read_text(encoding="utf-8")
         self.assertIn("Y_WEBSOCKET_URL = '127.0.0.1:1240'", wiki)
-        self.assertIn("SHAREJS_URL = '127.0.0.1:7007'", wiki)
+        self.assertNotIn("SHAREJS", wiki)  # retired (ADR-13)
         self.assertNotIn("localhost", wiki)
-        self.assertNotIn("SHAREJS_HOST", wiki)  # server-side address; only the browser URL is rewritten
 
     def test_wiki_local_omits_services_that_are_not_published(self):
-        wiki = compose.render_wiki_local_py({"sharejs": 7007})
-        self.assertIn("SHAREJS_URL = '127.0.0.1:7007'", wiki)
+        wiki = compose.render_wiki_local_py({"web": 5000})
         self.assertNotIn("Y_WEBSOCKET_URL", wiki)
+        self.assertIn("Y_WEBSOCKET_URL = '127.0.0.1:1234'", compose.render_wiki_local_py({"y_websocket": 1234}))
 
     def test_only_web_opts_out_of_osf_debug_mode(self):
         root = make_root(fake_secrets())
@@ -385,7 +391,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertLessEqual(total, 48 * 1024 * compose.MEMORY_SHARE)  # floors fit, so the sum stays inside the budget
 
     def test_infeasible_memory_floors_are_exit_10_unless_overcommit_is_explicit(self):
-        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (ember alone needs 8 GiB)."""
+        """PR #33 review r1 R1-04: an 8 GiB Docker VM cannot hold the core floors (8320 MiB > 70 % of 8 GiB)."""
         rc, err, _, _ = self._render_with_vm(8 * 1024 ** 3)
         self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
         self.assertIn("memory floors", err)
@@ -395,16 +401,29 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertGreater(sum(int(s["mem_limit"].rstrip("m")) for s in doc["services"].values()), 8 * 1024 * compose.MEMORY_SHARE)
 
     def test_sum_of_floors_fits_the_documented_minimum_vm(self):
-        """SPEC-02 §8: the core profile needs a 24 GiB Docker VM on Apple Silicon (ember 8 GiB floor under emulation)."""
-        rc, _, report, _ = self._render_with_vm(24 * 1024 ** 3, host_gib=64.0)
+        """SPEC-02 §8: the core floors add up to 8512 MiB, so the computed lower bound is 8512 / 0.7 / 1024 = 11.9 GiB:
+        a 12 GiB Docker VM renders, an 11 GiB one is exit 10 (PR #2 review r1 R1-03: ember's 8 GiB floor is gone)."""
+        rc, _, report, _ = self._render_with_vm(12 * 1024 ** 3, host_gib=64.0)
         self.assertEqual(rc, exit_codes.OK)
-        self.assertEqual(report["memory_gib"], 24.0)
+        self.assertEqual(report["memory_gib"], 12.0)
+        rc, err, _, _ = self._render_with_vm(11 * 1024 ** 3, host_gib=64.0)
+        self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
+        self.assertIn("8512 MiB", err)
+
+    def test_core_floor_sum_is_8512_mib(self):
+        from grdm_dev import manifest as _manifest
+
+        man = _manifest.load(Context(root=REPO_ROOT))
+        services = compose.with_owner_init(_manifest.services_for_profile(man, "core"), compose.load_hardening(REPO_ROOT))
+        self.assertEqual(sum(int(s.template.get("mem_min_mb", 128)) for s in services), 8512)  # ADR-14: Elasticsearch 8 (1536) and its setup one-shot (64) replace ES 2 (1024), mongo (256) and sharejs (128)
+        self.assertAlmostEqual(compose.memory_floor_need_gib(services), 8512 / 0.7 / 1024)
+        self.assertAlmostEqual(round(compose.memory_floor_need_gib(services), 3), 11.875)
 
     def test_small_host_caps_the_budget_below_the_vm(self):
-        """A 16 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
-        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=16.0)
+        """An 8 GiB laptop with a 48 GiB (misconfigured) VM: the host wins, the core floors do not fit, exit 10."""
+        rc, err, _, _ = self._render_with_vm(48 * 1024 ** 3, host_gib=8.0)
         self.assertEqual(rc, exit_codes.HOST_UNSUPPORTED)
-        self.assertIn("16.0 GiB", err)
+        self.assertIn("8.0 GiB", err)
 
     def test_detect_docker_memory_gib_tolerates_bad_output(self):
         self.assertIsNone(compose.detect_docker_memory_gib(lambda argv: (1, "")))
@@ -422,42 +441,98 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertTrue(credential)
         self.assertEqual(doc["services"]["mfr"]["environment"]["UNOCONV_CONVERT_SECRET"], credential)
 
-    def test_sharejs_trusts_only_the_public_mongo_certificate(self):
-        doc = self.render_core_doc()
-        sharejs, mongo = doc["services"]["sharejs"], doc["services"]["mongo"]
-        self.assertEqual(sharejs["environment"]["MONGO_TLS_CA_FILE"], "/mongo-tls/mongodb.crt")
-        self.assertIn("mongo_tls:/mongo-tls:ro", sharejs["volumes"])
-        self.assertIn("mongo_tls:/mongo-tls", mongo["volumes"])
-        # the private key lives in mongo_data, which sharejs does not mount
-        self.assertNotIn("/mongo-tls/mongodb.pem", " ".join(mongo["command"]))
-        self.assertFalse([v for v in sharejs["volumes"] if v.startswith("mongo_data")])
-
-    def test_osf_services_reach_sharejs_mongo_over_verified_tls(self):
-        """osf.io's addons.wiki share_db() verifies mongo's certificate (RDM-osf.io-dev2027 PR #9; review r1 asks for
-        renderer tests of both environment entries and all four read-only mounts). Without SHAREJS_DB_URL osf.io built
-        `mongodb://postgres:5432/sharejs` from DB_HOST and OSF_DB_PORT."""
+    def test_sharejs_and_mongo_are_retired(self):
+        """ADR-13 step 1 (RDM-osf.io-dev2027 PR #12): the file page and the wiki edit on y-websocket, so nothing
+        renders sharejs, mongo, their volume or their credentials, and no osf.io service mounts the mongo CA."""
         root = make_root()
         try:
             rc, _, err, _ = render(root)
             self.assertEqual(rc, exit_codes.OK, err)
-            env_text = (root / "runtime" / "config" / "osf.env").read_text(encoding="utf-8")
-            env = dict(line.split("=", 1) for line in env_text.splitlines() if "=" in line and not line.startswith("#"))
-            self.assertEqual(env["SHAREJS_DB_URL"], "mongodb://mongo:27017/sharejs?ssl=true")
-            self.assertEqual(env["SHAREJS_DB_CA_FILE"], "/mongo-tls/mongodb.crt")
-            for weak in ("ssl_cert_reqs", "ssl_match_hostname", "tlsinsecure", "tlsallowinvalid"):
-                self.assertNotIn(weak, env["SHAREJS_DB_URL"].lower())  # nothing in the URL weakens verification
-            doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-            for name in ("web", "api", "admin", "worker"):
-                svc = doc["services"][name]
-                self.assertIn("osf.env", " ".join(svc.get("env_file", [])), name)
-                self.assertIn("mongo_tls:/mongo-tls:ro", svc["volumes"], name)
-                self.assertFalse([v for v in svc["volumes"] if v.startswith("mongo_data")], name)  # never the private key
-            # the certificate the CA path names is the one mongo exports, issued for the host name in the URL
-            mongo_cmd = " ".join(doc["services"]["mongo"]["command"])
-            self.assertIn("cp /data/db/tls/mongodb.crt /mongo-tls/mongodb.crt", mongo_cmd)
-            self.assertIn("subjectAltName=DNS:mongo", mongo_cmd)
+            text = (root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8")
+            doc = json.loads(text)
+            self.assertFalse({"sharejs", "mongo", "elasticsearch"} & set(doc["services"]))
+            self.assertFalse({"mongo_data", "mongo_tls", "elasticsearch_data"} & set(doc["volumes"]))
+            for token in ("SHAREJS", "mongo", "MONGO", "sharejs"):
+                self.assertNotIn(token, text)
+            for path in (root / "runtime" / "config").rglob("*"):
+                if path.is_file():
+                    self.assertNotIn("SHAREJS", path.read_text(encoding="utf-8"), str(path))
+            self.assertNotIn("SHAREJS_SECRET", compose.REQUIRED_SECRETS)
         finally:
             shutil.rmtree(root, ignore_errors=True)
+
+    def test_y_websocket_keeps_file_room_drafts_and_osf_calls_it_on_the_internal_url(self):
+        doc = self.render_core_doc()
+        yws = doc["services"]["y_websocket"]
+        self.assertEqual(yws["environment"]["YPERSISTENCE"], "/data")
+        self.assertEqual(yws["environment"]["YPERSISTENCE_DOC_PREFIX"], "file-")  # wiki rooms stay in memory
+        self.assertIn("y_websocket_data:/data", yws["volumes"])
+        secret = yws["environment"]["JWT_SECRET"]
+        for name in ("web", "worker"):  # the services that issue room tokens and delete replaced rooms
+            self.assertEqual(doc["services"][name]["environment"]["Y_WEBSOCKET_SECRET"], secret, name)
+        self.assertNotIn("Y_WEBSOCKET_SECRET", doc["services"]["admin"]["environment"])
+
+    def test_osf_services_search_elasticsearch8_over_tls_with_a_limited_user(self):
+        """RDM-osf.io-dev2027 PR #11 / ADR-14: https URL, the installation's CA mounted read-only, the grdm_osf user
+        (never the elastic superuser), and no service but the two elasticsearch8 ones sees ELASTIC8_PASSWORD."""
+        root = make_root()
+        try:
+            rc, _, err, _ = render(root)
+            self.assertEqual(rc, exit_codes.OK, err)
+            doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+            es, setup = doc["services"]["elasticsearch8"], doc["services"]["elasticsearch8_setup"]
+            osf_password = setup["environment"]["OSF_ES_PASSWORD"]
+            superuser = es["environment"]["ELASTIC_PASSWORD"]
+            self.assertEqual(setup["environment"]["ELASTIC_PASSWORD"], superuser)
+            self.assertNotEqual(osf_password, superuser)
+            for name in ("web", "api", "admin", "worker", "osf_init"):
+                svc = doc["services"][name]
+                self.assertEqual(svc["environment"]["ELASTIC_USERNAME"], "grdm_osf", name)
+                self.assertEqual(svc["environment"]["ELASTIC_PASSWORD"], osf_password, name)
+                self.assertIn("elasticsearch8_ca:/es-ca:ro", svc["volumes"], name)
+                self.assertFalse([v for v in svc["volumes"] if v.startswith("elasticsearch8_data")], name)  # never the TLS key
+            for name, svc in doc["services"].items():
+                if name not in ("elasticsearch8", "elasticsearch8_setup"):
+                    self.assertNotIn(superuser, json.dumps(svc), name)
+            local_py = (root / "runtime" / "config" / "osf" / "local.py").read_text(encoding="utf-8")
+            self.assertIn("ELASTIC_URI = 'https://elasticsearch8:9200'", local_py)
+            self.assertIn("ELASTIC_CA_CERTS = '/es-ca/ca.crt'", local_py)
+            self.assertNotIn("ELASTIC_PASSWORD =", local_py)  # secrets come from the service environment only
+            # the CA is public: only elasticsearch8 writes it; its private key stays in elasticsearch8_data
+            self.assertIn("elasticsearch8_ca:/es-ca", es["volumes"])
+            self.assertIn("elasticsearch8_data:/usr/share/elasticsearch/data", es["volumes"])
+            self.assertNotIn("ports", es)  # ADR-02: nothing is published
+            osf_init_cmd = " ".join(doc["services"]["osf_init"]["command"])
+            self.assertLess(osf_init_cmd.index("search_ensure_index"), osf_init_cmd.index("populate_institutions"))
+            for name in ("web", "api", "admin", "worker", "osf_init"):
+                self.assertEqual(doc["services"][name]["depends_on"]["elasticsearch8_setup"], {"condition": "service_completed_successfully"}, name) if name in ("web", "osf_init") else None
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_public_access_is_off_by_default_and_follows_the_flag_and_the_dotenv(self):
+        """RDM-osf.io-dev2027 PR #8: ENABLE_PUBLIC_ACCESS reaches every osf.io process through osf.env; the flag is kept."""
+        def public_access(root):
+            env = plan.read_dotenv(root / "runtime" / "config" / "osf.env")
+            return env["ENABLE_PUBLIC_ACCESS"]
+        root = make_root()
+        rc, _, err, _ = render(root)
+        self.assertEqual(rc, exit_codes.OK, err)
+        self.assertEqual(public_access(root), "false")
+        self.assertEqual(plan.read_dotenv(root / "runtime" / ".env")[compose.PUBLIC_ACCESS_ENV_KEY], "false")
+        rc, out, err, _ = render(root, public_access="true")
+        self.assertEqual(rc, exit_codes.OK, err)
+        self.assertEqual(public_access(root), "true")
+        self.assertEqual(json.loads(out)["public_access"], "true")
+        rc, _, err, _ = render(root)  # kept on later renders, like --egress
+        self.assertEqual(rc, exit_codes.OK, err)
+        self.assertEqual(public_access(root), "true")
+        rc, _, err, _ = render(root, public_access="false")
+        self.assertEqual(public_access(root), "false")
+        env_path = root / "runtime" / ".env"
+        env_path.write_text(env_path.read_text(encoding="utf-8").replace(f"{compose.PUBLIC_ACCESS_ENV_KEY}=false", f"{compose.PUBLIC_ACCESS_ENV_KEY}=maybe"), encoding="utf-8")
+        rc, _, err, _ = render(root)
+        self.assertEqual(rc, exit_codes.USAGE)
+        self.assertIn("true or false", err)
 
     def test_tmpfs_mounts_carry_mode_1777(self):
         root = make_root()
@@ -475,22 +550,46 @@ class ComposeRenderTests(unittest.TestCase):
 
     # ---- native Elasticsearch image (ADR-07)
 
-    def test_elasticsearch_uses_the_native_image_under_the_hardening_default(self):
+    def test_api_and_admin_run_the_threaded_development_server(self):
+        """Django 2.2 (RDM-osf.io-dev2027 PR #13) keeps connections open; a single-threaded `runserver --nothreading`
+        then waits on an idle browser connection and every other client times out after 30 s (first run on the
+        integration candidate). `invoke apiserver` adds --nothreading, so api runs manage.py directly."""
+        doc = self.render_core_doc()
+        for name in ("api", "admin"):
+            cmd = " ".join(doc["services"][name]["command"])
+            self.assertIn("manage.py runserver", cmd, name)
+            self.assertNotIn("--nothreading", cmd, name)
+            self.assertNotIn("invoke apiserver", cmd, name)
+        self.assertEqual(doc["services"]["api"]["environment"]["DJANGO_SETTINGS_MODULE"], "api.base.settings")
+        self.assertEqual(doc["services"]["admin"]["environment"]["DJANGO_SETTINGS_MODULE"], "admin.base.settings")
+        for name in ("api", "admin"):  # only web opts out of DEBUG_MODE, so no gevent monkey-patch reaches the threads
+            self.assertNotIn("GRDM_OSF_DEBUG_MODE", doc["services"][name]["environment"], name)
+
+    def test_elasticsearch8_runs_hardened_with_a_tmpfs_config_and_no_exception(self):
         root = make_root()
         try:
             rc, _, err, _ = render(root)
             self.assertEqual(rc, exit_codes.OK, err)
             doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-            es = doc["services"]["elasticsearch"]
-            self.assertEqual(es["image"], "grdm-dev/elasticsearch2:2.4.6-1")
+            es = doc["services"]["elasticsearch8"]
+            self.assertEqual(es["image"], "grdm-dev/elasticsearch8:8.19.24-1")
             self.assertEqual(es["user"], "1000:1000"); self.assertTrue(es["read_only"])
-            self.assertNotIn("cap_add", es); self.assertNotIn("platform", es.get("platform", "linux/amd64") == "linux/amd64" and "x" or "", "")
+            self.assertNotIn("cap_add", es)
             self.assertEqual(es.get("platform"), "linux/arm64")  # native: the host platform, no amd64 pin
-            self.assertIn("/usr/share/elasticsearch/logs:mode=1777", es["tmpfs"])
-            init = doc["services"]["volume_owner_init"]  # owner step on the same native image, explicit root + CHOWN only (R1-01)
-            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (doc["services"]["postgres"]["image"], "0:0", ["CHOWN"], "no"))
-            self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
+            # config/ is a tmpfs because the official entrypoint writes the keystore with the bootstrap password
+            for mount in ("/usr/share/elasticsearch/logs", "/usr/share/elasticsearch/config", "/tmp"):
+                self.assertIn(f"{mount}:mode=1777", es["tmpfs"])
             self.assertEqual(es["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+            self.assertEqual(es["healthcheck"]["test"][0], "CMD-SHELL")
+            self.assertIn("--cacert /es-ca/ca.crt", es["healthcheck"]["test"][1])
+            self.assertEqual(es["depends_on"], {"volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
+            setup = doc["services"]["elasticsearch8_setup"]
+            self.assertEqual(setup["restart"], "no")
+            self.assertEqual(setup["command"], ["/usr/local/bin/grdm-setup.sh"])
+            self.assertEqual(setup["depends_on"]["elasticsearch8"], {"condition": "service_healthy"})
+            init = doc["services"]["volume_owner_init"]  # owner step, explicit root + CHOWN only (R1-01)
+            self.assertEqual((init["image"], init["user"], init["cap_add"], init["restart"]), (doc["services"]["postgres"]["image"], "0:0", ["CHOWN"], "no"))
+            self.assertIn("elasticsearch8_ca", " ".join(init["command"]))
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
@@ -527,61 +626,117 @@ class ComposeRenderTests(unittest.TestCase):
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["mfr"]["platform"], "linux/amd64")
 
+    # ---- ember_osf_web: the static image built from RDM-ember-osf-web-dev2027 (PR #2 review r1 R1-03)
+
+    def test_ember_osf_web_is_the_static_image(self):
+        root = make_root()
+        rc, out, err, _ = render(root)
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        svc = doc["services"]["ember_osf_web"]
+        self.assertRegex(svc["image"], r"^grdm-dev/ember-osf-web:[0-9a-f]{12}$")
+        self.assertEqual(svc["platform"], "linux/arm64")  # no build_platform: the host platform, no emulation
+        self.assertNotIn("command", svc)                   # the image's entrypoint renders index.html and execs nginx
+        self.assertNotIn("entrypoint", svc)
+        self.assertEqual(svc["environment"], {
+            "OSF_URL": "http://127.0.0.1:5000/",
+            "OSF_API_URL": "http://127.0.0.1:8000",
+            "OSF_RENDER_URL": "http://127.0.0.1:7778/render",
+            "OSF_FILE_URL": "http://127.0.0.1:7777/",
+            "OSF_HELP_URL": "http://127.0.0.1:4200/help",
+            "CAS_URL": "http://127.0.0.1:8080",
+            "OSF_COOKIE_DOMAIN": "127.0.0.1",
+            "CSP_MODE": "enforce",
+        })
+        # every URL passes the entrypoint's check (the container exits 1 otherwise)
+        url_re = re.compile(r"^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$")
+        for key in ("OSF_URL", "OSF_API_URL", "OSF_RENDER_URL", "OSF_FILE_URL", "OSF_HELP_URL", "CAS_URL"):
+            self.assertRegex(svc["environment"][key], url_re, key)
+        self.assertRegex(svc["environment"]["OSF_COOKIE_DOMAIN"], r"^[A-Za-z0-9.-]+$")
+        self.assertEqual(svc["user"], "101:101")
+        self.assertIs(svc["read_only"], True)
+        self.assertEqual(svc["tmpfs"], ["/tmp:mode=1777"])
+        self.assertEqual(svc["cap_drop"], ["ALL"])
+        self.assertNotIn("cap_add", svc)
+        self.assertIn("no-new-privileges:true", svc["security_opt"])
+        self.assertNotIn("volumes", svc)
+        self.assertNotIn("depends_on", svc)  # builds nothing at start; waits for nothing
+        self.assertEqual(svc["ports"], ["127.0.0.1:4200:4200"])
+        self.assertEqual(svc["healthcheck"]["test"], ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4200/healthz"])
+        self.assertNotIn("curl", json.dumps(svc))
+        self.assertEqual(svc["labels"]["org.gakunin-rdm.hardening-exception"], "none")
+        self.assertGreaterEqual(int(svc["mem_limit"].rstrip("m")), 128)
+        # ember_osf_web mounts nothing; web still mounts the (now unfilled) ember_osf_web_dist at /ember_osf_web,
+        # which osf.io reads only when PROXY_EMBER_APPS is off (local.py sets it on)
+        mounters = {s for s, v in doc["services"].items() if any(m.startswith("ember_osf_web_dist:") for m in v.get("volumes", []))}
+        self.assertIn("web", mounters)
+        self.assertNotIn("ember_osf_web", mounters)
+        rows = {r["service"]: r for r in json.loads(out)["services"]}
+        self.assertEqual(rows["ember_osf_web"]["origin"], "built")
+
+    def test_ember_cas_url_follows_the_auth_provider(self):
+        root = make_root()
+        rc, _, err, _ = render(root, profile="full", auth="shibboleth")
+        self.assertEqual(rc, 0, err)
+        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
+        self.assertEqual(doc["services"]["ember_osf_web"]["environment"]["CAS_URL"], "http://127.0.0.1:5000")
+
+    def test_ember_memory_limit_stays_small(self):
+        """The static image is nginx: at 16 GiB its share is a few hundred MiB at most, not the former 8 GiB floor."""
+        doc = self.render_core_doc()
+        self.assertLess(int(doc["services"]["ember_osf_web"]["mem_limit"].rstrip("m")), 512)
+
+    def test_healthcheck_in_a_template_escapes_dollar(self):
+        from grdm_dev import manifest as _manifest
+
+        svc = _manifest.Service(name="x", component="c", role="core", image="i", profile="core", build=None,
+                                template={"healthcheck": {"test": ["CMD-SHELL", "test -n \"$HOME\""], "retries": 3}})
+        out = compose.render_service(svc, in_profile={"x"}, host_ports={}, container_ports={}, published={}, hardening={},
+                                     resources={}, platform_string="linux/arm64")
+        self.assertEqual(out["healthcheck"], {"test": ["CMD-SHELL", "test -n \"$$HOME\""], "retries": 3})
+
     # ---- prebuilt_image (SPEC-01 §3): compose runs the digest-pinned reference as image:
+    # No component uses it now; the tests put the former ember fallback back on a copy of the manifest.
+
+    PREBUILT = "registry.example.invalid/rdm-ember-osf-web@sha256:" + "e" * 64
+
+    def _with_prebuilt_ember(self, root, note=True):
+        path = root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for comp in data["components"]:
+            if comp["id"] == "ember-osf-web":
+                comp["prebuilt_image"] = self.PREBUILT
+                comp["build_platform"] = "linux/amd64"
+                if not note:
+                    comp["note"] = None
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def test_prebuilt_image_is_the_compose_image_with_build_platform(self):
         root = make_root()
-        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
-        ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
+        self._with_prebuilt_ember(root)
         reports = root / "runtime" / "reports"
         reports.mkdir(parents=True)
         (reports / "build_latest.json").write_text(json.dumps({"components": [
-            {"component": "ember-osf-web", "sha12": "", "status": "prebuilt", "image": ember["prebuilt_image"]},
+            {"component": "ember-osf-web", "sha12": "", "status": "prebuilt", "image": self.PREBUILT},
         ]}), encoding="utf-8")
         rc, out, err, _ = render(root)
         self.assertEqual(rc, 0, err)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         svc = doc["services"]["ember_osf_web"]
-        self.assertEqual(svc["image"], ember["prebuilt_image"])
-        self.assertRegex(svc["image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
-        command = " ".join(svc["command"])
-        self.assertLess(command.index("ember build"), command.index('node -e "$$1"'))  # /code is read-only: dist, after the build
-        self.assertLess(command.index('node -e "$$1"'), command.index("ember serve"))   # and before every serve (test_ember_ga_guard)
-        self.assertNotIn("config/environment.js", command)
-        self.assertIn("GoogleAnalytics is still in the built page", command)
-        self.assertEqual(svc["platform"], ember["build_platform"])
+        self.assertEqual(svc["image"], self.PREBUILT)
         self.assertEqual(svc["platform"], "linux/amd64")
         self.assertEqual(svc["cap_drop"], ["ALL"])  # hardening applies to a prebuilt service like any other
         rows = {r["service"]: r for r in json.loads(out)["services"]}
         self.assertEqual(rows["ember_osf_web"]["origin"], "prebuilt")
-        self.assertEqual(rows["ember_osf_web"]["image"], ember["prebuilt_image"])
+        self.assertEqual(rows["ember_osf_web"]["image"], self.PREBUILT)
         self.assertEqual(rows["web"]["origin"], "built")
         self.assertEqual(rows["wiki_assets"]["origin"], "overlay")  # the wiki-frontend bundle builder (ADR-06)
         self.assertEqual(rows["postgres"]["origin"], "pinned")
         self.assertFalse(any(v["image"].startswith("grdm-dev/ember-osf-web") for v in doc["services"].values()))
 
-    def test_removing_prebuilt_image_renders_the_local_build_tag(self):
-        root = make_root()
-        path = root / "manifest" / "upstreams.json"
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for comp in data["components"]:
-            if comp["id"] == "ember-osf-web":
-                del comp["prebuilt_image"]
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        rc, out, err, _ = render(root)
-        self.assertEqual(rc, 0, err)
-        doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertTrue(doc["services"]["ember_osf_web"]["image"].startswith("grdm-dev/ember-osf-web:"))
-        self.assertEqual({r["service"]: r for r in json.loads(out)["services"]}["ember_osf_web"]["origin"], "built")
-
     def test_prebuilt_without_note_is_rejected_at_render(self):
         root = make_root()
-        path = root / "manifest" / "upstreams.json"
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for comp in data["components"]:
-            if comp["id"] == "ember-osf-web":
-                comp["note"] = None
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        self._with_prebuilt_ember(root, note=False)
         rc, out, err, _ = render(root)
         self.assertEqual(rc, exit_codes.MANIFEST_INVALID)
         self.assertIn("MC-06", err)
@@ -621,17 +776,17 @@ class ComposeRenderTests(unittest.TestCase):
         rc, _, _, _ = render(root, profile="minimum")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
-        self.assertEqual(set(doc["services"]), {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch", "rabbitmq", "fakecas"})
+        self.assertEqual(set(doc["services"]), {"osf_init", "volume_owner_init", "volume_access_check_1000", "web", "api", "postgres", "elasticsearch8", "elasticsearch8_setup", "rabbitmq", "fakecas"})
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
-            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
+            "elasticsearch8_setup": {"condition": "service_completed_successfully"}, "osf_init": {"condition": "service_completed_successfully"},
             "volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
         rc, _, _, _ = render(root, profile="full", auth="shibboleth")
         self.assertEqual(rc, 0)
         doc = json.loads((root / "runtime" / "docker-compose.yml").read_text(encoding="utf-8"))
         self.assertIn("shibboleth_sp", doc["services"])
         self.assertNotIn("fakecas", doc["services"])
-        self.assertEqual(len(doc["services"]), 28)  # full profile with shibboleth: core 24 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
+        self.assertEqual(len(doc["services"]), 27)  # full profile with shibboleth: core 23 - fakecas + rdmcp aipf_mcp_data_grdm oasys shibboleth_sp test_idp
 
     # ---- `--auth shibboleth` profile (SPEC-02 §4, SPEC-04 §5 S5, ADR-05): test_idp and shibboleth_sp rendering
 
@@ -1173,7 +1328,7 @@ class ComposeRenderTests(unittest.TestCase):
         # plain dependencies rendered as service_started (real install run 12: osf_init added)
         self.assertEqual(doc["services"]["web"]["depends_on"], {
             "postgres": {"condition": "service_started"}, "rabbitmq": {"condition": "service_started"},
-            "elasticsearch": {"condition": "service_started"}, "osf_init": {"condition": "service_completed_successfully"},
+            "elasticsearch8_setup": {"condition": "service_completed_successfully"}, "osf_init": {"condition": "service_completed_successfully"},
             "volume_owner_init": {"condition": "service_completed_successfully"}, "volume_access_check_1000": {"condition": "service_completed_successfully"}})
 
     def test_escape_compose_dollar(self):
@@ -1203,7 +1358,7 @@ class ComposeRenderTests(unittest.TestCase):
         self.assertIn("compose:", out)
         self.assertIn("network: grdm", out)
         self.assertIn("grdm-edge", out)
-        self.assertIn("ports[9]", out)
+        self.assertIn("ports[8]", out)
 
     def test_non_render_action_is_usage_error(self):
         ctx = Context(root=make_root(), yes=True)

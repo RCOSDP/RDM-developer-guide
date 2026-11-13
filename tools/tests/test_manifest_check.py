@@ -221,35 +221,35 @@ class ValidateManifestTests(unittest.TestCase):
         """SPEC-01 §3 image_build (ADR-07): infra only, repo-relative context with a Dockerfile, valid tag, note,
         exclusive with prebuilt_image and build_platform."""
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
-        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
-        self.assertEqual(es["image_build"], {"context": "installer/images/elasticsearch2", "tag": "2.4.6-1"})
+        es = [c for c in data["components"] if c["id"] == "elasticsearch8"][0]
+        self.assertEqual(es["image_build"], {"context": "installer/images/elasticsearch8", "tag": "8.19.24-1"})
         self.assertNotIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
-        bad = json.loads(json.dumps(data)); bad_es = [c for c in bad["components"] if c["id"] == "elasticsearch2"][0]
-        bad_es["image_build"] = {"context": "installer/images/does-not-exist", "tag": "2.4.6-1"}
+        bad = json.loads(json.dumps(data)); bad_es = [c for c in bad["components"] if c["id"] == "elasticsearch8"][0]
+        bad_es["image_build"] = {"context": "installer/images/does-not-exist", "tag": "8.19.24-1"}
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
         bad_es["image_build"] = {"context": "../outside", "tag": "x"}
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
-        bad_es["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "not a tag!"}
+        bad_es["image_build"] = {"context": "installer/images/elasticsearch8", "tag": "not a tag!"}
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
-        bad_es["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "2.4.6-1"}
+        bad_es["image_build"] = {"context": "installer/images/elasticsearch8", "tag": "8.19.24-1"}
         bad_es["build_platform"] = "linux/amd64"
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
         del bad_es["build_platform"]; bad_es["note"] = None
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
         bad_es["note"] = "x"; core = [c for c in bad["components"] if c["role"] == "core"][0]
-        core["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "1"}; core["note"] = "x"
+        core["image_build"] = {"context": "installer/images/elasticsearch8", "tag": "1"}; core["note"] = "x"
         self.assertIn("MC-15", codes(mc.validate_manifest(bad, today=TODAY)))
 
     def test_image_build_empty_object_newline_tag_and_symlink_context_are_rejected(self):
         """PR #34 review r1 R1-02: presence (not truthiness), full-string tag, resolved containment."""
         import tempfile, os
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
-        es = [c for c in data["components"] if c["id"] == "elasticsearch2"][0]
+        es = [c for c in data["components"] if c["id"] == "elasticsearch8"][0]
         es["image_build"] = {}
         self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
-        es["image_build"] = {"context": "installer/images/elasticsearch2"}
+        es["image_build"] = {"context": "installer/images/elasticsearch8"}
         self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
-        es["image_build"] = {"context": "installer/images/elasticsearch2", "tag": "2.4.6-1\n"}
+        es["image_build"] = {"context": "installer/images/elasticsearch8", "tag": "8.19.24-1\n"}
         self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
         es["image_build"] = {"context": "/etc", "tag": "1"}
         self.assertIn("MC-15", codes(mc.validate_manifest(data, today=TODAY)))
@@ -381,12 +381,15 @@ class PrebuiltImageTests(unittest.TestCase):
         """The TOON excerpt lists ids, roles, repos, profiles, upstreams and adopted PRs only (SPEC-01 §2)."""
         self.assertEqual(mc.compare_toon(prebuilt_manifest(), mc.parse_toon(VALID_TOON)), [])
 
-    def test_real_manifest_ember_osf_web_is_prebuilt_by_digest_with_note(self):
+    def test_real_manifest_builds_ember_osf_web_from_its_pinned_commit(self):
+        """PR #2 review r1 R1-03: the static ember image is built from source; no component is prebuilt any more."""
         data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text(encoding="utf-8"))
         ember = next(c for c in data["components"] if c["id"] == "ember-osf-web")
-        self.assertRegex(ember["prebuilt_image"], r"^niicloudoperation/rdm-ember-osf-web@sha256:[0-9a-f]{64}$")
-        self.assertIn("M4", ember["note"])
-        self.assertEqual(ember["build_platform"], "linux/amd64")  # the pinned digest is the linux/amd64 manifest
+        self.assertNotIn("prebuilt_image", ember)
+        self.assertNotIn("build_platform", ember)  # the Node build stage runs on the build platform; nginx is multi-arch
+        self.assertRegex(ember["integration_sha"], r"^[0-9a-f]{40}$")
+        self.assertRegex(ember["base_image_digest"], r"^sha256:[0-9a-f]{64}$")
+        self.assertFalse([c["id"] for c in data["components"] if c.get("prebuilt_image")])
         self.assertEqual(mc.check_manifest_files(REPO_ROOT / "manifest" / "upstreams.json", REPO_ROOT / "manifest" / "upstreams.toon"), [])
 
 

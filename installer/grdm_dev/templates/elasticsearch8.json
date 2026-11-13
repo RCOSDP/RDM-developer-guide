@@ -1,0 +1,41 @@
+{
+  "service": "elasticsearch8",
+  "component": "elasticsearch8",
+  "expose": [
+    9200
+  ],
+  "environment": {
+    "ES_JAVA_OPTS": "-Xms768m -Xmx768m",
+    "ELASTIC_PASSWORD": "${ELASTIC8_PASSWORD}"
+  },
+  "volumes": [
+    {
+      "volume": "elasticsearch8_data",
+      "target": "/usr/share/elasticsearch/data"
+    },
+    {
+      "volume": "elasticsearch8_ca",
+      "target": "/es-ca"
+    }
+  ],
+  "tmpfs": [
+    "/tmp",
+    "/usr/share/elasticsearch/logs",
+    "/usr/share/elasticsearch/config"
+  ],
+  "user": "1000:1000",
+  "healthcheck": {
+    "test": [
+      "CMD-SHELL",
+      "test \"$(curl -s -o /dev/null -w '%{http_code}' --cacert /es-ca/ca.crt https://localhost:9200/)\" = 401"
+    ],
+    "interval": "10s",
+    "timeout": "5s",
+    "start_period": "30s",
+    "retries": 12
+  },
+  "weight": 3,
+  "mem_min_mb": 1536,
+  "pids_limit": 1024,
+  "note": "grdm-dev/elasticsearch8 (ADR-14): Elasticsearch 8.19.24 with analysis-kuromoji and analysis-icu, built in installer/images/elasticsearch8 on the official image (digest-pinned), running as uid 1000 with a read-only root: config/ is a tmpfs that grdm-entrypoint.sh fills (the official entrypoint writes the keystore holding the bootstrap password there), logs and /tmp are tmpfs, data and the TLS key live in the named volume elasticsearch8_data. Security is on: HTTP over TLS with a CA of the installation's own (made at first start, CA key discarded), the elastic superuser from ELASTIC8_PASSWORD, scripts disabled. Only the public CA certificate is copied to elasticsearch8_ca, which osf.io mounts read-only as its trust anchor. No port is published (ADR-02). The health check treats HTTP 401 on the TLS port as up: it proves the server answers over TLS with a certificate that chains to the CA while holding no credential; elasticsearch8_setup then waits for a yellow cluster with the credential."
+}

@@ -130,6 +130,14 @@ class DefaultTimeoutTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         shutil.copytree(Path(__file__).resolve().parents[2] / "manifest", self.root / "manifest")
+        # no component pins build_platform linux/amd64 today; pin one on the copy to keep the rule covered
+        import json
+        path = self.root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text())
+        for comp in data["components"]:
+            if comp["id"] == "modular-file-renderer":
+                comp["build_platform"] = "linux/amd64"
+        path.write_text(json.dumps(data))
 
     def timeout(self, profile, system, machine):
         return lifecycle.default_timeout(Context(root=self.root, profile=profile), system=system, machine=machine)

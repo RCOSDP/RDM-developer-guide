@@ -22,14 +22,13 @@
     "WATERBUTLER_JWT_SECRET": "${WATERBUTLER_JWT_SECRET}",
     "WATERBUTLER_HMAC_SECRET": "${WATERBUTLER_HMAC_SECRET}",
     "MFR_SERVER_SECRET": "${MFR_SERVER_SECRET}",
-    "SHAREJS_SECRET": "${SHAREJS_SECRET}",
     "Y_WEBSOCKET_JWT_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWESECRET": "${OSF_API_INSTITUTIONS_AUTH_JWESECRET}",
     "OSF_API_INSTITUTIONS_AUTH_JWTSECRET": "${OSF_API_INSTITUTIONS_AUTH_JWTSECRET}",
     "Y_WEBSOCKET_SECRET": "${Y_WEBSOCKET_JWT_SECRET}",
-    "SHAREJS_SERVER_HOST": "sharejs",
-    "SHAREJS_SERVER_PORT": "7007",
-    "GRDM_OSF_DEBUG_MODE": "False"
+    "GRDM_OSF_DEBUG_MODE": "False",
+    "ELASTIC_USERNAME": "grdm_osf",
+    "ELASTIC_PASSWORD": "${ELASTIC8_OSF_PASSWORD}"
   },
   "env_files": [
     "osf.env"
@@ -60,8 +59,8 @@
       "ro": true
     },
     {
-      "volume": "mongo_tls",
-      "target": "/mongo-tls",
+      "volume": "elasticsearch8_ca",
+      "target": "/es-ca",
       "ro": true
     }
   ],
@@ -74,7 +73,10 @@
   "depends_on": [
     "postgres",
     "rabbitmq",
-    "elasticsearch",
+    {
+      "service": "elasticsearch8_setup",
+      "condition": "service_completed_successfully"
+    },
     {
       "service": "wiki_assets",
       "condition": "service_completed_successfully"

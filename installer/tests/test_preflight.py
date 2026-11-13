@@ -93,7 +93,7 @@ class RepositoryAccessTests(PreflightBase):
         self.doctor(self.mac(), runner)
         repos = {argv[-2].rsplit("/", 1)[1].removesuffix(".git") for argv in ls_remote_calls(runner)}
         self.assertIn("RDM-osf.io-dev2027", repos)
-        self.assertNotIn("RDM-ember-osf-web-dev2027", repos)  # prebuilt: never cloned
+        self.assertIn("RDM-ember-osf-web-dev2027", repos)     # built from source since the static image (PR #2 review r1 R1-03)
         self.assertIn("RDM-cas-overlay-dev2027", repos)       # built natively since ADR-07 covered it
         self.assertNotIn("RDM-rdmcp-dev2027", repos)          # full profile only
 
@@ -172,14 +172,21 @@ class MemoryFloorTests(PreflightBase):
     def test_floors_match_the_compose_budget(self):
         services = manifest.services_for_profile(manifest.load(Context(root=self.root)), "core")
         need = compose.memory_floor_need_gib(services)
-        self.assertGreater(need, 16.0)   # a 16 GiB laptop cannot hold core
-        self.assertLess(need, 24.0)      # SPEC-02 §8: the 24 GiB Docker VM can
+        # SPEC-02 §8: the core floors add up to 8512 MiB, a computed lower bound of 8512 / 0.7 / 1024 GiB
+        self.assertEqual(sum(int(s.template.get("mem_min_mb", 128)) for s in services), 8512)
+        self.assertGreater(need, 11.0)   # an 11 GiB Docker VM cannot hold core
+        self.assertLess(need, 12.0)      # a 12 GiB one can (the static ember image no longer needs 8 GiB)
 
-    def test_core_on_16_gib_is_exit_10_with_the_remedies(self):
-        code, _, err = self.doctor(self.ubuntu(memory_bytes=16 * GIB), preflight_runner(vm_bytes=16 * GIB))
+    def test_core_on_11_gib_is_exit_10_with_the_remedies(self):
+        code, _, err = self.doctor(self.ubuntu(memory_bytes=11 * GIB), preflight_runner(vm_bytes=11 * GIB))
         self.assertEqual(code, exit_codes.HOST_UNSUPPORTED)
         self.assertIn("--profile minimum", err)
         self.assertIn("--memory-gib", err)
+        self.assertIn("11.9 GiB", err)
+
+    def test_core_fits_16_gib(self):
+        code, _, _ = self.doctor(self.ubuntu(memory_bytes=16 * GIB), preflight_runner(vm_bytes=16 * GIB))
+        self.assertEqual(code, exit_codes.OK)
 
     def test_the_vm_counts_when_smaller_than_the_host(self):
         code, _, err = self.doctor(self.mac(memory_bytes=64 * GIB), preflight_runner(vm_bytes=8 * GIB))
@@ -188,7 +195,7 @@ class MemoryFloorTests(PreflightBase):
         self.assertIn("Settings > Resources", err)
 
     def test_wsl2_gets_wslconfig_not_docker_desktop(self):
-        code, _, err = self.doctor(ubuntu_probe(**WSL, memory_bytes=16 * GIB, tools=dict(TOOLS_OK), repo_root="/home/dev/rdm"), preflight_runner(vm_bytes=16 * GIB))
+        code, _, err = self.doctor(ubuntu_probe(**WSL, memory_bytes=11 * GIB, tools=dict(TOOLS_OK), repo_root="/home/dev/rdm"), preflight_runner(vm_bytes=11 * GIB))
         self.assertEqual(code, exit_codes.HOST_UNSUPPORTED)
         self.assertIn(".wslconfig", err)
         self.assertIn("wsl --shutdown", err)
@@ -203,7 +210,7 @@ class MemoryFloorTests(PreflightBase):
         self.assertEqual(code, exit_codes.OK)
 
     def test_memory_gib_downgrades_to_a_warning(self):
-        code, out, _ = self.doctor(self.ubuntu(memory_bytes=16 * GIB), preflight_runner(vm_bytes=16 * GIB), memory_gib=16.0)
+        code, out, _ = self.doctor(self.ubuntu(memory_bytes=11 * GIB), preflight_runner(vm_bytes=11 * GIB), memory_gib=11.0)
         self.assertEqual(code, exit_codes.OK)
         self.assertIn("knowing overcommit", out)
 
@@ -255,6 +262,22 @@ class DockerCpuTests(unittest.TestCase):
 
 
 class ArmEmulationTests(PreflightBase):
+    """No component pins build_platform linux/amd64 any more (the last two, mfr and ember_osf_web, build natively),
+    so these tests pin it on a copy of the manifest to keep the rule itself covered for a future emulated component."""
+
+    def setUp(self):
+        super().setUp()
+        path = self.root / "manifest" / "upstreams.json"
+        data = json.loads(path.read_text())
+        for comp in data["components"]:
+            if comp["id"] == "modular-file-renderer":
+                comp["build_platform"] = "linux/amd64"
+        path.write_text(json.dumps(data))
+
+    def test_no_pinned_component_needs_emulation_today(self):
+        data = json.loads((REPO_ROOT / "manifest" / "upstreams.json").read_text())
+        self.assertEqual([c["id"] for c in data["components"] if c.get("build_platform")], [])
+
     def arm(self, **over):
         return self.ubuntu(machine="aarch64", **over)
 
@@ -266,10 +289,8 @@ class ArmEmulationTests(PreflightBase):
         self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
         self.assertIn(host.ENABLE_AMD64_EMULATION, err)
         self.assertIn("tonistiigi/binfmt:qemu-v10.2.3-68@sha256:", err)
-        # ember_osf_web is the emulated service left once MFR builds natively on Python 3.13 (its manifest entry
-        # no longer pins build_platform linux/amd64), so MFR must not be named as needing emulation
-        self.assertIn("ember_osf_web", err)
-        self.assertNotIn("mfr", err)
+        self.assertIn("mfr", err)
+        self.assertNotIn("ember_osf_web", err)
 
     def test_measured_bad_ubuntu_qemu_is_exit_13_and_prints_the_replacement(self):
         # DEMO-21 run 1: Ubuntu 24.04's qemu-user-static crashed in libgvc6's post-install script after a 48-minute run.
@@ -445,13 +466,13 @@ class OwnerInitTests(unittest.TestCase):
     def test_each_writable_volume_goes_to_its_writers_uid(self):
         cmd = self.render()["volume_owner_init"]["command"][2]
         self.assertIn("fix 999:999 /volumes/redis_data", cmd)
-        for name in ("elasticsearch_data", "elasticsearch6_data", "ember_osf_web_dist", "wiki_static", "wb_tmp", "osfstoragecache"):
+        for name in ("elasticsearch8_data", "elasticsearch8_ca", "y_websocket_data", "elasticsearch6_data", "ember_osf_web_dist", "wiki_static", "wb_tmp", "osfstoragecache"):
             self.assertIn(f"fix 1000:1000 /volumes/{name}", cmd)
 
     def test_self_managing_volumes_are_left_alone(self):
         services = self.render()
         init = services["volume_owner_init"]
-        for name in ("postgres_data", "mongo_data", "rabbitmq_data"):
+        for name in ("postgres_data", "rabbitmq_data"):
             self.assertNotIn(name, init["command"][2])
             self.assertFalse([v for v in init["volumes"] if v.startswith(f"{name}:")])
         self.assertNotIn("volume_owner_init", services["postgres"].get("depends_on", {}))
@@ -482,8 +503,10 @@ class OwnerInitTests(unittest.TestCase):
     def test_every_writer_waits_for_it(self):
         services = self.render()
         wait = {"condition": "service_completed_successfully"}
-        for name in ("redis", "elasticsearch", "elasticsearch6", "wb", "wb_worker", "mfr", "ember_osf_web", "wiki_assets", "web"):
+        for name in ("redis", "elasticsearch8", "elasticsearch6", "y_websocket", "wb", "wb_worker", "mfr", "wiki_assets", "web"):
             self.assertEqual(services[name]["depends_on"]["volume_owner_init"], wait, name)
+        # the static ember image writes only its /tmp tmpfs: no volume, so it waits for nothing (PR #2 review r1 R1-03)
+        self.assertNotIn("depends_on", services["ember_osf_web"])
 
     def test_unoconv_shares_no_volume_and_runs_unprivileged(self):
         services = self.render()

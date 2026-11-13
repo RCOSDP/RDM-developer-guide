@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.3 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
+- Version / 版: 0.4 — 2026-11-12. **Learned:** a helper that mints a one-time code must remember the step it used, or two logins in the same 30 seconds fail the second for a reason that looks like a wrong code. ／ ワンタイムコードを作る補助は、使った区間を覚えていなければならない。同じ 30 秒の間の二度目のログインが、コードの誤りに見える理由で失敗するからである。
+  0.3 — 2026-11-06. **Learned:** a glossary term is only explained for the reader when its note and REF-01 link sit at the first prose use, counting lower-case and plural forms, so first-use notes with links were added in both halves (SPEC-06 §3). ／ 用語注と REF-01 へのリンクは、小文字や複数形も含めた本文の初出に置かなければ読者に届かないと分かったため、英和両方の初出にリンク付きの用語注を補った（SPEC-06 §3）。
 - Version / 版: 0.2 — 2026-11-05. **Learned:** a browser route guards only what the browser fetches; API request contexts, redirects, WebSockets and service workers each need their own guard, and a string-prefix check on `http://127.0.0.1` accepts lookalike hosts, so every origin is parsed exactly in `netguard.py`. ／ ブラウザの経路はブラウザが取りに行くものしか守れない。API のリクエスト文脈、転送、WebSocket、サービスワーカーにはそれぞれ監視が要り、`http://127.0.0.1` の前方一致は似た名前のホストを通してしまうため、`netguard.py` で起点を厳密に解析する。
   0.1 — 2026-11-05. **Learned:** a file named `selectors.py` shadows the standard-library module of the same name unless the suite is a package and imports it by package path; the locator table therefore lives behind `from acceptance import selectors`. ／ `selectors.py` という名前は標準ライブラリの同名モジュールを隠してしまうため、スイートをパッケージにして `from acceptance import selectors` で読む必要があると分かった。
 - Normative source: [SPEC-04 Acceptance Tests](../../docs/spec/04_acceptance_tests.md) · [SPEC-02 §3](../../docs/spec/02_installer_cli.md)
@@ -24,7 +25,7 @@
 pip install -e "installer[accept]"
 PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium
 grdm-dev accept --seed                 # all scenarios, disposable users created and removed
-grdm-dev accept --only C1              # one scenario (C1..C6, S1..S5, or a name fragment like login)
+grdm-dev accept --only C1              # one scenario (C1..C7, S1..S5, or a name fragment like login)
 grdm-dev accept --only core --json     # every M2 scenario, report as JSON
 ```
 
@@ -33,11 +34,12 @@ grdm-dev accept --only core --json     # every M2 scenario, report as JSON
 ### Layout
 
 ```toon
-files[6]{path,purpose}:
+files[7]{path,purpose}:
   conftest.py,"fixtures (base_url, ports, users, login, new_context, context_b, two_contexts, api_context, project, tmp_pdf/tmp_txt), time boxes, loopback guard, result collector"
   netguard.py,"is_loopback_origin / same_origin: exact (scheme, host, port) parsing; pure functions, unit-tested in installer/tests/test_accept.py"
+  totp.py,"RFC 6238 one-time codes for the seeded administrator of C6 (PR #10 accepts a code once per 30 s step, so next_code waits for a fresh step); pure functions, unit-tested"
   selectors.py,"every locator and URL path in one table; TODO(M2) marks entries not yet verified on the real app"
-  test_c1_login.py … test_c6_admin.py,"core scenarios C1–C6; each has test_*_success and test_*_rejection; marker core"
+  test_c1_login.py … test_c7_file_editor.py,"core scenarios C1–C7; each has test_*_success and test_*_rejection; marker core"
   test_s1_y_websocket.py … test_s5_shibboleth.py,"subsystem stubs S1–S5; marker subsystem; skipped with reason M3"
   pytest.ini,"markers and default options"
 ```
@@ -72,7 +74,7 @@ Selectors and URL paths marked `TODO(M2)` in `selectors.py`, the seed management
 pip install -e "installer[accept]"
 PLAYWRIGHT_BROWSERS_PATH=.venv/.playwright playwright install chromium
 grdm-dev accept --seed                 # 全シナリオ。使い捨て利用者を作って消す
-grdm-dev accept --only C1              # 一つだけ（C1〜C6、S1〜S5、または login のような名前の一部）
+grdm-dev accept --only C1              # 一つだけ（C1〜C7、S1〜S5、または login のような名前の一部）
 grdm-dev accept --only core --json     # M2 の全シナリオ。報告を JSON で
 ```
 
@@ -81,11 +83,12 @@ grdm-dev accept --only core --json     # M2 の全シナリオ。報告を JSON 
 ### 構成
 
 ```toon
-files[6]{path,purpose}:
+files[7]{path,purpose}:
   conftest.py,"フィクスチャ（base_url・ports・利用者・login・new_context・context_b・two_contexts・api_context・project・tmp_pdf/tmp_txt）、時間制限、ループバック監視、結果収集"
   netguard.py,"is_loopback_origin / same_origin。(scheme, host, port) を厳密に解析する純関数。installer/tests/test_accept.py で単体試験"
+  totp.py,"C6 の種データの管理者のための RFC 6238 のワンタイムコード（PR #10 は 30 秒の区間ごとに一度しかコードを通さないので、next_code は新しい区間まで待つ）。純粋な関数で、単体試験あり"
   selectors.py,"ロケータと URL パスを一つの表に。実機で未確認のものは TODO(M2)"
-  test_c1_login.py … test_c6_admin.py,"コアシナリオ C1〜C6。test_*_success と test_*_rejection。マーカー core"
+  test_c1_login.py … test_c7_file_editor.py,"コアシナリオ C1〜C7。test_*_success と test_*_rejection。マーカー core"
   test_s1_y_websocket.py … test_s5_shibboleth.py,"サブシステムの骨格 S1〜S5。マーカー subsystem。理由 M3 でスキップ"
   pytest.ini,"マーカーと既定オプション"
 ```
