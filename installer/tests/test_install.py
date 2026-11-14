@@ -72,6 +72,29 @@ class InstallTests(unittest.TestCase):
         self.assertIn("not yet available", self.err.getvalue())
         self.assertIn(["report"], step.calls)
 
+    def test_volumes_of_another_checkout_stop_install_before_build(self):
+        """DEMO-22 0.7: the guard of `up` fired after a 10 h 45 min build; install now checks right after render."""
+        run_step = fake_steps({})
+        args = argparse.Namespace(platform=None, no_open=True, memory_gib=None, timeout=None)
+        err = io.StringIO()
+        with redirect_stdout(io.StringIO()), redirect_stderr(err):
+            code = install.run(self.ctx, args, run_step=run_step,
+                               volume_check=lambda ctx: ["grdm-dev_postgres_data is bound to /old/runtime/volumes/postgres_data, this checkout uses /new/runtime/volumes/postgres_data"])
+        self.assertEqual(code, exit_codes.PREFLIGHT_FAILED)
+        ran = [argv[0] for argv in run_step.calls]
+        self.assertIn("compose", ran)
+        self.assertNotIn("build", ran)
+        self.assertNotIn("up", ran)
+        self.assertIn("docker volume rm grdm-dev_postgres_data", err.getvalue())
+
+    def test_no_stale_volume_lets_install_continue(self):
+        run_step = fake_steps({})
+        args = argparse.Namespace(platform=None, no_open=True, memory_gib=None, timeout=None)
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = install.run(self.ctx, args, run_step=run_step, volume_check=lambda ctx: [])
+        self.assertEqual(code, exit_codes.OK)
+        self.assertIn("build", [argv[0] for argv in run_step.calls])
+
     def test_missing_required_module_is_usage_error(self):
         step = fake_steps({"compose": -1})
         self.assertEqual(self.run_cmd(step), exit_codes.USAGE)

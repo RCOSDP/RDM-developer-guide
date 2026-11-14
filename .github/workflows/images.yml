@@ -10,6 +10,7 @@ on:
       - "installer/images/**"
       - "manifest/upstreams.json"
       - ".github/workflows/images.yml"
+      - ".github/scripts/smoke-elasticsearch8.sh"
   push:
     branches: [develop]
     paths:
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up QEMU (arm64 emulation on the amd64 runner)
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - name: Set up Docker Buildx
@@ -54,10 +57,9 @@ jobs:
             docker buildx build --platform linux/amd64 --load -t "grdm-dev/$cid:$tag" "$ctx"
             docker image inspect "grdm-dev/$cid:$tag" --format '{{index .Config.Labels "org.opencontainers.image.base.digest"}}' | grep -q sha256: || { echo "missing base digest label"; exit 1; }
             case "$cid" in
-              elasticsearch2)
-                docker run -d --name smoke --read-only --tmpfs /tmp --tmpfs /usr/share/elasticsearch/logs:mode=1777 -v smoke:/usr/share/elasticsearch/data --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:19200:9200 "grdm-dev/$cid:$tag"
-                for i in $(seq 1 24); do sleep 5; curl -sf http://127.0.0.1:19200/ >/dev/null && break; done
-                curl -sf http://127.0.0.1:19200/ | grep -q cluster_name
-                docker rm -f smoke >/dev/null; docker volume rm smoke >/dev/null ;;
+              elasticsearch8)
+                # TLS + authentication (ADR-14): anonymous 401, certificate checked against /es-ca, cluster health,
+                # node and plugins; prints the container log on failure and always removes the container and volumes
+                bash .github/scripts/smoke-elasticsearch8.sh "grdm-dev/$cid:$tag" ;;
             esac
           done < recipes.txt

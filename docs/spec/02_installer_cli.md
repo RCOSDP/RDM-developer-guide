@@ -5,7 +5,9 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.34 — 2026-11-14. **Learned:** a health check is a time budget the template fixes, and a slow host can spend all of it on a healthy start: Elasticsearch 8 took 8 min 10 s to start under full-system amd64 emulation while the check allowed 2.5 minutes, so `up` stopped with exit 40 although nothing was wrong, and `up --timeout` could not help because it bounds the wait, not the container's own check; the window is now 17 to 26 minutes, ending inside the default 1800 s health wait of `up` (DEMO-22 0.7). ／ ヘルスチェックはテンプレートが固定した時間の予算で、遅い機械は健全な起動でそれを使い切りうる。機械全体を amd64 でエミュレーションする環境で Elasticsearch 8 の起動に 8 分 10 秒かかったのに、チェックの許容は 2.5 分で、何も壊れていないのに `up` が終了 40 で止まった。`up --timeout` は待ちの上限であってコンテナ自身のチェックではないので助けにならない。窓は 17〜26 分になり、`up` の既定の健康の待ち 1800 秒の内に終わる（DEMO-22 0.7）。
+- Version / 版: 0.36 — 2026-11-14. **Learned:** the two workflows of §10 arrive in their own change, pushed by a token with the `workflow` scope, so the paragraph that called them pending is removed with it. ／ §10 の二つのワークフローは、`workflow` スコープを持つトークンで push する独立の変更で入るので、保留中と書いた段落もその変更で消す。
+  0.35 — 2026-11-14. **Learned:** a guard is only as useful as the moment it runs: the volume check of `up` was correct on the amd64 VM but fired after a 10 h 45 min `build`, so `install` now runs the same read-only check as soon as the Compose file is rendered (DEMO-22 0.7). ／ 検査が役に立つかは、それがいつ動くかで決まる。`up` のボリュームの検査は amd64 の VM で正しく働いたが、10 時間 45 分の `build` の後だった。そこで `install` は、Compose のファイルを render した直後に同じ読み取りだけの検査を行う（DEMO-22 0.7）。
+  0.34 — 2026-11-14. **Learned:** a health check is a time budget the template fixes, and a slow host can spend all of it on a healthy start: Elasticsearch 8 took 8 min 10 s to start under full-system amd64 emulation while the check allowed 2.5 minutes, so `up` stopped with exit 40 although nothing was wrong, and `up --timeout` could not help because it bounds the wait, not the container's own check; the window is now 17 to 26 minutes, ending inside the default 1800 s health wait of `up` (DEMO-22 0.7). ／ ヘルスチェックはテンプレートが固定した時間の予算で、遅い機械は健全な起動でそれを使い切りうる。機械全体を amd64 でエミュレーションする環境で Elasticsearch 8 の起動に 8 分 10 秒かかったのに、チェックの許容は 2.5 分で、何も壊れていないのに `up` が終了 40 で止まった。`up --timeout` は待ちの上限であってコンテナ自身のチェックではないので助けにならない。窓は 17〜26 分になり、`up` の既定の健康の待ち 1800 秒の内に終わる（DEMO-22 0.7）。
   0.33 — 2026-11-13. **Learned:** a Docker named volume remembers the directory it was bound to on the day it was created, and Compose reuses it without comparing, so a second checkout of the same project opened the first one's data with its own new secrets and `osf_init` failed on a password after 8 minutes of `up`; `up` now compares the rendered bindings with the existing volumes before starting anything (DEMO-21 0.5, run 4). ／ Docker の名前付きボリュームは、作られた日に結び付けたディレクトリを覚えていて、Compose は比べずに再利用する。そのため同じプロジェクトの二つ目のチェックアウトは、一つ目のデータを自分の新しい秘密で開き、`osf_init` は `up` の 8 分後にパスワードで失敗した。`up` は何かを起動する前に、render した結び付けと既存のボリュームを比べるようになった（DEMO-21 0.5、第 4 回）。
   0.32 — 2026-11-13. **Learned:** a command that exists in the code has to be in the contract, or the documents recommend the wrong one: `secrets init --missing` (add only the absent keys, change nothing live) was implemented for upgrades but the table named only `rotate`, so ADR-14 told installations to rotate before rendering, which changes every credential and recreates containers from a stale Compose file (PR #56 review r1 R1-02). ／ コードにあるコマンドは契約にも書かなければ、文書が間違ったコマンドを勧める。`secrets init --missing`（足りないキーだけを足し、稼働中のものは何も変えない）は更新のために実装されたが、表には `rotate` しかなく、ADR-14 は render の前に rotate を求めてしまった。rotate はすべての資格情報を替え、古い Compose ファイルのままコンテナを再作成する（PR #56 レビュー r1 R1-02）。
   0.31 — 2026-11-12. **Learned:** replacing a component also replaces the contracts around it: Elasticsearch 8 brings a CA, two passwords and a one-shot, retiring sharejs and mongo removes a port, two volumes, a secret and a hardening exception, and osf.io's mandatory sign-in (`ENABLE_PUBLIC_ACCESS`) becomes a setting of `compose render` that every osf.io process must share, so the floors, the ports table and the profiles table were all recomputed from the templates instead of edited by hand (ADR-13 §6, ADR-14). ／ 部品を入れ替えると、その周りの約束も替わる。Elasticsearch 8 は CA、二つのパスワード、一回きりの手順を持ち込み、sharejs と mongo の退役はポート一つ、ボリューム二つ、秘密一つ、堅牢化の例外一つを消し、osf.io の必須サインイン（`ENABLE_PUBLIC_ACCESS`）は osf.io のすべてのプロセスが共有しなければならない `compose render` の設定になった。そのため下限、ポートの表、プロファイルの表は手で直さず、テンプレートから計算し直した（ADR-13 §6、ADR-14）。
@@ -40,7 +42,7 @@
   0.3 — 2026-11-05. **Learned:** `secrets rotate` had to become a coordinated database-password change plus container recreation, because `restart` keeps the old environment and leaves the captured credential valid (PR #21 review r1). ／ `restart` は旧い環境を保つため、捕られた資格情報が有効なまま残る。`secrets rotate` は DB パスワードの変更とコンテナ再作成を束ねた手順にする必要があると分かった（PR #21 レビュー r1）。
   0.2 — 2026-11-05. **Learned:** a profile table and the acceptance criteria that depend on it must change together, and a TOON row whose text contains a comma or a colon must be quoted or the parser sees extra columns. ／ プロファイル表と、それに依存する受入基準は同時に変えなければならず、カンマやコロンを含む TOON の行は引用符で囲まないと列が増えて解析に失敗すると分かった。
 - Version / 版: 0.1 — 2026-11-05. **Learned:** keeping the shell part to a bootstrap and putting every decision in one Python command is the only way to make the OS differences, the manifest check, and the reports testable with `unittest`. ／ シェルは起動だけに留め、判断をすべて一つの Python コマンドに集めないと、OS の違い・manifest の整合・報告書を `unittest` で試験できないと分かった。
-- Normative for: `installer/install.sh`, `installer/install-ubuntu.sh`, `installer/install-macos.sh`, `installer/install-windows.ps1`, `installer/prereq-lib.sh`, `.github/workflows/installer-prereq-lint.yml` and `.github/workflows/installer-full.yml` (pending on branch `feat/per-os-installers`), `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
+- Normative for: `installer/install.sh`, `installer/install-ubuntu.sh`, `installer/install-macos.sh`, `installer/install-windows.ps1`, `installer/prereq-lib.sh`, `.github/workflows/installer-prereq-lint.yml`, `.github/workflows/installer-full.yml`, `.github/scripts/Test-PowerShellSyntax.ps1`, `installer/grdm_dev/`, `installer/tests/`, `runtime/`.
 - Related: [SPEC-00 Overview](00_overview.md) · [SPEC-01 Manifest](01_manifest.md) · [SPEC-03 Security Gate](03_security_gate.md) · [SPEC-04 Acceptance Tests](04_acceptance_tests.md) · [SPEC-05 Upstream Tracking](05_upstream_tracking.md) · [SPEC-06 Documentation Conventions](06_documentation_conventions.md) · [ADR-02 Network Model](../decisions/ADR-02_Network_Model.md) · [ADR-03 Staged Security Gate](../decisions/ADR-03_Staged_Security_Gate.md) · [ADR-08 Per-OS Installer Entry Points](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md) · [POL-01 Position](../policy/POL-01_Developer_Environment_2027_Position.md) · [docs/README.md](../README.md)
 
 ---
@@ -146,7 +148,7 @@ Rules that every script keeps:
 | `manifest check` / `manifest toon` | `check` validates `manifest/upstreams.json` ([SPEC-01 §5](01_manifest.md#english)) and verifies that every TOON excerpt in `docs/` and `manifest/upstreams.toon` agree with it. Exit 20 on mismatch. `toon` prints the excerpt that `upstreams.toon` must equal. | no |
 | `docs build` / `docs check` | `build` runs MkDocs into `site/`. `check` enforces [SPEC-06 §8](06_documentation_conventions.md#english): anchors, Jump line, relative links, TOON consistency, Version line. | no |
 | `report` | Bundles the latest reports of `doctor`, `plan`, `health`, `scan`, and `accept` into `runtime/reports/<timestamp>.toon` and `.json`. | no |
-| `install` | The sequence shown in the flowchart. Stops at the first non-zero step. | yes |
+| `install` | The sequence shown in the flowchart. Stops at the first non-zero step. Right after `compose render` it runs the read-only volume check of `up` (exit 13 when Docker volumes of the project were created by another checkout), so that case stops before `build`, not after it. | yes |
 
 <a id="2-en-ports"></a>
 ### 4. Profiles and published ports
@@ -284,8 +286,6 @@ layout:
 
 The prerequisite scripts of [§2.3](#2-en-prereq) are checked on every PR by `installer-prereq-lint.yml`: `bash -n`, shellcheck, the PowerShell parser on `windows-latest`, and a dry run on each OS. Unit tests run them only with `--dry-run` or `--help`, under a `PATH` of stubs. `installer-full.yml`, started by hand, does a full `minimum` install on `ubuntu-24.04` and `ubuntu-24.04-arm` and needs the repository secret `GRDM_INTEGRATION_READ_TOKEN`. What these runners cannot prove is listed in [ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#en-limits).
 
-> **Note:** Both workflows, and their helper `.github/scripts/Test-PowerShellSyntax.ps1`, are **pending**: they wait on branch `feat/per-os-installers` until someone with a token that has the `workflow` scope pushes them. Until then the checks of this paragraph are run by hand, and the real Linux run is [DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md).
-
 ---
 
 <a id="japanese"></a>
@@ -389,7 +389,7 @@ flowchart TD
 | `manifest check` / `manifest toon` | `check` は `manifest/upstreams.json` を検証し（[SPEC-01 §5](01_manifest.md#japanese)）、`docs/` 内の TOON の抄録と `manifest/upstreams.toon` がそれと一致するか確かめる。不一致は終了 20。`toon` は `upstreams.toon` が一致すべき抄録を出力する。 | 触れない |
 | `docs build` / `docs check` | `build` は MkDocs で `site/` を作る。`check` は [SPEC-06 §8](06_documentation_conventions.md#japanese) のアンカー、Jump 行、相対リンク、TOON の一致、Version 行を検査する。 | 触れない |
 | `report` | `doctor`・`plan`・`health`・`scan`・`accept` の最新の報告を `runtime/reports/<時刻>.toon` と `.json` にまとめる。 | 触れない |
-| `install` | 流れ図の順に実行する。最初に 0 以外で終わった段で止まる。 | 触れる |
+| `install` | 流れ図の順に実行する。最初に 0 以外で終わった段で止まる。`compose render` の直後に `up` の読み取りだけのボリュームの検査を行い（プロジェクトの Docker ボリュームを別のチェックアウトが作っていれば終了 13）、その場合は `build` の後でなく前に止まる。 | 触れる |
 
 <a id="2-ja-ports"></a>
 ### 4. プロファイルと公開ポート
@@ -526,8 +526,6 @@ layout:
 `python3 -m unittest discover -s installer/tests` はすべての PR（プルリクエスト。レビュー待ちの変更の提案。[REF-01](../reference/REF-01_Glossary.md)）で合格していなければなりません。各モジュールに `test_<モジュール>.py` を置き、成功ケースと拒否ケースを少なくとも一つずつ含め、拒否ケースでは [§6](#japanese) の終了コードを assert します。単体試験は Docker を要求しません。`host.py` と `build.py` は実行器を差し替えられる作りにし、試験では偽の `docker` の出力を渡します。統合と受入の段は [SPEC-04](04_acceptance_tests.md) で定めます。
 
 [§2.3](#2-ja-prereq) の前提条件スクリプトは、すべての PR で `installer-prereq-lint.yml` が確かめます。`bash -n`、shellcheck、`windows-latest` の PowerShell パーサー、各 OS での dry run です。単体試験はスタブだけの `PATH` の下で `--dry-run` か `--help` でだけ実行します。手で起動する `installer-full.yml` は `ubuntu-24.04` と `ubuntu-24.04-arm` で `minimum` の完全な導入を行い、リポジトリのシークレット `GRDM_INTEGRATION_READ_TOKEN` を必要とします。これらのランナーで証明できないことは [ADR-08 §5](../decisions/ADR-08_Per_OS_Installer_Entry_Points.md#ja-limits) に挙げています。
-
-> **Note:** 二つのワークフローとその補助 `.github/scripts/Test-PowerShellSyntax.ps1` は**保留中**です。`workflow` スコープを持つトークンで誰かが push するまで、ブランチ `feat/per-os-installers` で待ちます。それまでこの段落の確認は手で行い、実際の Linux での実行は [DEMO-21](../demo/21_core_install_ubuntu_arm64_lima.md) が示します。
 
 ---
 
