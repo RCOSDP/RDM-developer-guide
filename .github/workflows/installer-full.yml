@@ -1,0 +1,54 @@
+name: Installer full run (manual)
+
+# ADR-08 / SPEC-02 §10 / SPEC-04 §8: a complete `minimum` install, by hand, on GitHub-hosted amd64 and arm64 runners.
+# It needs read access to the private integration repositories, so it never runs automatically.
+#
+# Required repository secret (the owner creates it; nothing here creates one):
+#   GRDM_INTEGRATION_READ_TOKEN  a fine-grained token with read-only Contents access to the RCOSDP integration
+#                                repositories named in manifest/upstreams.json.
+#
+# The token reaches git only through a credential helper held in the environment of one step, so it is never
+# written to disk, to .git/config or to runtime/. Every `uses:` is pinned to a commit SHA; the comment names its tag.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: install-ubuntu.sh --profile minimum (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prerequisites and full install
+        env:
+          GRDM_INTEGRATION_READ_TOKEN: ${{ secrets.GRDM_INTEGRATION_READ_TOKEN }}
+          GIT_TERMINAL_PROMPT: "0"
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_0: '!f() { test "$1" = get && echo username=x-access-token && echo "password=$GRDM_INTEGRATION_READ_TOKEN"; }; f'
+        run: |
+          test -n "$GRDM_INTEGRATION_READ_TOKEN" || { echo "::error::secret GRDM_INTEGRATION_READ_TOKEN is not set"; exit 2; }
+          ./installer/install-ubuntu.sh --yes --no-open --profile minimum
+      - name: Upload the install reports (runtime/reports only; runtime/.env is never uploaded)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: install-reports-${{ matrix.runner }}
+          path: runtime/reports/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop the stack
+        if: always()
+        run: |
+          if [ -x .venv/bin/grdm-dev ]; then .venv/bin/grdm-dev down --yes || true; fi

@@ -226,6 +226,20 @@ class UbuntuTests(ScriptRun):
                 self.assertEqual(cp.returncode, 0, cp.stderr)
                 self.assertNotIn("would stop with exit 10", cp.stdout)
 
+    def test_powershell_steps_are_one_line_calls(self):
+        # DEMO-21 run 3: inline PowerShell in `run:` made Semgrep's engine fail ("Internal matching error"),
+        # so `grdm-dev scan` stopped with exit 51. The PowerShell lives in .github/scripts/.
+        workflow = (REPO / ".github" / "workflows" / "installer-prereq-lint.yml").read_text()
+        lines = workflow.splitlines()
+        shells = [i for i, line in enumerate(lines) if re.match(r"\s+shell: (powershell|pwsh)\s*$", line)]
+        self.assertGreaterEqual(len(shells), 3)
+        for i in shells:
+            run = lines[i + 1]
+            self.assertRegex(run, r"^\s+run: \./\S+\.ps1( |$)", run)
+            self.assertNotIn("|", run)
+        helper = REPO / ".github" / "scripts" / "Test-PowerShellSyntax.ps1"
+        self.assertIn("Parser]::ParseFile", helper.read_text())
+
     def test_binfmt_image_and_bad_build_match_doctor(self):
         import sys
         sys.path.insert(0, str(INSTALLER))

@@ -1,0 +1,81 @@
+name: Installer prerequisite scripts (lint and dry run)
+
+# ADR-08 / SPEC-02 §10: every pull request lints the per-OS prerequisite scripts and runs them with --dry-run on the
+# host each is written for. A dry run detects and prints; it changes nothing. No secret is used here. The real install
+# is the manual workflow installer-full.yml. Every `uses:` is pinned to a commit SHA; the comment names its tag.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: bash syntax and shellcheck
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: bash syntax
+        run: |
+          for f in installer/install.sh installer/install-ubuntu.sh installer/install-macos.sh installer/prereq-lib.sh; do
+            bash -n "$f"
+          done
+      - name: shellcheck (the runner image ships it; warnings and errors fail)
+        run: |
+          shellcheck --version
+          shellcheck --external-sources --severity=warning \
+            installer/install.sh installer/install-ubuntu.sh installer/install-macos.sh installer/prereq-lib.sh
+
+  dry-run-ubuntu:
+    name: install-ubuntu.sh --dry-run (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Dry run
+        run: ./installer/install-ubuntu.sh --dry-run --yes --profile minimum
+
+  dry-run-macos:
+    name: install-macos.sh --dry-run (macos-latest)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: bash 3.2 syntax
+        run: |
+          /bin/bash --version | head -1
+          for f in installer/install.sh installer/install-macos.sh installer/prereq-lib.sh; do /bin/bash -n "$f"; done
+      - name: Dry run on the system bash
+        run: /bin/bash installer/install-macos.sh --dry-run --yes --profile minimum
+
+  powershell:
+    name: PowerShell parse and dry run (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # The PowerShell lives in .github/scripts/ and each `run:` is one plain line: Semgrep reads `run:` blocks as
+      # shell, and inline PowerShell made its engine fail, which stopped `grdm-dev scan` (DEMO-21 run 3).
+      - name: Parse with Windows PowerShell 5.1
+        shell: powershell
+        run: ./.github/scripts/Test-PowerShellSyntax.ps1 -Path installer/install-windows.ps1
+      - name: Parse with PowerShell 7
+        shell: pwsh
+        run: ./.github/scripts/Test-PowerShellSyntax.ps1 -Path installer/install-windows.ps1
+      - name: Dry run (Windows PowerShell 5.1; the runner exits with the script's exit code)
+        shell: powershell
+        run: ./installer/install-windows.ps1 -DryRun -Yes --profile minimum

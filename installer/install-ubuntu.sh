@@ -210,7 +210,8 @@ fi
 verify_docker_signer() {  # verify_docker_signer <file>: exactly one primary key, with the expected fingerprint
   GNUPGHOME="${PREREQ_TMP}/gnupg"
   export GNUPGHOME
-  mkdir -m 700 -p "${GNUPGHOME}"
+  # PREREQ_TMP comes from mktemp -d (mode 0700), so only this last directory needs creating; a second call reuses it
+  [ -d "${GNUPGHOME}" ] || mkdir -m 700 "${GNUPGHOME}"
   listing="$(gpg --show-keys --with-colons --with-fingerprint "$1" 2>/dev/null || true)"
   primaries="$(printf '%s\n' "${listing}" | grep -c '^pub:' || true)"
   fingerprint="$(printf '%s\n' "${listing}" | awk -F: '$1 == "fpr" { print $10; exit }')"
