@@ -106,7 +106,7 @@ M3 started on 2026-11-13, when the owner closed M2 (「一括で承認、M2 完�
 | Review of the 58 allow-list entries (expiry 2026-12-31) | ⏳ Due by 2026-12-31: an expired entry is ignored and its findings count again (SPEC-03 §5.1 rule 4). At M3 the ceiling is 58, so a new entry (for example for the Elasticsearch 8 image's Ubuntu packages, [ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md#english)) needs a removal |
 | Authenticated ZAP scan of `web` | ⏳ Not done; no owner decision on when |
 | Preview from the new ember UI (API v2) | ⏳ Carried from §2b: the server-side change RDM-osf.io-dev2027 PR #14 is in osf.io `develop` ([DEMO-20](../demo/20_core_install_mac_studio.md#english)) and RDM-ember-osf-web-dev2027 PR #3 is merged; open: a check on the real ember screen after deployment — no acceptance scenario covers the ember preview yet, so success is not shown |
-| Publication: PR #51 (`develop` → `master`) and the default-branch switch | 🔄 PR #51 was merged on 2026-11-14 (`9ebb9e9`). Changes merged into `develop` after it (PR #62 to #66) are not on `master`; publishing them and the default-branch switch are the owner's decisions |
+| Publication: PR #51 (`develop` → `master`) and the default-branch switch | 🔄 PR #51 was merged on 2026-11-14 (`9ebb9e9`). `master` already holds PR #62 and #63; PR #64 and #65 (and this PR #66 once merged) are on `develop` only; publishing them and the default-branch switch are the owner's decisions |
 | S1–S5 subsystem scenarios (the M3 goal) | ⏳ The modules still carry an unconditional `skip(reason=M3)` ([DEMO-22](../demo/22_core_install_ubuntu_amd64_lima.md#english)) |
 
 ### 3. Rules
@@ -194,7 +194,7 @@ M3 は、所有者が M2 を閉じた 2026-11-13 に始まった（「一括で�
 | 許容リスト 58 項目の見直し（期限 2026-12-31） | ⏳ 2026-12-31 までに行う。期限切れの項目は無視され、その検出はまた数えられる（SPEC-03 §5.1 規則 4）。M3 の上限は 58 なので、新しい項目（たとえば Elasticsearch 8 のイメージの Ubuntu パッケージ、[ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md#japanese)）には別の項目の削除が要る |
 | `web` の認証した ZAP の検査 | ⏳ 未実施。時期についての所有者の判断は無い |
 | 新しい ember の画面（API v2）からのプレビュー | ⏳ §2b から持ち越し。サーバー側の変更 RDM-osf.io-dev2027 PR #14 は osf.io の `develop` にあり（[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）、RDM-ember-osf-web-dev2027 PR #3 はマージ済み。残り: 配備後の ember の実画面での確認。ember のプレビューを試す受入シナリオはまだ無く、成功は示していない |
-| 公開: PR #51（`develop` → `master`）と既定ブランチの切替 | 🔄 PR #51 は 2026-11-14 にマージした（`9ebb9e9`）。その後に `develop` へ入った変更（PR #62〜#66）は `master` に無い。その公開と既定ブランチの切替は所有者が判断する |
+| 公開: PR #51（`develop` → `master`）と既定ブランチの切替 | 🔄 PR #51 は 2026-11-14 にマージした（`9ebb9e9`）。`master` には PR #62・#63 まで入っている。PR #64・#65（とマージ後のこの PR #66）は `develop` だけにある。その公開と既定ブランチの切替は所有者が判断する |
 | S1〜S5 のサブシステムのシナリオ（M3 のゴール） | ⏳ モジュールは無条件の `skip(reason=M3)` をまだ持つ（[DEMO-22](../demo/22_core_install_ubuntu_amd64_lima.md#japanese)） |
 
 ### 3. 規則
