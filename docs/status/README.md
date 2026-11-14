@@ -5,7 +5,8 @@
 
 **Jump:** [English](#english) · [日本語](#japanese)
 
-- Version / 版: 0.21 — 2026-11-14. **Learned:** a board row that waits on an event goes stale the moment the event happens elsewhere: the PR #51 rows still said "merged after the re-verification" after the merge, so a row that names a pending event must be updated in the same change that records the event. ／ 出来事を待つ行は、その出来事がよそで起きた瞬間に古くなる。PR #51 の行はマージの後も「再検証の後にマージする」と書いていた。待っている出来事を名指す行は、その出来事を記録する変更の中で直す。
+- Version / 版: 0.22 — 2026-11-14. **Learned:** a row about publication is outdated by the publication itself, so the record of a publish is a small change of its own made right after it. ／ 公開についての行は、公開そのもので古くなる。だから公開の記録は、公開の直後の小さな独立の変更にする。
+  0.21 — 2026-11-14. **Learned:** a board row that waits on an event goes stale the moment the event happens elsewhere: the PR #51 rows still said "merged after the re-verification" after the merge, so a row that names a pending event must be updated in the same change that records the event. ／ 出来事を待つ行は、その出来事がよそで起きた瞬間に古くなる。PR #51 の行はマージの後も「再検証の後にマージする」と書いていた。待っている出来事を名指す行は、その出来事を記録する変更の中で直す。
   0.20 — 2026-11-14. **Learned:** a blocker that is only a permission ends the day the permission arrives, so the rows that waited on it must move in the same change that uses it, not later. ／ 権限だけが障害だった項目は、権限が付いた日に終わる。だからそれを待っていた行は、後回しにせず、権限を使う変更の中で動かす。
   0.19 — 2026-11-14. **Learned:** an emulated VM can pass every stage of the final pins (14 of 14 with C4, a complete scan) and still not show the one thing the row asks for, an uninterrupted one-command install, so the row says both instead of turning green (DEMO-22 0.7). ／ エミュレーションの VM は最終の固定版のすべての段を通せても（C4 を含む 14 件中 14 件、完走した検査）、行が求める一つのこと、途切れない一つのコマンドでの導入は示せない。だから行は緑にせず、両方を書く（DEMO-22 0.7）。
   0.18 — 2026-11-13. **Learned:** a milestone can be closed by an owner decision without meeting every written criterion, and then the board has to list what was not met instead of turning the row green: M2 closed on 2026-11-13 (「一括で承認、M2 完了」) with 58 allow-list entries against a criterion of fewer than M1's 0, amd64 acceptance shown only on an emulated VM, and the `workflow`-scope CI still unpushed; the owner accepted 58 as the M2 exit count, so the M3 ceiling is 58, and the carried items moved to their own M3 table (§2d). ／ 節目は、書かれた条件をすべて満たさなくても所有者の判断で閉じられる。そのときボードは行を緑にするのでなく、満たさなかったことを列挙しなければならない。M2 は 2026-11-13 に閉じた（「一括で承認、M2 完了」）。許容リストは M1 の 0 より少なくという条件に対して 58 項目、amd64 の受入はエミュレーションの VM でしか示しておらず、`workflow` 権限の CI はまだ push していない。所有者は 58 を M2 の終了時の件数として受け入れたので M3 の上限は 58 になり、持ち越した項目は M3 専用の表（§2d）に移した。
@@ -106,7 +107,7 @@ M3 started on 2026-11-13, when the owner closed M2 (「一括で承認、M2 完�
 | Review of the 58 allow-list entries (expiry 2026-12-31) | ⏳ Due by 2026-12-31: an expired entry is ignored and its findings count again (SPEC-03 §5.1 rule 4). At M3 the ceiling is 58, so a new entry (for example for the Elasticsearch 8 image's Ubuntu packages, [ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md#english)) needs a removal |
 | Authenticated ZAP scan of `web` | ⏳ Not done; no owner decision on when |
 | Preview from the new ember UI (API v2) | ⏳ Carried from §2b: the server-side change RDM-osf.io-dev2027 PR #14 is in osf.io `develop` ([DEMO-20](../demo/20_core_install_mac_studio.md#english)) and RDM-ember-osf-web-dev2027 PR #3 is merged; open: a check on the real ember screen after deployment — no acceptance scenario covers the ember preview yet, so success is not shown |
-| Publication: PR #51 (`develop` → `master`) and the default-branch switch | 🔄 PR #51 was merged on 2026-11-14 (`9ebb9e9`). `master` already holds PR #62 and #63; PR #64 and #65 (and this PR #66 once merged) are on `develop` only; publishing them and the default-branch switch are the owner's decisions |
+| Publication: PR #51 (`develop` → `master`) and the default-branch switch | 🔄 PR #51 was merged on 2026-11-14 (`9ebb9e9`). PR #64 to #66 were published to `master` by PR #67 on 2026-11-14 (merge commit `2950b72`, owner decision of the same day); the default-branch switch is the owner's |
 | S1–S5 subsystem scenarios (the M3 goal) | ⏳ The modules still carry an unconditional `skip(reason=M3)` ([DEMO-22](../demo/22_core_install_ubuntu_amd64_lima.md#english)) |
 
 ### 3. Rules
@@ -194,7 +195,7 @@ M3 は、所有者が M2 を閉じた 2026-11-13 に始まった（「一括で�
 | 許容リスト 58 項目の見直し（期限 2026-12-31） | ⏳ 2026-12-31 までに行う。期限切れの項目は無視され、その検出はまた数えられる（SPEC-03 §5.1 規則 4）。M3 の上限は 58 なので、新しい項目（たとえば Elasticsearch 8 のイメージの Ubuntu パッケージ、[ADR-14](../decisions/ADR-14_Elasticsearch_8_with_TLS_and_Authentication.md#japanese)）には別の項目の削除が要る |
 | `web` の認証した ZAP の検査 | ⏳ 未実施。時期についての所有者の判断は無い |
 | 新しい ember の画面（API v2）からのプレビュー | ⏳ §2b から持ち越し。サーバー側の変更 RDM-osf.io-dev2027 PR #14 は osf.io の `develop` にあり（[DEMO-20](../demo/20_core_install_mac_studio.md#japanese)）、RDM-ember-osf-web-dev2027 PR #3 はマージ済み。残り: 配備後の ember の実画面での確認。ember のプレビューを試す受入シナリオはまだ無く、成功は示していない |
-| 公開: PR #51（`develop` → `master`）と既定ブランチの切替 | 🔄 PR #51 は 2026-11-14 にマージした（`9ebb9e9`）。`master` には PR #62・#63 まで入っている。PR #64・#65（とマージ後のこの PR #66）は `develop` だけにある。その公開と既定ブランチの切替は所有者が判断する |
+| 公開: PR #51（`develop` → `master`）と既定ブランチの切替 | 🔄 PR #51 は 2026-11-14 にマージした（`9ebb9e9`）。PR #64〜#66 は、同日の所有者の判断により 2026-11-14 に PR #67 で `master` に公開した（マージコミット `2950b72`）。既定ブランチの切替は所有者が行う |
 | S1〜S5 のサブシステムのシナリオ（M3 のゴール） | ⏳ モジュールは無条件の `skip(reason=M3)` をまだ持つ（[DEMO-22](../demo/22_core_install_ubuntu_amd64_lima.md#japanese)） |
 
 ### 3. 規則
